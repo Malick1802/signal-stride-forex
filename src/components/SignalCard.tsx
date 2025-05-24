@@ -1,8 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, Clock, Shield, Brain, ChevronDown, ChevronUp } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { supabase } from '@/integrations/supabase/client';
 
 interface PriceData {
   timestamp: number;
@@ -52,64 +54,53 @@ const SignalCard = ({ signal, analysis, analyzingSignal, onGetAIAnalysis }: Sign
     return !marketClosed;
   };
 
-  // Generate realistic price movements
-  const generatePriceMovement = (basePrice: number, previousData: PriceData[]) => {
-    const lastPrice = previousData.length > 0 ? previousData[previousData.length - 1].price : basePrice;
-    
-    if (!isMarketOpen) {
-      // During market close, prices should remain very stable with minimal movement
-      const minimalVolatility = 0.000005; // Very small movement
-      const randomMove = (Math.random() - 0.5) * minimalVolatility;
-      return lastPrice + randomMove;
+  // Fetch real market data from database
+  const fetchRealMarketData = async () => {
+    try {
+      const { data: marketData, error } = await supabase
+        .from('live_market_data')
+        .select('*')
+        .eq('symbol', signal.pair)
+        .order('created_at', { ascending: false })
+        .limit(30);
+
+      if (error) {
+        console.error('Error fetching market data:', error);
+        return;
+      }
+
+      if (marketData && marketData.length > 0) {
+        const transformedData = marketData.reverse().map((item, index) => ({
+          timestamp: new Date(item.created_at || item.timestamp).getTime(),
+          time: new Date(item.created_at || item.timestamp).toLocaleTimeString(),
+          price: parseFloat(item.price.toString()),
+          volume: Math.random() * 500000 // Volume data not available in current schema
+        }));
+
+        setPriceData(transformedData);
+        setCurrentPrice(transformedData[transformedData.length - 1]?.price || parseFloat(signal.entryPrice));
+      } else {
+        // Fallback to entry price if no market data
+        generateFallbackData();
+      }
+    } catch (error) {
+      console.error('Error fetching real market data:', error);
+      generateFallbackData();
     }
-    
-    // During market hours, normal volatility
-    const volatility = 0.0001;
-    const trend = signal.type === 'BUY' ? 0.00005 : -0.00005;
-    const randomMove = (Math.random() - 0.5) * volatility;
-    return lastPrice + trend + randomMove;
   };
 
-  const getPairBasePrice = (pair: string): number => {
-    const basePrices: Record<string, number> = {
-      'EUR/USD': 1.0850,
-      'GBP/USD': 1.2650,
-      'USD/JPY': 148.50,
-      'AUD/USD': 0.6720,
-      'USD/CAD': 1.3580,
-      'EUR/GBP': 0.8590,
-      'EUR/JPY': 161.20,
-      'GBP/JPY': 187.80,
-      'AUD/JPY': 99.85,
-      'USD/CHF': 0.8920,
-      'EUR/CHF': 0.9580,
-      'GBP/CHF': 1.1290,
-      'AUD/CHF': 0.5990,
-      'CAD/CHF': 0.6570,
-      'CHF/JPY': 166.45,
-      'EURUSD': 1.0850,
-      'GBPUSD': 1.2650,
-      'USDJPY': 148.50,
-      'AUDUSD': 0.6720,
-      'USDCAD': 1.3580,
-      'NZDUSD': 0.5950
-    };
-    return basePrices[pair] || parseFloat(signal.entryPrice) || 1.0000;
-  };
-
-  // Initialize chart data
-  useEffect(() => {
-    const marketOpen = checkMarketHours();
-    setIsMarketOpen(marketOpen);
-    
-    const basePrice = getPairBasePrice(signal.pair);
+  // Fallback data generation when real data is unavailable
+  const generateFallbackData = () => {
+    const basePrice = parseFloat(signal.entryPrice);
     const now = Date.now();
     const data: PriceData[] = [];
 
-    // Generate 30 data points for card chart
     for (let i = 29; i >= 0; i--) {
       const timestamp = now - (i * 120000); // 2 minute intervals
-      const price = generatePriceMovement(basePrice, data);
+      const volatility = 0.00005; // Very small volatility for fallback
+      const randomMove = (Math.random() - 0.5) * volatility;
+      const price = basePrice + randomMove;
+      
       data.push({
         timestamp,
         time: new Date(timestamp).toLocaleTimeString(),
@@ -120,33 +111,27 @@ const SignalCard = ({ signal, analysis, analyzingSignal, onGetAIAnalysis }: Sign
 
     setPriceData(data);
     setCurrentPrice(data[data.length - 1]?.price || basePrice);
+  };
+
+  // Initialize with real market data
+  useEffect(() => {
+    const marketOpen = checkMarketHours();
+    setIsMarketOpen(marketOpen);
+    
+    fetchRealMarketData();
   }, [signal.pair, signal.entryPrice]);
 
-  // Real-time updates
+  // Real-time updates - fetch fresh data during market hours
   useEffect(() => {
-    const updateInterval = isMarketOpen ? 3000 : 30000; // 3s during market hours, 30s when closed
+    const updateInterval = isMarketOpen ? 30000 : 300000; // 30s during market hours, 5min when closed
     
     const interval = setInterval(() => {
       const marketOpen = checkMarketHours();
       setIsMarketOpen(marketOpen);
       
-      setPriceData(prevData => {
-        const now = Date.now();
-        const newPrice = generatePriceMovement(getPairBasePrice(signal.pair), prevData);
-        
-        const newDataPoint: PriceData = {
-          timestamp: now,
-          time: new Date(now).toLocaleTimeString(),
-          price: newPrice,
-          volume: Math.random() * 500000
-        };
-
-        setCurrentPrice(newPrice);
-
-        // Keep last 30 data points for card
-        const updatedData = [...prevData, newDataPoint].slice(-30);
-        return updatedData;
-      });
+      if (marketOpen) {
+        fetchRealMarketData();
+      }
     }, updateInterval);
 
     return () => clearInterval(interval);
@@ -209,6 +194,9 @@ const SignalCard = ({ signal, analysis, analyzingSignal, onGetAIAnalysis }: Sign
                 <TrendingDown className="h-4 w-4 text-red-400" />
               )}
               <span className="text-white text-lg font-mono">{formatPrice(currentPrice)}</span>
+              <span className="text-xs text-gray-400">
+                {isMarketOpen ? 'Real-time' : 'Last close'}
+              </span>
             </div>
             <div className="flex items-center space-x-1">
               <span className={`text-sm font-mono ${

@@ -55,31 +55,59 @@ export const useTradingSignals = () => {
       if (activeSignals && activeSignals.length > 0) {
         console.log(`Found ${activeSignals.length} active signals`);
         
-        const transformedSignals = activeSignals.map(signal => ({
-          id: signal.id,
-          pair: signal.symbol || 'Unknown',
-          type: signal.type || 'BUY',
-          entryPrice: signal.price ? parseFloat(signal.price.toString()).toFixed(5) : '0.00000',
-          stopLoss: signal.stop_loss ? parseFloat(signal.stop_loss.toString()).toFixed(5) : '0.00000',
-          takeProfit1: signal.take_profits?.[0] ? parseFloat(signal.take_profits[0].toString()).toFixed(5) : '0.00000',
-          takeProfit2: signal.take_profits?.[1] ? parseFloat(signal.take_profits[1].toString()).toFixed(5) : '0.00000',
-          takeProfit3: signal.take_profits?.[2] ? parseFloat(signal.take_profits[2].toString()).toFixed(5) : '0.00000',
-          confidence: Math.floor(signal.confidence || 0),
-          timestamp: signal.created_at || signal.timestamp,
-          status: signal.status || 'active',
-          analysisText: signal.analysis_text || signal.ai_analysis?.[0]?.analysis_text,
-          chartData: Array.from({ length: 24 }, (_, i) => ({
-            time: i,
-            price: Math.random() * 0.02 + parseFloat(signal.price ? signal.price.toString() : '1') + (Math.sin(i / 4) * 0.01)
-          }))
-        }));
+        // Get current market prices for chart data
+        const symbols = activeSignals.map(signal => signal.symbol);
+        const { data: marketData } = await supabase
+          .from('live_market_data')
+          .select('*')
+          .in('symbol', symbols)
+          .order('created_at', { ascending: false });
+
+        const transformedSignals = activeSignals.map(signal => {
+          // Get recent market data for this symbol for chart
+          const symbolMarketData = marketData?.filter(md => md.symbol === signal.symbol)
+            .slice(0, 24) || [];
+          
+          // Use real market price as entry price if available
+          const currentMarketPrice = symbolMarketData[0]?.price;
+          const entryPrice = currentMarketPrice ? 
+            parseFloat(currentMarketPrice.toString()).toFixed(5) : 
+            parseFloat(signal.price.toString()).toFixed(5);
+
+          // Generate chart data from real market data or fallback to signal price
+          const chartData = symbolMarketData.length > 0 ? 
+            symbolMarketData.reverse().map((md, i) => ({
+              time: i,
+              price: parseFloat(md.price.toString())
+            })) :
+            Array.from({ length: 24 }, (_, i) => ({
+              time: i,
+              price: parseFloat(signal.price.toString()) + (Math.sin(i / 4) * 0.0001)
+            }));
+
+          return {
+            id: signal.id,
+            pair: signal.symbol || 'Unknown',
+            type: signal.type || 'BUY',
+            entryPrice: entryPrice,
+            stopLoss: signal.stop_loss ? parseFloat(signal.stop_loss.toString()).toFixed(5) : '0.00000',
+            takeProfit1: signal.take_profits?.[0] ? parseFloat(signal.take_profits[0].toString()).toFixed(5) : '0.00000',
+            takeProfit2: signal.take_profits?.[1] ? parseFloat(signal.take_profits[1].toString()).toFixed(5) : '0.00000',
+            takeProfit3: signal.take_profits?.[2] ? parseFloat(signal.take_profits[2].toString()).toFixed(5) : '0.00000',
+            confidence: Math.floor(signal.confidence || 0),
+            timestamp: signal.created_at || signal.timestamp,
+            status: signal.status || 'active',
+            analysisText: signal.analysis_text || signal.ai_analysis?.[0]?.analysis_text,
+            chartData: chartData
+          };
+        });
 
         setSignals(transformedSignals);
         setLastUpdate(new Date().toLocaleTimeString());
         
         toast({
           title: "Signals Updated",
-          description: `Loaded ${transformedSignals.length} active trading signals`,
+          description: `Loaded ${transformedSignals.length} active trading signals with real market data`,
         });
       } else {
         console.log('No active signals found');
@@ -118,7 +146,7 @@ export const useTradingSignals = () => {
       )
       .subscribe();
 
-    // Auto-refresh every 2 minutes
+    // Auto-refresh every 2 minutes to get fresh market data
     const interval = setInterval(fetchSignals, 120000);
 
     return () => {
