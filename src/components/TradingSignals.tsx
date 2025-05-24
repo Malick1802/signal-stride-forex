@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, Clock, Target, Shield, Brain, RefreshCw } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer } from 'recharts';
@@ -40,11 +39,11 @@ const TradingSignals = () => {
           id: signal.id,
           pair: signal.symbol,
           type: signal.type,
-          entryPrice: parseFloat(signal.price).toFixed(5),
-          stopLoss: parseFloat(signal.stop_loss).toFixed(5),
-          takeProfit1: signal.take_profits?.[0] ? parseFloat(signal.take_profits[0]).toFixed(5) : '0.00000',
-          takeProfit2: signal.take_profits?.[1] ? parseFloat(signal.take_profits[1]).toFixed(5) : '0.00000',
-          takeProfit3: signal.take_profits?.[2] ? parseFloat(signal.take_profits[2]).toFixed(5) : '0.00000',
+          entryPrice: parseFloat(signal.price.toString()).toFixed(5),
+          stopLoss: parseFloat(signal.stop_loss.toString()).toFixed(5),
+          takeProfit1: signal.take_profits?.[0] ? parseFloat(signal.take_profits[0].toString()).toFixed(5) : '0.00000',
+          takeProfit2: signal.take_profits?.[1] ? parseFloat(signal.take_profits[1].toString()).toFixed(5) : '0.00000',
+          takeProfit3: signal.take_profits?.[2] ? parseFloat(signal.take_profits[2].toString()).toFixed(5) : '0.00000',
           confidence: Math.floor(signal.confidence),
           timestamp: signal.created_at,
           status: signal.status,
@@ -53,7 +52,7 @@ const TradingSignals = () => {
           // Generate mock chart data for now
           chartData: Array.from({ length: 24 }, (_, i) => ({
             time: i,
-            price: Math.random() * 0.02 + parseFloat(signal.price) + (Math.sin(i / 4) * 0.01)
+            price: Math.random() * 0.02 + parseFloat(signal.price.toString()) + (Math.sin(i / 4) * 0.01)
           }))
         }));
 
