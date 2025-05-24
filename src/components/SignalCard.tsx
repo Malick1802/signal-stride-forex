@@ -35,12 +35,37 @@ const SignalCard = ({ signal, analysis, analyzingSignal, onGetAIAnalysis }: Sign
   const [priceData, setPriceData] = useState<PriceData[]>([]);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
+  const [isMarketOpen, setIsMarketOpen] = useState(false);
 
-  // Generate realistic price movements for the signal's pair
+  // Check if forex market is currently open
+  const checkMarketHours = () => {
+    const now = new Date();
+    const utcHour = now.getUTCHours();
+    const utcDay = now.getUTCDay();
+    
+    // Forex market is closed from Friday 22:00 UTC to Sunday 22:00 UTC
+    const isFridayEvening = utcDay === 5 && utcHour >= 22;
+    const isSaturday = utcDay === 6;
+    const isSundayBeforeOpen = utcDay === 0 && utcHour < 22;
+    
+    const marketClosed = isFridayEvening || isSaturday || isSundayBeforeOpen;
+    return !marketClosed;
+  };
+
+  // Generate realistic price movements
   const generatePriceMovement = (basePrice: number, previousData: PriceData[]) => {
     const lastPrice = previousData.length > 0 ? previousData[previousData.length - 1].price : basePrice;
-    const volatility = 0.0001; // Lower volatility for cards
-    const trend = signal.type === 'BUY' ? 0.00005 : -0.00005; // Slight trend based on signal type
+    
+    if (!isMarketOpen) {
+      // During market close, prices should remain very stable with minimal movement
+      const minimalVolatility = 0.000005; // Very small movement
+      const randomMove = (Math.random() - 0.5) * minimalVolatility;
+      return lastPrice + randomMove;
+    }
+    
+    // During market hours, normal volatility
+    const volatility = 0.0001;
+    const trend = signal.type === 'BUY' ? 0.00005 : -0.00005;
     const randomMove = (Math.random() - 0.5) * volatility;
     return lastPrice + trend + randomMove;
   };
@@ -61,13 +86,22 @@ const SignalCard = ({ signal, analysis, analyzingSignal, onGetAIAnalysis }: Sign
       'GBP/CHF': 1.1290,
       'AUD/CHF': 0.5990,
       'CAD/CHF': 0.6570,
-      'CHF/JPY': 166.45
+      'CHF/JPY': 166.45,
+      'EURUSD': 1.0850,
+      'GBPUSD': 1.2650,
+      'USDJPY': 148.50,
+      'AUDUSD': 0.6720,
+      'USDCAD': 1.3580,
+      'NZDUSD': 0.5950
     };
     return basePrices[pair] || parseFloat(signal.entryPrice) || 1.0000;
   };
 
   // Initialize chart data
   useEffect(() => {
+    const marketOpen = checkMarketHours();
+    setIsMarketOpen(marketOpen);
+    
     const basePrice = getPairBasePrice(signal.pair);
     const now = Date.now();
     const data: PriceData[] = [];
@@ -90,7 +124,12 @@ const SignalCard = ({ signal, analysis, analyzingSignal, onGetAIAnalysis }: Sign
 
   // Real-time updates
   useEffect(() => {
+    const updateInterval = isMarketOpen ? 3000 : 30000; // 3s during market hours, 30s when closed
+    
     const interval = setInterval(() => {
+      const marketOpen = checkMarketHours();
+      setIsMarketOpen(marketOpen);
+      
       setPriceData(prevData => {
         const now = Date.now();
         const newPrice = generatePriceMovement(getPairBasePrice(signal.pair), prevData);
@@ -108,10 +147,10 @@ const SignalCard = ({ signal, analysis, analyzingSignal, onGetAIAnalysis }: Sign
         const updatedData = [...prevData, newDataPoint].slice(-30);
         return updatedData;
       });
-    }, 3000); // Update every 3 seconds for cards
+    }, updateInterval);
 
     return () => clearInterval(interval);
-  }, [signal.pair]);
+  }, [signal.pair, isMarketOpen]);
 
   const chartConfig = {
     price: {
@@ -149,6 +188,13 @@ const SignalCard = ({ signal, analysis, analyzingSignal, onGetAIAnalysis }: Sign
                 : 'bg-red-500/20 text-red-400'
             }`}>
               {signal.type}
+            </span>
+            <span className={`text-xs px-2 py-1 rounded font-medium ${
+              isMarketOpen 
+                ? 'bg-emerald-500/20 text-emerald-400' 
+                : 'bg-gray-500/20 text-gray-400'
+            }`}>
+              {isMarketOpen ? 'LIVE' : 'CLOSED'}
             </span>
           </div>
         </div>
@@ -218,6 +264,26 @@ const SignalCard = ({ signal, analysis, analyzingSignal, onGetAIAnalysis }: Sign
                 stroke="rgba(255,255,255,0.6)"
                 strokeWidth={1}
                 strokeDasharray="3 3"
+                dot={false}
+                connectNulls
+              />
+              {/* Stop Loss Line */}
+              <Line
+                type="monotone"
+                dataKey={() => parseFloat(signal.stopLoss)}
+                stroke="rgba(239,68,68,0.8)"
+                strokeWidth={1}
+                strokeDasharray="2 2"
+                dot={false}
+                connectNulls
+              />
+              {/* Take Profit Lines */}
+              <Line
+                type="monotone"
+                dataKey={() => parseFloat(signal.takeProfit1)}
+                stroke="rgba(16,185,129,0.6)"
+                strokeWidth={1}
+                strokeDasharray="1 1"
                 dot={false}
                 connectNulls
               />

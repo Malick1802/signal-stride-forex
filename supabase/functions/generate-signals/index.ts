@@ -22,7 +22,21 @@ serve(async (req) => {
 
     console.log('Starting signal generation...');
 
-    // First, let's check what data is actually in the table
+    // First, check for existing active signals to prevent duplicates
+    const { data: existingSignals, error: existingError } = await supabase
+      .from('trading_signals')
+      .select('symbol')
+      .eq('status', 'active')
+      .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()); // Last 24 hours
+
+    if (existingError) {
+      console.error('Error checking existing signals:', existingError);
+    }
+
+    const existingSymbols = new Set(existingSignals?.map(s => s.symbol) || []);
+    console.log('Existing active signals for symbols:', Array.from(existingSymbols));
+
+    // Get market data
     const { data: allData, error: debugError } = await supabase
       .from('live_market_data')
       .select('*')
@@ -49,17 +63,13 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           error: 'No market data found in database',
-          suggestion: 'Please run the fetch-market-data function first to populate market data',
-          debug: {
-            tableEmpty: true,
-            timestamp: new Date().toISOString()
-          }
+          suggestion: 'Please run the fetch-market-data function first to populate market data'
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Get recent data (within last 2 hours to be more lenient)
+    // Get recent data (within last 2 hours)
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
     console.log('Looking for data after:', twoHoursAgo);
 
@@ -69,17 +79,8 @@ serve(async (req) => {
       .gte('created_at', twoHoursAgo)
       .order('created_at', { ascending: false });
 
-    console.log('Recent data query result:', { 
-      count: recentData?.length || 0, 
-      error: recentError,
-      sampleData: recentData?.slice(0, 3)
-    });
-
-    // Use recent data if available, otherwise use the most recent data
     let marketData = recentData && recentData.length > 0 ? recentData : allData.slice(0, 20);
     
-    console.log(`Using ${marketData.length} records for signal generation`);
-
     // Group data by symbol and get the most recent data for each
     const symbolData: Record<string, any[]> = {};
     
@@ -92,28 +93,25 @@ serve(async (req) => {
       }
     });
 
-    const symbols = Object.keys(symbolData);
-    console.log('Found symbols:', symbols);
-    console.log('Symbol data distribution:', Object.keys(symbolData).map(s => ({ symbol: s, count: symbolData[s].length })));
+    // Filter out symbols that already have active signals
+    const availableSymbols = Object.keys(symbolData).filter(symbol => !existingSymbols.has(symbol));
+    console.log('Available symbols for new signals:', availableSymbols);
 
-    if (symbols.length === 0) {
+    if (availableSymbols.length === 0) {
       return new Response(
         JSON.stringify({ 
-          error: 'No valid symbols found in market data',
-          debug: {
-            totalRecords: marketData.length,
-            sampleRecord: marketData[0] || null,
-            dataStructure: marketData.length > 0 ? Object.keys(marketData[0]) : []
-          }
+          message: 'No new signals generated - all currency pairs already have active signals',
+          existingSignals: Array.from(existingSymbols)
         }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Generate signals for each symbol
+    // Generate signals for available symbols (limit to 3 new signals at a time)
+    const signalsToGenerate = availableSymbols.slice(0, 3);
     const signalsGenerated = [];
     
-    for (const symbol of symbols) {
+    for (const symbol of signalsToGenerate) {
       try {
         const prices = symbolData[symbol];
         console.log(`Processing ${symbol} with ${prices.length} data points`);
@@ -128,13 +126,6 @@ serve(async (req) => {
         const latestData = sortedPrices[0];
         const priceValue = latestData.price;
         
-        console.log(`${symbol}: Latest data:`, {
-          price: priceValue,
-          created_at: latestData.created_at,
-          timestamp: latestData.timestamp,
-          id: latestData.id
-        });
-
         // Validate price
         if (priceValue === null || priceValue === undefined || isNaN(Number(priceValue))) {
           console.log(`Skipping ${symbol} - invalid price:`, priceValue);
@@ -172,8 +163,6 @@ serve(async (req) => {
         // Calculate confidence based on market conditions
         const baseConfidence = 75 + (Math.random() * 20); // 75-95%
         const confidence = Math.min(95, Math.max(70, baseConfidence));
-        
-        console.log(`${symbol}: Generated signal - ${signalType}, trend=${trend}, confidence=${confidence.toFixed(1)}`);
 
         // Use AI for analysis if available
         let analysis = `Technical analysis suggests a ${trend} trend for ${symbol}. Current price action at ${currentPrice} indicates potential for ${signalType.toLowerCase()} opportunity.`;
@@ -222,8 +211,6 @@ serve(async (req) => {
         const takeProfit2 = parseFloat((currentPrice + (takeProfitDistance * 1.5)).toFixed(5));
         const takeProfit3 = parseFloat((currentPrice + (takeProfitDistance * 2)).toFixed(5));
 
-        console.log(`${symbol}: Price levels - Entry: ${currentPrice}, SL: ${stopLoss}, TP1: ${takeProfit1}`);
-
         // Insert the signal
         const signalData = {
           symbol,
@@ -239,8 +226,6 @@ serve(async (req) => {
           analysis_text: analysis,
           asset_type: 'FOREX'
         };
-
-        console.log(`${symbol}: Inserting signal data:`, signalData);
 
         const { data: signal, error: signalError } = await supabase
           .from('trading_signals')
@@ -284,30 +269,13 @@ serve(async (req) => {
 
     console.log(`Signal generation complete. Generated ${signalsGenerated.length} signals for:`, signalsGenerated);
 
-    if (signalsGenerated.length === 0) {
-      return new Response(
-        JSON.stringify({ 
-          error: 'No signals could be generated from available market data',
-          availableSymbols: symbols,
-          marketDataCount: marketData.length,
-          debug: {
-            symbolData: Object.keys(symbolData).map(s => ({ 
-              symbol: s, 
-              count: symbolData[s].length,
-              latestPrice: symbolData[s][0]?.price
-            }))
-          }
-        }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: `Generated ${signalsGenerated.length} signals successfully`,
+        message: `Generated ${signalsGenerated.length} new signals successfully`,
         symbols: signalsGenerated,
-        totalMarketData: marketData.length
+        existingSignals: Array.from(existingSymbols),
+        totalAvailable: availableSymbols.length
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
