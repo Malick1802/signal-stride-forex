@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, Clock, Target, Shield, Brain, RefreshCw, AlertCircle } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer } from 'recharts';
@@ -13,9 +14,11 @@ const TradingSignals = () => {
   const [lastGenerationError, setLastGenerationError] = useState(null);
   const { toast } = useToast();
 
-  // Fetch centralized signals from database
+  // Fetch all active signals from database (both centralized and user-specific)
   const fetchSignals = async () => {
     try {
+      console.log('Fetching trading signals...');
+      
       const { data, error } = await supabase
         .from('trading_signals')
         .select(`
@@ -26,16 +29,25 @@ const TradingSignals = () => {
             market_conditions
           )
         `)
-        .eq('is_centralized', true)
         .eq('status', 'active')
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      console.log('Query result:', { data, error });
 
       if (error) {
         console.error('Error fetching signals:', error);
+        toast({
+          title: "Error",
+          description: "Failed to fetch trading signals",
+          variant: "destructive"
+        });
         return;
       }
 
-      if (data) {
+      if (data && data.length > 0) {
+        console.log(`Found ${data.length} signals`);
+        
         // Transform data to match the expected format
         const transformedSignals = data.map(signal => ({
           id: signal.id,
@@ -58,7 +70,11 @@ const TradingSignals = () => {
           }))
         }));
 
+        console.log('Transformed signals:', transformedSignals);
         setSignals(transformedSignals);
+      } else {
+        console.log('No signals found');
+        setSignals([]);
       }
     } catch (error) {
       console.error('Error fetching signals:', error);
@@ -171,12 +187,12 @@ const TradingSignals = () => {
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: '*',
           schema: 'public',
-          table: 'trading_signals',
-          filter: 'is_centralized=eq.true'
+          table: 'trading_signals'
         },
-        () => {
+        (payload) => {
+          console.log('Real-time signal update:', payload);
           fetchSignals();
         }
       )
