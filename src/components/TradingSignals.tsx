@@ -1,11 +1,18 @@
 
 import React, { useState } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import SignalStats from './SignalStats';
 import SignalCard from './SignalCard';
 
 const TradingSignals = () => {
   const { signals, loading, lastUpdate } = useTradingSignals();
+  const { toast } = useToast();
+  
+  // AI Analysis state
+  const [analysis, setAnalysis] = useState<Record<string, string>>({});
+  const [analyzingSignal, setAnalyzingSignal] = useState<string | null>(null);
 
   // Get available pairs from signals
   const availablePairs = Array.from(new Set(signals.map(signal => signal.pair))).filter(Boolean);
@@ -18,6 +25,52 @@ const TradingSignals = () => {
   const avgConfidence = signals.length > 0 
     ? Math.round(signals.reduce((sum, signal) => sum + signal.confidence, 0) / signals.length)
     : 87;
+
+  // AI Analysis function
+  const handleGetAIAnalysis = async (signalId: string) => {
+    if (analyzingSignal === signalId) return;
+    
+    setAnalyzingSignal(signalId);
+    
+    try {
+      console.log('Getting AI analysis for signal:', signalId);
+      
+      const { data, error } = await supabase.functions.invoke('ai-analysis', {
+        body: { signal_id: signalId }
+      });
+
+      if (error) {
+        console.error('AI analysis error:', error);
+        toast({
+          title: "Analysis Error",
+          description: "Failed to get AI analysis. Please try again.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (data?.analysis) {
+        setAnalysis(prev => ({
+          ...prev,
+          [signalId]: data.analysis
+        }));
+        
+        toast({
+          title: "Analysis Complete",
+          description: "AI analysis has been generated for this signal.",
+        });
+      }
+    } catch (error) {
+      console.error('Error getting AI analysis:', error);
+      toast({
+        title: "Analysis Error",
+        description: "Failed to get AI analysis. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setAnalyzingSignal(null);
+    }
+  };
 
   if (loading && signals.length === 0) {
     return (
@@ -74,6 +127,9 @@ const TradingSignals = () => {
               <SignalCard
                 key={signal.id}
                 signal={signal}
+                analysis={analysis}
+                analyzingSignal={analyzingSignal}
+                onGetAIAnalysis={handleGetAIAnalysis}
               />
             ))}
           </div>
