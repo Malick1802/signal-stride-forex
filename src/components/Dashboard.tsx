@@ -2,9 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, RefreshCw, Settings, User, LogOut, Bell } from 'lucide-react';
 import TradingSignals from './TradingSignals';
-import MarketData from './MarketData';
-import PerformanceChart from './PerformanceChart';
-import CopyTrading from './CopyTrading';
+import ExpiredSignals from './ExpiredSignals';
 
 const Dashboard = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('signals');
@@ -68,9 +66,7 @@ const Dashboard = ({ user, onLogout }) => {
           <div className="flex space-x-8">
             {[
               { id: 'signals', label: 'Active Signals' },
-              { id: 'market', label: 'Market Data' },
-              { id: 'copy', label: 'Copy Trading' },
-              { id: 'performance', label: 'Performance' }
+              { id: 'expired', label: 'Expired Signals' }
             ].map(tab => (
               <button
                 key={tab.id}
@@ -91,9 +87,7 @@ const Dashboard = ({ user, onLogout }) => {
       {/* Content Area */}
       <div className="p-6">
         {activeTab === 'signals' && <TradingSignals />}
-        {activeTab === 'market' && <MarketData />}
-        {activeTab === 'copy' && <CopyTrading user={user} />}
-        {activeTab === 'performance' && <PerformanceChart />}
+        {activeTab === 'expired' && <ExpiredSignals />}
       </div>
     </div>
   );
