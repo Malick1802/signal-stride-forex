@@ -32,50 +32,42 @@ export const useTradingSignals = () => {
     try {
       console.log('Fetching trading signals...');
       
-      // Debug query to check table contents
+      // First check what's actually in the table
       const { data: allSignals, error: debugError } = await supabase
         .from('trading_signals')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(5);
+        .limit(10);
 
       console.log('Debug - All signals in table:', { allSignals, debugError });
 
-      // Main query for active signals
-      const { data, error } = await supabase
-        .from('trading_signals')
-        .select('*')
-        .eq('status', 'active')
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      console.log('Main query result:', { data, error });
-
-      if (error) {
-        console.error('Error fetching signals:', error);
+      if (debugError) {
+        console.error('Debug query error:', debugError);
         toast({
-          title: "Error",
-          description: "Failed to fetch trading signals",
+          title: "Database Error",
+          description: "Failed to query signals table",
           variant: "destructive"
         });
         return;
       }
 
-      if (data && data.length > 0) {
-        console.log(`Found ${data.length} signals`);
+      // If we have signals, transform and display them
+      if (allSignals && allSignals.length > 0) {
+        console.log(`Found ${allSignals.length} total signals in database`);
         
-        const transformedSignals = data.map(signal => ({
+        // Use all signals for now, regardless of status
+        const transformedSignals = allSignals.map(signal => ({
           id: signal.id,
-          pair: signal.symbol,
-          type: signal.type,
+          pair: signal.symbol || 'Unknown',
+          type: signal.type || 'BUY',
           entryPrice: signal.price ? parseFloat(signal.price.toString()).toFixed(5) : '0.00000',
           stopLoss: signal.stop_loss ? parseFloat(signal.stop_loss.toString()).toFixed(5) : '0.00000',
           takeProfit1: signal.take_profits?.[0] ? parseFloat(signal.take_profits[0].toString()).toFixed(5) : '0.00000',
           takeProfit2: signal.take_profits?.[1] ? parseFloat(signal.take_profits[1].toString()).toFixed(5) : '0.00000',
           takeProfit3: signal.take_profits?.[2] ? parseFloat(signal.take_profits[2].toString()).toFixed(5) : '0.00000',
           confidence: Math.floor(signal.confidence || 0),
-          timestamp: signal.created_at,
-          status: signal.status,
+          timestamp: signal.created_at || signal.timestamp,
+          status: signal.status || 'active',
           analysisText: signal.analysis_text,
           chartData: Array.from({ length: 24 }, (_, i) => ({
             time: i,
@@ -85,8 +77,13 @@ export const useTradingSignals = () => {
 
         console.log('Transformed signals:', transformedSignals);
         setSignals(transformedSignals);
+        
+        toast({
+          title: "Signals Loaded",
+          description: `Found ${transformedSignals.length} trading signals`,
+        });
       } else {
-        console.log('No signals found');
+        console.log('No signals found in database');
         setSignals([]);
       }
     } catch (error) {
@@ -108,6 +105,7 @@ export const useTradingSignals = () => {
       
       console.log('Starting signal generation process...');
       
+      // First fetch market data
       const marketResponse = await supabase.functions.invoke('fetch-market-data');
       
       if (marketResponse.error) {
@@ -116,8 +114,10 @@ export const useTradingSignals = () => {
 
       console.log('Market data fetched successfully, now generating signals...');
       
+      // Wait a moment for market data to be processed
       await new Promise(resolve => setTimeout(resolve, 2000));
 
+      // Generate signals
       const signalResponse = await supabase.functions.invoke('generate-signals');
       
       if (signalResponse.error) {
@@ -131,11 +131,15 @@ export const useTradingSignals = () => {
         throw new Error(signalResponse.data.error);
       }
 
+      console.log('Signal generation response:', signalResponse.data);
+
       toast({
         title: "Success",
         description: signalResponse.data?.message || "New signals generated successfully",
       });
 
+      // Wait a moment for signals to be inserted, then fetch
+      await new Promise(resolve => setTimeout(resolve, 3000));
       await fetchSignals();
     } catch (error: any) {
       console.error('Error generating signals:', error);
@@ -187,6 +191,7 @@ export const useTradingSignals = () => {
   useEffect(() => {
     fetchSignals();
     
+    // Set up real-time subscription
     const channel = supabase
       .channel('trading-signals-changes')
       .on(
@@ -203,6 +208,7 @@ export const useTradingSignals = () => {
       )
       .subscribe();
 
+    // Set up periodic refresh
     const interval = setInterval(fetchSignals, 30000);
 
     return () => {
