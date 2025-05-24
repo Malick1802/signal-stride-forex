@@ -22,41 +22,40 @@ interface TradingSignal {
 export const useTradingSignals = () => {
   const [signals, setSignals] = useState<TradingSignal[]>([]);
   const [loading, setLoading] = useState(true);
-  const [analyzingSignal, setAnalyzingSignal] = useState<string | null>(null);
-  const [analysis, setAnalysis] = useState<Record<string, string>>({});
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [lastGenerationError, setLastGenerationError] = useState<any>(null);
+  const [lastUpdate, setLastUpdate] = useState<string>('');
   const { toast } = useToast();
 
   const fetchSignals = async () => {
     try {
       console.log('Fetching trading signals...');
       
-      // First check what's actually in the table
-      const { data: allSignals, error: debugError } = await supabase
+      const { data: activeSignals, error } = await supabase
         .from('trading_signals')
-        .select('*')
+        .select(`
+          *,
+          ai_analysis (
+            analysis_text,
+            confidence_score
+          )
+        `)
+        .eq('status', 'active')
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(20);
 
-      console.log('Debug - All signals in table:', { allSignals, debugError });
-
-      if (debugError) {
-        console.error('Debug query error:', debugError);
+      if (error) {
+        console.error('Error fetching signals:', error);
         toast({
           title: "Database Error",
-          description: "Failed to query signals table",
+          description: "Failed to fetch trading signals",
           variant: "destructive"
         });
         return;
       }
 
-      // If we have signals, transform and display them
-      if (allSignals && allSignals.length > 0) {
-        console.log(`Found ${allSignals.length} total signals in database`);
+      if (activeSignals && activeSignals.length > 0) {
+        console.log(`Found ${activeSignals.length} active signals`);
         
-        // Use all signals for now, regardless of status
-        const transformedSignals = allSignals.map(signal => ({
+        const transformedSignals = activeSignals.map(signal => ({
           id: signal.id,
           pair: signal.symbol || 'Unknown',
           type: signal.type || 'BUY',
@@ -68,23 +67,24 @@ export const useTradingSignals = () => {
           confidence: Math.floor(signal.confidence || 0),
           timestamp: signal.created_at || signal.timestamp,
           status: signal.status || 'active',
-          analysisText: signal.analysis_text,
+          analysisText: signal.analysis_text || signal.ai_analysis?.[0]?.analysis_text,
           chartData: Array.from({ length: 24 }, (_, i) => ({
             time: i,
             price: Math.random() * 0.02 + parseFloat(signal.price ? signal.price.toString() : '1') + (Math.sin(i / 4) * 0.01)
           }))
         }));
 
-        console.log('Transformed signals:', transformedSignals);
         setSignals(transformedSignals);
+        setLastUpdate(new Date().toLocaleTimeString());
         
         toast({
-          title: "Signals Loaded",
-          description: `Found ${transformedSignals.length} trading signals`,
+          title: "Signals Updated",
+          description: `Loaded ${transformedSignals.length} active trading signals`,
         });
       } else {
-        console.log('No signals found in database');
+        console.log('No active signals found');
         setSignals([]);
+        setLastUpdate(new Date().toLocaleTimeString());
       }
     } catch (error) {
       console.error('Error fetching signals:', error);
@@ -98,102 +98,12 @@ export const useTradingSignals = () => {
     }
   };
 
-  const generateSignals = async () => {
-    try {
-      setIsGenerating(true);
-      setLastGenerationError(null);
-      
-      console.log('Starting signal generation process...');
-      
-      // First fetch market data
-      const marketResponse = await supabase.functions.invoke('fetch-market-data');
-      
-      if (marketResponse.error) {
-        throw new Error(`Market data fetch failed: ${marketResponse.error.message}`);
-      }
-
-      console.log('Market data fetched successfully, now generating signals...');
-      
-      // Wait a moment for market data to be processed
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      // Generate signals
-      const signalResponse = await supabase.functions.invoke('generate-signals');
-      
-      if (signalResponse.error) {
-        console.error('Signal generation error:', signalResponse.error);
-        throw new Error(`Signal generation failed: ${signalResponse.error.message}`);
-      }
-
-      if (signalResponse.data?.error) {
-        console.error('Signal generation function error:', signalResponse.data);
-        setLastGenerationError(signalResponse.data);
-        throw new Error(signalResponse.data.error);
-      }
-
-      console.log('Signal generation response:', signalResponse.data);
-
-      toast({
-        title: "Success",
-        description: signalResponse.data?.message || "New signals generated successfully",
-      });
-
-      // Wait a moment for signals to be inserted, then fetch
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      await fetchSignals();
-    } catch (error: any) {
-      console.error('Error generating signals:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to generate new signals",
-        variant: "destructive"
-      });
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const getAIAnalysis = async (signalId: string) => {
-    try {
-      setAnalyzingSignal(signalId);
-      
-      const { data, error } = await supabase.functions.invoke('ai-analysis', {
-        body: { signalId }
-      });
-
-      if (error) {
-        throw new Error('Failed to get AI analysis');
-      }
-
-      if (data?.analysis) {
-        setAnalysis(prev => ({
-          ...prev,
-          [signalId]: data.analysis
-        }));
-        
-        toast({
-          title: "AI Analysis Complete",
-          description: "Detailed analysis has been generated",
-        });
-      }
-    } catch (error) {
-      console.error('Error getting AI analysis:', error);
-      toast({
-        title: "Error",
-        description: "Failed to generate AI analysis",
-        variant: "destructive"
-      });
-    } finally {
-      setAnalyzingSignal(null);
-    }
-  };
-
   useEffect(() => {
     fetchSignals();
     
-    // Set up real-time subscription
+    // Set up real-time subscription for signals
     const channel = supabase
-      .channel('trading-signals-changes')
+      .channel('trading-signals-updates')
       .on(
         'postgres_changes',
         {
@@ -208,8 +118,8 @@ export const useTradingSignals = () => {
       )
       .subscribe();
 
-    // Set up periodic refresh
-    const interval = setInterval(fetchSignals, 30000);
+    // Auto-refresh every 2 minutes
+    const interval = setInterval(fetchSignals, 120000);
 
     return () => {
       supabase.removeChannel(channel);
@@ -220,12 +130,7 @@ export const useTradingSignals = () => {
   return {
     signals,
     loading,
-    analyzingSignal,
-    analysis,
-    isGenerating,
-    lastGenerationError,
-    fetchSignals,
-    generateSignals,
-    getAIAnalysis
+    lastUpdate,
+    fetchSignals
   };
 };

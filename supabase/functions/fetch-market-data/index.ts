@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    const fastforexApiKey = Deno.env.get('FASTFOREX_API_KEY');
+    const fastForexApiKey = Deno.env.get('FASTFOREX_API_KEY');
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
@@ -22,111 +22,163 @@ serve(async (req) => {
 
     console.log('Starting market data fetch...');
 
-    // Major forex pairs to fetch
-    const pairs = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'NZDUSD'];
-    const successfulInserts = [];
+    // Check if forex markets are open (Monday 00:00 UTC to Friday 22:00 UTC)
+    const now = new Date();
+    const utcHour = now.getUTCHours();
+    const utcDay = now.getUTCDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
     
-    for (const pair of pairs) {
-      try {
-        console.log(`Fetching data for ${pair}`);
-        
-        // Fetch real-time data from FastForex
-        const response = await fetch(
-          `https://api.fastforex.io/fetch-one?from=${pair.slice(0,3)}&to=${pair.slice(3,6)}&api_key=${fastforexApiKey}`
-        );
-        
-        if (!response.ok) {
-          console.error(`Failed to fetch ${pair}: ${response.status}`);
-          continue;
-        }
-        
-        const data = await response.json();
-        console.log(`FastForex response for ${pair}:`, data);
-        
-        // Extract price from the response
-        let price = null;
-        
-        if (data.result) {
-          // Handle both direct pair results and currency conversion results
-          if (data.result[pair]) {
-            price = data.result[pair];
-          } else if (data.result[pair.slice(3,6)]) {
-            price = data.result[pair.slice(3,6)];
-          } else if (data.result.USD && pair.startsWith('USD')) {
-            price = data.result.USD;
-          } else if (data.result.EUR && pair.startsWith('EUR')) {
-            price = data.result.EUR;
-          } else if (data.result.GBP && pair.startsWith('GBP')) {
-            price = data.result.GBP;
-          } else if (data.result.AUD && pair.startsWith('AUD')) {
-            price = data.result.AUD;
-          } else if (data.result.NZD && pair.startsWith('NZD')) {
-            price = data.result.NZD;
-          }
-        }
+    const isMarketOpen = (utcDay >= 1 && utcDay <= 4) || // Monday to Thursday
+                        (utcDay === 0 && utcHour >= 22) || // Sunday 22:00+ (Monday open)
+                        (utcDay === 5 && utcHour < 22); // Friday before 22:00
 
-        if (price && !isNaN(parseFloat(price))) {
-          const priceValue = parseFloat(price);
-          console.log(`Storing ${pair} with price ${priceValue}`);
-          
-          // Store the market data with current timestamp
-          const insertData = {
-            symbol: pair,
-            price: priceValue,
-            source: 'fastforex',
-            timestamp: new Date().toISOString(),
-            created_at: new Date().toISOString()
-          };
+    console.log(`Market status: ${isMarketOpen ? 'OPEN' : 'CLOSED'} (Day: ${utcDay}, Hour: ${utcHour})`);
 
-          console.log(`Insert data for ${pair}:`, insertData);
-
-          const { data: insertResult, error: insertError } = await supabase
-            .from('live_market_data')
-            .insert(insertData)
-            .select();
-
-          if (insertError) {
-            console.error(`Error inserting market data for ${pair}:`, insertError);
-          } else {
-            console.log(`Successfully stored market data for ${pair}:`, insertResult);
-            successfulInserts.push(pair);
-          }
-        } else {
-          console.error(`Invalid price data for ${pair}:`, { price, rawData: data });
-        }
-      } catch (error) {
-        console.error(`Error processing ${pair}:`, error);
-      }
-    }
-
-    // Verify data was inserted
-    const { data: verifyData, error: verifyError } = await supabase
-      .from('live_market_data')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(10);
-
-    console.log('Verification query result:', { count: verifyData?.length || 0, error: verifyError, data: verifyData });
-
-    if (successfulInserts.length === 0) {
+    if (!isMarketOpen) {
       return new Response(
         JSON.stringify({ 
-          error: 'No market data could be fetched and stored',
-          details: 'All API requests failed or returned invalid data'
+          message: 'Forex markets are currently closed',
+          marketHours: 'Monday 00:00 UTC to Friday 22:00 UTC',
+          currentTime: now.toISOString()
         }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    // Get all supported currency pairs
+    const { data: supportedPairs, error: pairsError } = await supabase
+      .from('supported_pairs')
+      .select('symbol')
+      .eq('is_active', true)
+      .eq('instrument_type', 'FOREX');
+
+    if (pairsError) {
+      console.error('Error fetching supported pairs:', pairsError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch supported pairs' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const symbols = supportedPairs?.map(p => p.symbol) || [
+      'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD',
+      'NZDUSD', 'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF',
+      'AUDCHF', 'CADJPY', 'CHFJPY', 'EURAUD', 'EURNZD', 'EURCAD',
+      'GBPAUD', 'GBPNZD', 'GBPCAD', 'AUDNZD', 'AUDCAD', 'AUDSGD',
+      'NZDCAD', 'NZDCHF', 'CADCHF', 'USDSEK', 'USDNOK', 'USDDKK'
+    ];
+
+    console.log(`Fetching data for ${symbols.length} currency pairs:`, symbols);
+
+    // Fetch market data from FastForex API
+    if (!fastForexApiKey) {
+      console.log('No FastForex API key found, using mock data');
+      
+      // Generate realistic mock data for all pairs
+      const marketDataBatch = symbols.map(symbol => {
+        const baseRate = symbol.includes('JPY') ? 
+          (Math.random() * 50 + 100) : // JPY pairs: 100-150
+          (Math.random() * 2 + 0.5);   // Other pairs: 0.5-2.5
+        
+        const spread = baseRate * 0.0001; // 1 pip spread
+        const price = parseFloat(baseRate.toFixed(symbol.includes('JPY') ? 3 : 5));
+        const bid = parseFloat((price - spread/2).toFixed(symbol.includes('JPY') ? 3 : 5));
+        const ask = parseFloat((price + spread/2).toFixed(symbol.includes('JPY') ? 3 : 5));
+
+        return {
+          symbol,
+          price,
+          bid,
+          ask,
+          source: 'mock',
+          timestamp: new Date().toISOString(),
+          created_at: new Date().toISOString()
+        };
+      });
+
+      const { error: insertError } = await supabase
+        .from('live_market_data')
+        .insert(marketDataBatch);
+
+      if (insertError) {
+        console.error('Error inserting mock market data:', insertError);
+        return new Response(
+          JSON.stringify({ error: 'Failed to insert market data' }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      console.log(`Successfully inserted ${marketDataBatch.length} mock market data records`);
+      
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          message: `Fetched ${marketDataBatch.length} currency pairs (mock data)`,
+          pairs: symbols,
+          marketOpen: isMarketOpen
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Fetch real data from FastForex
+    const symbolsParam = symbols.join(',');
+    const url = `https://api.fastforex.io/fetch-multi?pairs=${symbolsParam}&api_key=${fastForexApiKey}`;
+    
+    console.log('Fetching from FastForex API...');
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      throw new Error(`FastForex API error: ${response.status} ${response.statusText}`);
+    }
+
+    const data = await response.json();
+    console.log('FastForex API response received');
+
+    if (!data.results) {
+      throw new Error('Invalid response format from FastForex API');
+    }
+
+    // Transform and insert the data
+    const marketDataBatch = Object.entries(data.results).map(([symbol, rates]: [string, any]) => {
+      const price = parseFloat(rates.c || rates.o || 0);
+      const spread = price * 0.0001; // Estimated 1 pip spread
+      
+      return {
+        symbol,
+        price,
+        bid: parseFloat((price - spread/2).toFixed(symbol.includes('JPY') ? 3 : 5)),
+        ask: parseFloat((price + spread/2).toFixed(symbol.includes('JPY') ? 3 : 5)),
+        source: 'fastforex',
+        timestamp: new Date().toISOString(),
+        created_at: new Date().toISOString()
+      };
+    });
+
+    if (marketDataBatch.length === 0) {
+      throw new Error('No market data received from FastForex API');
+    }
+
+    // Insert market data
+    const { error: insertError } = await supabase
+      .from('live_market_data')
+      .insert(marketDataBatch);
+
+    if (insertError) {
+      console.error('Error inserting market data:', insertError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to insert market data' }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log(`Successfully inserted ${marketDataBatch.length} market data records`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: `Market data fetched and stored for ${successfulInserts.length} pairs`,
-        pairs: successfulInserts,
-        totalRecordsInDB: verifyData?.length || 0
+        message: `Fetched ${marketDataBatch.length} currency pairs successfully`,
+        pairs: Object.keys(data.results),
+        marketOpen: isMarketOpen
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -138,9 +190,9 @@ serve(async (req) => {
         error: error.message,
         stack: error.stack
       }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     );
   }
