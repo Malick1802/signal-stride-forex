@@ -9,6 +9,7 @@ const TradingSignals = () => {
   const [loading, setLoading] = useState(true);
   const [analyzingSignal, setAnalyzingSignal] = useState(null);
   const [analysis, setAnalysis] = useState({});
+  const [isGenerating, setIsGenerating] = useState(false);
   const { toast } = useToast();
 
   // Fetch centralized signals from database
@@ -39,12 +40,12 @@ const TradingSignals = () => {
           id: signal.id,
           pair: signal.symbol,
           type: signal.type,
-          entryPrice: parseFloat(signal.price.toString()).toFixed(5),
-          stopLoss: parseFloat(signal.stop_loss.toString()).toFixed(5),
+          entryPrice: signal.price ? parseFloat(signal.price.toString()).toFixed(5) : '0.00000',
+          stopLoss: signal.stop_loss ? parseFloat(signal.stop_loss.toString()).toFixed(5) : '0.00000',
           takeProfit1: signal.take_profits?.[0] ? parseFloat(signal.take_profits[0].toString()).toFixed(5) : '0.00000',
           takeProfit2: signal.take_profits?.[1] ? parseFloat(signal.take_profits[1].toString()).toFixed(5) : '0.00000',
           takeProfit3: signal.take_profits?.[2] ? parseFloat(signal.take_profits[2].toString()).toFixed(5) : '0.00000',
-          confidence: Math.floor(signal.confidence),
+          confidence: Math.floor(signal.confidence || 0),
           timestamp: signal.created_at,
           status: signal.status,
           analysisText: signal.analysis_text,
@@ -52,7 +53,7 @@ const TradingSignals = () => {
           // Generate mock chart data for now
           chartData: Array.from({ length: 24 }, (_, i) => ({
             time: i,
-            price: Math.random() * 0.02 + parseFloat(signal.price.toString()) + (Math.sin(i / 4) * 0.01)
+            price: Math.random() * 0.02 + parseFloat(signal.price ? signal.price.toString() : '1') + (Math.sin(i / 4) * 0.01)
           }))
         }));
 
@@ -73,25 +74,39 @@ const TradingSignals = () => {
   // Generate new signals
   const generateSignals = async () => {
     try {
-      setLoading(true);
+      setIsGenerating(true);
+      
+      console.log('Starting signal generation process...');
       
       // First fetch market data
+      console.log('Fetching market data...');
       const marketResponse = await supabase.functions.invoke('fetch-market-data');
       
       if (marketResponse.error) {
-        throw new Error('Failed to fetch market data');
+        throw new Error(`Market data fetch failed: ${marketResponse.error.message}`);
       }
+
+      console.log('Market data fetched successfully, now generating signals...');
+      
+      // Wait a moment to ensure data is persisted
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
       // Then generate signals
       const signalResponse = await supabase.functions.invoke('generate-signals');
       
       if (signalResponse.error) {
-        throw new Error('Failed to generate signals');
+        console.error('Signal generation error:', signalResponse.error);
+        throw new Error(`Signal generation failed: ${signalResponse.error.message}`);
+      }
+
+      if (signalResponse.data?.error) {
+        console.error('Signal generation function error:', signalResponse.data.error);
+        throw new Error(signalResponse.data.error);
       }
 
       toast({
         title: "Success",
-        description: "New signals generated successfully",
+        description: signalResponse.data?.message || "New signals generated successfully",
       });
 
       // Refresh the signals list
@@ -100,9 +115,11 @@ const TradingSignals = () => {
       console.error('Error generating signals:', error);
       toast({
         title: "Error",
-        description: "Failed to generate new signals",
+        description: error.message || "Failed to generate new signals",
         variant: "destructive"
       });
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -198,11 +215,13 @@ const TradingSignals = () => {
         <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
           <button
             onClick={generateSignals}
-            disabled={loading}
-            className="flex items-center space-x-2 text-orange-400 hover:text-orange-300 transition-colors"
+            disabled={isGenerating}
+            className="flex items-center space-x-2 text-orange-400 hover:text-orange-300 transition-colors disabled:opacity-50"
           >
-            <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
-            <span className="text-sm">Generate New</span>
+            <RefreshCw className={`h-5 w-5 ${isGenerating ? 'animate-spin' : ''}`} />
+            <span className="text-sm">
+              {isGenerating ? 'Generating...' : 'Generate New'}
+            </span>
           </button>
         </div>
       </div>
