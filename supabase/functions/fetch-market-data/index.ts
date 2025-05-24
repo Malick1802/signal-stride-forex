@@ -20,8 +20,11 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    console.log('Starting market data fetch...');
+
     // Major forex pairs to fetch
     const pairs = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'NZDUSD'];
+    const successfulInserts = [];
     
     for (const pair of pairs) {
       try {
@@ -40,37 +43,101 @@ serve(async (req) => {
         const data = await response.json();
         console.log(`FastForex response for ${pair}:`, data);
         
-        if (data.result && data.result[pair]) {
-          // Store the market data
-          const { error: insertError } = await supabase
+        // Extract price from the response
+        let price = null;
+        
+        if (data.result) {
+          // Handle both direct pair results and currency conversion results
+          if (data.result[pair]) {
+            price = data.result[pair];
+          } else if (data.result[pair.slice(3,6)]) {
+            price = data.result[pair.slice(3,6)];
+          } else if (data.result.USD && pair.startsWith('USD')) {
+            price = data.result.USD;
+          } else if (data.result.EUR && pair.startsWith('EUR')) {
+            price = data.result.EUR;
+          } else if (data.result.GBP && pair.startsWith('GBP')) {
+            price = data.result.GBP;
+          } else if (data.result.AUD && pair.startsWith('AUD')) {
+            price = data.result.AUD;
+          } else if (data.result.NZD && pair.startsWith('NZD')) {
+            price = data.result.NZD;
+          }
+        }
+
+        if (price && !isNaN(parseFloat(price))) {
+          const priceValue = parseFloat(price);
+          console.log(`Storing ${pair} with price ${priceValue}`);
+          
+          // Store the market data with current timestamp
+          const insertData = {
+            symbol: pair,
+            price: priceValue,
+            source: 'fastforex',
+            timestamp: new Date().toISOString(),
+            created_at: new Date().toISOString()
+          };
+
+          console.log(`Insert data for ${pair}:`, insertData);
+
+          const { data: insertResult, error: insertError } = await supabase
             .from('live_market_data')
-            .insert({
-              symbol: pair,
-              price: parseFloat(data.result[pair]),
-              source: 'fastforex',
-              timestamp: new Date().toISOString()
-            });
+            .insert(insertData)
+            .select();
 
           if (insertError) {
             console.error(`Error inserting market data for ${pair}:`, insertError);
           } else {
-            console.log(`Successfully stored market data for ${pair}`);
+            console.log(`Successfully stored market data for ${pair}:`, insertResult);
+            successfulInserts.push(pair);
           }
+        } else {
+          console.error(`Invalid price data for ${pair}:`, { price, rawData: data });
         }
       } catch (error) {
         console.error(`Error processing ${pair}:`, error);
       }
     }
 
+    // Verify data was inserted
+    const { data: verifyData, error: verifyError } = await supabase
+      .from('live_market_data')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(10);
+
+    console.log('Verification query result:', { count: verifyData?.length || 0, error: verifyError, data: verifyData });
+
+    if (successfulInserts.length === 0) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'No market data could be fetched and stored',
+          details: 'All API requests failed or returned invalid data'
+        }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
+    }
+
     return new Response(
-      JSON.stringify({ success: true, message: 'Market data fetched and stored' }),
+      JSON.stringify({ 
+        success: true, 
+        message: `Market data fetched and stored for ${successfulInserts.length} pairs`,
+        pairs: successfulInserts,
+        totalRecordsInDB: verifyData?.length || 0
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
     console.error('Error in fetch-market-data function:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        stack: error.stack
+      }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

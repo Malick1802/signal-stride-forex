@@ -20,81 +20,71 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log('Fetching recent market data...');
+    console.log('Starting signal generation...');
 
-    // Get recent data from live_market_data table - check what's actually in the table
+    // First, let's check what data is actually in the table
     const { data: allData, error: debugError } = await supabase
       .from('live_market_data')
       .select('*')
       .order('created_at', { ascending: false });
 
-    console.log('DEBUG - All market data in table:', { count: allData?.length || 0, data: allData?.slice(0, 3) });
+    console.log('All market data in table:', { 
+      count: allData?.length || 0, 
+      sampleData: allData?.slice(0, 3),
+      error: debugError 
+    });
 
     if (debugError) {
       console.error('Debug query error:', debugError);
-    }
-
-    // Get market data from the last hour to be more flexible
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-    console.log('Looking for data after:', oneHourAgo);
-
-    const { data: marketData, error: fetchError } = await supabase
-      .from('live_market_data')
-      .select('*')
-      .gte('created_at', oneHourAgo)
-      .order('created_at', { ascending: false })
-      .limit(50);
-
-    console.log('Market data query result:', { count: marketData?.length || 0, error: fetchError });
-
-    if (fetchError) {
-      console.error('Database query error:', fetchError);
-      throw new Error(`Failed to fetch market data: ${fetchError.message}`);
-    }
-
-    // If no recent data, get the most recent available data regardless of time
-    let finalMarketData = marketData;
-    if (!marketData || marketData.length === 0) {
-      console.log('No recent data found, fetching latest available data...');
-      
-      const { data: latestData, error: latestError } = await supabase
-        .from('live_market_data')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      if (latestError) {
-        console.error('Latest data query error:', latestError);
-        throw new Error(`Failed to fetch latest market data: ${latestError.message}`);
-      }
-
-      finalMarketData = latestData;
-      console.log('Latest available data:', { count: finalMarketData?.length || 0 });
-    }
-
-    if (!finalMarketData || finalMarketData.length === 0) {
-      console.log('No market data found at all');
       return new Response(
         JSON.stringify({ 
-          error: 'No market data available. Please run the fetch-market-data function first.',
-          suggestion: 'Try running the market data fetch first, then generate signals.',
+          error: `Database error: ${debugError.message}`,
+          code: debugError.code 
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!allData || allData.length === 0) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'No market data found in database',
+          suggestion: 'Please run the fetch-market-data function first to populate market data',
           debug: {
-            totalRecords: allData?.length || 0,
-            oneHourAgo,
-            tableExists: true
+            tableEmpty: true,
+            timestamp: new Date().toISOString()
           }
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Processing market data for', finalMarketData.length, 'records');
+    // Get recent data (within last 2 hours to be more lenient)
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    console.log('Looking for data after:', twoHoursAgo);
+
+    const { data: recentData, error: recentError } = await supabase
+      .from('live_market_data')
+      .select('*')
+      .gte('created_at', twoHoursAgo)
+      .order('created_at', { ascending: false });
+
+    console.log('Recent data query result:', { 
+      count: recentData?.length || 0, 
+      error: recentError,
+      sampleData: recentData?.slice(0, 3)
+    });
+
+    // Use recent data if available, otherwise use the most recent data
+    let marketData = recentData && recentData.length > 0 ? recentData : allData.slice(0, 20);
+    
+    console.log(`Using ${marketData.length} records for signal generation`);
 
     // Group data by symbol and get the most recent data for each
     const symbolData: Record<string, any[]> = {};
     
-    finalMarketData.forEach((item: any) => {
-      if (item.symbol && item.price) {
+    marketData.forEach((item: any) => {
+      if (item.symbol && (item.price !== null && item.price !== undefined)) {
         if (!symbolData[item.symbol]) {
           symbolData[item.symbol] = [];
         }
@@ -104,14 +94,16 @@ serve(async (req) => {
 
     const symbols = Object.keys(symbolData);
     console.log('Found symbols:', symbols);
+    console.log('Symbol data distribution:', Object.keys(symbolData).map(s => ({ symbol: s, count: symbolData[s].length })));
 
     if (symbols.length === 0) {
       return new Response(
         JSON.stringify({ 
           error: 'No valid symbols found in market data',
           debug: {
-            rawDataSample: finalMarketData.slice(0, 3),
-            dataCount: finalMarketData.length
+            totalRecords: marketData.length,
+            sampleRecord: marketData[0] || null,
+            dataStructure: marketData.length > 0 ? Object.keys(marketData[0]) : []
           }
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -127,31 +119,42 @@ serve(async (req) => {
         console.log(`Processing ${symbol} with ${prices.length} data points`);
         
         // Sort by timestamp to get proper order
-        const sortedPrices = prices.sort((a: any, b: any) => 
-          new Date(b.created_at || b.timestamp || 0).getTime() - new Date(a.created_at || a.timestamp || 0).getTime()
-        );
+        const sortedPrices = prices.sort((a: any, b: any) => {
+          const aTime = new Date(a.created_at || a.timestamp || 0).getTime();
+          const bTime = new Date(b.created_at || b.timestamp || 0).getTime();
+          return bTime - aTime; // Most recent first
+        });
         
         const latestData = sortedPrices[0];
-        const currentPrice = parseFloat(latestData.price.toString());
+        const priceValue = latestData.price;
         
-        console.log(`${symbol}: Current price ${currentPrice} from data:`, {
-          price: latestData.price,
+        console.log(`${symbol}: Latest data:`, {
+          price: priceValue,
           created_at: latestData.created_at,
-          timestamp: latestData.timestamp
+          timestamp: latestData.timestamp,
+          id: latestData.id
         });
 
-        if (isNaN(currentPrice) || currentPrice <= 0) {
-          console.log(`Skipping ${symbol} - invalid price: ${currentPrice}`);
+        // Validate price
+        if (priceValue === null || priceValue === undefined || isNaN(Number(priceValue))) {
+          console.log(`Skipping ${symbol} - invalid price:`, priceValue);
           continue;
         }
 
-        // For signal generation, use a simple approach
+        const currentPrice = Number(priceValue);
+        
+        if (currentPrice <= 0) {
+          console.log(`Skipping ${symbol} - non-positive price:`, currentPrice);
+          continue;
+        }
+
+        // Simple signal generation logic
         let signalType = 'BUY';
         let trend = 'bullish';
         
         // If we have multiple data points, calculate trend
         if (sortedPrices.length > 1) {
-          const previousPrice = parseFloat(sortedPrices[1].price.toString());
+          const previousPrice = Number(sortedPrices[1].price);
           if (!isNaN(previousPrice) && previousPrice > 0) {
             const priceChange = currentPrice - previousPrice;
             trend = priceChange > 0 ? 'bullish' : 'bearish';
@@ -159,7 +162,7 @@ serve(async (req) => {
           }
         }
         
-        // Add some variation to make signals more realistic
+        // Add some randomization to make signals more realistic
         const randomFactor = Math.random();
         if (randomFactor > 0.6) {
           signalType = signalType === 'BUY' ? 'SELL' : 'BUY';
@@ -170,9 +173,9 @@ serve(async (req) => {
         const baseConfidence = 75 + (Math.random() * 20); // 75-95%
         const confidence = Math.min(95, Math.max(70, baseConfidence));
         
-        console.log(`${symbol}: trend=${trend}, confidence=${confidence.toFixed(1)}, signal=${signalType}`);
+        console.log(`${symbol}: Generated signal - ${signalType}, trend=${trend}, confidence=${confidence.toFixed(1)}`);
 
-        // Use OpenAI for analysis if available
+        // Use AI for analysis if available
         let analysis = `Technical analysis suggests a ${trend} trend for ${symbol}. Current price action at ${currentPrice} indicates potential for ${signalType.toLowerCase()} opportunity.`;
         
         if (openAIApiKey) {
@@ -219,25 +222,29 @@ serve(async (req) => {
         const takeProfit2 = parseFloat((currentPrice + (takeProfitDistance * 1.5)).toFixed(5));
         const takeProfit3 = parseFloat((currentPrice + (takeProfitDistance * 2)).toFixed(5));
 
-        console.log(`${symbol}: Creating signal - ${signalType} at ${currentPrice}, SL: ${stopLoss}, TP1: ${takeProfit1}`);
+        console.log(`${symbol}: Price levels - Entry: ${currentPrice}, SL: ${stopLoss}, TP1: ${takeProfit1}`);
 
         // Insert the signal
+        const signalData = {
+          symbol,
+          type: signalType,
+          price: currentPrice,
+          stop_loss: stopLoss,
+          take_profits: [takeProfit1, takeProfit2, takeProfit3],
+          confidence: Math.round(confidence),
+          pips: Math.abs(takeProfitDistance / pipValue),
+          is_centralized: true,
+          user_id: null,
+          status: 'active',
+          analysis_text: analysis,
+          asset_type: 'FOREX'
+        };
+
+        console.log(`${symbol}: Inserting signal data:`, signalData);
+
         const { data: signal, error: signalError } = await supabase
           .from('trading_signals')
-          .insert({
-            symbol,
-            type: signalType,
-            price: currentPrice,
-            stop_loss: stopLoss,
-            take_profits: [takeProfit1, takeProfit2, takeProfit3],
-            confidence: Math.round(confidence),
-            pips: Math.abs(takeProfitDistance / pipValue),
-            is_centralized: true,
-            user_id: null,
-            status: 'active',
-            analysis_text: analysis,
-            asset_type: 'FOREX'
-          })
+          .insert(signalData)
           .select()
           .single();
 
@@ -275,16 +282,20 @@ serve(async (req) => {
       }
     }
 
-    console.log(`Generated ${signalsGenerated.length} signals for symbols:`, signalsGenerated);
+    console.log(`Signal generation complete. Generated ${signalsGenerated.length} signals for:`, signalsGenerated);
 
     if (signalsGenerated.length === 0) {
       return new Response(
         JSON.stringify({ 
           error: 'No signals could be generated from available market data',
           availableSymbols: symbols,
-          marketDataCount: finalMarketData.length,
+          marketDataCount: marketData.length,
           debug: {
-            symbolData: Object.keys(symbolData).map(s => ({ symbol: s, count: symbolData[s].length }))
+            symbolData: Object.keys(symbolData).map(s => ({ 
+              symbol: s, 
+              count: symbolData[s].length,
+              latestPrice: symbolData[s][0]?.price
+            }))
           }
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -296,7 +307,7 @@ serve(async (req) => {
         success: true, 
         message: `Generated ${signalsGenerated.length} signals successfully`,
         symbols: signalsGenerated,
-        totalMarketData: finalMarketData.length
+        totalMarketData: marketData.length
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
