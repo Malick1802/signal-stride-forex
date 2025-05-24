@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Clock, Target, Shield, Brain, RefreshCw } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, Target, Shield, Brain, RefreshCw, AlertCircle } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer } from 'recharts';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -10,6 +10,7 @@ const TradingSignals = () => {
   const [analyzingSignal, setAnalyzingSignal] = useState(null);
   const [analysis, setAnalysis] = useState({});
   const [isGenerating, setIsGenerating] = useState(false);
+  const [lastGenerationError, setLastGenerationError] = useState(null);
   const { toast } = useToast();
 
   // Fetch centralized signals from database
@@ -71,10 +72,11 @@ const TradingSignals = () => {
     }
   };
 
-  // Generate new signals
+  // Generate new signals with better error handling
   const generateSignals = async () => {
     try {
       setIsGenerating(true);
+      setLastGenerationError(null);
       
       console.log('Starting signal generation process...');
       
@@ -89,7 +91,7 @@ const TradingSignals = () => {
       console.log('Market data fetched successfully, now generating signals...');
       
       // Wait a moment to ensure data is persisted
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
       // Then generate signals
       const signalResponse = await supabase.functions.invoke('generate-signals');
@@ -100,7 +102,8 @@ const TradingSignals = () => {
       }
 
       if (signalResponse.data?.error) {
-        console.error('Signal generation function error:', signalResponse.data.error);
+        console.error('Signal generation function error:', signalResponse.data);
+        setLastGenerationError(signalResponse.data);
         throw new Error(signalResponse.data.error);
       }
 
@@ -225,6 +228,32 @@ const TradingSignals = () => {
           </button>
         </div>
       </div>
+
+      {/* Error Debug Information */}
+      {lastGenerationError && (
+        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4">
+          <div className="flex items-start space-x-3">
+            <AlertCircle className="h-5 w-5 text-red-400 mt-0.5" />
+            <div className="flex-1">
+              <h3 className="text-red-400 font-medium mb-2">Signal Generation Error</h3>
+              <div className="text-red-300 text-sm space-y-1">
+                <p><strong>Error:</strong> {lastGenerationError.error}</p>
+                {lastGenerationError.debug && (
+                  <div>
+                    <strong>Debug Info:</strong>
+                    <pre className="text-xs mt-1 bg-black/20 p-2 rounded overflow-x-auto">
+                      {JSON.stringify(lastGenerationError.debug, null, 2)}
+                    </pre>
+                  </div>
+                )}
+                {lastGenerationError.suggestion && (
+                  <p><strong>Suggestion:</strong> {lastGenerationError.suggestion}</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Signals Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -358,9 +387,10 @@ const TradingSignals = () => {
           <div className="text-gray-400 mb-4">No active signals available</div>
           <button
             onClick={generateSignals}
-            className="px-6 py-2 bg-emerald-500/20 text-emerald-400 rounded hover:bg-emerald-500/30 transition-colors"
+            disabled={isGenerating}
+            className="px-6 py-2 bg-emerald-500/20 text-emerald-400 rounded hover:bg-emerald-500/30 transition-colors disabled:opacity-50"
           >
-            Generate Signals
+            {isGenerating ? 'Generating...' : 'Generate Signals'}
           </button>
         </div>
       )}

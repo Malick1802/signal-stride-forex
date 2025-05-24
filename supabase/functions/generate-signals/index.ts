@@ -22,12 +22,28 @@ serve(async (req) => {
 
     console.log('Fetching recent market data...');
 
-    // Get recent data from live_market_data table with more flexible timing
+    // Get recent data from live_market_data table - check what's actually in the table
+    const { data: allData, error: debugError } = await supabase
+      .from('live_market_data')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    console.log('DEBUG - All market data in table:', { count: allData?.length || 0, data: allData?.slice(0, 3) });
+
+    if (debugError) {
+      console.error('Debug query error:', debugError);
+    }
+
+    // Get market data from the last hour to be more flexible
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    console.log('Looking for data after:', oneHourAgo);
+
     const { data: marketData, error: fetchError } = await supabase
       .from('live_market_data')
       .select('*')
+      .gte('created_at', oneHourAgo)
       .order('created_at', { ascending: false })
-      .limit(100); // Increased limit to get more data
+      .limit(50);
 
     console.log('Market data query result:', { count: marketData?.length || 0, error: fetchError });
 
@@ -36,28 +52,55 @@ serve(async (req) => {
       throw new Error(`Failed to fetch market data: ${fetchError.message}`);
     }
 
+    // If no recent data, get the most recent available data regardless of time
+    let finalMarketData = marketData;
     if (!marketData || marketData.length === 0) {
+      console.log('No recent data found, fetching latest available data...');
+      
+      const { data: latestData, error: latestError } = await supabase
+        .from('live_market_data')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (latestError) {
+        console.error('Latest data query error:', latestError);
+        throw new Error(`Failed to fetch latest market data: ${latestError.message}`);
+      }
+
+      finalMarketData = latestData;
+      console.log('Latest available data:', { count: finalMarketData?.length || 0 });
+    }
+
+    if (!finalMarketData || finalMarketData.length === 0) {
       console.log('No market data found at all');
       return new Response(
         JSON.stringify({ 
           error: 'No market data available. Please run the fetch-market-data function first.',
-          suggestion: 'Try running the market data fetch first, then generate signals.'
+          suggestion: 'Try running the market data fetch first, then generate signals.',
+          debug: {
+            totalRecords: allData?.length || 0,
+            oneHourAgo,
+            tableExists: true
+          }
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('Processing market data for', marketData.length, 'records');
-    console.log('Sample market data:', marketData.slice(0, 3));
+    console.log('Processing market data for', finalMarketData.length, 'records');
 
     // Group data by symbol and get the most recent data for each
-    const symbolData = marketData.reduce((acc: any, item: any) => {
-      if (!acc[item.symbol]) {
-        acc[item.symbol] = [];
+    const symbolData: Record<string, any[]> = {};
+    
+    finalMarketData.forEach((item: any) => {
+      if (item.symbol && item.price) {
+        if (!symbolData[item.symbol]) {
+          symbolData[item.symbol] = [];
+        }
+        symbolData[item.symbol].push(item);
       }
-      acc[item.symbol].push(item);
-      return acc;
-    }, {});
+    });
 
     const symbols = Object.keys(symbolData);
     console.log('Found symbols:', symbols);
@@ -66,7 +109,10 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           error: 'No valid symbols found in market data',
-          data: marketData.slice(0, 5) // Show sample data for debugging
+          debug: {
+            rawDataSample: finalMarketData.slice(0, 3),
+            dataCount: finalMarketData.length
+          }
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -80,27 +126,26 @@ serve(async (req) => {
         const prices = symbolData[symbol];
         console.log(`Processing ${symbol} with ${prices.length} data points`);
         
-        if (prices.length < 1) {
-          console.log(`Skipping ${symbol} - insufficient data`);
-          continue;
-        }
-
         // Sort by timestamp to get proper order
         const sortedPrices = prices.sort((a: any, b: any) => 
-          new Date(b.created_at || b.timestamp).getTime() - new Date(a.created_at || a.timestamp).getTime()
+          new Date(b.created_at || b.timestamp || 0).getTime() - new Date(a.created_at || a.timestamp || 0).getTime()
         );
         
         const latestData = sortedPrices[0];
         const currentPrice = parseFloat(latestData.price.toString());
         
-        console.log(`${symbol}: Current price ${currentPrice} from data:`, latestData);
+        console.log(`${symbol}: Current price ${currentPrice} from data:`, {
+          price: latestData.price,
+          created_at: latestData.created_at,
+          timestamp: latestData.timestamp
+        });
 
         if (isNaN(currentPrice) || currentPrice <= 0) {
           console.log(`Skipping ${symbol} - invalid price: ${currentPrice}`);
           continue;
         }
 
-        // For signal generation, use a simple momentum-based approach
+        // For signal generation, use a simple approach
         let signalType = 'BUY';
         let trend = 'bullish';
         
@@ -114,7 +159,7 @@ serve(async (req) => {
           }
         }
         
-        // Add some randomization to make signals more realistic
+        // Add some variation to make signals more realistic
         const randomFactor = Math.random();
         if (randomFactor > 0.6) {
           signalType = signalType === 'BUY' ? 'SELL' : 'BUY';
@@ -237,7 +282,10 @@ serve(async (req) => {
         JSON.stringify({ 
           error: 'No signals could be generated from available market data',
           availableSymbols: symbols,
-          marketDataCount: marketData.length
+          marketDataCount: finalMarketData.length,
+          debug: {
+            symbolData: Object.keys(symbolData).map(s => ({ symbol: s, count: symbolData[s].length }))
+          }
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -248,7 +296,7 @@ serve(async (req) => {
         success: true, 
         message: `Generated ${signalsGenerated.length} signals successfully`,
         symbols: signalsGenerated,
-        totalMarketData: marketData.length
+        totalMarketData: finalMarketData.length
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
