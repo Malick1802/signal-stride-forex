@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Clock, Shield, Brain, ChevronDown, ChevronUp, Copy, ExternalLink } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, Shield, Brain, ChevronDown, ChevronUp, Copy, ExternalLink, Check } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -54,6 +55,22 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
     
     const marketClosed = isFridayEvening || isSaturday || isSundayBeforeOpen;
     return !marketClosed;
+  };
+
+  // Check if take profit levels are hit
+  const isTakeProfitHit = (takeProfitPrice: string): boolean => {
+    if (!currentPrice) return false;
+    
+    const tpPrice = parseFloat(takeProfitPrice);
+    const entryPrice = parseFloat(signal.entryPrice);
+    
+    if (signal.type === 'BUY') {
+      // For BUY signals, TP is hit when current price >= TP price
+      return currentPrice >= tpPrice;
+    } else {
+      // For SELL signals, TP is hit when current price <= TP price
+      return currentPrice <= tpPrice;
+    }
   };
 
   // Fetch real market data from database
@@ -350,6 +367,9 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
             <span className="text-gray-400">Target 1</span>
             <div className="flex items-center space-x-2">
               <span className="text-emerald-400 font-mono">{signal.takeProfit1}</span>
+              {isTakeProfitHit(signal.takeProfit1) && (
+                <Check className="h-4 w-4 text-emerald-400" />
+              )}
               <Button
                 size="sm"
                 variant="ghost"
@@ -364,6 +384,9 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
             <span className="text-gray-400">Target 2</span>
             <div className="flex items-center space-x-2">
               <span className="text-emerald-400 font-mono">{signal.takeProfit2}</span>
+              {isTakeProfitHit(signal.takeProfit2) && (
+                <Check className="h-4 w-4 text-emerald-400" />
+              )}
               <Button
                 size="sm"
                 variant="ghost"
@@ -378,6 +401,9 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
             <span className="text-gray-400">Target 3</span>
             <div className="flex items-center space-x-2">
               <span className="text-emerald-400 font-mono">{signal.takeProfit3}</span>
+              {isTakeProfitHit(signal.takeProfit3) && (
+                <Check className="h-4 w-4 text-emerald-400" />
+              )}
               <Button
                 size="sm"
                 variant="ghost"
