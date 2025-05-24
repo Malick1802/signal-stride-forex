@@ -9,6 +9,41 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      ai_analysis: {
+        Row: {
+          analysis_text: string
+          confidence_score: number | null
+          created_at: string | null
+          id: string
+          market_conditions: Json | null
+          signal_id: string | null
+        }
+        Insert: {
+          analysis_text: string
+          confidence_score?: number | null
+          created_at?: string | null
+          id?: string
+          market_conditions?: Json | null
+          signal_id?: string | null
+        }
+        Update: {
+          analysis_text?: string
+          confidence_score?: number | null
+          created_at?: string | null
+          id?: string
+          market_conditions?: Json | null
+          signal_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_analysis_signal_id_fkey"
+            columns: ["signal_id"]
+            isOneToOne: false
+            referencedRelation: "trading_signals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cached_signals: {
         Row: {
           cached_at: string
@@ -71,6 +106,39 @@ export type Database = {
           status?: string
           type?: string
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      live_market_data: {
+        Row: {
+          ask: number | null
+          bid: number | null
+          created_at: string | null
+          id: string
+          price: number
+          source: string | null
+          symbol: string
+          timestamp: string | null
+        }
+        Insert: {
+          ask?: number | null
+          bid?: number | null
+          created_at?: string | null
+          id?: string
+          price: number
+          source?: string | null
+          symbol: string
+          timestamp?: string | null
+        }
+        Update: {
+          ask?: number | null
+          bid?: number | null
+          created_at?: string | null
+          id?: string
+          price?: number
+          source?: string | null
+          symbol?: string
+          timestamp?: string | null
         }
         Relationships: []
       }
@@ -374,6 +442,7 @@ export type Database = {
           confidence: number
           created_at: string
           id: string
+          is_centralized: boolean | null
           last_price: number | null
           market_conditions: string[] | null
           pips: number
@@ -395,6 +464,7 @@ export type Database = {
           confidence: number
           created_at?: string
           id?: string
+          is_centralized?: boolean | null
           last_price?: number | null
           market_conditions?: string[] | null
           pips: number
@@ -416,6 +486,7 @@ export type Database = {
           confidence?: number
           created_at?: string
           id?: string
+          is_centralized?: boolean | null
           last_price?: number | null
           market_conditions?: string[] | null
           pips?: number
