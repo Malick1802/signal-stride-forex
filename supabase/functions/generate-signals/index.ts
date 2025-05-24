@@ -22,12 +22,12 @@ serve(async (req) => {
 
     console.log('Fetching recent market data...');
 
-    // First, try to get recent data from live_market_data table
+    // Get recent data from live_market_data table with more flexible timing
     const { data: marketData, error: fetchError } = await supabase
       .from('live_market_data')
       .select('*')
       .order('created_at', { ascending: false })
-      .limit(50);
+      .limit(100); // Increased limit to get more data
 
     console.log('Market data query result:', { count: marketData?.length || 0, error: fetchError });
 
@@ -36,75 +36,82 @@ serve(async (req) => {
       throw new Error(`Failed to fetch market data: ${fetchError.message}`);
     }
 
-    // If no recent data, try to fetch new data first
     if (!marketData || marketData.length === 0) {
-      console.log('No recent market data found, attempting to fetch fresh data...');
-      
-      // Wait a bit and try again
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      const { data: retryData, error: retryError } = await supabase
-        .from('live_market_data')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (retryError || !retryData || retryData.length === 0) {
-        console.log('Still no market data available');
-        return new Response(
-          JSON.stringify({ 
-            error: 'No market data available. Please ensure the fetch-market-data function is running properly.',
-            suggestion: 'Try running the market data fetch first, then generate signals.'
-          }),
-          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      // Use the retry data
-      marketData.splice(0, marketData.length, ...retryData);
+      console.log('No market data found at all');
+      return new Response(
+        JSON.stringify({ 
+          error: 'No market data available. Please run the fetch-market-data function first.',
+          suggestion: 'Try running the market data fetch first, then generate signals.'
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     console.log('Processing market data for', marketData.length, 'records');
+    console.log('Sample market data:', marketData.slice(0, 3));
 
     // Group data by symbol and get the most recent data for each
     const symbolData = marketData.reduce((acc: any, item: any) => {
-      if (!acc[item.symbol]) acc[item.symbol] = [];
+      if (!acc[item.symbol]) {
+        acc[item.symbol] = [];
+      }
       acc[item.symbol].push(item);
       return acc;
     }, {});
 
-    console.log('Found symbols:', Object.keys(symbolData));
+    const symbols = Object.keys(symbolData);
+    console.log('Found symbols:', symbols);
+
+    if (symbols.length === 0) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'No valid symbols found in market data',
+          data: marketData.slice(0, 5) // Show sample data for debugging
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Generate signals for each symbol
     const signalsGenerated = [];
     
-    for (const [symbol, prices] of Object.entries(symbolData)) {
+    for (const symbol of symbols) {
       try {
-        console.log(`Processing ${symbol} with ${(prices as any[]).length} data points`);
+        const prices = symbolData[symbol];
+        console.log(`Processing ${symbol} with ${prices.length} data points`);
         
-        if ((prices as any[]).length < 1) {
+        if (prices.length < 1) {
           console.log(`Skipping ${symbol} - insufficient data`);
           continue;
         }
 
         // Sort by timestamp to get proper order
-        const sortedPrices = (prices as any[]).sort((a, b) => 
-          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        const sortedPrices = prices.sort((a: any, b: any) => 
+          new Date(b.created_at || b.timestamp).getTime() - new Date(a.created_at || a.timestamp).getTime()
         );
         
         const latestData = sortedPrices[0];
         const currentPrice = parseFloat(latestData.price.toString());
         
-        // For signal generation, we'll use a simple momentum-based approach
+        console.log(`${symbol}: Current price ${currentPrice} from data:`, latestData);
+
+        if (isNaN(currentPrice) || currentPrice <= 0) {
+          console.log(`Skipping ${symbol} - invalid price: ${currentPrice}`);
+          continue;
+        }
+
+        // For signal generation, use a simple momentum-based approach
         let signalType = 'BUY';
         let trend = 'bullish';
         
         // If we have multiple data points, calculate trend
         if (sortedPrices.length > 1) {
           const previousPrice = parseFloat(sortedPrices[1].price.toString());
-          const priceChange = currentPrice - previousPrice;
-          trend = priceChange > 0 ? 'bullish' : 'bearish';
-          signalType = trend === 'bullish' ? 'BUY' : 'SELL';
+          if (!isNaN(previousPrice) && previousPrice > 0) {
+            const priceChange = currentPrice - previousPrice;
+            trend = priceChange > 0 ? 'bullish' : 'bearish';
+            signalType = trend === 'bullish' ? 'BUY' : 'SELL';
+          }
         }
         
         // Add some randomization to make signals more realistic
@@ -118,10 +125,10 @@ serve(async (req) => {
         const baseConfidence = 75 + (Math.random() * 20); // 75-95%
         const confidence = Math.min(95, Math.max(70, baseConfidence));
         
-        console.log(`${symbol}: trend=${trend}, confidence=${confidence.toFixed(1)}`);
+        console.log(`${symbol}: trend=${trend}, confidence=${confidence.toFixed(1)}, signal=${signalType}`);
 
         // Use OpenAI for analysis if available
-        let analysis = `Technical analysis suggests a ${trend} trend for ${symbol}. Current price action indicates potential for ${signalType.toLowerCase()} opportunity.`;
+        let analysis = `Technical analysis suggests a ${trend} trend for ${symbol}. Current price action at ${currentPrice} indicates potential for ${signalType.toLowerCase()} opportunity.`;
         
         if (openAIApiKey) {
           try {
@@ -162,12 +169,12 @@ serve(async (req) => {
         const stopLossDistance = signalType === 'BUY' ? -30 * pipValue : 30 * pipValue;
         const takeProfitDistance = signalType === 'BUY' ? 50 * pipValue : -50 * pipValue;
         
-        const stopLoss = currentPrice + stopLossDistance;
-        const takeProfit1 = currentPrice + takeProfitDistance;
-        const takeProfit2 = currentPrice + (takeProfitDistance * 1.5);
-        const takeProfit3 = currentPrice + (takeProfitDistance * 2);
+        const stopLoss = parseFloat((currentPrice + stopLossDistance).toFixed(5));
+        const takeProfit1 = parseFloat((currentPrice + takeProfitDistance).toFixed(5));
+        const takeProfit2 = parseFloat((currentPrice + (takeProfitDistance * 1.5)).toFixed(5));
+        const takeProfit3 = parseFloat((currentPrice + (takeProfitDistance * 2)).toFixed(5));
 
-        console.log(`${symbol}: Creating signal - ${signalType} at ${currentPrice}`);
+        console.log(`${symbol}: Creating signal - ${signalType} at ${currentPrice}, SL: ${stopLoss}, TP1: ${takeProfit1}`);
 
         // Insert the signal
         const { data: signal, error: signalError } = await supabase
@@ -225,11 +232,23 @@ serve(async (req) => {
 
     console.log(`Generated ${signalsGenerated.length} signals for symbols:`, signalsGenerated);
 
+    if (signalsGenerated.length === 0) {
+      return new Response(
+        JSON.stringify({ 
+          error: 'No signals could be generated from available market data',
+          availableSymbols: symbols,
+          marketDataCount: marketData.length
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true, 
         message: `Generated ${signalsGenerated.length} signals successfully`,
-        symbols: signalsGenerated 
+        symbols: signalsGenerated,
+        totalMarketData: marketData.length
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -237,7 +256,10 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error in generate-signals function:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        stack: error.stack
+      }),
       {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
