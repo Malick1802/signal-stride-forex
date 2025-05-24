@@ -4,7 +4,6 @@ import { useTradingSignals } from '@/hooks/useTradingSignals';
 import SignalStats from './SignalStats';
 import SignalCard from './SignalCard';
 import ErrorDisplay from './ErrorDisplay';
-import TradingChart from './TradingChart';
 
 const TradingSignals = () => {
   const {
@@ -20,19 +19,10 @@ const TradingSignals = () => {
 
   // Get available pairs from signals
   const availablePairs = Array.from(new Set(signals.map(signal => signal.pair))).filter(Boolean);
-  const defaultPair = availablePairs.length > 0 ? availablePairs[0] : 'EUR/USD';
-  
-  const [selectedPair, setSelectedPair] = useState(defaultPair);
-
-  // Update selected pair when signals change
-  React.useEffect(() => {
-    if (availablePairs.length > 0 && !availablePairs.includes(selectedPair)) {
-      setSelectedPair(availablePairs[0]);
-    }
-  }, [availablePairs, selectedPair]);
+  const [selectedPair, setSelectedPair] = useState('All');
 
   // Filter signals for selected pair
-  const filteredSignals = selectedPair ? signals.filter(signal => signal.pair === selectedPair) : signals;
+  const filteredSignals = selectedPair === 'All' ? signals : signals.filter(signal => signal.pair === selectedPair);
 
   if (loading && signals.length === 0) {
     return (
@@ -41,13 +31,6 @@ const TradingSignals = () => {
       </div>
     );
   }
-
-  // All major currency pairs for the chart
-  const allMajorPairs = [
-    'EUR/USD', 'GBP/USD', 'USD/JPY', 'AUD/USD', 'USD/CAD',
-    'EUR/GBP', 'EUR/JPY', 'GBP/JPY', 'AUD/JPY', 'USD/CHF',
-    'EUR/CHF', 'GBP/CHF', 'AUD/CHF', 'CAD/CHF', 'CHF/JPY'
-  ];
 
   return (
     <div className="space-y-6">
@@ -61,68 +44,60 @@ const TradingSignals = () => {
       {/* Error Debug Information */}
       <ErrorDisplay lastGenerationError={lastGenerationError} />
 
-      {/* Trading Chart */}
-      <TradingChart 
-        selectedPair={selectedPair}
-        onPairChange={setSelectedPair}
-        availablePairs={allMajorPairs}
-      />
-
-      {/* Signals for Selected Pair */}
-      {selectedPair && (
+      {/* Pair Filter */}
+      {availablePairs.length > 0 && (
         <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
-          <h3 className="text-white text-lg font-semibold mb-4">
-            Signals for {selectedPair} ({filteredSignals.length})
-          </h3>
-          
-          {filteredSignals.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredSignals.map(signal => (
-                <SignalCard
-                  key={signal.id}
-                  signal={signal}
-                  analysis={analysis}
-                  analyzingSignal={analyzingSignal}
-                  onGetAIAnalysis={getAIAnalysis}
-                />
+          <div className="flex items-center space-x-4">
+            <span className="text-white text-sm font-medium">Filter by pair:</span>
+            <select
+              value={selectedPair}
+              onChange={(e) => setSelectedPair(e.target.value)}
+              className="bg-white/10 border border-white/20 rounded px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="All" className="bg-gray-800 text-white">All Pairs ({signals.length})</option>
+              {availablePairs.map(pair => (
+                <option key={pair} value={pair} className="bg-gray-800 text-white">
+                  {pair} ({signals.filter(s => s.pair === pair).length})
+                </option>
               ))}
-            </div>
-          ) : (
-            <div className="text-center py-8">
-              <div className="text-gray-400">No signals available for {selectedPair}</div>
-            </div>
-          )}
+            </select>
+          </div>
         </div>
       )}
 
-      {/* All Signals Grid */}
+      {/* Active Signals Grid */}
       <div>
-        <h3 className="text-white text-lg font-semibold mb-4">All Active Signals</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {signals.map(signal => (
-            <SignalCard
-              key={signal.id}
-              signal={signal}
-              analysis={analysis}
-              analyzingSignal={analyzingSignal}
-              onGetAIAnalysis={getAIAnalysis}
-            />
-          ))}
-        </div>
+        <h3 className="text-white text-lg font-semibold mb-4">
+          {selectedPair === 'All' ? 'All Active Signals' : `${selectedPair} Signals`} ({filteredSignals.length})
+        </h3>
+        
+        {filteredSignals.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredSignals.map(signal => (
+              <SignalCard
+                key={signal.id}
+                signal={signal}
+                analysis={analysis}
+                analyzingSignal={analyzingSignal}
+                onGetAIAnalysis={getAIAnalysis}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-8">
+            <div className="text-gray-400 mb-4">
+              {selectedPair === 'All' ? 'No active signals available' : `No signals available for ${selectedPair}`}
+            </div>
+            <button
+              onClick={generateSignals}
+              disabled={isGenerating}
+              className="px-6 py-2 bg-emerald-500/20 text-emerald-400 rounded hover:bg-emerald-500/30 transition-colors disabled:opacity-50"
+            >
+              {isGenerating ? 'Generating...' : 'Generate Signals'}
+            </button>
+          </div>
+        )}
       </div>
-
-      {signals.length === 0 && !loading && (
-        <div className="text-center py-12">
-          <div className="text-gray-400 mb-4">No active signals available</div>
-          <button
-            onClick={generateSignals}
-            disabled={isGenerating}
-            className="px-6 py-2 bg-emerald-500/20 text-emerald-400 rounded hover:bg-emerald-500/30 transition-colors disabled:opacity-50"
-          >
-            {isGenerating ? 'Generating...' : 'Generate Signals'}
-          </button>
-        </div>
-      )}
     </div>
   );
 };
