@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, Clock, Target, Shield } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, ResponsiveContainer } from 'recharts';
 
 const TradingSignals = () => {
   const [signals, setSignals] = useState([]);
@@ -9,19 +10,28 @@ const TradingSignals = () => {
   useEffect(() => {
     const generateSignals = () => {
       const pairs = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'NZDUSD'];
-      const mockSignals = pairs.map((pair, index) => ({
-        id: index + 1,
-        pair,
-        type: Math.random() > 0.5 ? 'BUY' : 'SELL',
-        entryPrice: (Math.random() * 2 + 0.5).toFixed(5),
-        stopLoss: (Math.random() * 2 + 0.5).toFixed(5),
-        takeProfit1: (Math.random() * 2 + 0.5).toFixed(5),
-        takeProfit2: (Math.random() * 2 + 0.5).toFixed(5),
-        takeProfit3: (Math.random() * 2 + 0.5).toFixed(5),
-        confidence: Math.floor(Math.random() * 20 + 80),
-        timestamp: new Date(Date.now() - Math.random() * 3600000).toISOString(),
-        status: Math.random() > 0.3 ? 'active' : 'hit_tp'
-      }));
+      const mockSignals = pairs.map((pair, index) => {
+        // Generate mock chart data for each signal
+        const chartData = Array.from({ length: 24 }, (_, i) => ({
+          time: i,
+          price: Math.random() * 0.02 + 1.0850 + (Math.sin(i / 4) * 0.01)
+        }));
+
+        return {
+          id: index + 1,
+          pair,
+          type: Math.random() > 0.5 ? 'BUY' : 'SELL',
+          entryPrice: (Math.random() * 2 + 0.5).toFixed(5),
+          stopLoss: (Math.random() * 2 + 0.5).toFixed(5),
+          takeProfit1: (Math.random() * 2 + 0.5).toFixed(5),
+          takeProfit2: (Math.random() * 2 + 0.5).toFixed(5),
+          takeProfit3: (Math.random() * 2 + 0.5).toFixed(5),
+          confidence: Math.floor(Math.random() * 20 + 80),
+          timestamp: new Date(Date.now() - Math.random() * 3600000).toISOString(),
+          status: Math.random() > 0.3 ? 'active' : 'hit_tp',
+          chartData
+        };
+      });
       setSignals(mockSignals);
     };
 
@@ -53,7 +63,7 @@ const TradingSignals = () => {
       </div>
 
       {/* Signals Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {signals.map(signal => (
           <div key={signal.id} className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 overflow-hidden">
             {/* Header */}
@@ -87,6 +97,23 @@ const TradingSignals = () => {
                   <span className="text-yellow-400 text-sm font-medium">{signal.confidence}%</span>
                 </div>
               </div>
+            </div>
+
+            {/* Mini Chart */}
+            <div className="h-32 p-4">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={signal.chartData}>
+                  <XAxis dataKey="time" hide />
+                  <YAxis hide />
+                  <Line 
+                    type="monotone" 
+                    dataKey="price" 
+                    stroke={signal.type === 'BUY' ? '#10b981' : '#ef4444'} 
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
             </div>
 
             {/* Signal Details */}
