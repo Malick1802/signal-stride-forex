@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, Clock, Target, Shield, Brain, RefreshCw, AlertCircle } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, ResponsiveContainer } from 'recharts';
@@ -19,21 +18,24 @@ const TradingSignals = () => {
     try {
       console.log('Fetching trading signals...');
       
+      // First, let's check what's actually in the trading_signals table
+      const { data: allSignals, error: debugError } = await supabase
+        .from('trading_signals')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      console.log('Debug - All signals in table:', { allSignals, debugError });
+
+      // Now let's try the main query without the ai_analysis join first
       const { data, error } = await supabase
         .from('trading_signals')
-        .select(`
-          *,
-          ai_analysis (
-            analysis_text,
-            confidence_score,
-            market_conditions
-          )
-        `)
+        .select('*')
         .eq('status', 'active')
         .order('created_at', { ascending: false })
         .limit(20);
 
-      console.log('Query result:', { data, error });
+      console.log('Main query result:', { data, error });
 
       if (error) {
         console.error('Error fetching signals:', error);
@@ -62,7 +64,6 @@ const TradingSignals = () => {
           timestamp: signal.created_at,
           status: signal.status,
           analysisText: signal.analysis_text,
-          aiAnalysis: signal.ai_analysis?.[0] || null,
           // Generate mock chart data for now
           chartData: Array.from({ length: 24 }, (_, i) => ({
             time: i,
