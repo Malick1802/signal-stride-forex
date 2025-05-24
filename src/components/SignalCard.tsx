@@ -1,9 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Clock, Shield, Brain, ChevronDown, ChevronUp } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, Shield, Brain, ChevronDown, ChevronUp, Copy, ExternalLink } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 
 interface PriceData {
@@ -33,11 +34,12 @@ interface SignalCardProps {
   onGetAIAnalysis: (signalId: string) => void;
 }
 
-const SignalCard = ({ signal, analysis, analyzingSignal, onGetAIAnalysis }: SignalCardProps) => {
+const SignalCard = ({ signal, analysis }: SignalCardProps) => {
   const [priceData, setPriceData] = useState<PriceData[]>([]);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
   const [isMarketOpen, setIsMarketOpen] = useState(false);
+  const { toast } = useToast();
 
   // Check if forex market is currently open
   const checkMarketHours = () => {
@@ -111,6 +113,37 @@ const SignalCard = ({ signal, analysis, analyzingSignal, onGetAIAnalysis }: Sign
 
     setPriceData(data);
     setCurrentPrice(data[data.length - 1]?.price || basePrice);
+  };
+
+  // Copy price to clipboard
+  const copyToClipboard = async (price: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(price);
+      toast({
+        title: "Copied!",
+        description: `${label} (${price}) copied to clipboard`,
+      });
+    } catch (error) {
+      console.error('Failed to copy:', error);
+      toast({
+        title: "Copy Failed",
+        description: "Unable to copy to clipboard",
+        variant: "destructive"
+      });
+    }
+  };
+
+  // Open MetaTrader
+  const openMetaTrader = () => {
+    // Try to open MetaTrader using the mt4:// protocol
+    const metaTraderUrl = `mt4://trade?symbol=${signal.pair}&action=${signal.type === 'BUY' ? 'buy' : 'sell'}`;
+    window.open(metaTraderUrl, '_blank');
+    
+    // Show toast with instructions
+    toast({
+      title: "Opening MetaTrader",
+      description: "If MetaTrader doesn't open automatically, please open it manually and search for " + signal.pair,
+    });
   };
 
   // Initialize with real market data
@@ -284,85 +317,136 @@ const SignalCard = ({ signal, analysis, analyzingSignal, onGetAIAnalysis }: Sign
       <div className="p-4 space-y-3">
         <div className="flex justify-between items-center">
           <span className="text-gray-400">Entry Price</span>
-          <span className="text-white font-mono">{signal.entryPrice}</span>
+          <div className="flex items-center space-x-2">
+            <span className="text-white font-mono">{signal.entryPrice}</span>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => copyToClipboard(signal.entryPrice, 'Entry Price')}
+              className="h-6 w-6 p-0 text-gray-400 hover:text-white"
+            >
+              <Copy className="h-3 w-3" />
+            </Button>
+          </div>
         </div>
         
         <div className="flex justify-between items-center">
           <span className="text-gray-400">Stop Loss</span>
-          <span className="text-red-400 font-mono">{signal.stopLoss}</span>
+          <div className="flex items-center space-x-2">
+            <span className="text-red-400 font-mono">{signal.stopLoss}</span>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => copyToClipboard(signal.stopLoss, 'Stop Loss')}
+              className="h-6 w-6 p-0 text-gray-400 hover:text-white"
+            >
+              <Copy className="h-3 w-3" />
+            </Button>
+          </div>
         </div>
 
         <div className="space-y-2">
           <div className="flex justify-between items-center">
             <span className="text-gray-400">Target 1</span>
-            <span className="text-emerald-400 font-mono">{signal.takeProfit1}</span>
+            <div className="flex items-center space-x-2">
+              <span className="text-emerald-400 font-mono">{signal.takeProfit1}</span>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => copyToClipboard(signal.takeProfit1, 'Target 1')}
+                className="h-6 w-6 p-0 text-gray-400 hover:text-white"
+              >
+                <Copy className="h-3 w-3" />
+              </Button>
+            </div>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-gray-400">Target 2</span>
-            <span className="text-emerald-400 font-mono">{signal.takeProfit2}</span>
+            <div className="flex items-center space-x-2">
+              <span className="text-emerald-400 font-mono">{signal.takeProfit2}</span>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => copyToClipboard(signal.takeProfit2, 'Target 2')}
+                className="h-6 w-6 p-0 text-gray-400 hover:text-white"
+              >
+                <Copy className="h-3 w-3" />
+              </Button>
+            </div>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-gray-400">Target 3</span>
-            <span className="text-emerald-400 font-mono">{signal.takeProfit3}</span>
+            <div className="flex items-center space-x-2">
+              <span className="text-emerald-400 font-mono">{signal.takeProfit3}</span>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => copyToClipboard(signal.takeProfit3, 'Target 3')}
+                className="h-6 w-6 p-0 text-gray-400 hover:text-white"
+              >
+                <Copy className="h-3 w-3" />
+              </Button>
+            </div>
           </div>
         </div>
 
         {/* AI Analysis Section with Collapsible */}
-        <Collapsible open={isAnalysisOpen} onOpenChange={setIsAnalysisOpen}>
-          <CollapsibleTrigger asChild>
-            <button className="w-full pt-3 border-t border-white/10">
-              <div className="flex items-center justify-between text-sm">
-                <div className="flex items-center space-x-2">
-                  <Brain className="h-4 w-4 text-blue-400" />
-                  <span className="text-blue-400">AI Analysis</span>
+        {(signal.analysisText || analysis[signal.id]) && (
+          <Collapsible open={isAnalysisOpen} onOpenChange={setIsAnalysisOpen}>
+            <CollapsibleTrigger asChild>
+              <button className="w-full pt-3 border-t border-white/10">
+                <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center space-x-2">
+                    <Brain className="h-4 w-4 text-blue-400" />
+                    <span className="text-blue-400">AI Analysis</span>
+                  </div>
+                  {isAnalysisOpen ? (
+                    <ChevronUp className="h-4 w-4 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-gray-400" />
+                  )}
                 </div>
-                {isAnalysisOpen ? (
-                  <ChevronUp className="h-4 w-4 text-gray-400" />
-                ) : (
-                  <ChevronDown className="h-4 w-4 text-gray-400" />
-                )}
-              </div>
-            </button>
-          </CollapsibleTrigger>
-          
-          <CollapsibleContent className="pt-3">
-            {signal.analysisText && (
-              <div className="mb-3">
-                <div className="text-gray-400 text-xs mb-2">Quick Analysis:</div>
-                <div className="text-white text-xs bg-black/20 rounded p-2">
-                  {signal.analysisText}
+              </button>
+            </CollapsibleTrigger>
+            
+            <CollapsibleContent className="pt-3">
+              {signal.analysisText && (
+                <div className="mb-3">
+                  <div className="text-gray-400 text-xs mb-2">Quick Analysis:</div>
+                  <div className="text-white text-xs bg-black/20 rounded p-2">
+                    {signal.analysisText}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-            {analysis[signal.id] && (
-              <div>
-                <div className="text-blue-400 text-xs mb-2">Detailed Analysis:</div>
-                <div className="text-white text-xs bg-blue-500/10 rounded p-2 max-h-40 overflow-y-auto">
-                  {analysis[signal.id]}
+              {analysis[signal.id] && (
+                <div>
+                  <div className="text-blue-400 text-xs mb-2">Detailed Analysis:</div>
+                  <div className="text-white text-xs bg-blue-500/10 rounded p-2 max-h-40 overflow-y-auto">
+                    {analysis[signal.id]}
+                  </div>
                 </div>
-              </div>
-            )}
-          </CollapsibleContent>
-        </Collapsible>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
+        )}
 
         <div className="pt-3 border-t border-white/10">
-          <div className="flex items-center justify-between text-sm">
+          <div className="flex items-center justify-between text-sm mb-3">
             <div className="flex items-center space-x-1 text-gray-400">
               <Clock className="h-4 w-4" />
               <span>{new Date(signal.timestamp).toLocaleTimeString()}</span>
             </div>
-            <button
-              onClick={() => onGetAIAnalysis(signal.id)}
-              disabled={analyzingSignal === signal.id}
-              className="flex items-center space-x-1 px-3 py-1 bg-blue-500/20 text-blue-400 rounded hover:bg-blue-500/30 transition-colors disabled:opacity-50"
-            >
-              <Brain className={`h-4 w-4 ${analyzingSignal === signal.id ? 'animate-pulse' : ''}`} />
-              <span className="text-xs">
-                {analyzingSignal === signal.id ? 'Analyzing...' : 'Refresh Analysis'}
-              </span>
-            </button>
           </div>
+          
+          {/* Trade Now Button */}
+          <Button
+            onClick={openMetaTrader}
+            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Trade Now in MetaTrader
+          </Button>
         </div>
       </div>
     </div>
