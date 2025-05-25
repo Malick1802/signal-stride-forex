@@ -20,7 +20,17 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log('Starting automated signal generation...');
+    // Check if this is a manual test request
+    const requestBody = await req.text();
+    let isManualTest = false;
+    try {
+      const body = requestBody ? JSON.parse(requestBody) : {};
+      isManualTest = body.manualTest === true;
+    } catch {
+      // If no body or invalid JSON, treat as regular request
+    }
+
+    console.log('Starting signal generation...', isManualTest ? '(Manual Test Mode)' : '(Automated)');
 
     // Check if forex markets are open (Sunday 22:00 UTC to Friday 22:00 UTC)
     const now = new Date();
@@ -42,7 +52,8 @@ serve(async (req) => {
 
     console.log(`Market status: ${isMarketOpen ? 'OPEN' : 'CLOSED'} (Day: ${utcDay}, Hour: ${utcHour})`);
 
-    if (!isMarketOpen) {
+    // Allow manual testing even when markets are closed
+    if (!isMarketOpen && !isManualTest) {
       console.log('Markets closed, skipping signal generation');
       return new Response(
         JSON.stringify({ 
@@ -50,10 +61,15 @@ serve(async (req) => {
           marketOpen: false,
           currentTime: now.toISOString(),
           currentDay: utcDay,
-          currentHour: utcHour
+          currentHour: utcHour,
+          suggestion: 'Use manual test mode to generate signals for testing'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+    }
+
+    if (isManualTest) {
+      console.log('Manual test mode enabled - generating signals regardless of market hours');
     }
 
     // Get recent market data (last 2 hours)
@@ -156,8 +172,9 @@ serve(async (req) => {
           confidence = Math.max(70, confidence - (volatility * 1000));
         }
 
-        // Only generate high-confidence signals (85%+)
-        if (confidence < 85) {
+        // Generate high-confidence signals (75%+ for testing, 85%+ for live)
+        const minConfidence = isManualTest ? 75 : 85;
+        if (confidence < minConfidence) {
           console.log(`Skipping ${symbol} - confidence too low: ${confidence}%`);
           continue;
         }
@@ -204,7 +221,7 @@ serve(async (req) => {
             analysis = `Technical ${signalType} signal for ${symbol} at ${currentPrice}. Strong momentum detected with ${confidence}% confidence based on recent price action and market conditions.`;
           }
         } else {
-          analysis = `Automated ${signalType} signal for ${symbol} at ${currentPrice}. High-confidence setup based on technical analysis and momentum indicators.`;
+          analysis = `${isManualTest ? 'Test' : 'Automated'} ${signalType} signal for ${symbol} at ${currentPrice}. High-confidence setup based on technical analysis and momentum indicators.`;
         }
 
         // Calculate precise stop loss and take profit levels
@@ -261,13 +278,14 @@ serve(async (req) => {
                 currentPrice,
                 signalType,
                 marketOpen: isMarketOpen,
-                timestamp: now.toISOString()
+                timestamp: now.toISOString(),
+                testMode: isManualTest
               }
             });
         }
 
         signalsGenerated.push(symbol);
-        console.log(`Generated high-confidence signal for ${symbol} (${confidence}%)`);
+        console.log(`Generated ${isManualTest ? 'test' : 'live'} signal for ${symbol} (${confidence}%)`);
         
       } catch (symbolError) {
         console.error(`Error processing ${symbol}:`, symbolError);
@@ -275,15 +293,15 @@ serve(async (req) => {
       }
     }
 
-    console.log(`Automated signal generation complete: ${signalsGenerated.length} signals`);
+    console.log(`Signal generation complete: ${signalsGenerated.length} signals`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: `Generated ${signalsGenerated.length} high-confidence signals`,
+        message: `Generated ${signalsGenerated.length} ${isManualTest ? 'test' : 'live'} signals`,
         signals: signalsGenerated,
         marketOpen: isMarketOpen,
-        automated: true
+        testMode: isManualTest
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

@@ -57,8 +57,10 @@ const TradingSignals = () => {
       // Wait a moment for market data to be processed
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Then generate signals
-      const { data: signalResponse, error: signalError } = await supabase.functions.invoke('generate-signals');
+      // Then generate signals with manual test flag
+      const { data: signalResponse, error: signalError } = await supabase.functions.invoke('generate-signals', {
+        body: { manualTest: true }
+      });
 
       if (signalError) {
         console.error('Signal generation error:', signalError);
@@ -74,8 +76,8 @@ const TradingSignals = () => {
       
       if (signalResponse?.success) {
         toast({
-          title: "Signals Generated!",
-          description: `Successfully generated ${signalResponse.signals?.length || 0} new signals`,
+          title: "Test Signals Generated!",
+          description: `Successfully generated ${signalResponse.signals?.length || 0} test signals`,
         });
         
         // Refresh the signals list without page reload
@@ -180,7 +182,7 @@ const TradingSignals = () => {
             </Button>
           </div>
           <div className="text-sm text-gray-400">
-            🤖 Automated AI signals • Market hours: Mon-Fri 00:00-22:00 UTC
+            🧪 Test mode enabled • Generates signals regardless of market hours
           </div>
         </div>
       </div>
@@ -234,7 +236,7 @@ const TradingSignals = () => {
                 : `No signals available for ${selectedPair}`}
             </div>
             <div className="text-sm text-gray-500">
-              Automated signal generation runs every 30 minutes during forex market hours
+              Test mode allows signal generation regardless of market hours
             </div>
           </div>
         )}
