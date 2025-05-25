@@ -9,7 +9,7 @@ import SignalStats from './SignalStats';
 import SignalCard from './SignalCard';
 
 const TradingSignals = () => {
-  const { signals, loading, lastUpdate } = useTradingSignals();
+  const { signals, loading, lastUpdate, fetchSignals } = useTradingSignals();
   const { toast } = useToast();
   
   // AI Analysis state
@@ -78,8 +78,8 @@ const TradingSignals = () => {
           description: `Successfully generated ${signalResponse.signals?.length || 0} new signals`,
         });
         
-        // Refresh the signals list
-        window.location.reload();
+        // Refresh the signals list without page reload
+        await fetchSignals();
       } else {
         toast({
           title: "No New Signals",
