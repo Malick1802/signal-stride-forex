@@ -64,7 +64,7 @@ serve(async (req) => {
         .from('live_market_data')
         .delete()
         .eq('symbol', symbol)
-        .lt('created_at', new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()); // Keep last 2 hours
+        .lt('created_at', new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()); // Keep last 4 hours
 
       if (deleteError) {
         console.error(`Error cleaning old data for ${symbol}:`, deleteError);
@@ -143,7 +143,7 @@ serve(async (req) => {
         // Use the last known price and add realistic movement
         baseRate = parseFloat(lastData.price.toString());
         const marketMovement = isMarketOpen ? 
-          (Math.random() - 0.5) * 0.0003 : // More movement during market hours
+          (Math.random() - 0.5) * 0.0005 : // More movement during market hours
           (Math.random() - 0.5) * 0.00005; // Minimal movement when closed
         baseRate += marketMovement;
       } else {
@@ -184,6 +184,8 @@ serve(async (req) => {
 
     // Insert market data into database with explicit error handling
     if (marketDataBatch.length > 0) {
+      console.log('Inserting market data batch:', marketDataBatch);
+      
       const { data: insertedData, error: insertError } = await supabase
         .from('live_market_data')
         .insert(marketDataBatch)
@@ -191,6 +193,7 @@ serve(async (req) => {
 
       if (insertError) {
         console.error('Error inserting market data:', insertError);
+        console.error('Failed batch data:', JSON.stringify(marketDataBatch, null, 2));
         return new Response(
           JSON.stringify({ error: 'Failed to insert market data', details: insertError.message }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -211,6 +214,9 @@ serve(async (req) => {
         console.log('Verification - Data in database:', verifyData.map(d => `${d.symbol}: ${d.price}`));
       } else {
         console.log('Warning: No data found during verification');
+        if (verifyError) {
+          console.error('Verification error:', verifyError);
+        }
       }
     }
 

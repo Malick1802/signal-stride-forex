@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, Clock, Shield, Brain, ChevronDown, ChevronUp, Copy, ExternalLink, Check } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -62,17 +63,19 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
     try {
       console.log(`Fetching centralized market data for signal card: ${signal.pair}...`);
       
-      // Get the latest centralized market data for this pair with more recent timestamp
+      // Get the latest centralized market data for this pair with more recent timestamp (last 2 hours)
       const { data: marketData, error } = await supabase
         .from('live_market_data')
         .select('*')
         .eq('symbol', signal.pair)
-        .gte('created_at', new Date(Date.now() - 60 * 60 * 1000).toISOString()) // Last hour only
+        .gte('created_at', new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()) // Last 2 hours
         .order('created_at', { ascending: false })
         .limit(50);
 
       if (error) {
         console.error('Error fetching centralized market data:', error);
+        setDataSource('error');
+        return;
       }
 
       if (marketData && marketData.length > 0) {
@@ -93,21 +96,23 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
 
         setPriceData(transformedData);
       } else {
-        console.log(`No centralized market data found for ${signal.pair}, using signal entry price`);
+        console.log(`No recent centralized market data found for ${signal.pair}, generating simulation`);
         setDataSource('signal_price');
         
-        // Use the signal's entry price as the base and create minimal movement around it
+        // Use the signal's entry price as the base and create realistic movement around it
         const basePrice = parseFloat(signal.entryPrice);
         setCurrentPrice(basePrice);
         
-        // Generate minimal chart data around the signal price with some movement
+        // Generate realistic chart data around the signal price with some movement
         const now = Date.now();
         const data: PriceData[] = [];
         
         for (let i = 49; i >= 0; i--) {
           const timestamp = now - (i * 60000);
-          const minimalMovement = (Math.random() - 0.5) * 0.00002; // Very small movement
-          const price = basePrice + minimalMovement;
+          // More realistic price movement based on market conditions
+          const volatility = signal.pair.includes('JPY') ? 0.05 : 0.00005;
+          const movement = (Math.random() - 0.5) * volatility;
+          const price = basePrice + movement;
           
           data.push({
             timestamp,
@@ -122,6 +127,16 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
     } catch (error) {
       console.error('Error fetching centralized market data:', error);
       setDataSource('error');
+      
+      // Fallback to signal price if error
+      const basePrice = parseFloat(signal.entryPrice);
+      setCurrentPrice(basePrice);
+      setPriceData([{
+        timestamp: Date.now(),
+        time: new Date().toLocaleTimeString(),
+        price: basePrice,
+        volume: 0
+      }]);
     }
   };
 
@@ -198,7 +213,7 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
       const currentlyOpen = checkMarketHours();
       setIsMarketOpen(currentlyOpen);
       fetchCentralizedMarketData();
-    }, 15000); // Update every 15 seconds for more responsive data
+    }, 10000); // Update every 10 seconds for more responsive data
 
     return () => {
       supabase.removeChannel(channel);
