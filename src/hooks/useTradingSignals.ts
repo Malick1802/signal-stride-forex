@@ -57,8 +57,8 @@ export const useTradingSignals = () => {
         
         // Get current market prices for chart data
         const symbols = activeSignals
-          .map(signal => signal?.symbol)
-          .filter(symbol => symbol && typeof symbol === 'string');
+          .filter(signal => signal && signal.symbol && typeof signal.symbol === 'string')
+          .map(signal => signal.symbol);
           
         const { data: marketData } = await supabase
           .from('live_market_data')
@@ -69,14 +69,32 @@ export const useTradingSignals = () => {
         const transformedSignals = activeSignals
           .filter(signal => {
             // Strict validation to prevent null errors
-            return signal && 
-                   signal.id && 
-                   signal.symbol && 
-                   typeof signal.symbol === 'string' &&
-                   signal.type &&
-                   typeof signal.type === 'string' &&
-                   signal.price !== null &&
-                   signal.price !== undefined;
+            if (!signal || typeof signal !== 'object') {
+              console.warn('Invalid signal object:', signal);
+              return false;
+            }
+            
+            if (!signal.id || typeof signal.id !== 'string') {
+              console.warn('Invalid signal ID:', signal);
+              return false;
+            }
+            
+            if (!signal.symbol || typeof signal.symbol !== 'string') {
+              console.warn('Invalid signal symbol:', signal);
+              return false;
+            }
+            
+            if (!signal.type || typeof signal.type !== 'string') {
+              console.warn('Invalid signal type:', signal);
+              return false;
+            }
+            
+            if (signal.price === null || signal.price === undefined) {
+              console.warn('Invalid signal price:', signal);
+              return false;
+            }
+            
+            return true;
           })
           .map(signal => {
             try {
@@ -140,11 +158,10 @@ export const useTradingSignals = () => {
       console.error('Error fetching signals:', error);
       toast({
         title: "Error",
-        description: "Failed to fetch trading signals. Retrying...",
+        description: "Failed to fetch trading signals. Please refresh the page.",
         variant: "destructive"
       });
-      // Retry after 5 seconds
-      setTimeout(fetchSignals, 5000);
+      setSignals([]);
     } finally {
       setLoading(false);
     }
@@ -155,14 +172,18 @@ export const useTradingSignals = () => {
     try {
       console.log('Triggering automatic signal generation...');
       
-      // First ensure we have fresh market data
-      const { error: marketDataError } = await supabase.functions.invoke('fetch-market-data');
-      
-      if (marketDataError) {
-        console.warn('Market data fetch had issues:', marketDataError);
+      // First ensure we have fresh market data with better error handling
+      try {
+        const { error: marketDataError } = await supabase.functions.invoke('fetch-market-data');
+        if (marketDataError) {
+          console.warn('Market data fetch had issues:', marketDataError);
+          // Continue with signal generation even if market data fetch fails
+        }
+      } catch (marketError) {
+        console.warn('Market data fetch failed, continuing with signal generation:', marketError);
       }
       
-      // Then trigger signal generation with confidence threshold
+      // Then trigger signal generation
       const { data, error } = await supabase.functions.invoke('generate-signals');
       
       if (error) {
