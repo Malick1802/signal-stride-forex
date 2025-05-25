@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -63,7 +64,7 @@ serve(async (req) => {
         .from('live_market_data')
         .delete()
         .eq('symbol', symbol)
-        .lt('created_at', new Date(Date.now() - 60 * 60 * 1000).toISOString()); // Keep last hour
+        .lt('created_at', new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()); // Keep last 2 hours
 
       if (deleteError) {
         console.error(`Error cleaning old data for ${symbol}:`, deleteError);
@@ -179,12 +180,14 @@ serve(async (req) => {
     }
 
     console.log(`Generated ${marketDataBatch.length} total market data records`);
+    console.log('Market data symbols:', marketDataBatch.map(item => item.symbol));
 
-    // Insert market data into database
+    // Insert market data into database with explicit error handling
     if (marketDataBatch.length > 0) {
-      const { error: insertError } = await supabase
+      const { data: insertedData, error: insertError } = await supabase
         .from('live_market_data')
-        .insert(marketDataBatch);
+        .insert(marketDataBatch)
+        .select();
 
       if (insertError) {
         console.error('Error inserting market data:', insertError);
@@ -194,7 +197,21 @@ serve(async (req) => {
         );
       }
 
-      console.log(`Successfully inserted ${marketDataBatch.length} market data records to database`);
+      console.log(`Successfully inserted ${insertedData?.length || marketDataBatch.length} market data records to database`);
+      
+      // Verify the data was actually inserted
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('live_market_data')
+        .select('symbol, price, created_at')
+        .in('symbol', activePairs)
+        .order('created_at', { ascending: false })
+        .limit(activePairs.length);
+
+      if (verifyData && verifyData.length > 0) {
+        console.log('Verification - Data in database:', verifyData.map(d => `${d.symbol}: ${d.price}`));
+      } else {
+        console.log('Warning: No data found during verification');
+      }
     }
 
     return new Response(
