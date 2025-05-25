@@ -56,49 +56,51 @@ export const useTradingSignals = () => {
         console.log(`Found ${activeSignals.length} active signals`);
         
         // Get current market prices for chart data
-        const symbols = activeSignals.map(signal => signal.symbol);
+        const symbols = activeSignals.map(signal => signal.symbol).filter(Boolean);
         const { data: marketData } = await supabase
           .from('live_market_data')
           .select('*')
           .in('symbol', symbols)
           .order('created_at', { ascending: false });
 
-        const transformedSignals = activeSignals.map(signal => {
-          // Get recent market data for this symbol for chart
-          const symbolMarketData = marketData?.filter(md => md.symbol === signal.symbol)
-            .slice(0, 24) || [];
-          
-          const currentMarketPrice = symbolMarketData[0]?.price;
-          const entryPrice = currentMarketPrice ? 
-            parseFloat(currentMarketPrice.toString()).toFixed(5) : 
-            parseFloat(signal.price.toString()).toFixed(5);
+        const transformedSignals = activeSignals
+          .filter(signal => signal && signal.id && signal.symbol) // Filter out null/invalid signals
+          .map(signal => {
+            // Get recent market data for this symbol for chart
+            const symbolMarketData = marketData?.filter(md => md && md.symbol === signal.symbol)
+              .slice(0, 24) || [];
+            
+            const currentMarketPrice = symbolMarketData[0]?.price;
+            const entryPrice = currentMarketPrice ? 
+              parseFloat(currentMarketPrice.toString()).toFixed(5) : 
+              parseFloat((signal.price || 0).toString()).toFixed(5);
 
-          const chartData = symbolMarketData.length > 0 ? 
-            symbolMarketData.reverse().map((md, i) => ({
-              time: i,
-              price: parseFloat(md.price.toString())
-            })) :
-            Array.from({ length: 24 }, (_, i) => ({
-              time: i,
-              price: parseFloat(signal.price.toString()) + (Math.sin(i / 4) * 0.0001)
-            }));
+            const chartData = symbolMarketData.length > 0 ? 
+              symbolMarketData.reverse().map((md, i) => ({
+                time: i,
+                price: parseFloat((md.price || 0).toString())
+              })) :
+              Array.from({ length: 24 }, (_, i) => ({
+                time: i,
+                price: parseFloat((signal.price || 0).toString()) + (Math.sin(i / 4) * 0.0001)
+              }));
 
-          return {
-            id: signal.id,
-            pair: signal.symbol || 'Unknown',
-            type: signal.type || 'BUY',
-            entryPrice: entryPrice,
-            stopLoss: signal.stop_loss ? parseFloat(signal.stop_loss.toString()).toFixed(5) : '0.00000',
-            takeProfit1: signal.take_profits?.[0] ? parseFloat(signal.take_profits[0].toString()).toFixed(5) : '0.00000',
-            takeProfit2: signal.take_profits?.[1] ? parseFloat(signal.take_profits[1].toString()).toFixed(5) : '0.00000',
-            takeProfit3: signal.take_profits?.[2] ? parseFloat(signal.take_profits[2].toString()).toFixed(5) : '0.00000',
-            confidence: Math.floor(signal.confidence || 0),
-            timestamp: signal.created_at || signal.timestamp,
-            status: signal.status || 'active',
-            analysisText: signal.analysis_text || signal.ai_analysis?.[0]?.analysis_text,
-            chartData: chartData
-          };
-        });
+            return {
+              id: signal.id,
+              pair: signal.symbol || 'Unknown',
+              type: signal.type || 'BUY',
+              entryPrice: entryPrice,
+              stopLoss: signal.stop_loss ? parseFloat(signal.stop_loss.toString()).toFixed(5) : '0.00000',
+              takeProfit1: signal.take_profits?.[0] ? parseFloat(signal.take_profits[0].toString()).toFixed(5) : '0.00000',
+              takeProfit2: signal.take_profits?.[1] ? parseFloat(signal.take_profits[1].toString()).toFixed(5) : '0.00000',
+              takeProfit3: signal.take_profits?.[2] ? parseFloat(signal.take_profits[2].toString()).toFixed(5) : '0.00000',
+              confidence: Math.floor(signal.confidence || 0),
+              timestamp: signal.created_at || signal.timestamp || new Date().toISOString(),
+              status: signal.status || 'active',
+              analysisText: signal.analysis_text || signal.ai_analysis?.[0]?.analysis_text,
+              chartData: chartData
+            };
+          });
 
         setSignals(transformedSignals);
         setLastUpdate(new Date().toLocaleTimeString());

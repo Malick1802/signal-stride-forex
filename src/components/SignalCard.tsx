@@ -42,6 +42,12 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
   const [isMarketOpen, setIsMarketOpen] = useState(false);
   const { toast } = useToast();
 
+  // Early return if signal is null or invalid
+  if (!signal || !signal.id || !signal.pair) {
+    console.warn('Invalid signal data received:', signal);
+    return null;
+  }
+
   // Check if forex market is currently open
   const checkMarketHours = () => {
     const now = new Date();
@@ -59,10 +65,10 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
 
   // Check if take profit levels are hit
   const isTakeProfitHit = (takeProfitPrice: string): boolean => {
-    if (!currentPrice) return false;
+    if (!currentPrice || !takeProfitPrice) return false;
     
     const tpPrice = parseFloat(takeProfitPrice);
-    const entryPrice = parseFloat(signal.entryPrice);
+    const entryPrice = parseFloat(signal.entryPrice || '0');
     
     if (signal.type === 'BUY') {
       // For BUY signals, TP is hit when current price >= TP price
@@ -92,12 +98,12 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
         const transformedData = marketData.reverse().map((item, index) => ({
           timestamp: new Date(item.created_at || item.timestamp).getTime(),
           time: new Date(item.created_at || item.timestamp).toLocaleTimeString(),
-          price: parseFloat(item.price.toString()),
+          price: parseFloat((item.price || 0).toString()),
           volume: Math.random() * 500000 // Volume data not available in current schema
         }));
 
         setPriceData(transformedData);
-        setCurrentPrice(transformedData[transformedData.length - 1]?.price || parseFloat(signal.entryPrice));
+        setCurrentPrice(transformedData[transformedData.length - 1]?.price || parseFloat(signal.entryPrice || '0'));
       } else {
         // Fallback to entry price if no market data
         generateFallbackData();
@@ -110,7 +116,7 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
 
   // Fallback data generation when real data is unavailable
   const generateFallbackData = () => {
-    const basePrice = parseFloat(signal.entryPrice);
+    const basePrice = parseFloat(signal.entryPrice || '0');
     const now = Date.now();
     const data: PriceData[] = [];
 
@@ -203,7 +209,7 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
     const current = priceData[priceData.length - 1]?.price || 0;
     const previous = priceData[0]?.price || 0;
     const change = current - previous;
-    const percentage = (change / previous) * 100;
+    const percentage = previous > 0 ? (change / previous) * 100 : 0;
     return { change, percentage };
   };
 
@@ -298,7 +304,7 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
               {/* Entry Price Line */}
               <Line
                 type="monotone"
-                dataKey={() => parseFloat(signal.entryPrice)}
+                dataKey={() => parseFloat(signal.entryPrice || '0')}
                 stroke="rgba(255,255,255,0.6)"
                 strokeWidth={1}
                 strokeDasharray="3 3"
@@ -308,7 +314,7 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
               {/* Stop Loss Line */}
               <Line
                 type="monotone"
-                dataKey={() => parseFloat(signal.stopLoss)}
+                dataKey={() => parseFloat(signal.stopLoss || '0')}
                 stroke="rgba(239,68,68,0.8)"
                 strokeWidth={1}
                 strokeDasharray="2 2"
@@ -318,7 +324,7 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
               {/* Take Profit Lines */}
               <Line
                 type="monotone"
-                dataKey={() => parseFloat(signal.takeProfit1)}
+                dataKey={() => parseFloat(signal.takeProfit1 || '0')}
                 stroke="rgba(16,185,129,0.6)"
                 strokeWidth={1}
                 strokeDasharray="1 1"
@@ -335,11 +341,11 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
         <div className="flex justify-between items-center">
           <span className="text-gray-400">Entry Price</span>
           <div className="flex items-center space-x-2">
-            <span className="text-white font-mono">{signal.entryPrice}</span>
+            <span className="text-white font-mono">{signal.entryPrice || '0.00000'}</span>
             <Button
               size="sm"
               variant="ghost"
-              onClick={() => copyToClipboard(signal.entryPrice, 'Entry Price')}
+              onClick={() => copyToClipboard(signal.entryPrice || '0.00000', 'Entry Price')}
               className="h-6 w-6 p-0 text-gray-400 hover:text-white"
             >
               <Copy className="h-3 w-3" />
@@ -350,11 +356,11 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
         <div className="flex justify-between items-center">
           <span className="text-gray-400">Stop Loss</span>
           <div className="flex items-center space-x-2">
-            <span className="text-red-400 font-mono">{signal.stopLoss}</span>
+            <span className="text-red-400 font-mono">{signal.stopLoss || '0.00000'}</span>
             <Button
               size="sm"
               variant="ghost"
-              onClick={() => copyToClipboard(signal.stopLoss, 'Stop Loss')}
+              onClick={() => copyToClipboard(signal.stopLoss || '0.00000', 'Stop Loss')}
               className="h-6 w-6 p-0 text-gray-400 hover:text-white"
             >
               <Copy className="h-3 w-3" />
@@ -366,14 +372,14 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
           <div className="flex justify-between items-center">
             <span className="text-gray-400">Target 1</span>
             <div className="flex items-center space-x-2">
-              <span className="text-emerald-400 font-mono">{signal.takeProfit1}</span>
+              <span className="text-emerald-400 font-mono">{signal.takeProfit1 || '0.00000'}</span>
               {isTakeProfitHit(signal.takeProfit1) && (
                 <Check className="h-4 w-4 text-emerald-400" />
               )}
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => copyToClipboard(signal.takeProfit1, 'Target 1')}
+                onClick={() => copyToClipboard(signal.takeProfit1 || '0.00000', 'Target 1')}
                 className="h-6 w-6 p-0 text-gray-400 hover:text-white"
               >
                 <Copy className="h-3 w-3" />
@@ -383,14 +389,14 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
           <div className="flex justify-between items-center">
             <span className="text-gray-400">Target 2</span>
             <div className="flex items-center space-x-2">
-              <span className="text-emerald-400 font-mono">{signal.takeProfit2}</span>
+              <span className="text-emerald-400 font-mono">{signal.takeProfit2 || '0.00000'}</span>
               {isTakeProfitHit(signal.takeProfit2) && (
                 <Check className="h-4 w-4 text-emerald-400" />
               )}
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => copyToClipboard(signal.takeProfit2, 'Target 2')}
+                onClick={() => copyToClipboard(signal.takeProfit2 || '0.00000', 'Target 2')}
                 className="h-6 w-6 p-0 text-gray-400 hover:text-white"
               >
                 <Copy className="h-3 w-3" />
@@ -400,14 +406,14 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
           <div className="flex justify-between items-center">
             <span className="text-gray-400">Target 3</span>
             <div className="flex items-center space-x-2">
-              <span className="text-emerald-400 font-mono">{signal.takeProfit3}</span>
+              <span className="text-emerald-400 font-mono">{signal.takeProfit3 || '0.00000'}</span>
               {isTakeProfitHit(signal.takeProfit3) && (
                 <Check className="h-4 w-4 text-emerald-400" />
               )}
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => copyToClipboard(signal.takeProfit3, 'Target 3')}
+                onClick={() => copyToClipboard(signal.takeProfit3 || '0.00000', 'Target 3')}
                 className="h-6 w-6 p-0 text-gray-400 hover:text-white"
               >
                 <Copy className="h-3 w-3" />
