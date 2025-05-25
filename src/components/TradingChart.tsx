@@ -19,6 +19,7 @@ interface TradingChartProps {
 
 const TradingChart = ({ selectedPair, onPairChange, availablePairs }: TradingChartProps) => {
   const [priceData, setPriceData] = useState<PriceData[]>([]);
+  const [isLive, setIsLive] = useState(true);
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [isMarketOpen, setIsMarketOpen] = useState(false);
 
@@ -36,147 +37,110 @@ const TradingChart = ({ selectedPair, onPairChange, availablePairs }: TradingCha
     return !marketClosed;
   };
 
-  // Fetch centralized market data from the same source as signals
-  const fetchCentralizedMarketData = async () => {
+  // Fetch real market data from database
+  const fetchRealMarketData = async () => {
     try {
-      console.log('Fetching centralized market data for chart:', selectedPair);
+      console.log('Fetching real market data for:', selectedPair);
       
-      // First try to get the latest signal for this pair to use its current price
-      const { data: latestSignal, error: signalError } = await supabase
-        .from('trading_signals')
-        .select('*')
-        .eq('symbol', selectedPair)
-        .eq('status', 'active')
-        .eq('is_centralized', true)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (signalError) {
-        console.error('Error fetching signal data:', signalError);
-      }
-
-      // Get market data from the same source as signals
       const { data: marketData, error } = await supabase
         .from('live_market_data')
         .select('*')
         .eq('symbol', selectedPair)
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(100);
 
       if (error) {
-        console.error('Error fetching centralized market data:', error);
+        console.error('Error fetching market data:', error);
         return;
       }
 
       if (marketData && marketData.length > 0) {
-        console.log(`Found ${marketData.length} centralized market data points for ${selectedPair}`);
+        console.log(`Found ${marketData.length} real data points for ${selectedPair}`);
         
         const transformedData = marketData.reverse().map((item, index) => ({
           timestamp: new Date(item.created_at || item.timestamp).getTime(),
           time: new Date(item.created_at || item.timestamp).toLocaleTimeString(),
           price: parseFloat(item.price.toString()),
-          volume: Math.random() * 1000000
+          volume: Math.random() * 1000000 // Volume not available in current schema
         }));
 
         setPriceData(transformedData);
-        
-        // Use the latest market price or signal price
-        const latestPrice = transformedData[transformedData.length - 1]?.price || 
-                           (latestSignal ? parseFloat(latestSignal.price.toString()) : null);
-        
-        if (latestPrice) {
-          setCurrentPrice(latestPrice);
-        }
+        setCurrentPrice(transformedData[transformedData.length - 1]?.price || null);
       } else {
-        console.log('No centralized market data found, using signal price as base');
-        
-        // If no market data but we have a signal, use the signal's price
-        if (latestSignal) {
-          const signalPrice = parseFloat(latestSignal.price.toString());
-          setCurrentPrice(signalPrice);
-          
-          // Generate minimal chart data around the signal price
-          const now = Date.now();
-          const data: PriceData[] = [];
-          
-          for (let i = 49; i >= 0; i--) {
-            const timestamp = now - (i * 60000);
-            const minimalMovement = (Math.random() - 0.5) * 0.00002; // Very small movement
-            const price = signalPrice + minimalMovement;
-            
-            data.push({
-              timestamp,
-              time: new Date(timestamp).toLocaleTimeString(),
-              price,
-              volume: Math.random() * 1000000
-            });
-          }
-          
-          setPriceData(data);
-        }
+        console.log('No real market data found, generating minimal fallback data');
+        generateMinimalFallbackData();
       }
     } catch (error) {
-      console.error('Error fetching centralized market data:', error);
+      console.error('Error fetching real market data:', error);
+      generateMinimalFallbackData();
     }
   };
 
-  // Real-time updates synchronized with signals
+  // Generate minimal fallback data when real data is unavailable
+  const generateMinimalFallbackData = () => {
+    const basePrice = getPairBasePrice(selectedPair);
+    const now = Date.now();
+    const data: PriceData[] = [];
+
+    // Generate very stable data when real data isn't available
+    for (let i = 99; i >= 0; i--) {
+      const timestamp = now - (i * 60000); // 1 minute intervals
+      const minimalVolatility = 0.000001; // Extremely small movement
+      const price = basePrice + (Math.random() - 0.5) * minimalVolatility;
+      
+      data.push({
+        timestamp,
+        time: new Date(timestamp).toLocaleTimeString(),
+        price,
+        volume: Math.random() * 1000000
+      });
+    }
+
+    setPriceData(data);
+    setCurrentPrice(data[data.length - 1]?.price || basePrice);
+  };
+
+  const getPairBasePrice = (pair: string): number => {
+    // These should match real market prices more closely
+    const basePrices: Record<string, number> = {
+      'EURUSD': 1.08500,
+      'GBPUSD': 1.26500,
+      'USDJPY': 148.500,
+      'AUDUSD': 0.67200,
+      'USDCAD': 1.35800,
+      'EURGBP': 0.85900,
+      'EURJPY': 161.200,
+      'GBPJPY': 187.800,
+      'AUDJPY': 99.850,
+      'USDCHF': 0.89200
+    };
+    return basePrices[pair] || 1.0000;
+  };
+
+  // Real-time data updates - only during market hours
   useEffect(() => {
+    if (!isLive) return;
+
     const marketOpen = checkMarketHours();
     setIsMarketOpen(marketOpen);
 
-    // Initial fetch
-    fetchCentralizedMarketData();
+    const updateInterval = marketOpen ? 30000 : 300000; // 30s during market hours, 5min when closed
     
-    // Set up real-time subscription for market data updates
-    const channel = supabase
-      .channel('chart-market-data')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'live_market_data',
-          filter: `symbol=eq.${selectedPair}`
-        },
-        (payload) => {
-          console.log('Real-time market data update for chart:', payload);
-          fetchCentralizedMarketData();
-        }
-      )
-      .subscribe();
-
-    // Also listen for signal updates to stay synchronized
-    const signalChannel = supabase
-      .channel('chart-signal-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'trading_signals',
-          filter: `symbol=eq.${selectedPair}`
-        },
-        (payload) => {
-          console.log('Signal update affecting chart:', payload);
-          fetchCentralizedMarketData();
-        }
-      )
-      .subscribe();
-
-    // Regular refresh to stay synchronized
     const interval = setInterval(() => {
       const currentlyOpen = checkMarketHours();
       setIsMarketOpen(currentlyOpen);
-      fetchCentralizedMarketData();
-    }, 30000); // Update every 30 seconds
+      
+      if (currentlyOpen) {
+        fetchRealMarketData();
+      }
+    }, updateInterval);
 
-    return () => {
-      supabase.removeChannel(channel);
-      supabase.removeChannel(signalChannel);
-      clearInterval(interval);
-    };
+    return () => clearInterval(interval);
+  }, [selectedPair, isLive]);
+
+  // Fetch data when pair changes
+  useEffect(() => {
+    fetchRealMarketData();
   }, [selectedPair]);
 
   const chartConfig = {
@@ -187,7 +151,7 @@ const TradingChart = ({ selectedPair, onPairChange, availablePairs }: TradingCha
   };
 
   const formatPrice = (price: number) => {
-    return price.toFixed(selectedPair.includes('JPY') ? 3 : 5);
+    return price.toFixed(5);
   };
 
   const getPriceChange = () => {
@@ -226,8 +190,8 @@ const TradingChart = ({ selectedPair, onPairChange, availablePairs }: TradingCha
               }`}>
                 {change >= 0 ? '+' : ''}{change.toFixed(5)} ({percentage >= 0 ? '+' : ''}{percentage.toFixed(2)}%)
               </span>
-              <span className="text-xs text-emerald-400 bg-emerald-500/20 px-2 py-1 rounded">
-                CENTRALIZED
+              <span className="text-xs text-gray-400">
+                {isMarketOpen ? 'Real-time data' : 'Market closed'}
               </span>
             </div>
           )}
@@ -241,9 +205,16 @@ const TradingChart = ({ selectedPair, onPairChange, availablePairs }: TradingCha
           }`}>
             {isMarketOpen ? 'MARKET OPEN' : 'MARKET CLOSED'}
           </span>
-          <span className="text-xs px-2 py-1 rounded font-medium bg-blue-500/20 text-blue-400 border border-blue-500/30">
-            ● SYNC WITH SIGNALS
-          </span>
+          <button
+            onClick={() => setIsLive(!isLive)}
+            className={`px-3 py-1 rounded text-xs font-medium transition-colors ${
+              isLive 
+                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                : 'bg-gray-500/20 text-gray-400 border border-gray-500/30'
+            }`}
+          >
+            {isLive ? '● LIVE' : '⏸ PAUSED'}
+          </button>
         </div>
       </div>
 
@@ -278,7 +249,6 @@ const TradingChart = ({ selectedPair, onPairChange, availablePairs }: TradingCha
                 strokeWidth={2}
                 dot={false}
                 connectNulls
-                animationDuration={1000}
               />
             </LineChart>
           </ResponsiveContainer>
@@ -289,8 +259,8 @@ const TradingChart = ({ selectedPair, onPairChange, availablePairs }: TradingCha
       <div className="mt-4 grid grid-cols-4 gap-4 text-xs">
         <div className="text-gray-400">
           <span className="block">Data Source</span>
-          <span className="text-emerald-400 font-mono">
-            Centralized Signals
+          <span className="text-white font-mono">
+            {isMarketOpen ? 'FastForex API' : 'Last available'}
           </span>
         </div>
         <div className="text-gray-400">
@@ -298,9 +268,9 @@ const TradingChart = ({ selectedPair, onPairChange, availablePairs }: TradingCha
           <span className="text-white font-mono">{priceData.length}</span>
         </div>
         <div className="text-gray-400">
-          <span className="block">Sync Status</span>
-          <span className="text-emerald-400 font-mono">
-            Real-time
+          <span className="block">Update Rate</span>
+          <span className="text-white font-mono">
+            {isMarketOpen ? '30s' : '5min'}
           </span>
         </div>
         <div className="text-gray-400">

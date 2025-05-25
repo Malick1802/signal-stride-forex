@@ -29,7 +29,6 @@ interface SignalCardProps {
     timestamp: string;
     analysisText?: string;
     chartData: Array<{ time: number; price: number }>;
-    isCentralized: boolean;
   };
   analysis: Record<string, string>;
   analyzingSignal: string | null;
@@ -38,10 +37,9 @@ interface SignalCardProps {
 
 const SignalCard = ({ signal, analysis }: SignalCardProps) => {
   const [priceData, setPriceData] = useState<PriceData[]>([]);
-  const [currentPrice, setCurrentPrice] = useState<number>(parseFloat(signal.entryPrice));
+  const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
   const [isMarketOpen, setIsMarketOpen] = useState(false);
-  const [dataSource, setDataSource] = useState<string>('entry_price');
   const { toast } = useToast();
 
   // Check if forex market is currently open
@@ -50,6 +48,7 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
     const utcHour = now.getUTCHours();
     const utcDay = now.getUTCDay();
     
+    // Forex market is closed from Friday 22:00 UTC to Sunday 22:00 UTC
     const isFridayEvening = utcDay === 5 && utcHour >= 22;
     const isSaturday = utcDay === 6;
     const isSundayBeforeOpen = utcDay === 0 && utcHour < 22;
@@ -58,99 +57,79 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
     return !marketClosed;
   };
 
-  // Fetch centralized market data synchronized with the main chart
-  const fetchCentralizedMarketData = async () => {
-    try {
-      console.log(`Fetching centralized market data for signal card: ${signal.pair}...`);
-      
-      // Get the latest centralized market data for this pair with more recent timestamp (last 2 hours)
-      const { data: marketData, error } = await supabase
-        .from('live_market_data')
-        .select('*')
-        .eq('symbol', signal.pair)
-        .gte('created_at', new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()) // Last 2 hours
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (error) {
-        console.error('Error fetching centralized market data:', error);
-        setDataSource('error');
-        return;
-      }
-
-      if (marketData && marketData.length > 0) {
-        console.log(`Found ${marketData.length} centralized market data points for ${signal.pair}`);
-        setDataSource('live_data');
-        
-        // Use the latest market price
-        const latestMarketData = marketData[0];
-        const latestPrice = parseFloat(latestMarketData.price.toString());
-        setCurrentPrice(latestPrice);
-
-        const transformedData = marketData.reverse().map((item, index) => ({
-          timestamp: new Date(item.created_at || item.timestamp).getTime(),
-          time: new Date(item.created_at || item.timestamp).toLocaleTimeString(),
-          price: parseFloat(item.price.toString()),
-          volume: Math.random() * 500000
-        }));
-
-        setPriceData(transformedData);
-      } else {
-        console.log(`No recent centralized market data found for ${signal.pair}, generating simulation`);
-        setDataSource('signal_price');
-        
-        // Use the signal's entry price as the base and create realistic movement around it
-        const basePrice = parseFloat(signal.entryPrice);
-        setCurrentPrice(basePrice);
-        
-        // Generate realistic chart data around the signal price with some movement
-        const now = Date.now();
-        const data: PriceData[] = [];
-        
-        for (let i = 49; i >= 0; i--) {
-          const timestamp = now - (i * 60000);
-          // More realistic price movement based on market conditions
-          const volatility = signal.pair.includes('JPY') ? 0.05 : 0.00005;
-          const movement = (Math.random() - 0.5) * volatility;
-          const price = basePrice + movement;
-          
-          data.push({
-            timestamp,
-            time: new Date(timestamp).toLocaleTimeString(),
-            price,
-            volume: Math.random() * 500000
-          });
-        }
-
-        setPriceData(data);
-      }
-    } catch (error) {
-      console.error('Error fetching centralized market data:', error);
-      setDataSource('error');
-      
-      // Fallback to signal price if error
-      const basePrice = parseFloat(signal.entryPrice);
-      setCurrentPrice(basePrice);
-      setPriceData([{
-        timestamp: Date.now(),
-        time: new Date().toLocaleTimeString(),
-        price: basePrice,
-        volume: 0
-      }]);
-    }
-  };
-
   // Check if take profit levels are hit
   const isTakeProfitHit = (takeProfitPrice: string): boolean => {
     if (!currentPrice) return false;
     
     const tpPrice = parseFloat(takeProfitPrice);
+    const entryPrice = parseFloat(signal.entryPrice);
     
     if (signal.type === 'BUY') {
+      // For BUY signals, TP is hit when current price >= TP price
       return currentPrice >= tpPrice;
     } else {
+      // For SELL signals, TP is hit when current price <= TP price
       return currentPrice <= tpPrice;
     }
+  };
+
+  // Fetch real market data from database
+  const fetchRealMarketData = async () => {
+    try {
+      const { data: marketData, error } = await supabase
+        .from('live_market_data')
+        .select('*')
+        .eq('symbol', signal.pair)
+        .order('created_at', { ascending: false })
+        .limit(30);
+
+      if (error) {
+        console.error('Error fetching market data:', error);
+        return;
+      }
+
+      if (marketData && marketData.length > 0) {
+        const transformedData = marketData.reverse().map((item, index) => ({
+          timestamp: new Date(item.created_at || item.timestamp).getTime(),
+          time: new Date(item.created_at || item.timestamp).toLocaleTimeString(),
+          price: parseFloat(item.price.toString()),
+          volume: Math.random() * 500000 // Volume data not available in current schema
+        }));
+
+        setPriceData(transformedData);
+        setCurrentPrice(transformedData[transformedData.length - 1]?.price || parseFloat(signal.entryPrice));
+      } else {
+        // Fallback to entry price if no market data
+        generateFallbackData();
+      }
+    } catch (error) {
+      console.error('Error fetching real market data:', error);
+      generateFallbackData();
+    }
+  };
+
+  // Fallback data generation when real data is unavailable
+  const generateFallbackData = () => {
+    const basePrice = parseFloat(signal.entryPrice);
+    const now = Date.now();
+    const data: PriceData[] = [];
+
+    for (let i = 29; i >= 0; i--) {
+      const timestamp = now - (i * 120000); // 2 minute intervals
+      const volatility = 0.00005; // Very small volatility for fallback
+      const randomMove = (Math.random() - 0.5) * volatility;
+      const price = basePrice + randomMove;
+      
+      data.push({
+        timestamp,
+        time: new Date(timestamp).toLocaleTimeString(),
+        price,
+        volume: Math.random() * 500000
+      });
+    }
+
+    setPriceData(data);
+    setCurrentPrice(data[data.length - 1]?.price || basePrice);
   };
 
   // Copy price to clipboard
@@ -173,53 +152,40 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
 
   // Open MetaTrader
   const openMetaTrader = () => {
+    // Try to open MetaTrader using the mt4:// protocol
     const metaTraderUrl = `mt4://trade?symbol=${signal.pair}&action=${signal.type === 'BUY' ? 'buy' : 'sell'}`;
     window.open(metaTraderUrl, '_blank');
     
+    // Show toast with instructions
     toast({
       title: "Opening MetaTrader",
       description: "If MetaTrader doesn't open automatically, please open it manually and search for " + signal.pair,
     });
   };
 
-  // Initialize and set up real-time updates synchronized with the main chart
+  // Initialize with real market data
   useEffect(() => {
     const marketOpen = checkMarketHours();
     setIsMarketOpen(marketOpen);
     
-    // Initial data fetch
-    fetchCentralizedMarketData();
+    fetchRealMarketData();
+  }, [signal.pair, signal.entryPrice]);
+
+  // Real-time updates - fetch fresh data during market hours
+  useEffect(() => {
+    const updateInterval = isMarketOpen ? 30000 : 300000; // 30s during market hours, 5min when closed
     
-    // Set up real-time subscription for market data updates
-    const channel = supabase
-      .channel(`signal-card-${signal.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'live_market_data',
-          filter: `symbol=eq.${signal.pair}`
-        },
-        (payload) => {
-          console.log('Real-time market data update for signal card:', payload);
-          fetchCentralizedMarketData();
-        }
-      )
-      .subscribe();
-
-    // Regular updates to stay synchronized - more frequent updates
     const interval = setInterval(() => {
-      const currentlyOpen = checkMarketHours();
-      setIsMarketOpen(currentlyOpen);
-      fetchCentralizedMarketData();
-    }, 10000); // Update every 10 seconds for more responsive data
+      const marketOpen = checkMarketHours();
+      setIsMarketOpen(marketOpen);
+      
+      if (marketOpen) {
+        fetchRealMarketData();
+      }
+    }, updateInterval);
 
-    return () => {
-      supabase.removeChannel(channel);
-      clearInterval(interval);
-    };
-  }, [signal.pair, signal.id]);
+    return () => clearInterval(interval);
+  }, [signal.pair, isMarketOpen]);
 
   const chartConfig = {
     price: {
@@ -229,15 +195,15 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
   };
 
   const formatPrice = (price: number) => {
-    return price.toFixed(signal.pair.includes('JPY') ? 3 : 5);
+    return price.toFixed(5);
   };
 
   const getPriceChange = () => {
-    if (!currentPrice) return { change: 0, percentage: 0 };
-    
-    const entryPrice = parseFloat(signal.entryPrice);
-    const change = currentPrice - entryPrice;
-    const percentage = (change / entryPrice) * 100;
+    if (priceData.length < 2) return { change: 0, percentage: 0 };
+    const current = priceData[priceData.length - 1]?.price || 0;
+    const previous = priceData[0]?.price || 0;
+    const change = current - previous;
+    const percentage = (change / previous) * 100;
     return { change, percentage };
   };
 
@@ -258,44 +224,41 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
             }`}>
               {signal.type}
             </span>
-            {signal.isCentralized && (
-              <span className="text-xs px-2 py-1 rounded font-medium bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                CENTRALIZED
-              </span>
-            )}
-            <span className={`text-xs px-1 py-0.5 rounded ${
-              dataSource === 'live_data' 
-                ? 'bg-emerald-500/20 text-emerald-400'
-                : dataSource === 'signal_price'
-                ? 'bg-blue-500/20 text-blue-400'
-                : 'bg-red-500/20 text-red-400'
+            <span className={`text-xs px-2 py-1 rounded font-medium ${
+              isMarketOpen 
+                ? 'bg-emerald-500/20 text-emerald-400' 
+                : 'bg-gray-500/20 text-gray-400'
             }`}>
-              {dataSource === 'live_data' ? 'LIVE' : dataSource === 'signal_price' ? 'SIM' : 'ERR'}
+              {isMarketOpen ? 'LIVE' : 'CLOSED'}
             </span>
           </div>
         </div>
         
         {/* Current Price and Change */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            {signal.type === 'BUY' ? (
-              <TrendingUp className="h-4 w-4 text-emerald-400" />
-            ) : (
-              <TrendingDown className="h-4 w-4 text-red-400" />
-            )}
-            <span className="text-white text-lg font-mono">{formatPrice(currentPrice)}</span>
+        {currentPrice && (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              {signal.type === 'BUY' ? (
+                <TrendingUp className="h-4 w-4 text-emerald-400" />
+              ) : (
+                <TrendingDown className="h-4 w-4 text-red-400" />
+              )}
+              <span className="text-white text-lg font-mono">{formatPrice(currentPrice)}</span>
+              <span className="text-xs text-gray-400">
+                {isMarketOpen ? 'Real-time' : 'Last close'}
+              </span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <span className={`text-sm font-mono ${
+                change >= 0 ? 'text-emerald-400' : 'text-red-400'
+              }`}>
+                {change >= 0 ? '+' : ''}{change.toFixed(5)} ({percentage >= 0 ? '+' : ''}{percentage.toFixed(2)}%)
+              </span>
+              <Shield className="h-4 w-4 text-yellow-400" />
+              <span className="text-yellow-400 text-sm font-medium">{signal.confidence}%</span>
+            </div>
           </div>
-          <div className="flex items-center space-x-1">
-            <span className={`text-sm font-mono ${
-              change >= 0 ? 'text-emerald-400' : 'text-red-400'
-            }`}>
-              {change >= 0 ? '+' : ''}{change.toFixed(signal.pair.includes('JPY') ? 3 : 5)} 
-              ({percentage >= 0 ? '+' : ''}{percentage.toFixed(2)}%)
-            </span>
-            <Shield className="h-4 w-4 text-yellow-400" />
-            <span className="text-yellow-400 text-sm font-medium">{signal.confidence}%</span>
-          </div>
-        </div>
+        )}
       </div>
 
       {/* Trading Chart */}
@@ -331,7 +294,6 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
                 strokeWidth={2}
                 dot={false}
                 connectNulls
-                animationDuration={1000}
               />
               {/* Entry Price Line */}
               <Line
@@ -378,25 +340,6 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
               size="sm"
               variant="ghost"
               onClick={() => copyToClipboard(signal.entryPrice, 'Entry Price')}
-              className="h-6 w-6 p-0 text-gray-400 hover:text-white"
-            >
-              <Copy className="h-3 w-3" />
-            </Button>
-          </div>
-        </div>
-        
-        <div className="flex justify-between items-center">
-          <span className="text-gray-400">Current Price</span>
-          <div className="flex items-center space-x-2">
-            <span className={`font-mono ${
-              change >= 0 ? 'text-emerald-400' : 'text-red-400'
-            }`}>
-              {formatPrice(currentPrice)}
-            </span>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => copyToClipboard(formatPrice(currentPrice), 'Current Price')}
               className="h-6 w-6 p-0 text-gray-400 hover:text-white"
             >
               <Copy className="h-3 w-3" />
@@ -519,10 +462,6 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
             <div className="flex items-center space-x-1 text-gray-400">
               <Clock className="h-4 w-4" />
               <span>{new Date(signal.timestamp).toLocaleTimeString()}</span>
-            </div>
-            <div className="text-xs text-gray-400">
-              {dataSource === 'live_data' ? 'Live centralized data' : 
-               dataSource === 'signal_price' ? 'Simulated movement' : 'Data error'}
             </div>
           </div>
           
