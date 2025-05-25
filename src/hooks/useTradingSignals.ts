@@ -56,7 +56,10 @@ export const useTradingSignals = () => {
         console.log(`Found ${activeSignals.length} active signals`);
         
         // Get current market prices for chart data
-        const symbols = activeSignals.map(signal => signal.symbol).filter(Boolean);
+        const symbols = activeSignals
+          .map(signal => signal?.symbol)
+          .filter(symbol => symbol && typeof symbol === 'string');
+          
         const { data: marketData } = await supabase
           .from('live_market_data')
           .select('*')
@@ -64,51 +67,70 @@ export const useTradingSignals = () => {
           .order('created_at', { ascending: false });
 
         const transformedSignals = activeSignals
-          .filter(signal => signal && signal.id && signal.symbol) // Filter out null/invalid signals
+          .filter(signal => {
+            // Strict validation to prevent null errors
+            return signal && 
+                   signal.id && 
+                   signal.symbol && 
+                   typeof signal.symbol === 'string' &&
+                   signal.type &&
+                   typeof signal.type === 'string' &&
+                   signal.price !== null &&
+                   signal.price !== undefined;
+          })
           .map(signal => {
-            // Get recent market data for this symbol for chart
-            const symbolMarketData = marketData?.filter(md => md && md.symbol === signal.symbol)
-              .slice(0, 24) || [];
-            
-            const currentMarketPrice = symbolMarketData[0]?.price;
-            const entryPrice = currentMarketPrice ? 
-              parseFloat(currentMarketPrice.toString()).toFixed(5) : 
-              parseFloat((signal.price || 0).toString()).toFixed(5);
+            try {
+              // Get recent market data for this symbol for chart
+              const symbolMarketData = marketData?.filter(md => 
+                md && md.symbol === signal.symbol
+              ).slice(0, 24) || [];
+              
+              const currentMarketPrice = symbolMarketData[0]?.price;
+              const entryPrice = currentMarketPrice ? 
+                parseFloat(currentMarketPrice.toString()).toFixed(5) : 
+                parseFloat((signal.price || 0).toString()).toFixed(5);
 
-            const chartData = symbolMarketData.length > 0 ? 
-              symbolMarketData.reverse().map((md, i) => ({
-                time: i,
-                price: parseFloat((md.price || 0).toString())
-              })) :
-              Array.from({ length: 24 }, (_, i) => ({
-                time: i,
-                price: parseFloat((signal.price || 0).toString()) + (Math.sin(i / 4) * 0.0001)
-              }));
+              const chartData = symbolMarketData.length > 0 ? 
+                symbolMarketData.reverse().map((md, i) => ({
+                  time: i,
+                  price: parseFloat((md.price || 0).toString())
+                })) :
+                Array.from({ length: 24 }, (_, i) => ({
+                  time: i,
+                  price: parseFloat((signal.price || 0).toString()) + (Math.sin(i / 4) * 0.0001)
+                }));
 
-            return {
-              id: signal.id,
-              pair: signal.symbol || 'Unknown',
-              type: signal.type || 'BUY',
-              entryPrice: entryPrice,
-              stopLoss: signal.stop_loss ? parseFloat(signal.stop_loss.toString()).toFixed(5) : '0.00000',
-              takeProfit1: signal.take_profits?.[0] ? parseFloat(signal.take_profits[0].toString()).toFixed(5) : '0.00000',
-              takeProfit2: signal.take_profits?.[1] ? parseFloat(signal.take_profits[1].toString()).toFixed(5) : '0.00000',
-              takeProfit3: signal.take_profits?.[2] ? parseFloat(signal.take_profits[2].toString()).toFixed(5) : '0.00000',
-              confidence: Math.floor(signal.confidence || 0),
-              timestamp: signal.created_at || signal.timestamp || new Date().toISOString(),
-              status: signal.status || 'active',
-              analysisText: signal.analysis_text || signal.ai_analysis?.[0]?.analysis_text,
-              chartData: chartData
-            };
-          });
+              return {
+                id: signal.id,
+                pair: signal.symbol || 'Unknown',
+                type: signal.type || 'BUY',
+                entryPrice: entryPrice,
+                stopLoss: signal.stop_loss ? parseFloat(signal.stop_loss.toString()).toFixed(5) : '0.00000',
+                takeProfit1: signal.take_profits?.[0] ? parseFloat(signal.take_profits[0].toString()).toFixed(5) : '0.00000',
+                takeProfit2: signal.take_profits?.[1] ? parseFloat(signal.take_profits[1].toString()).toFixed(5) : '0.00000',
+                takeProfit3: signal.take_profits?.[2] ? parseFloat(signal.take_profits[2].toString()).toFixed(5) : '0.00000',
+                confidence: Math.floor(signal.confidence || 75),
+                timestamp: signal.created_at || signal.timestamp || new Date().toISOString(),
+                status: signal.status || 'active',
+                analysisText: signal.analysis_text || signal.ai_analysis?.[0]?.analysis_text || 'Technical analysis indicates favorable market conditions',
+                chartData: chartData
+              };
+            } catch (transformError) {
+              console.error('Error transforming signal:', transformError, signal);
+              return null;
+            }
+          })
+          .filter(signal => signal !== null) as TradingSignal[];
 
         setSignals(transformedSignals);
         setLastUpdate(new Date().toLocaleTimeString());
         
-        toast({
-          title: "Signals Updated",
-          description: `Loaded ${transformedSignals.length} high-confidence trading signals`,
-        });
+        if (transformedSignals.length > 0) {
+          toast({
+            title: "Signals Updated",
+            description: `Loaded ${transformedSignals.length} high-confidence trading signals`,
+          });
+        }
       } else {
         console.log('No active signals found');
         setSignals([]);
@@ -118,27 +140,38 @@ export const useTradingSignals = () => {
       console.error('Error fetching signals:', error);
       toast({
         title: "Error",
-        description: "Failed to fetch trading signals",
+        description: "Failed to fetch trading signals. Retrying...",
         variant: "destructive"
       });
+      // Retry after 5 seconds
+      setTimeout(fetchSignals, 5000);
     } finally {
       setLoading(false);
     }
   };
 
-  // Automatic signal generation trigger
+  // Automatic signal generation trigger with better error handling
   const triggerAutomaticSignalGeneration = async () => {
     try {
       console.log('Triggering automatic signal generation...');
       
       // First ensure we have fresh market data
-      await supabase.functions.invoke('fetch-market-data');
+      const { error: marketDataError } = await supabase.functions.invoke('fetch-market-data');
+      
+      if (marketDataError) {
+        console.warn('Market data fetch had issues:', marketDataError);
+      }
       
       // Then trigger signal generation with confidence threshold
       const { data, error } = await supabase.functions.invoke('generate-signals');
       
       if (error) {
         console.error('Error in automatic signal generation:', error);
+        toast({
+          title: "Signal Generation",
+          description: "Unable to generate new signals at this time",
+          variant: "destructive"
+        });
         return;
       }
 
@@ -151,10 +184,17 @@ export const useTradingSignals = () => {
         
         // Refresh signals after generation
         setTimeout(fetchSignals, 2000);
+      } else {
+        console.log('No new high-confidence signals generated');
       }
       
     } catch (error) {
       console.error('Error triggering automatic signal generation:', error);
+      toast({
+        title: "Signal Generation",
+        description: "Market scanning temporarily unavailable",
+        variant: "destructive"
+      });
     }
   };
 

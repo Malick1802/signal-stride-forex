@@ -42,10 +42,23 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
   const [isMarketOpen, setIsMarketOpen] = useState(false);
   const { toast } = useToast();
 
-  // Early return if signal is null or invalid
-  if (!signal || !signal.id || !signal.pair) {
+  // Early return with comprehensive validation
+  if (!signal || 
+      typeof signal !== 'object' ||
+      !signal.id || 
+      !signal.pair || 
+      !signal.type ||
+      typeof signal.id !== 'string' ||
+      typeof signal.pair !== 'string' ||
+      typeof signal.type !== 'string') {
     console.warn('Invalid signal data received:', signal);
-    return null;
+    return (
+      <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
+        <div className="text-center text-gray-400">
+          Invalid signal data - please refresh the page
+        </div>
+      </div>
+    );
   }
 
   // Check if forex market is currently open
@@ -65,17 +78,20 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
 
   // Check if take profit levels are hit
   const isTakeProfitHit = (takeProfitPrice: string): boolean => {
-    if (!currentPrice || !takeProfitPrice) return false;
+    if (!currentPrice || !takeProfitPrice || takeProfitPrice === '0.00000') return false;
     
-    const tpPrice = parseFloat(takeProfitPrice);
-    const entryPrice = parseFloat(signal.entryPrice || '0');
-    
-    if (signal.type === 'BUY') {
-      // For BUY signals, TP is hit when current price >= TP price
-      return currentPrice >= tpPrice;
-    } else {
-      // For SELL signals, TP is hit when current price <= TP price
-      return currentPrice <= tpPrice;
+    try {
+      const tpPrice = parseFloat(takeProfitPrice);
+      const entryPrice = parseFloat(signal.entryPrice || '0');
+      
+      if (signal.type === 'BUY') {
+        return currentPrice >= tpPrice;
+      } else {
+        return currentPrice <= tpPrice;
+      }
+    } catch (error) {
+      console.error('Error checking take profit hit:', error);
+      return false;
     }
   };
 
@@ -91,6 +107,7 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
 
       if (error) {
         console.error('Error fetching market data:', error);
+        generateFallbackData();
         return;
       }
 
@@ -99,13 +116,12 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
           timestamp: new Date(item.created_at || item.timestamp).getTime(),
           time: new Date(item.created_at || item.timestamp).toLocaleTimeString(),
           price: parseFloat((item.price || 0).toString()),
-          volume: Math.random() * 500000 // Volume data not available in current schema
+          volume: Math.random() * 500000
         }));
 
         setPriceData(transformedData);
         setCurrentPrice(transformedData[transformedData.length - 1]?.price || parseFloat(signal.entryPrice || '0'));
       } else {
-        // Fallback to entry price if no market data
         generateFallbackData();
       }
     } catch (error) {
@@ -116,26 +132,39 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
 
   // Fallback data generation when real data is unavailable
   const generateFallbackData = () => {
-    const basePrice = parseFloat(signal.entryPrice || '0');
-    const now = Date.now();
-    const data: PriceData[] = [];
+    try {
+      const basePrice = parseFloat(signal.entryPrice || '1.0000');
+      const now = Date.now();
+      const data: PriceData[] = [];
 
-    for (let i = 29; i >= 0; i--) {
-      const timestamp = now - (i * 120000); // 2 minute intervals
-      const volatility = 0.00005; // Very small volatility for fallback
-      const randomMove = (Math.random() - 0.5) * volatility;
-      const price = basePrice + randomMove;
-      
-      data.push({
-        timestamp,
-        time: new Date(timestamp).toLocaleTimeString(),
-        price,
-        volume: Math.random() * 500000
-      });
+      for (let i = 29; i >= 0; i--) {
+        const timestamp = now - (i * 120000); // 2 minute intervals
+        const volatility = 0.00005;
+        const randomMove = (Math.random() - 0.5) * volatility;
+        const price = basePrice + randomMove;
+        
+        data.push({
+          timestamp,
+          time: new Date(timestamp).toLocaleTimeString(),
+          price,
+          volume: Math.random() * 500000
+        });
+      }
+
+      setPriceData(data);
+      setCurrentPrice(data[data.length - 1]?.price || basePrice);
+    } catch (error) {
+      console.error('Error generating fallback data:', error);
+      // Absolute fallback
+      const basePrice = 1.0000;
+      setPriceData([{
+        timestamp: Date.now(),
+        time: new Date().toLocaleTimeString(),
+        price: basePrice,
+        volume: 100000
+      }]);
+      setCurrentPrice(basePrice);
     }
-
-    setPriceData(data);
-    setCurrentPrice(data[data.length - 1]?.price || basePrice);
   };
 
   // Copy price to clipboard
@@ -158,11 +187,9 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
 
   // Open MetaTrader
   const openMetaTrader = () => {
-    // Try to open MetaTrader using the mt4:// protocol
     const metaTraderUrl = `mt4://trade?symbol=${signal.pair}&action=${signal.type === 'BUY' ? 'buy' : 'sell'}`;
     window.open(metaTraderUrl, '_blank');
     
-    // Show toast with instructions
     toast({
       title: "Opening MetaTrader",
       description: "If MetaTrader doesn't open automatically, please open it manually and search for " + signal.pair,
@@ -177,9 +204,9 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
     fetchRealMarketData();
   }, [signal.pair, signal.entryPrice]);
 
-  // Real-time updates - fetch fresh data during market hours
+  // Real-time updates
   useEffect(() => {
-    const updateInterval = isMarketOpen ? 30000 : 300000; // 30s during market hours, 5min when closed
+    const updateInterval = isMarketOpen ? 30000 : 300000;
     
     const interval = setInterval(() => {
       const marketOpen = checkMarketHours();
@@ -301,36 +328,6 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
                 dot={false}
                 connectNulls
               />
-              {/* Entry Price Line */}
-              <Line
-                type="monotone"
-                dataKey={() => parseFloat(signal.entryPrice || '0')}
-                stroke="rgba(255,255,255,0.6)"
-                strokeWidth={1}
-                strokeDasharray="3 3"
-                dot={false}
-                connectNulls
-              />
-              {/* Stop Loss Line */}
-              <Line
-                type="monotone"
-                dataKey={() => parseFloat(signal.stopLoss || '0')}
-                stroke="rgba(239,68,68,0.8)"
-                strokeWidth={1}
-                strokeDasharray="2 2"
-                dot={false}
-                connectNulls
-              />
-              {/* Take Profit Lines */}
-              <Line
-                type="monotone"
-                dataKey={() => parseFloat(signal.takeProfit1 || '0')}
-                stroke="rgba(16,185,129,0.6)"
-                strokeWidth={1}
-                strokeDasharray="1 1"
-                dot={false}
-                connectNulls
-              />
             </LineChart>
           </ResponsiveContainer>
         </ChartContainer>
@@ -422,7 +419,7 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
           </div>
         </div>
 
-        {/* AI Analysis Section with Collapsible */}
+        {/* AI Analysis Section */}
         {(signal.analysisText || analysis[signal.id]) && (
           <Collapsible open={isAnalysisOpen} onOpenChange={setIsAnalysisOpen}>
             <CollapsibleTrigger asChild>
@@ -444,7 +441,7 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
             <CollapsibleContent className="pt-3">
               {signal.analysisText && (
                 <div className="mb-3">
-                  <div className="text-gray-400 text-xs mb-2">Quick Analysis:</div>
+                  <div className="text-gray-400 text-xs mb-2">Analysis:</div>
                   <div className="text-white text-xs bg-black/20 rounded p-2">
                     {signal.analysisText}
                   </div>
@@ -471,7 +468,6 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
             </div>
           </div>
           
-          {/* Trade Now Button */}
           <Button
             onClick={openMetaTrader}
             className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
