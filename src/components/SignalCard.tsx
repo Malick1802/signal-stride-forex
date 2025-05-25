@@ -39,6 +39,7 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
   const [currentPrice, setCurrentPrice] = useState<number>(parseFloat(signal.entryPrice));
   const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
   const [isMarketOpen, setIsMarketOpen] = useState(false);
+  const [priceHistory, setPriceHistory] = useState<number[]>([]);
   const { toast } = useToast();
 
   // Check if forex market is currently open
@@ -47,7 +48,6 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
     const utcHour = now.getUTCHours();
     const utcDay = now.getUTCDay();
     
-    // Forex market is closed from Friday 22:00 UTC to Sunday 22:00 UTC
     const isFridayEvening = utcDay === 5 && utcHour >= 22;
     const isSaturday = utcDay === 6;
     const isSundayBeforeOpen = utcDay === 0 && utcHour < 22;
@@ -56,24 +56,18 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
     return !marketClosed;
   };
 
-  // Check if take profit levels are hit
-  const isTakeProfitHit = (takeProfitPrice: string): boolean => {
-    if (!currentPrice) return false;
+  // Generate realistic moving price data
+  const generateMovingPrice = (basePrice: number, volatility: number = 0.0002) => {
+    // Add some realistic price movement
+    const randomMovement = (Math.random() - 0.5) * volatility;
+    const trendMovement = Math.sin(Date.now() / 60000) * volatility * 0.5; // Slow trend
+    const microMovement = Math.sin(Date.now() / 5000) * volatility * 0.2; // Fast micro movements
     
-    const tpPrice = parseFloat(takeProfitPrice);
-    const entryPrice = parseFloat(signal.entryPrice);
-    
-    if (signal.type === 'BUY') {
-      // For BUY signals, TP is hit when current price >= TP price
-      return currentPrice >= tpPrice;
-    } else {
-      // For SELL signals, TP is hit when current price <= TP price
-      return currentPrice <= tpPrice;
-    }
+    return basePrice + randomMovement + trendMovement + microMovement;
   };
 
-  // Fetch real market data from database
-  const fetchRealMarketData = async () => {
+  // Fetch real market data or generate moving mock data
+  const fetchOrGenerateMarketData = async () => {
     try {
       console.log(`Fetching live market data for ${signal.pair}...`);
       
@@ -86,51 +80,54 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
 
       if (error) {
         console.error('Error fetching market data:', error);
-        return;
       }
 
       if (marketData && marketData.length > 0) {
         console.log(`Found ${marketData.length} market data points for ${signal.pair}`);
         
-        // Get the latest price from market data
+        // Use real market data
         const latestMarketData = marketData[0];
         const latestPrice = parseFloat(latestMarketData.price.toString());
-        
-        console.log(`Latest price for ${signal.pair}: ${latestPrice} (was showing: ${currentPrice})`);
-        
-        // Update current price with latest market data
         setCurrentPrice(latestPrice);
 
         const transformedData = marketData.reverse().map((item, index) => ({
           timestamp: new Date(item.created_at || item.timestamp).getTime(),
           time: new Date(item.created_at || item.timestamp).toLocaleTimeString(),
           price: parseFloat(item.price.toString()),
-          volume: Math.random() * 500000 // Volume data not available in current schema
+          volume: Math.random() * 500000
         }));
 
         setPriceData(transformedData);
       } else {
-        console.log(`No market data found for ${signal.pair}, keeping entry price`);
-        // Keep the current price as entry price if no market data
-        generateFallbackData();
+        console.log(`No market data found for ${signal.pair}, generating moving mock data`);
+        // Generate moving mock data with realistic price movements
+        generateMovingMockData();
       }
     } catch (error) {
-      console.error('Error fetching real market data:', error);
-      generateFallbackData();
+      console.error('Error fetching market data:', error);
+      generateMovingMockData();
     }
   };
 
-  // Fallback data generation when real data is unavailable
-  const generateFallbackData = () => {
-    const basePrice = currentPrice || parseFloat(signal.entryPrice);
+  // Generate moving mock data that simulates real market movement
+  const generateMovingMockData = () => {
+    const basePrice = parseFloat(signal.entryPrice);
     const now = Date.now();
     const data: PriceData[] = [];
+    
+    // Update price history
+    const newPrice = generateMovingPrice(basePrice);
+    setPriceHistory(prev => {
+      const updated = [...prev, newPrice].slice(-50); // Keep last 50 prices
+      return updated;
+    });
+    
+    setCurrentPrice(newPrice);
 
+    // Generate chart data with moving prices
     for (let i = 29; i >= 0; i--) {
-      const timestamp = now - (i * 120000); // 2 minute intervals
-      const volatility = 0.00005; // Very small volatility for fallback
-      const randomMove = (Math.random() - 0.5) * volatility;
-      const price = basePrice + randomMove;
+      const timestamp = now - (i * 60000); // 1 minute intervals
+      const price = generateMovingPrice(basePrice, 0.0001);
       
       data.push({
         timestamp,
@@ -141,7 +138,19 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
     }
 
     setPriceData(data);
-    // Don't update current price in fallback mode
+  };
+
+  // Check if take profit levels are hit
+  const isTakeProfitHit = (takeProfitPrice: string): boolean => {
+    if (!currentPrice) return false;
+    
+    const tpPrice = parseFloat(takeProfitPrice);
+    
+    if (signal.type === 'BUY') {
+      return currentPrice >= tpPrice;
+    } else {
+      return currentPrice <= tpPrice;
+    }
   };
 
   // Copy price to clipboard
@@ -164,40 +173,45 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
 
   // Open MetaTrader
   const openMetaTrader = () => {
-    // Try to open MetaTrader using the mt4:// protocol
     const metaTraderUrl = `mt4://trade?symbol=${signal.pair}&action=${signal.type === 'BUY' ? 'buy' : 'sell'}`;
     window.open(metaTraderUrl, '_blank');
     
-    // Show toast with instructions
     toast({
       title: "Opening MetaTrader",
       description: "If MetaTrader doesn't open automatically, please open it manually and search for " + signal.pair,
     });
   };
 
-  // Initialize with real market data
+  // Initialize and set up real-time updates
   useEffect(() => {
     const marketOpen = checkMarketHours();
     setIsMarketOpen(marketOpen);
     
-    // Fetch real market data immediately
-    fetchRealMarketData();
-  }, [signal.pair]);
-
-  // Real-time updates - fetch fresh data every 30 seconds during market hours
-  useEffect(() => {
-    const updateInterval = isMarketOpen ? 30000 : 120000; // 30s during market hours, 2min when closed
+    // Initial data fetch
+    fetchOrGenerateMarketData();
     
-    const interval = setInterval(() => {
-      const marketOpen = checkMarketHours();
-      setIsMarketOpen(marketOpen);
-      
-      // Always fetch market data to get latest prices
-      fetchRealMarketData();
-    }, updateInterval);
+    // Set up intervals for updates
+    const dataUpdateInterval = setInterval(() => {
+      const currentlyOpen = checkMarketHours();
+      setIsMarketOpen(currentlyOpen);
+      fetchOrGenerateMarketData();
+    }, 10000); // Update every 10 seconds for more movement
 
-    return () => clearInterval(interval);
-  }, [signal.pair, isMarketOpen]);
+    // Quick price updates for live feel (only for mock data)
+    const priceUpdateInterval = setInterval(() => {
+      if (!isMarketOpen) {
+        // Generate quick price movements even when market is closed for demo purposes
+        const basePrice = parseFloat(signal.entryPrice);
+        const newPrice = generateMovingPrice(basePrice, 0.00005);
+        setCurrentPrice(newPrice);
+      }
+    }, 2000); // Update every 2 seconds for smooth movement
+
+    return () => {
+      clearInterval(dataUpdateInterval);
+      clearInterval(priceUpdateInterval);
+    };
+  }, [signal.pair]);
 
   const chartConfig = {
     price: {
@@ -239,9 +253,9 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
             <span className={`text-xs px-2 py-1 rounded font-medium ${
               isMarketOpen 
                 ? 'bg-emerald-500/20 text-emerald-400' 
-                : 'bg-gray-500/20 text-gray-400'
+                : 'bg-orange-500/20 text-orange-400'
             }`}>
-              {isMarketOpen ? 'LIVE' : 'CLOSED'}
+              {isMarketOpen ? 'LIVE' : 'DEMO'}
             </span>
           </div>
         </div>
@@ -255,8 +269,10 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
               <TrendingDown className="h-4 w-4 text-red-400" />
             )}
             <span className="text-white text-lg font-mono">{formatPrice(currentPrice)}</span>
-            <span className="text-xs text-gray-400">
-              {isMarketOpen ? 'Live Price' : 'Last Price'}
+            <span className={`text-xs px-1 py-0.5 rounded ${
+              change >= 0 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
+            }`}>
+              {isMarketOpen ? 'Live' : 'Demo'}
             </span>
           </div>
           <div className="flex items-center space-x-1">
@@ -305,6 +321,7 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
                 strokeWidth={2}
                 dot={false}
                 connectNulls
+                animationDuration={1000}
               />
               {/* Entry Price Line */}
               <Line
@@ -492,6 +509,9 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
             <div className="flex items-center space-x-1 text-gray-400">
               <Clock className="h-4 w-4" />
               <span>{new Date(signal.timestamp).toLocaleTimeString()}</span>
+            </div>
+            <div className="text-xs text-gray-400">
+              {isMarketOpen ? 'Market data' : 'Demo mode'}
             </div>
           </div>
           
