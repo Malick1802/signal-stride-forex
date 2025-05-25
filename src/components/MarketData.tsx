@@ -19,11 +19,28 @@ interface MarketDataItem {
 const MarketData = () => {
   const [marketData, setMarketData] = useState<MarketDataItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [lastUpdate, setLastUpdate] = useState<string>('');
+
+  // Trigger market data generation
+  const generateMarketData = async () => {
+    try {
+      console.log('Triggering market data generation...');
+      const { data, error } = await supabase.functions.invoke('fetch-market-data');
+      
+      if (error) {
+        console.error('Error generating market data:', error);
+      } else {
+        console.log('Market data generation response:', data);
+      }
+    } catch (error) {
+      console.error('Error calling market data function:', error);
+    }
+  };
 
   // Fetch real market data from the database
   const fetchMarketData = async () => {
     try {
-      console.log('Fetching real market data from database...');
+      console.log('Fetching market data from database...');
       
       // Get the latest market data for each symbol
       const { data: latestData, error } = await supabase
@@ -68,56 +85,19 @@ const MarketData = () => {
         });
 
         setMarketData(transformedData);
+        setLastUpdate(new Date().toLocaleTimeString());
         console.log(`Loaded ${transformedData.length} market data pairs from database`);
       } else {
-        console.log('No market data found in database, generating fallback data');
-        generateFallbackData();
+        console.log('No market data found in database, triggering generation...');
+        await generateMarketData();
+        // Wait a bit and try again
+        setTimeout(fetchMarketData, 3000);
       }
     } catch (error) {
       console.error('Error fetching market data:', error);
-      generateFallbackData();
     } finally {
       setIsLoading(false);
     }
-  };
-
-  // Generate fallback data if database is empty
-  const generateFallbackData = () => {
-    const pairs = [
-      'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'NZDUSD',
-      'EURGBP', 'EURJPY', 'GBPJPY', 'AUDJPY', 'CHFJPY', 'CADCHF'
-    ];
-    
-    const data = pairs.map(pair => {
-      let basePrice;
-      if (pair.includes('JPY')) {
-        basePrice = 140 + Math.random() * 20;
-      } else if (pair.startsWith('EUR')) {
-        basePrice = 1.05 + Math.random() * 0.15;
-      } else if (pair.startsWith('GBP')) {
-        basePrice = 1.25 + Math.random() * 0.15;
-      } else {
-        basePrice = 0.6 + Math.random() * 0.8;
-      }
-
-      const change = (Math.random() - 0.5) * 0.02;
-      const changePercent = (change / basePrice) * 100;
-      
-      return {
-        pair,
-        price: basePrice.toFixed(pair.includes('JPY') ? 3 : 5),
-        change: change.toFixed(5),
-        changePercent: changePercent.toFixed(2),
-        high: (basePrice + Math.random() * 0.01).toFixed(pair.includes('JPY') ? 3 : 5),
-        low: (basePrice - Math.random() * 0.01).toFixed(pair.includes('JPY') ? 3 : 5),
-        volume: Math.floor(Math.random() * 1000000) + 500000,
-        trend: change > 0 ? 'up' : 'down',
-        source: 'fallback',
-        timestamp: new Date().toISOString()
-      } as MarketDataItem;
-    });
-    
-    setMarketData(data);
   };
 
   // Set up real-time updates and periodic refresh
@@ -137,13 +117,16 @@ const MarketData = () => {
         },
         (payload) => {
           console.log('Real-time market data update:', payload);
-          fetchMarketData(); // Refresh data when changes occur
+          fetchMarketData();
         }
       )
       .subscribe();
 
-    // Periodic refresh every 30 seconds
-    const interval = setInterval(fetchMarketData, 30000);
+    // Periodic refresh every 30 seconds and trigger generation
+    const interval = setInterval(() => {
+      generateMarketData();
+      fetchMarketData();
+    }, 30000);
     
     return () => {
       supabase.removeChannel(channel);
@@ -170,7 +153,7 @@ const MarketData = () => {
             {marketData.reduce((sum, item) => sum + item.volume, 0).toLocaleString()}
           </div>
           <div className="text-gray-400 text-sm">Total Volume</div>
-          <div className="text-blue-400 text-xs mt-1">Last update</div>
+          <div className="text-blue-400 text-xs mt-1">Last update: {lastUpdate}</div>
         </div>
         <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
           <div className="text-purple-400 text-2xl font-bold">

@@ -20,7 +20,7 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log('Starting centralized market data fetch...');
+    console.log('Starting market data fetch...');
 
     // Get all active centralized signals to know which pairs to fetch
     const { data: activeSignals, error: signalsError } = await supabase
@@ -38,7 +38,7 @@ serve(async (req) => {
       Array.from(new Set(activeSignals.map(s => s.symbol).filter(Boolean))) : 
       ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD'];
 
-    console.log(`Generating market data for ${activePairs.length} pairs:`, activePairs);
+    console.log(`Processing ${activePairs.length} currency pairs:`, activePairs);
 
     // Check market hours
     const now = new Date();
@@ -57,14 +57,16 @@ serve(async (req) => {
     console.log(`Market status: ${isMarketOpen ? 'OPEN' : 'CLOSED'}`);
 
     let marketDataBatch = [];
+    let realDataCount = 0;
 
-    // First, clear old market data (keep only last 50 records per symbol)
+    // Clean old market data first
+    console.log('Cleaning old market data...');
     for (const symbol of activePairs) {
       const { error: deleteError } = await supabase
         .from('live_market_data')
         .delete()
         .eq('symbol', symbol)
-        .lt('created_at', new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()); // Keep last 4 hours
+        .lt('created_at', new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString());
 
       if (deleteError) {
         console.error(`Error cleaning old data for ${symbol}:`, deleteError);
@@ -72,9 +74,8 @@ serve(async (req) => {
     }
 
     // Try to fetch real data from FastForex if API key available
-    if (fastForexApiKey && activePairs.length > 0) {
+    if (fastForexApiKey) {
       try {
-        // Only use pairs that FastForex supports (no exotic pairs)
         const supportedPairs = activePairs.filter(pair => 
           ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD', 'EURGBP', 'EURJPY', 'GBPJPY'].includes(pair)
         );
@@ -83,44 +84,61 @@ serve(async (req) => {
           const symbolsParam = supportedPairs.join(',');
           const url = `https://api.fastforex.io/fetch-multi?pairs=${symbolsParam}&api_key=${fastForexApiKey}`;
           
-          console.log('Fetching real market data from FastForex API...');
-          const response = await fetch(url);
+          console.log(`Calling FastForex API for ${supportedPairs.length} pairs...`);
+          console.log('API URL:', url.replace(fastForexApiKey, 'HIDDEN'));
+          
+          const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+            },
+          });
+          
+          console.log(`FastForex API response status: ${response.status}`);
           
           if (response.ok) {
             const data = await response.json();
-            console.log('FastForex API response received successfully');
+            console.log('FastForex API response received:', Object.keys(data));
 
             if (data.results && Object.keys(data.results).length > 0) {
-              marketDataBatch = Object.entries(data.results).map(([symbol, rates]: [string, any]) => {
-                const price = parseFloat(rates.c || rates.o || 0);
-                const spread = price * 0.0001;
-                
-                return {
-                  symbol,
-                  price,
-                  bid: parseFloat((price - spread/2).toFixed(symbol.includes('JPY') ? 3 : 5)),
-                  ask: parseFloat((price + spread/2).toFixed(symbol.includes('JPY') ? 3 : 5)),
-                  source: 'fastforex_real',
-                  timestamp: new Date().toISOString(),
-                  created_at: new Date().toISOString()
-                };
-              });
+              console.log(`Processing ${Object.keys(data.results).length} real price updates`);
+              
+              for (const [symbol, rates] of Object.entries(data.results)) {
+                const price = parseFloat((rates as any).c || (rates as any).o || 0);
+                if (price > 0) {
+                  const spread = price * 0.0001;
+                  
+                  marketDataBatch.push({
+                    symbol,
+                    price,
+                    bid: parseFloat((price - spread/2).toFixed(symbol.includes('JPY') ? 3 : 5)),
+                    ask: parseFloat((price + spread/2).toFixed(symbol.includes('JPY') ? 3 : 5)),
+                    source: 'fastforex_real',
+                    timestamp: new Date().toISOString(),
+                    created_at: new Date().toISOString()
+                  });
+                  realDataCount++;
+                }
+              }
 
-              console.log(`Successfully processed ${marketDataBatch.length} real market data records`);
+              console.log(`Successfully processed ${realDataCount} real market data records`);
+            } else {
+              console.log('FastForex API returned empty results');
             }
           } else {
-            console.log(`FastForex API returned ${response.status}: ${response.statusText}`);
-            throw new Error(`FastForex API error: ${response.status}`);
+            const errorText = await response.text();
+            console.log(`FastForex API error ${response.status}:`, errorText);
           }
         }
       } catch (apiError) {
-        console.error('FastForex API failed:', apiError);
-        console.log('Falling back to realistic simulation');
+        console.error('FastForex API request failed:', apiError);
       }
+    } else {
+      console.log('No FastForex API key found, using simulation only');
     }
 
-    // Generate realistic market data for all pairs (real or simulated)
-    console.log('Generating centralized market data for all active pairs');
+    // Generate data for remaining pairs (real or simulated)
+    console.log('Generating market data for all pairs...');
     
     for (const pair of activePairs) {
       // Skip if we already have real data for this pair
@@ -143,8 +161,8 @@ serve(async (req) => {
         // Use the last known price and add realistic movement
         baseRate = parseFloat(lastData.price.toString());
         const marketMovement = isMarketOpen ? 
-          (Math.random() - 0.5) * 0.0005 : // More movement during market hours
-          (Math.random() - 0.5) * 0.00005; // Minimal movement when closed
+          (Math.random() - 0.5) * 0.0008 : // More movement during market hours
+          (Math.random() - 0.5) * 0.00008; // Minimal movement when closed
         baseRate += marketMovement;
       } else {
         // Generate realistic base rates for new pairs
@@ -163,7 +181,7 @@ serve(async (req) => {
         }
       }
       
-      const spread = baseRate * (pair.includes('JPY') ? 0.002 : 0.00015); // Realistic spreads
+      const spread = baseRate * (pair.includes('JPY') ? 0.002 : 0.00015);
       const price = parseFloat(baseRate.toFixed(pair.includes('JPY') ? 3 : 5));
       const bid = parseFloat((price - spread/2).toFixed(pair.includes('JPY') ? 3 : 5));
       const ask = parseFloat((price + spread/2).toFixed(pair.includes('JPY') ? 3 : 5));
@@ -179,12 +197,11 @@ serve(async (req) => {
       });
     }
 
-    console.log(`Generated ${marketDataBatch.length} total market data records`);
-    console.log('Market data symbols:', marketDataBatch.map(item => item.symbol));
+    console.log(`Generated ${marketDataBatch.length} total market data records (${realDataCount} real, ${marketDataBatch.length - realDataCount} simulated)`);
 
-    // Insert market data into database with explicit error handling
+    // Insert market data into database
     if (marketDataBatch.length > 0) {
-      console.log('Inserting market data batch:', marketDataBatch);
+      console.log('Inserting market data batch...');
       
       const { data: insertedData, error: insertError } = await supabase
         .from('live_market_data')
@@ -193,41 +210,39 @@ serve(async (req) => {
 
       if (insertError) {
         console.error('Error inserting market data:', insertError);
-        console.error('Failed batch data:', JSON.stringify(marketDataBatch, null, 2));
         return new Response(
           JSON.stringify({ error: 'Failed to insert market data', details: insertError.message }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
-      console.log(`Successfully inserted ${insertedData?.length || marketDataBatch.length} market data records to database`);
+      console.log(`Successfully inserted ${insertedData?.length || marketDataBatch.length} market data records`);
       
-      // Verify the data was actually inserted
-      const { data: verifyData, error: verifyError } = await supabase
+      // Verify the insertion
+      const { data: verifyData } = await supabase
         .from('live_market_data')
-        .select('symbol, price, created_at')
+        .select('symbol, price, source, created_at')
         .in('symbol', activePairs)
         .order('created_at', { ascending: false })
         .limit(activePairs.length);
 
       if (verifyData && verifyData.length > 0) {
-        console.log('Verification - Data in database:', verifyData.map(d => `${d.symbol}: ${d.price}`));
-      } else {
-        console.log('Warning: No data found during verification');
-        if (verifyError) {
-          console.error('Verification error:', verifyError);
-        }
+        console.log('Verification - Latest data in database:');
+        verifyData.forEach(d => {
+          console.log(`${d.symbol}: ${d.price} (${d.source}) at ${d.created_at}`);
+        });
       }
     }
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: `Updated ${marketDataBatch.length} currency pairs with centralized data`,
+        message: `Updated ${marketDataBatch.length} currency pairs`,
         pairs: marketDataBatch.map(item => item.symbol),
-        realDataCount: marketDataBatch.filter(item => item.source.includes('real')).length,
-        simulatedDataCount: marketDataBatch.filter(item => item.source.includes('simulation')).length,
+        realDataCount,
+        simulatedDataCount: marketDataBatch.length - realDataCount,
         marketOpen: isMarketOpen,
+        fastForexApiUsed: realDataCount > 0,
         timestamp: new Date().toISOString()
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
