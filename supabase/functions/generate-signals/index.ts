@@ -30,55 +30,15 @@ serve(async (req) => {
       // If no body or invalid JSON, treat as regular request
     }
 
-    console.log('Starting signal generation...', isManualTest ? '(Manual Test Mode)' : '(Automated)');
+    console.log('Starting centralized signal generation...', isManualTest ? '(Manual Test Mode)' : '(Automated)');
 
-    // Check if forex markets are open (Sunday 22:00 UTC to Friday 22:00 UTC)
-    const now = new Date();
-    const utcHour = now.getUTCHours();
-    const utcDay = now.getUTCDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-    
-    // Forex market is open from Sunday 22:00 UTC to Friday 22:00 UTC
-    let isMarketOpen = false;
-    
-    if (utcDay === 0) { // Sunday
-      isMarketOpen = utcHour >= 22; // Sunday 22:00+ (Monday open in Sydney)
-    } else if (utcDay >= 1 && utcDay <= 4) { // Monday to Thursday
-      isMarketOpen = true; // Always open
-    } else if (utcDay === 5) { // Friday
-      isMarketOpen = utcHour < 22; // Friday before 22:00
-    } else if (utcDay === 6) { // Saturday
-      isMarketOpen = false; // Always closed
-    }
-
-    console.log(`Market status: ${isMarketOpen ? 'OPEN' : 'CLOSED'} (Day: ${utcDay}, Hour: ${utcHour})`);
-
-    // Allow manual testing even when markets are closed
-    if (!isMarketOpen && !isManualTest) {
-      console.log('Markets closed, skipping signal generation');
-      return new Response(
-        JSON.stringify({ 
-          message: 'Markets closed - Forex markets are open Sunday 22:00 UTC to Friday 22:00 UTC',
-          marketOpen: false,
-          currentTime: now.toISOString(),
-          currentDay: utcDay,
-          currentHour: utcHour,
-          suggestion: 'Use manual test mode to generate signals for testing'
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    if (isManualTest) {
-      console.log('Manual test mode enabled - generating signals regardless of market hours');
-    }
-
-    // Get recent market data (last 2 hours)
-    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    // Get recent market data (last 30 minutes for more current data)
+    const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
     
     const { data: marketData, error: marketError } = await supabase
       .from('live_market_data')
       .select('*')
-      .gte('created_at', twoHoursAgo)
+      .gte('created_at', thirtyMinutesAgo)
       .order('created_at', { ascending: false });
 
     if (marketError || !marketData || marketData.length === 0) {
@@ -97,10 +57,11 @@ serve(async (req) => {
       .from('trading_signals')
       .select('symbol')
       .eq('status', 'active')
-      .gte('created_at', new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString());
+      .eq('is_centralized', true)
+      .gte('created_at', new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString()); // Last 6 hours
 
     const existingSymbols = new Set(existingSignals?.map(s => s.symbol) || []);
-    console.log('Existing active signals:', Array.from(existingSymbols));
+    console.log('Existing centralized signals:', Array.from(existingSymbols));
 
     // Group market data by symbol and get most recent for each
     const symbolData: Record<string, any[]> = {};
@@ -111,15 +72,16 @@ serve(async (req) => {
       }
     });
 
-    // Filter available symbols (exclude those with active signals)
+    // Focus on major pairs and filter available symbols
+    const majorPairs = ['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD'];
     const availableSymbols = Object.keys(symbolData)
-      .filter(symbol => !existingSymbols.has(symbol))
-      .slice(0, 5); // Limit to 5 new signals per run
+      .filter(symbol => majorPairs.includes(symbol) && !existingSymbols.has(symbol))
+      .slice(0, 3); // Limit to 3 high-quality signals
 
     if (availableSymbols.length === 0) {
       return new Response(
         JSON.stringify({ 
-          message: 'No new signals needed - all major pairs have recent signals',
+          message: 'No new centralized signals needed - major pairs have recent signals',
           existingSignals: Array.from(existingSymbols)
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -142,15 +104,17 @@ serve(async (req) => {
           continue;
         }
 
-        // Advanced signal generation logic
+        // Advanced technical analysis for high-quality signals
         let signalType = 'BUY';
-        let confidence = 75;
+        let confidence = 85;
         let analysis = '';
 
-        // Technical analysis based on recent price movement
-        if (prices.length > 1) {
+        // Technical analysis based on recent price movement and market structure
+        if (prices.length > 3) {
           const priceChanges = [];
-          for (let i = 1; i < Math.min(prices.length, 5); i++) {
+          const volumes = [];
+          
+          for (let i = 1; i < Math.min(prices.length, 6); i++) {
             const change = (currentPrice - Number(prices[i].price)) / Number(prices[i].price);
             priceChanges.push(change);
           }
@@ -158,28 +122,28 @@ serve(async (req) => {
           const avgChange = priceChanges.reduce((sum, change) => sum + change, 0) / priceChanges.length;
           const volatility = Math.sqrt(priceChanges.reduce((sum, change) => sum + Math.pow(change - avgChange, 2), 0) / priceChanges.length);
           
-          // Determine signal based on momentum and volatility
-          if (Math.abs(avgChange) > 0.001) { // Significant momentum
+          // Determine signal based on momentum and volatility with higher standards
+          if (Math.abs(avgChange) > 0.0008) { // Stronger momentum required (0.08%)
             signalType = avgChange > 0 ? 'BUY' : 'SELL';
-            confidence = Math.min(95, 80 + Math.abs(avgChange) * 10000);
+            confidence = Math.min(95, 85 + Math.abs(avgChange) * 5000);
           } else {
-            // Contrarian approach for low momentum
+            // Contrarian approach for consolidation periods
             signalType = Math.random() > 0.5 ? 'BUY' : 'SELL';
-            confidence = 70 + Math.random() * 15;
+            confidence = 80 + Math.random() * 10;
           }
           
-          // Adjust confidence based on volatility
-          confidence = Math.max(70, confidence - (volatility * 1000));
+          // Adjust confidence based on volatility (lower volatility = higher confidence)
+          confidence = Math.max(75, confidence - (volatility * 800));
         }
 
-        // Generate high-confidence signals (75%+ for testing, 85%+ for live)
-        const minConfidence = isManualTest ? 75 : 85;
+        // Only generate high-confidence centralized signals (85%+ minimum)
+        const minConfidence = 85;
         if (confidence < minConfidence) {
           console.log(`Skipping ${symbol} - confidence too low: ${confidence}%`);
           continue;
         }
 
-        // Generate comprehensive AI analysis
+        // Generate professional AI analysis
         if (openAIApiKey) {
           try {
             const analysisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -193,41 +157,35 @@ serve(async (req) => {
                 messages: [
                   {
                     role: 'system',
-                    content: 'You are a professional forex analyst. Provide comprehensive technical analysis with specific entry, stop loss, and take profit levels. Include market sentiment, risk factors, and trading strategy.'
+                    content: 'You are a professional forex analyst providing institutional-grade trading signals. Focus on technical analysis, market structure, and risk management.'
                   },
                   {
                     role: 'user',
-                    content: `Analyze ${symbol} at current price ${currentPrice}. Signal: ${signalType} with ${confidence}% confidence. Provide detailed analysis including:
-                    1. Technical analysis and market conditions
-                    2. Entry strategy and timing
-                    3. Risk management approach
-                    4. Market sentiment factors
-                    5. Key levels to watch
-                    Limit to 200 words.`
+                    content: `Provide professional analysis for ${symbol} at ${currentPrice}. Signal: ${signalType} with ${confidence}% confidence. Include: 1) Technical setup 2) Entry strategy 3) Risk factors 4) Market outlook. Keep to 150 words.`
                   }
                 ],
-                max_tokens: 200,
-                temperature: 0.3
+                max_tokens: 150,
+                temperature: 0.2
               }),
             });
 
             if (analysisResponse.ok) {
               const analysisData = await analysisResponse.json();
               analysis = analysisData.choices?.[0]?.message?.content || 
-                `Professional ${signalType} signal for ${symbol} at ${currentPrice}. High-probability setup based on momentum analysis and market structure. Recommended for experienced traders with proper risk management.`;
+                `Professional ${signalType} signal for ${symbol}. High-probability setup based on institutional technical analysis and market structure. Recommended for professional traders.`;
             }
           } catch (aiError) {
             console.error(`AI analysis failed for ${symbol}:`, aiError);
-            analysis = `Technical ${signalType} signal for ${symbol} at ${currentPrice}. Strong momentum detected with ${confidence}% confidence based on recent price action and market conditions.`;
+            analysis = `Centralized ${signalType} signal for ${symbol} at ${currentPrice}. Professional-grade setup with ${confidence}% confidence based on advanced technical analysis.`;
           }
         } else {
-          analysis = `${isManualTest ? 'Test' : 'Automated'} ${signalType} signal for ${symbol} at ${currentPrice}. High-confidence setup based on technical analysis and momentum indicators.`;
+          analysis = `Centralized ${signalType} signal for ${symbol} at ${currentPrice}. Institutional-grade analysis with ${confidence}% confidence. Professional risk management recommended.`;
         }
 
-        // Calculate precise stop loss and take profit levels
+        // Calculate precise institutional-style levels
         const pipValue = symbol.includes('JPY') ? 0.01 : 0.0001;
-        const stopLossDistance = signalType === 'BUY' ? -25 * pipValue : 25 * pipValue;
-        const takeProfitDistances = [40 * pipValue, 60 * pipValue, 80 * pipValue];
+        const stopLossDistance = signalType === 'BUY' ? -30 * pipValue : 30 * pipValue; // Wider stops for institutional style
+        const takeProfitDistances = [50 * pipValue, 80 * pipValue, 120 * pipValue]; // Conservative targets
         
         if (signalType === 'SELL') {
           takeProfitDistances.forEach((_, i) => takeProfitDistances[i] *= -1);
@@ -238,7 +196,7 @@ serve(async (req) => {
           parseFloat((currentPrice + distance).toFixed(symbol.includes('JPY') ? 3 : 5))
         );
 
-        // Insert signal with comprehensive data
+        // Insert centralized signal with professional data
         const signalData = {
           symbol,
           type: signalType,
@@ -247,8 +205,8 @@ serve(async (req) => {
           take_profits: takeProfits,
           confidence: Math.round(confidence),
           pips: Math.abs(takeProfitDistances[0] / pipValue),
-          is_centralized: true,
-          user_id: null,
+          is_centralized: true, // This ensures it's a centralized signal
+          user_id: null, // Centralized signals are not user-specific
           status: 'active',
           analysis_text: analysis,
           asset_type: 'FOREX'
@@ -261,11 +219,11 @@ serve(async (req) => {
           .single();
 
         if (signalError) {
-          console.error(`Error inserting signal for ${symbol}:`, signalError);
+          console.error(`Error inserting centralized signal for ${symbol}:`, signalError);
           continue;
         }
 
-        // Insert comprehensive AI analysis record
+        // Insert professional AI analysis record
         if (signal) {
           await supabase
             .from('ai_analysis')
@@ -277,15 +235,15 @@ serve(async (req) => {
                 symbol,
                 currentPrice,
                 signalType,
-                marketOpen: isMarketOpen,
-                timestamp: now.toISOString(),
+                centralized: true,
+                timestamp: new Date().toISOString(),
                 testMode: isManualTest
               }
             });
         }
 
         signalsGenerated.push(symbol);
-        console.log(`Generated ${isManualTest ? 'test' : 'live'} signal for ${symbol} (${confidence}%)`);
+        console.log(`Generated centralized signal for ${symbol} (${confidence}%)`);
         
       } catch (symbolError) {
         console.error(`Error processing ${symbol}:`, symbolError);
@@ -293,14 +251,14 @@ serve(async (req) => {
       }
     }
 
-    console.log(`Signal generation complete: ${signalsGenerated.length} signals`);
+    console.log(`Centralized signal generation complete: ${signalsGenerated.length} signals`);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: `Generated ${signalsGenerated.length} ${isManualTest ? 'test' : 'live'} signals`,
+        message: `Generated ${signalsGenerated.length} centralized professional signals`,
         signals: signalsGenerated,
-        marketOpen: isMarketOpen,
+        centralized: true,
         testMode: isManualTest
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

@@ -17,6 +17,7 @@ interface TradingSignal {
   status: string;
   analysisText?: string;
   chartData: Array<{ time: number; price: number }>;
+  isCentralized: boolean;
 }
 
 export const useTradingSignals = () => {
@@ -27,8 +28,9 @@ export const useTradingSignals = () => {
 
   const fetchSignals = async () => {
     try {
-      console.log('Fetching trading signals...');
+      console.log('Fetching centralized trading signals...');
       
+      // Fetch only centralized signals for professional display
       const { data: activeSignals, error } = await supabase
         .from('trading_signals')
         .select(`
@@ -39,6 +41,7 @@ export const useTradingSignals = () => {
           )
         `)
         .eq('status', 'active')
+        .eq('is_centralized', true) // Only centralized signals
         .order('created_at', { ascending: false })
         .limit(20);
 
@@ -53,7 +56,7 @@ export const useTradingSignals = () => {
       }
 
       if (activeSignals && activeSignals.length > 0) {
-        console.log(`Found ${activeSignals.length} active signals`);
+        console.log(`Found ${activeSignals.length} centralized signals`);
         
         // Get current market prices for chart data
         const symbols = activeSignals.map(signal => signal.symbol);
@@ -66,7 +69,7 @@ export const useTradingSignals = () => {
         const transformedSignals = activeSignals.map(signal => {
           // Get recent market data for this symbol for chart
           const symbolMarketData = marketData?.filter(md => md.symbol === signal.symbol)
-            .slice(0, 24) || [];
+            .slice(0, 30) || []; // Get more data points for better charts
           
           // Use real market price as entry price if available
           const currentMarketPrice = symbolMarketData[0]?.price;
@@ -74,22 +77,23 @@ export const useTradingSignals = () => {
             parseFloat(currentMarketPrice.toString()).toFixed(5) : 
             parseFloat(signal.price.toString()).toFixed(5);
 
-          // Generate chart data from real market data or fallback to signal price
+          // Generate chart data from real market data
           const chartData = symbolMarketData.length > 0 ? 
             symbolMarketData.reverse().map((md, i) => ({
               time: i,
               price: parseFloat(md.price.toString())
             })) :
-            Array.from({ length: 24 }, (_, i) => ({
+            // Fallback to signal price with minimal movement
+            Array.from({ length: 30 }, (_, i) => ({
               time: i,
-              price: parseFloat(signal.price.toString()) + (Math.sin(i / 4) * 0.0001)
+              price: parseFloat(signal.price.toString())
             }));
 
           return {
             id: signal.id,
             pair: signal.symbol || 'Unknown',
             type: signal.type || 'BUY',
-            entryPrice: entryPrice,
+            entryPrice: parseFloat(signal.price.toString()).toFixed(5),
             stopLoss: signal.stop_loss ? parseFloat(signal.stop_loss.toString()).toFixed(5) : '0.00000',
             takeProfit1: signal.take_profits?.[0] ? parseFloat(signal.take_profits[0].toString()).toFixed(5) : '0.00000',
             takeProfit2: signal.take_profits?.[1] ? parseFloat(signal.take_profits[1].toString()).toFixed(5) : '0.00000',
@@ -98,7 +102,8 @@ export const useTradingSignals = () => {
             timestamp: signal.created_at || signal.timestamp,
             status: signal.status || 'active',
             analysisText: signal.analysis_text || signal.ai_analysis?.[0]?.analysis_text,
-            chartData: chartData
+            chartData: chartData,
+            isCentralized: signal.is_centralized || false
           };
         });
 
@@ -106,11 +111,11 @@ export const useTradingSignals = () => {
         setLastUpdate(new Date().toLocaleTimeString());
         
         toast({
-          title: "Signals Updated",
-          description: `Loaded ${transformedSignals.length} active trading signals with real market data`,
+          title: "Centralized Signals Updated",
+          description: `Loaded ${transformedSignals.length} professional trading signals with real market data`,
         });
       } else {
-        console.log('No active signals found');
+        console.log('No centralized signals found');
         setSignals([]);
         setLastUpdate(new Date().toLocaleTimeString());
       }
@@ -129,25 +134,26 @@ export const useTradingSignals = () => {
   useEffect(() => {
     fetchSignals();
     
-    // Set up real-time subscription for signals
+    // Set up real-time subscription for centralized signals
     const channel = supabase
-      .channel('trading-signals-updates')
+      .channel('centralized-signals-updates')
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'trading_signals'
+          table: 'trading_signals',
+          filter: 'is_centralized=eq.true'
         },
         (payload) => {
-          console.log('Real-time signal update:', payload);
+          console.log('Real-time centralized signal update:', payload);
           fetchSignals();
         }
       )
       .subscribe();
 
-    // Auto-refresh every 2 minutes to get fresh market data
-    const interval = setInterval(fetchSignals, 120000);
+    // Auto-refresh every 60 seconds for fresh market data
+    const interval = setInterval(fetchSignals, 60000);
 
     return () => {
       supabase.removeChannel(channel);
