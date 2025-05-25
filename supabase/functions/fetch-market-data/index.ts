@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -41,22 +42,24 @@ serve(async (req) => {
 
     console.log(`Market status: ${isMarketOpen ? 'OPEN' : 'CLOSED'} (Day: ${utcDay}, Hour: ${utcHour})`);
 
-    // Use a smaller set of major currency pairs to avoid API limits
-    const majorPairs = [
-      'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD',
-      'NZDUSD', 'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF',
-      'AUDCHF', 'CADJPY', 'CHFJPY', 'EURAUD', 'EURNZD', 'EURCAD',
-      'GBPAUD', 'GBPNZD', 'GBPCAD', 'AUDNZD', 'AUDCAD', 'NZDCAD'
+    // Expanded list to include all pairs that might be used in signals
+    const allForexPairs = [
+      // Major pairs
+      'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
+      // Cross pairs
+      'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'EURAUD', 'EURNZD', 'EURCAD',
+      'GBPAUD', 'GBPNZD', 'GBPCAD', 'AUDCHF', 'CADJPY', 'CHFJPY', 'AUDNZD', 'AUDCAD',
+      'NZDCAD', 'NZDJPY', 'NZDCHF', 'CADCHF'
     ];
 
-    console.log(`Fetching data for ${majorPairs.length} major currency pairs:`, majorPairs);
+    console.log(`Fetching data for ${allForexPairs.length} currency pairs:`, allForexPairs);
 
     let marketDataBatch = [];
 
     // Try to fetch real data from FastForex if API key is available
     if (fastForexApiKey) {
       try {
-        const symbolsParam = majorPairs.join(',');
+        const symbolsParam = allForexPairs.join(',');
         const url = `https://api.fastforex.io/fetch-multi?pairs=${symbolsParam}&api_key=${fastForexApiKey}`;
         
         console.log('Attempting to fetch from FastForex API...');
@@ -99,9 +102,9 @@ serve(async (req) => {
 
     // If no real data was fetched, generate realistic mock data
     if (marketDataBatch.length === 0) {
-      console.log('Generating realistic mock data for all major pairs');
+      console.log('Generating realistic mock data for all currency pairs');
       
-      marketDataBatch = majorPairs.map(symbol => {
+      marketDataBatch = allForexPairs.map(symbol => {
         // Generate realistic base rates for different currency pairs
         let baseRate;
         if (symbol.includes('JPY')) {
@@ -116,9 +119,12 @@ serve(async (req) => {
         } else if (symbol.startsWith('AUD') || symbol.startsWith('NZD')) {
           // AUD/NZD pairs: typically 0.6-0.8 range
           baseRate = 0.65 + (Math.random() * 0.15);
-        } else {
-          // Other pairs: default range
+        } else if (symbol.startsWith('USD')) {
+          // USD pairs: typically 0.8-1.4 range
           baseRate = 0.8 + (Math.random() * 0.6);
+        } else {
+          // Cross pairs: variable range
+          baseRate = 0.7 + (Math.random() * 0.8);
         }
         
         const spread = baseRate * 0.0001; // 1 pip spread
