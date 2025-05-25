@@ -5,14 +5,17 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import SignalStats from './SignalStats';
 import SignalCard from './SignalCard';
+import { Button } from '@/components/ui/button';
+import { Zap, RefreshCw } from 'lucide-react';
 
 const TradingSignals = () => {
-  const { signals, loading, lastUpdate } = useTradingSignals();
+  const { signals, loading, lastUpdate, triggerAutomaticSignalGeneration } = useTradingSignals();
   const { toast } = useToast();
   
   // AI Analysis state
   const [analysis, setAnalysis] = useState<Record<string, string>>({});
   const [analyzingSignal, setAnalyzingSignal] = useState<string | null>(null);
+  const [generatingSignals, setGeneratingSignals] = useState(false);
 
   // Get available pairs from signals
   const availablePairs = Array.from(new Set(signals.map(signal => signal.pair))).filter(Boolean);
@@ -25,6 +28,16 @@ const TradingSignals = () => {
   const avgConfidence = signals.length > 0 
     ? Math.round(signals.reduce((sum, signal) => sum + signal.confidence, 0) / signals.length)
     : 87;
+
+  // Manual trigger for automatic signal generation
+  const handleManualSignalGeneration = async () => {
+    setGeneratingSignals(true);
+    try {
+      await triggerAutomaticSignalGeneration();
+    } finally {
+      setGeneratingSignals(false);
+    }
+  };
 
   // AI Analysis function
   const handleGetAIAnalysis = async (signalId: string) => {
@@ -89,6 +102,42 @@ const TradingSignals = () => {
         lastUpdate={lastUpdate}
       />
 
+      {/* Automatic Generation Controls */}
+      <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <Zap className="h-5 w-5 text-yellow-400" />
+              <span className="text-white font-medium">Automatic Signal Generation</span>
+              <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded">
+                85%+ Confidence Threshold
+              </span>
+            </div>
+            <Button
+              onClick={handleManualSignalGeneration}
+              disabled={generatingSignals}
+              className="bg-blue-600 hover:bg-blue-700 text-white text-sm"
+              size="sm"
+            >
+              {generatingSignals ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Scanning...
+                </>
+              ) : (
+                <>
+                  <Zap className="h-4 w-4 mr-2" />
+                  Scan Now
+                </>
+              )}
+            </Button>
+          </div>
+          <div className="text-sm text-gray-400">
+            🤖 Auto-scanning every 5 minutes • Market hours: Mon-Fri 00:00-22:00 UTC
+          </div>
+        </div>
+      </div>
+
       {/* Pair Filter */}
       {availablePairs.length > 0 && (
         <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
@@ -109,7 +158,7 @@ const TradingSignals = () => {
               </select>
             </div>
             <div className="text-sm text-gray-400">
-              🤖 Automated AI signals • Market hours: Mon-Fri 00:00-22:00 UTC
+              Only showing signals with 85%+ confidence
             </div>
           </div>
         </div>
@@ -118,7 +167,7 @@ const TradingSignals = () => {
       {/* Active Signals Grid */}
       <div>
         <h3 className="text-white text-lg font-semibold mb-4">
-          {selectedPair === 'All' ? 'All Active Signals' : `${selectedPair} Signals`} ({filteredSignals.length})
+          {selectedPair === 'All' ? 'High-Confidence Signals' : `${selectedPair} Signals`} ({filteredSignals.length})
         </h3>
         
         {filteredSignals.length > 0 ? (
@@ -137,12 +186,29 @@ const TradingSignals = () => {
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
               {selectedPair === 'All' 
-                ? 'No active signals available - AI will generate new signals automatically during market hours' 
-                : `No signals available for ${selectedPair}`}
+                ? 'No high-confidence signals detected - AI is continuously scanning for opportunities' 
+                : `No high-confidence signals available for ${selectedPair}`}
             </div>
-            <div className="text-sm text-gray-500">
-              Next automated signal generation: Every 30 minutes during forex market hours
+            <div className="text-sm text-gray-500 mb-4">
+              The system automatically generates signals when confidence levels exceed 85%
             </div>
+            <Button
+              onClick={handleManualSignalGeneration}
+              disabled={generatingSignals}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {generatingSignals ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Scanning Markets...
+                </>
+              ) : (
+                <>
+                  <Zap className="h-4 w-4 mr-2" />
+                  Scan for Opportunities
+                </>
+              )}
+            </Button>
           </div>
         )}
       </div>

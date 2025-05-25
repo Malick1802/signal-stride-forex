@@ -68,13 +68,11 @@ export const useTradingSignals = () => {
           const symbolMarketData = marketData?.filter(md => md.symbol === signal.symbol)
             .slice(0, 24) || [];
           
-          // Use real market price as entry price if available
           const currentMarketPrice = symbolMarketData[0]?.price;
           const entryPrice = currentMarketPrice ? 
             parseFloat(currentMarketPrice.toString()).toFixed(5) : 
             parseFloat(signal.price.toString()).toFixed(5);
 
-          // Generate chart data from real market data or fallback to signal price
           const chartData = symbolMarketData.length > 0 ? 
             symbolMarketData.reverse().map((md, i) => ({
               time: i,
@@ -107,7 +105,7 @@ export const useTradingSignals = () => {
         
         toast({
           title: "Signals Updated",
-          description: `Loaded ${transformedSignals.length} active trading signals with real market data`,
+          description: `Loaded ${transformedSignals.length} high-confidence trading signals`,
         });
       } else {
         console.log('No active signals found');
@@ -123,6 +121,38 @@ export const useTradingSignals = () => {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Automatic signal generation trigger
+  const triggerAutomaticSignalGeneration = async () => {
+    try {
+      console.log('Triggering automatic signal generation...');
+      
+      // First ensure we have fresh market data
+      await supabase.functions.invoke('fetch-market-data');
+      
+      // Then trigger signal generation with confidence threshold
+      const { data, error } = await supabase.functions.invoke('generate-signals');
+      
+      if (error) {
+        console.error('Error in automatic signal generation:', error);
+        return;
+      }
+
+      if (data?.signals && data.signals.length > 0) {
+        console.log(`Generated ${data.signals.length} new high-confidence signals`);
+        toast({
+          title: "New Signals Generated!",
+          description: `${data.signals.length} high-confidence opportunities detected`,
+        });
+        
+        // Refresh signals after generation
+        setTimeout(fetchSignals, 2000);
+      }
+      
+    } catch (error) {
+      console.error('Error triggering automatic signal generation:', error);
     }
   };
 
@@ -146,12 +176,31 @@ export const useTradingSignals = () => {
       )
       .subscribe();
 
-    // Auto-refresh every 2 minutes to get fresh market data
-    const interval = setInterval(fetchSignals, 120000);
+    // Automatic signal generation every 5 minutes during market hours
+    const checkMarketHours = () => {
+      const now = new Date();
+      const utcHour = now.getUTCHours();
+      const utcDay = now.getUTCDay();
+      
+      const isMarketOpen = (utcDay >= 1 && utcDay <= 4) || 
+                          (utcDay === 0 && utcHour >= 22) || 
+                          (utcDay === 5 && utcHour < 22);
+      
+      return isMarketOpen;
+    };
+
+    // Auto-refresh and trigger signal generation
+    const autoGenerationInterval = setInterval(() => {
+      if (checkMarketHours()) {
+        triggerAutomaticSignalGeneration();
+      } else {
+        fetchSignals(); // Just refresh during closed hours
+      }
+    }, 300000); // Every 5 minutes
 
     return () => {
       supabase.removeChannel(channel);
-      clearInterval(interval);
+      clearInterval(autoGenerationInterval);
     };
   }, []);
 
@@ -159,6 +208,7 @@ export const useTradingSignals = () => {
     signals,
     loading,
     lastUpdate,
-    fetchSignals
+    fetchSignals,
+    triggerAutomaticSignalGeneration
   };
 };
