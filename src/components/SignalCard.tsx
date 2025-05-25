@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, Clock, Shield, Brain, ChevronDown, ChevronUp, Copy, ExternalLink, Check } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -37,7 +36,7 @@ interface SignalCardProps {
 
 const SignalCard = ({ signal, analysis }: SignalCardProps) => {
   const [priceData, setPriceData] = useState<PriceData[]>([]);
-  const [currentPrice, setCurrentPrice] = useState<number | null>(null);
+  const [currentPrice, setCurrentPrice] = useState<number>(parseFloat(signal.entryPrice));
   const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
   const [isMarketOpen, setIsMarketOpen] = useState(false);
   const { toast } = useToast();
@@ -76,6 +75,8 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
   // Fetch real market data from database
   const fetchRealMarketData = async () => {
     try {
+      console.log(`Fetching live market data for ${signal.pair}...`);
+      
       const { data: marketData, error } = await supabase
         .from('live_market_data')
         .select('*')
@@ -89,6 +90,17 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
       }
 
       if (marketData && marketData.length > 0) {
+        console.log(`Found ${marketData.length} market data points for ${signal.pair}`);
+        
+        // Get the latest price from market data
+        const latestMarketData = marketData[0];
+        const latestPrice = parseFloat(latestMarketData.price.toString());
+        
+        console.log(`Latest price for ${signal.pair}: ${latestPrice} (was showing: ${currentPrice})`);
+        
+        // Update current price with latest market data
+        setCurrentPrice(latestPrice);
+
         const transformedData = marketData.reverse().map((item, index) => ({
           timestamp: new Date(item.created_at || item.timestamp).getTime(),
           time: new Date(item.created_at || item.timestamp).toLocaleTimeString(),
@@ -97,9 +109,9 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
         }));
 
         setPriceData(transformedData);
-        setCurrentPrice(transformedData[transformedData.length - 1]?.price || parseFloat(signal.entryPrice));
       } else {
-        // Fallback to entry price if no market data
+        console.log(`No market data found for ${signal.pair}, keeping entry price`);
+        // Keep the current price as entry price if no market data
         generateFallbackData();
       }
     } catch (error) {
@@ -110,7 +122,7 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
 
   // Fallback data generation when real data is unavailable
   const generateFallbackData = () => {
-    const basePrice = parseFloat(signal.entryPrice);
+    const basePrice = currentPrice || parseFloat(signal.entryPrice);
     const now = Date.now();
     const data: PriceData[] = [];
 
@@ -129,7 +141,7 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
     }
 
     setPriceData(data);
-    setCurrentPrice(data[data.length - 1]?.price || basePrice);
+    // Don't update current price in fallback mode
   };
 
   // Copy price to clipboard
@@ -168,20 +180,20 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
     const marketOpen = checkMarketHours();
     setIsMarketOpen(marketOpen);
     
+    // Fetch real market data immediately
     fetchRealMarketData();
-  }, [signal.pair, signal.entryPrice]);
+  }, [signal.pair]);
 
-  // Real-time updates - fetch fresh data during market hours
+  // Real-time updates - fetch fresh data every 30 seconds during market hours
   useEffect(() => {
-    const updateInterval = isMarketOpen ? 30000 : 300000; // 30s during market hours, 5min when closed
+    const updateInterval = isMarketOpen ? 30000 : 120000; // 30s during market hours, 2min when closed
     
     const interval = setInterval(() => {
       const marketOpen = checkMarketHours();
       setIsMarketOpen(marketOpen);
       
-      if (marketOpen) {
-        fetchRealMarketData();
-      }
+      // Always fetch market data to get latest prices
+      fetchRealMarketData();
     }, updateInterval);
 
     return () => clearInterval(interval);
@@ -195,15 +207,15 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
   };
 
   const formatPrice = (price: number) => {
-    return price.toFixed(5);
+    return price.toFixed(signal.pair.includes('JPY') ? 3 : 5);
   };
 
   const getPriceChange = () => {
-    if (priceData.length < 2) return { change: 0, percentage: 0 };
-    const current = priceData[priceData.length - 1]?.price || 0;
-    const previous = priceData[0]?.price || 0;
-    const change = current - previous;
-    const percentage = (change / previous) * 100;
+    if (!currentPrice) return { change: 0, percentage: 0 };
+    
+    const entryPrice = parseFloat(signal.entryPrice);
+    const change = currentPrice - entryPrice;
+    const percentage = (change / entryPrice) * 100;
     return { change, percentage };
   };
 
@@ -235,30 +247,29 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
         </div>
         
         {/* Current Price and Change */}
-        {currentPrice && (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              {signal.type === 'BUY' ? (
-                <TrendingUp className="h-4 w-4 text-emerald-400" />
-              ) : (
-                <TrendingDown className="h-4 w-4 text-red-400" />
-              )}
-              <span className="text-white text-lg font-mono">{formatPrice(currentPrice)}</span>
-              <span className="text-xs text-gray-400">
-                {isMarketOpen ? 'Real-time' : 'Last close'}
-              </span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <span className={`text-sm font-mono ${
-                change >= 0 ? 'text-emerald-400' : 'text-red-400'
-              }`}>
-                {change >= 0 ? '+' : ''}{change.toFixed(5)} ({percentage >= 0 ? '+' : ''}{percentage.toFixed(2)}%)
-              </span>
-              <Shield className="h-4 w-4 text-yellow-400" />
-              <span className="text-yellow-400 text-sm font-medium">{signal.confidence}%</span>
-            </div>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            {signal.type === 'BUY' ? (
+              <TrendingUp className="h-4 w-4 text-emerald-400" />
+            ) : (
+              <TrendingDown className="h-4 w-4 text-red-400" />
+            )}
+            <span className="text-white text-lg font-mono">{formatPrice(currentPrice)}</span>
+            <span className="text-xs text-gray-400">
+              {isMarketOpen ? 'Live Price' : 'Last Price'}
+            </span>
           </div>
-        )}
+          <div className="flex items-center space-x-1">
+            <span className={`text-sm font-mono ${
+              change >= 0 ? 'text-emerald-400' : 'text-red-400'
+            }`}>
+              {change >= 0 ? '+' : ''}{change.toFixed(signal.pair.includes('JPY') ? 3 : 5)} 
+              ({percentage >= 0 ? '+' : ''}{percentage.toFixed(2)}%)
+            </span>
+            <Shield className="h-4 w-4 text-yellow-400" />
+            <span className="text-yellow-400 text-sm font-medium">{signal.confidence}%</span>
+          </div>
+        </div>
       </div>
 
       {/* Trading Chart */}
@@ -340,6 +351,25 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
               size="sm"
               variant="ghost"
               onClick={() => copyToClipboard(signal.entryPrice, 'Entry Price')}
+              className="h-6 w-6 p-0 text-gray-400 hover:text-white"
+            >
+              <Copy className="h-3 w-3" />
+            </Button>
+          </div>
+        </div>
+        
+        <div className="flex justify-between items-center">
+          <span className="text-gray-400">Current Price</span>
+          <div className="flex items-center space-x-2">
+            <span className={`font-mono ${
+              change >= 0 ? 'text-emerald-400' : 'text-red-400'
+            }`}>
+              {formatPrice(currentPrice)}
+            </span>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => copyToClipboard(formatPrice(currentPrice), 'Current Price')}
               className="h-6 w-6 p-0 text-gray-400 hover:text-white"
             >
               <Copy className="h-3 w-3" />
