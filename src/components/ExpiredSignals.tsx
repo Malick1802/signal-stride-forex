@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Clock, TrendingUp, TrendingDown, Target, Shield, DollarSign, RefreshCw } from 'lucide-react';
+import { TrendingUp, TrendingDown, Target, RefreshCw } from 'lucide-react';
 import { useExpiredSignals } from '@/hooks/useExpiredSignals';
 import { Button } from '@/components/ui/button';
 
@@ -11,7 +11,6 @@ const ExpiredSignals = () => {
     switch (result) {
       case 'WIN': return 'text-emerald-400 bg-emerald-400/20';
       case 'LOSS': return 'text-red-400 bg-red-400/20';
-      case 'EXPIRED': return 'text-gray-400 bg-gray-400/20';
       default: return 'text-gray-400 bg-gray-400/20';
     }
   };
@@ -20,15 +19,14 @@ const ExpiredSignals = () => {
     switch (result) {
       case 'WIN': return <TrendingUp className="h-4 w-4" />;
       case 'LOSS': return <TrendingDown className="h-4 w-4" />;
-      case 'EXPIRED': return <Clock className="h-4 w-4" />;
-      default: return <Clock className="h-4 w-4" />;
+      default: return <Target className="h-4 w-4" />;
     }
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-white">Loading expired signals...</div>
+        <div className="text-white">Loading completed signals...</div>
       </div>
     );
   }
@@ -39,8 +37,8 @@ const ExpiredSignals = () => {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
           <div className="text-emerald-400 text-2xl font-bold">{stats.totalSignals}</div>
-          <div className="text-gray-400 text-sm">Total Signals</div>
-          <div className="text-emerald-400 text-xs mt-1">Expired signals</div>
+          <div className="text-gray-400 text-sm">Completed Signals</div>
+          <div className="text-emerald-400 text-xs mt-1">Finished trades</div>
         </div>
         <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
           <div className="text-blue-400 text-2xl font-bold">{stats.winRate}%</div>
@@ -63,12 +61,12 @@ const ExpiredSignals = () => {
         </div>
       </div>
 
-      {/* Expired Signals List */}
+      {/* Completed Signals List */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 overflow-hidden">
         <div className="p-4 border-b border-white/10 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-bold text-white">Expired Signals History</h2>
-            <p className="text-gray-400 text-sm">Complete history of closed trading signals</p>
+            <h2 className="text-xl font-bold text-white">Completed Signals History</h2>
+            <p className="text-gray-400 text-sm">Signals that reached stop loss or take profit levels</p>
           </div>
           <Button
             variant="ghost"
@@ -83,9 +81,9 @@ const ExpiredSignals = () => {
 
         {expiredSignals.length === 0 ? (
           <div className="p-12 text-center">
-            <Clock className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-white mb-2">No Expired Signals</h3>
-            <p className="text-gray-400">No signals have expired yet. Active signals will appear here after 24 hours or when they hit their targets.</p>
+            <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-white mb-2">No Completed Signals</h3>
+            <p className="text-gray-400">No signals have been completed yet. Signals will appear here when they hit their stop loss or take profit levels.</p>
           </div>
         ) : (
           <div className="divide-y divide-white/10">
@@ -111,8 +109,7 @@ const ExpiredSignals = () => {
 
                   <div className="text-right">
                     <div className={`text-lg font-bold ${
-                      signal.result === 'WIN' ? 'text-emerald-400' : 
-                      signal.result === 'LOSS' ? 'text-red-400' : 'text-gray-400'
+                      signal.result === 'WIN' ? 'text-emerald-400' : 'text-red-400'
                     }`}>
                       {signal.pnl}
                     </div>
@@ -146,12 +143,12 @@ const ExpiredSignals = () => {
                 <div className="mt-4 flex items-center justify-between text-sm">
                   <div className="flex items-center space-x-4">
                     <div className="flex items-center space-x-1 text-gray-400">
-                      <Clock className="h-4 w-4" />
-                      <span>Expired: {signal.expiredAt}</span>
+                      <Target className="h-4 w-4" />
+                      <span>Completed: {signal.expiredAt}</span>
                     </div>
                   </div>
                   <div className="text-gray-400">
-                    Reason: <span className="text-white">{signal.reason}</span>
+                    Outcome: <span className="text-white">{signal.reason}</span>
                   </div>
                 </div>
               </div>

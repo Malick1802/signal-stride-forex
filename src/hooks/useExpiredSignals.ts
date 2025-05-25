@@ -12,7 +12,7 @@ interface ExpiredSignal {
   stopLoss: string;
   takeProfit: string;
   confidence: number;
-  result: 'WIN' | 'LOSS' | 'EXPIRED';
+  result: 'WIN' | 'LOSS';
   pnl: string;
   duration: string;
   expiredAt: string;
@@ -27,7 +27,6 @@ interface ExpiredSignalsStats {
   avgDuration: string;
   wins: number;
   losses: number;
-  expired: number;
 }
 
 export const useExpiredSignals = () => {
@@ -38,8 +37,7 @@ export const useExpiredSignals = () => {
     totalPnL: 0,
     avgDuration: '0h 0m',
     wins: 0,
-    losses: 0,
-    expired: 0
+    losses: 0
   });
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -48,7 +46,7 @@ export const useExpiredSignals = () => {
     try {
       console.log('Fetching expired signals...');
       
-      // Fetch expired signals with their outcomes
+      // Fetch signals that have actual outcomes (either hit SL or TP)
       const { data: signals, error } = await supabase
         .from('trading_signals')
         .select(`
@@ -61,7 +59,7 @@ export const useExpiredSignals = () => {
             pnl_pips
           )
         `)
-        .eq('status', 'expired')
+        .not('signal_outcomes', 'is', null)
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -76,7 +74,7 @@ export const useExpiredSignals = () => {
       }
 
       if (signals) {
-        console.log(`Found ${signals.length} expired signals`);
+        console.log(`Found ${signals.length} expired signals with outcomes`);
         
         // Transform the data
         const transformedSignals = signals.map(signal => {
@@ -84,30 +82,36 @@ export const useExpiredSignals = () => {
           const createdAt = new Date(signal.created_at);
           const expiredAt = outcome?.exit_timestamp ? 
             new Date(outcome.exit_timestamp) : 
-            new Date(createdAt.getTime() + 24 * 60 * 60 * 1000); // 24 hours later
+            new Date(createdAt.getTime() + 24 * 60 * 60 * 1000);
 
           // Calculate duration
           const durationMs = expiredAt.getTime() - createdAt.getTime();
           const hours = Math.floor(durationMs / (1000 * 60 * 60));
           const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
 
-          // Determine result and reason
-          let result: 'WIN' | 'LOSS' | 'EXPIRED' = 'EXPIRED';
-          let reason = 'Time Expired';
+          // Determine result and reason based on actual outcome
+          let result: 'WIN' | 'LOSS' = 'LOSS';
+          let reason = 'Stop Loss Hit';
           let exitPrice = signal.price;
           let pnl = '$0.00';
 
           if (outcome) {
             if (outcome.hit_target) {
               result = 'WIN';
-              reason = `Take Profit ${outcome.target_hit_level || 1} Hit`;
+              const targetLevel = outcome.target_hit_level || 1;
+              if (targetLevel === signal.take_profits?.length) {
+                reason = 'All Take Profits Hit';
+              } else {
+                reason = `Take Profit ${targetLevel} Hit`;
+              }
             } else {
               result = 'LOSS';
               reason = 'Stop Loss Hit';
             }
+            
             exitPrice = outcome.exit_price || signal.price;
             
-            // Calculate P&L (simplified calculation)
+            // Calculate P&L based on actual pips
             if (outcome.pnl_pips) {
               const pipValue = 10; // $10 per pip for standard lot
               const pnlAmount = outcome.pnl_pips * pipValue;
@@ -139,7 +143,6 @@ export const useExpiredSignals = () => {
         const totalSignals = transformedSignals.length;
         const wins = transformedSignals.filter(s => s.result === 'WIN').length;
         const losses = transformedSignals.filter(s => s.result === 'LOSS').length;
-        const expired = transformedSignals.filter(s => s.result === 'EXPIRED').length;
         const winRate = totalSignals > 0 ? Math.round((wins / totalSignals) * 100) : 0;
         
         // Calculate total P&L
@@ -163,13 +166,12 @@ export const useExpiredSignals = () => {
           totalPnL,
           avgDuration: `${avgHours}h ${avgMinutes}m`,
           wins,
-          losses,
-          expired
+          losses
         });
 
         toast({
           title: "Expired Signals Loaded",
-          description: `Loaded ${totalSignals} expired signals with real data`,
+          description: `Loaded ${totalSignals} completed signals`,
         });
       }
     } catch (error) {
@@ -187,19 +189,18 @@ export const useExpiredSignals = () => {
   useEffect(() => {
     fetchExpiredSignals();
     
-    // Set up real-time subscription for new expired signals
+    // Set up real-time subscription for new signal outcomes
     const channel = supabase
-      .channel('expired-signals-updates')
+      .channel('signal-outcomes-updates')
       .on(
         'postgres_changes',
         {
-          event: 'UPDATE',
+          event: 'INSERT',
           schema: 'public',
-          table: 'trading_signals',
-          filter: 'status=eq.expired'
+          table: 'signal_outcomes'
         },
         (payload) => {
-          console.log('Real-time expired signal update:', payload);
+          console.log('New signal outcome:', payload);
           fetchExpiredSignals();
         }
       )
