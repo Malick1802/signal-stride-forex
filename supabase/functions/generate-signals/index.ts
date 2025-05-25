@@ -22,21 +22,35 @@ serve(async (req) => {
 
     console.log('Starting automated signal generation...');
 
-    // Check if forex markets are open
+    // Check if forex markets are open (Sunday 22:00 UTC to Friday 22:00 UTC)
     const now = new Date();
     const utcHour = now.getUTCHours();
-    const utcDay = now.getUTCDay();
+    const utcDay = now.getUTCDay(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
     
-    const isMarketOpen = (utcDay >= 1 && utcDay <= 4) || 
-                        (utcDay === 0 && utcHour >= 22) || 
-                        (utcDay === 5 && utcHour < 22);
+    // Forex market is open from Sunday 22:00 UTC to Friday 22:00 UTC
+    let isMarketOpen = false;
+    
+    if (utcDay === 0) { // Sunday
+      isMarketOpen = utcHour >= 22; // Sunday 22:00+ (Monday open in Sydney)
+    } else if (utcDay >= 1 && utcDay <= 4) { // Monday to Thursday
+      isMarketOpen = true; // Always open
+    } else if (utcDay === 5) { // Friday
+      isMarketOpen = utcHour < 22; // Friday before 22:00
+    } else if (utcDay === 6) { // Saturday
+      isMarketOpen = false; // Always closed
+    }
+
+    console.log(`Market status: ${isMarketOpen ? 'OPEN' : 'CLOSED'} (Day: ${utcDay}, Hour: ${utcHour})`);
 
     if (!isMarketOpen) {
       console.log('Markets closed, skipping signal generation');
       return new Response(
         JSON.stringify({ 
-          message: 'Markets closed - no signals generated',
-          marketOpen: false
+          message: 'Markets closed - Forex markets are open Sunday 22:00 UTC to Friday 22:00 UTC',
+          marketOpen: false,
+          currentTime: now.toISOString(),
+          currentDay: utcDay,
+          currentHour: utcHour
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
