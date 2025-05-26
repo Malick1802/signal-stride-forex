@@ -50,14 +50,14 @@ serve(async (req) => {
     console.log(`📊 Market status: ${isMarketOpen ? 'OPEN' : 'CLOSED'} (UTC Day: ${utcDay}, Hour: ${utcHour})`);
 
     // Currency pairs that we need to support
-    const requiredPairs = [
+    const supportedPairs = [
       'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
       'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY', 
       'CHFJPY', 'EURAUD', 'EURNZD', 'EURCAD', 'GBPAUD', 'GBPNZD', 'GBPCAD', 
       'AUDNZD', 'AUDCAD', 'NZDCAD', 'AUDSGD', 'NZDCHF', 'USDNOK', 'USDSEK'
     ];
 
-    console.log(`💱 Processing ${requiredPairs.length} currency pairs...`);
+    console.log(`💱 Processing ${supportedPairs.length} currency pairs...`);
 
     let baseRates: Record<string, number> = {};
     let dataSource = 'unknown';
@@ -126,14 +126,7 @@ serve(async (req) => {
     let calculatedCount = 0;
     const failedPairs: string[] = [];
 
-    const requiredPairs = [
-      'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
-      'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY', 
-      'CHFJPY', 'EURAUD', 'EURNZD', 'EURCAD', 'GBPAUD', 'GBPNZD', 'GBPCAD', 
-      'AUDNZD', 'AUDCAD', 'NZDCAD', 'AUDSGD', 'NZDCHF', 'USDNOK', 'USDSEK'
-    ];
-
-    for (const pair of requiredPairs) {
+    for (const pair of supportedPairs) {
       try {
         const baseCurrency = pair.substring(0, 3);
         const quoteCurrency = pair.substring(3, 6);
@@ -159,7 +152,7 @@ serve(async (req) => {
       }
     }
 
-    console.log(`📊 Successfully calculated ${calculatedCount}/${requiredPairs.length} pairs`);
+    console.log(`📊 Successfully calculated ${calculatedCount}/${supportedPairs.length} pairs`);
     if (failedPairs.length > 0) {
       console.log(`⚠️ Failed pairs: ${failedPairs.join(', ')}`);
     }

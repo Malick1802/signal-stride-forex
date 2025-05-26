@@ -56,18 +56,18 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
 
   // Comprehensive validation and safe fallback assignment
   const safeSignal = {
-    id: signal.id || 'unknown',
-    pair: signal.pair || 'UNKNOWN',
-    type: signal.type || 'BUY',
-    entryPrice: signal.entryPrice || '0.00000',
-    stopLoss: signal.stopLoss || '0.00000',
-    takeProfit1: signal.takeProfit1 || '0.00000',
-    takeProfit2: signal.takeProfit2 || '0.00000',
-    takeProfit3: signal.takeProfit3 || '0.00000',
-    confidence: signal.confidence || 0,
-    timestamp: signal.timestamp || new Date().toISOString(),
-    analysisText: signal.analysisText || 'No analysis available',
-    chartData: signal.chartData || []
+    id: signal?.id || 'unknown',
+    pair: signal?.pair || 'UNKNOWN',
+    type: signal?.type || 'BUY',
+    entryPrice: signal?.entryPrice || '0.00000',
+    stopLoss: signal?.stopLoss || '0.00000',
+    takeProfit1: signal?.takeProfit1 || '0.00000',
+    takeProfit2: signal?.takeProfit2 || '0.00000',
+    takeProfit3: signal?.takeProfit3 || '0.00000',
+    confidence: signal?.confidence || 0,
+    timestamp: signal?.timestamp || new Date().toISOString(),
+    analysisText: signal?.analysisText || 'No analysis available',
+    chartData: signal?.chartData || []
   };
 
   // Additional validation for critical fields
