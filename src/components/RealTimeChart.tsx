@@ -4,7 +4,8 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 
 interface PriceData {
-  time: number;
+  timestamp: number;
+  time: string;
   price: number;
 }
 
@@ -35,13 +36,13 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
       return [];
     }
 
-    // Sort by time and transform for recharts
-    const sortedData = [...priceData].sort((a, b) => a.time - b.time);
+    // Sort by timestamp and transform for recharts
+    const sortedData = [...priceData].sort((a, b) => a.timestamp - b.timestamp);
     
     return sortedData.map((point, index) => ({
       time: `${index}`,
       price: point.price,
-      timestamp: point.time,
+      timestamp: point.timestamp,
       // Mark if this is the entry point
       isEntry: entryPrice && Math.abs(point.price - entryPrice) < 0.00001
     }));
