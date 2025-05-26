@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -49,15 +48,16 @@ serve(async (req) => {
 
     console.log(`Fetching real market data for ${supportedPairs.length} currency pairs from FastForex`);
 
-    let marketData = null;
+    let marketData: Record<string, number> = {};
     let dataSource = 'unknown';
     
-    // Try the fetch-all endpoint first
+    // Try the fetch-multi endpoint for USD pairs
     try {
-      const fetchAllUrl = `https://api.fastforex.io/fetch-all?api_key=${fastForexApiKey}`;
-      console.log('Trying fetch-all endpoint...');
+      const currencies = ['EUR', 'GBP', 'JPY', 'CHF', 'AUD', 'CAD', 'NZD', 'NOK', 'SEK'];
+      const fetchMultiUrl = `https://api.fastforex.io/fetch-multi?from=USD&to=${currencies.join(',')}&api_key=${fastForexApiKey}`;
+      console.log('Calling FastForex fetch-multi endpoint...');
       
-      const response = await fetch(fetchAllUrl, {
+      const response = await fetch(fetchMultiUrl, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
@@ -65,57 +65,52 @@ serve(async (req) => {
         }
       });
       
-      if (response.ok) {
-        const data = await response.json();
-        console.log('FastForex fetch-all response received:', Object.keys(data));
+      if (!response.ok) {
+        console.error(`FastForex API error: ${response.status} ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        throw new Error(`API responded with ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('FastForex API response structure:', Object.keys(data));
+      console.log('Full response:', JSON.stringify(data, null, 2));
+      
+      if (data.results && typeof data.results === 'object') {
+        console.log('Processing USD-based rates...');
         
-        if (data.results && typeof data.results === 'object') {
-          // Convert the results object to our expected format
-          const convertedResults: Record<string, number> = {};
-          
-          // The API returns data in format like EUR -> { USD: 1.0850, GBP: 0.8590, ... }
-          // We need to convert this to EURUSD, EURGBP format
-          for (const [baseCurrency, rates] of Object.entries(data.results)) {
-            if (typeof rates === 'object' && rates !== null) {
-              for (const [quoteCurrency, rate] of Object.entries(rates as Record<string, any>)) {
-                const symbol = `${baseCurrency}${quoteCurrency}`;
-                if (supportedPairs.includes(symbol) && typeof rate === 'number') {
-                  convertedResults[symbol] = rate;
-                }
-              }
+        // Process USD-based rates (like USDEUR, USDJPY, etc.)
+        for (const [currency, rate] of Object.entries(data.results)) {
+          if (typeof rate === 'number' && rate > 0) {
+            const usdPair = `USD${currency}`;
+            if (supportedPairs.includes(usdPair)) {
+              marketData[usdPair] = rate;
+              console.log(`Added ${usdPair}: ${rate}`);
+            }
+            
+            // Calculate inverse pairs (like EURUSD from USDEUR)
+            const inversePair = `${currency}USD`;
+            if (supportedPairs.includes(inversePair)) {
+              marketData[inversePair] = 1 / rate;
+              console.log(`Added ${inversePair}: ${1 / rate}`);
             }
           }
-          
-          // Also handle direct USD pairs from the results
-          if (data.results.USD && typeof data.results.USD === 'object') {
-            for (const [currency, rate] of Object.entries(data.results.USD as Record<string, any>)) {
-              const symbol = `USD${currency}`;
-              if (supportedPairs.includes(symbol) && typeof rate === 'number') {
-                convertedResults[symbol] = rate;
-              }
-            }
-          }
-          
-          marketData = convertedResults;
-          dataSource = 'fetch-all';
-          console.log(`Successfully converted data from fetch-all endpoint with ${Object.keys(marketData).length} pairs`);
         }
-      } else {
-        console.log(`fetch-all endpoint failed with status: ${response.status}`);
+        
+        dataSource = 'fetch-multi-usd';
+        console.log(`Successfully processed ${Object.keys(marketData).length} USD-based pairs`);
       }
     } catch (error) {
-      console.log('fetch-all endpoint error:', error.message);
+      console.error('fetch-multi USD endpoint error:', error.message);
     }
 
-    // Try the fetch-multi endpoint if fetch-all failed
-    if (!marketData || Object.keys(marketData).length === 0) {
+    // Try additional major pairs if we need more data
+    if (Object.keys(marketData).length < 10) {
       try {
-        // For fetch-multi, we need to request specific pairs
-        const pairsToFetch = ['EUR', 'GBP', 'JPY', 'CHF', 'AUD', 'CAD', 'NZD', 'NOK', 'SEK'];
-        const fetchMultiUrl = `https://api.fastforex.io/fetch-multi?from=USD&to=${pairsToFetch.join(',')}&api_key=${fastForexApiKey}`;
-        console.log('Trying fetch-multi endpoint...');
+        const fetchOneUrl = `https://api.fastforex.io/fetch-one?from=EUR&to=USD&api_key=${fastForexApiKey}`;
+        console.log('Trying single pair fetch for EURUSD...');
         
-        const response = await fetch(fetchMultiUrl, {
+        const response = await fetch(fetchOneUrl, {
           method: 'GET',
           headers: {
             'Accept': 'application/json',
@@ -125,41 +120,21 @@ serve(async (req) => {
         
         if (response.ok) {
           const data = await response.json();
-          console.log('FastForex fetch-multi response received:', Object.keys(data));
+          console.log('Single pair response:', data);
           
-          if (data.results && typeof data.results === 'object') {
-            // Convert USD-based rates to our supported pairs
-            const convertedResults: Record<string, number> = {};
-            
-            for (const [currency, rate] of Object.entries(data.results)) {
-              if (typeof rate === 'number') {
-                const symbol = `USD${currency}`;
-                if (supportedPairs.includes(symbol)) {
-                  convertedResults[symbol] = rate;
-                }
-                
-                // Calculate inverse pairs like EURUSD from USDEUR
-                const inverseSymbol = `${currency}USD`;
-                if (supportedPairs.includes(inverseSymbol)) {
-                  convertedResults[inverseSymbol] = 1 / rate;
-                }
-              }
-            }
-            
-            marketData = convertedResults;
-            dataSource = 'fetch-multi';
-            console.log(`Successfully converted data from fetch-multi endpoint with ${Object.keys(marketData).length} pairs`);
+          if (data.result && typeof data.result.USD === 'number') {
+            marketData['EURUSD'] = data.result.USD;
+            console.log(`Added EURUSD from single fetch: ${data.result.USD}`);
+            dataSource = dataSource === 'unknown' ? 'fetch-one' : dataSource + '+fetch-one';
           }
-        } else {
-          console.log(`fetch-multi endpoint failed with status: ${response.status}`);
         }
       } catch (error) {
-        console.log('fetch-multi endpoint error:', error.message);
+        console.error('Single pair fetch error:', error.message);
       }
     }
 
     // If no real data available, generate realistic fallback data
-    if (!marketData || Object.keys(marketData).length === 0) {
+    if (Object.keys(marketData).length === 0) {
       console.log('No real data available, generating realistic fallback data');
       
       const basePrices = {
@@ -172,7 +147,6 @@ serve(async (req) => {
         'AUDSGD': 0.90400, 'NZDCHF': 0.55400, 'USDNOK': 10.89000, 'USDSEK': 10.45000
       };
       
-      marketData = {};
       supportedPairs.forEach(pair => {
         const basePrice = basePrices[pair] || 1.0000;
         // Add small random variation (±0.1%)
@@ -183,49 +157,8 @@ serve(async (req) => {
       dataSource = 'fallback';
     }
 
-    // Process and store the market data
-    const marketDataBatch = [];
-    let processedCount = 0;
-
-    for (const [symbol, rate] of Object.entries(marketData)) {
-      // Skip if not in our supported pairs
-      if (!supportedPairs.includes(symbol)) {
-        continue;
-      }
-      
-      const price = parseFloat(rate.toString());
-      
-      if (isNaN(price) || price <= 0) {
-        console.warn(`Invalid price for ${symbol}: ${rate}`);
-        continue;
-      }
-      
-      // Calculate realistic bid/ask spread
-      const spread = price * (symbol.includes('JPY') ? 0.002 : 0.00002);
-      const bid = parseFloat((price - spread/2).toFixed(symbol.includes('JPY') ? 3 : 5));
-      const ask = parseFloat((price + spread/2).toFixed(symbol.includes('JPY') ? 3 : 5));
-
-      marketDataBatch.push({
-        symbol,
-        price: parseFloat(price.toFixed(symbol.includes('JPY') ? 3 : 5)),
-        bid,
-        ask,
-        source: dataSource,
-        timestamp: new Date().toISOString(),
-        created_at: new Date().toISOString()
-      });
-      
-      processedCount++;
-    }
-
-    console.log(`Processed ${processedCount} forex pairs from ${dataSource}`);
-
-    if (marketDataBatch.length === 0) {
-      throw new Error('No valid market data processed after all attempts');
-    }
-
     // Clean old data efficiently (keep only last 50 records per symbol)
-    const symbolsToClean = [...new Set(marketDataBatch.map(item => item.symbol))];
+    const symbolsToClean = Object.keys(marketData);
     
     for (const symbol of symbolsToClean) {
       const { data: oldRecords } = await supabase
@@ -246,6 +179,47 @@ serve(async (req) => {
           console.warn(`Warning: Could not clean old data for ${symbol}:`, deleteError);
         }
       }
+    }
+
+    // Process and store the market data
+    const marketDataBatch = [];
+    let processedCount = 0;
+
+    for (const [symbol, rate] of Object.entries(marketData)) {
+      try {
+        const price = parseFloat(rate.toString());
+        
+        if (isNaN(price) || price <= 0) {
+          console.warn(`Invalid price for ${symbol}: ${rate}`);
+          continue;
+        }
+        
+        // Calculate realistic bid/ask spread
+        const spread = price * (symbol.includes('JPY') ? 0.002 : 0.00002);
+        const bid = parseFloat((price - spread/2).toFixed(symbol.includes('JPY') ? 3 : 5));
+        const ask = parseFloat((price + spread/2).toFixed(symbol.includes('JPY') ? 3 : 5));
+
+        marketDataBatch.push({
+          symbol,
+          price: parseFloat(price.toFixed(symbol.includes('JPY') ? 3 : 5)),
+          bid,
+          ask,
+          source: dataSource,
+          timestamp: new Date().toISOString(),
+          created_at: new Date().toISOString()
+        });
+        
+        processedCount++;
+      } catch (error) {
+        console.error(`Error processing ${symbol}:`, error);
+        continue;
+      }
+    }
+
+    console.log(`Processed ${processedCount} forex pairs from ${dataSource}`);
+
+    if (marketDataBatch.length === 0) {
+      throw new Error('No valid market data processed after all attempts');
     }
 
     // Insert new market data
