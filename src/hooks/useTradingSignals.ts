@@ -25,6 +25,19 @@ const CENTRALIZED_PAIRS = [
   'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY'
 ];
 
+interface CentralizedMarketData {
+  symbol: string;
+  current_price: number;
+  last_update: string;
+}
+
+interface FallbackMarketData {
+  symbol: string;
+  price: number;
+  created_at: string;
+  timestamp: string;
+}
+
 export const useTradingSignals = () => {
   const [signals, setSignals] = useState<TradingSignal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -186,15 +199,23 @@ export const useTradingSignals = () => {
     
     // Group market data by symbol, getting the latest for each
     const marketDataBySymbol = marketData.reduce((acc, item) => {
-      if (item?.symbol && item?.current_price && (!acc[item.symbol] || 
-          new Date(item.last_update || item.created_at) > new Date(acc[item.symbol].last_update || acc[item.symbol].created_at))) {
-        acc[item.symbol] = {
-          ...item,
-          price: item.current_price || item.price
-        };
+      if (item?.symbol) {
+        // Handle both centralized and fallback data structures
+        const isCentralized = 'current_price' in item;
+        const isRecent = isCentralized 
+          ? (!acc[item.symbol] || new Date(item.last_update) > new Date(acc[item.symbol].timestamp))
+          : (!acc[item.symbol] || new Date(item.created_at || item.timestamp) > new Date(acc[item.symbol].timestamp));
+        
+        if (isRecent) {
+          acc[item.symbol] = {
+            symbol: item.symbol,
+            price: isCentralized ? (item as CentralizedMarketData).current_price : (item as FallbackMarketData).price,
+            timestamp: isCentralized ? (item as CentralizedMarketData).last_update : (item as FallbackMarketData).created_at || (item as FallbackMarketData).timestamp
+          };
+        }
       }
       return acc;
-    }, {} as Record<string, any>);
+    }, {} as Record<string, { symbol: string; price: number; timestamp: string }>);
 
     console.log(`📊 Market data available for symbols: [${Object.keys(marketDataBySymbol).join(', ')}]`);
 
