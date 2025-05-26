@@ -18,7 +18,7 @@ const TradingSignals = () => {
 
   // Filter out invalid signals and add validation
   const validSignals = signals.filter(signal => {
-    if (!signal || !signal.id || !signal.pair || !signal.type) {
+    if (!signal || typeof signal !== 'object' || !signal.id || !signal.pair || !signal.type) {
       console.warn('Invalid signal filtered out:', signal);
       return false;
     }

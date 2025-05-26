@@ -28,7 +28,7 @@ interface SignalCardProps {
     timestamp: string;
     analysisText?: string;
     chartData: Array<{ time: number; price: number }>;
-  };
+  } | null;
   analysis: Record<string, string>;
   analyzingSignal: string | null;
   onGetAIAnalysis: (signalId: string) => void;
@@ -42,19 +42,13 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
   const [lastUpdateTime, setLastUpdateTime] = useState<string>('');
   const [dataSource, setDataSource] = useState<string>('FastForex API');
 
-  // Enhanced signal validation with detailed logging and null checks
-  if (!signal) {
-    console.error('SignalCard: No signal provided');
-    return (
-      <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
-        <div className="text-center text-gray-400">
-          No signal data available
-        </div>
-      </div>
-    );
+  // Early return if signal is null or invalid
+  if (!signal || typeof signal !== 'object') {
+    console.error('SignalCard: Invalid or null signal provided');
+    return null;
   }
 
-  // Comprehensive validation and safe fallback assignment
+  // Create safe signal with proper null checking
   const safeSignal = {
     id: signal?.id || 'unknown',
     pair: signal?.pair || 'UNKNOWN',
@@ -75,13 +69,7 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
       !safeSignal.pair || safeSignal.pair === 'UNKNOWN' || 
       !safeSignal.type) {
     console.error('SignalCard: Invalid signal data after validation:', safeSignal);
-    return (
-      <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
-        <div className="text-center text-gray-400">
-          Invalid signal data: {safeSignal.pair} {safeSignal.type}
-        </div>
-      </div>
-    );
+    return null;
   }
 
   console.log(`SignalCard: Processing signal ${safeSignal.id} - ${safeSignal.pair} ${safeSignal.type}`);
@@ -101,15 +89,15 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
   const fetchRealMarketData = async () => {
     try {
       console.log(`Fetching market data for ${safeSignal.pair}`);
-      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
+      const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
       
       const { data: marketData, error } = await supabase
         .from('live_market_data')
         .select('*')
         .eq('symbol', safeSignal.pair)
-        .gte('created_at', tenMinutesAgo)
+        .gte('created_at', thirtyMinutesAgo)
         .order('created_at', { ascending: false })
-        .limit(30);
+        .limit(50);
 
       if (error) {
         console.error(`Error fetching market data for ${safeSignal.pair}:`, error);
@@ -130,9 +118,14 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
           volume: Math.random() * 500000
         }));
 
-        setPriceData(transformedData);
-        const latestPrice = transformedData[transformedData.length - 1]?.price;
-        if (latestPrice && !isNaN(latestPrice)) {
+        // Filter out invalid prices
+        const validData = transformedData.filter(item => 
+          !isNaN(item.price) && item.price > 0 && isFinite(item.price)
+        );
+
+        if (validData.length > 0) {
+          setPriceData(validData);
+          const latestPrice = validData[validData.length - 1]?.price;
           setCurrentPrice(latestPrice);
           setLastUpdateTime(new Date().toLocaleTimeString('en-US', {
             hour12: false,
@@ -142,6 +135,7 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
           setDataSource('FastForex API (Live)');
           console.log(`📊 Updated ${safeSignal.pair} with real price: ${latestPrice}`);
         } else {
+          console.log(`Invalid price data for ${safeSignal.pair}, using fallback`);
           setFallbackData();
         }
       } else {
@@ -191,9 +185,9 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
     // Then try to fetch real data
     fetchRealMarketData();
     
-    // Update every 15 seconds during market hours
+    // Update every 30 seconds during market hours
     if (marketOpen) {
-      const interval = setInterval(fetchRealMarketData, 15000);
+      const interval = setInterval(fetchRealMarketData, 30000);
       return () => clearInterval(interval);
     }
   }, [safeSignal.pair]);
@@ -212,7 +206,7 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
         },
         () => {
           console.log(`🔔 Real-time update for ${safeSignal.pair}`);
-          setTimeout(fetchRealMarketData, 500);
+          setTimeout(fetchRealMarketData, 1000);
         }
       )
       .subscribe();
