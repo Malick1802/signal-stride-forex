@@ -6,7 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import SignalStats from './SignalStats';
 import SignalCard from './SignalCard';
 import { Button } from '@/components/ui/button';
-import { Zap, RefreshCw, Wifi, WifiOff } from 'lucide-react';
+import { Zap, RefreshCw, Wifi, WifiOff, Users } from 'lucide-react';
 
 const TradingSignals = memo(() => {
   const { signals, loading, lastUpdate, triggerAutomaticSignalGeneration } = useTradingSignals();
@@ -14,7 +14,7 @@ const TradingSignals = memo(() => {
   
   const [analysis, setAnalysis] = useState<Record<string, string>>({});
   const [analyzingSignal, setAnalyzingSignal] = useState<string | null>(null);
-  const [generatingSignals, setGeneratingSignals] = useState(false);
+  const [refreshingSignals, setRefreshingSignals] = useState(false);
 
   // Filter out invalid signals and add validation
   const validSignals = signals.filter(signal => {
@@ -33,19 +33,19 @@ const TradingSignals = memo(() => {
     ? Math.round(validSignals.reduce((sum, signal) => sum + (signal.confidence || 0), 0) / validSignals.length)
     : 87;
 
-  const handleManualSignalGeneration = async () => {
-    setGeneratingSignals(true);
+  const handleRefreshSignals = async () => {
+    setRefreshingSignals(true);
     try {
       await triggerAutomaticSignalGeneration();
     } catch (error) {
-      console.error('Error in manual signal generation:', error);
+      console.error('Error refreshing centralized signals:', error);
       toast({
-        title: "Generation Error",
-        description: "Failed to generate signals. Please try again.",
+        title: "Refresh Error",
+        description: "Failed to refresh centralized signals. Please try again.",
         variant: "destructive"
       });
     } finally {
-      setGeneratingSignals(false);
+      setRefreshingSignals(false);
     }
   };
 
@@ -95,12 +95,12 @@ const TradingSignals = memo(() => {
   if (loading && validSignals.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-white">Loading real-time signals...</div>
+        <div className="text-white">Loading centralized signals...</div>
       </div>
     );
   }
 
-  const hasRealTimeData = validSignals.length > 0;
+  const hasSignalData = validSignals.length > 0;
 
   return (
     <div className="space-y-6">
@@ -110,66 +110,66 @@ const TradingSignals = memo(() => {
         lastUpdate={lastUpdate}
       />
 
-      {/* Real-time Status */}
+      {/* Centralized Status */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              {hasRealTimeData ? (
-                <Wifi className="h-5 w-5 text-emerald-400" />
-              ) : (
-                <WifiOff className="h-5 w-5 text-red-400" />
-              )}
-              <span className="text-white font-medium">
-                {hasRealTimeData ? 'Real-Time Data Active' : 'Waiting for Real-Time Data'}
+              <Users className="h-5 w-5 text-blue-400" />
+              <span className="text-white font-medium">Centralized Signals</span>
+              <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">
+                SYNCHRONIZED
               </span>
-              <span className={`text-xs px-2 py-1 rounded ${
-                hasRealTimeData 
-                  ? 'bg-emerald-500/20 text-emerald-400' 
-                  : 'bg-red-500/20 text-red-400'
-              }`}>
-                {hasRealTimeData ? 'LIVE' : 'NO DATA'}
+            </div>
+            <div className="flex items-center space-x-2">
+              {hasSignalData ? (
+                <Wifi className="h-4 w-4 text-emerald-400" />
+              ) : (
+                <WifiOff className="h-4 w-4 text-red-400" />
+              )}
+              <span className="text-sm text-gray-400">
+                {hasSignalData ? 'All users see identical signals' : 'Waiting for signal data'}
               </span>
             </div>
           </div>
           <div className="text-sm text-gray-400">
-            FastForex API • Optimized for performance
+            Real-time synchronized • 85%+ confidence threshold
           </div>
         </div>
       </div>
 
-      {/* Signal Generation Controls */}
+      {/* Signal Management Controls */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <Zap className="h-5 w-5 text-yellow-400" />
-              <span className="text-white font-medium">Automatic Signal Generation</span>
+              <span className="text-white font-medium">Centralized Signal Management</span>
               <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded">
-                85%+ Confidence Threshold
+                DETERMINISTIC
               </span>
             </div>
             <Button
-              onClick={handleManualSignalGeneration}
-              disabled={generatingSignals}
+              onClick={handleRefreshSignals}
+              disabled={refreshingSignals}
               className="bg-blue-600 hover:bg-blue-700 text-white text-sm"
               size="sm"
             >
-              {generatingSignals ? (
+              {refreshingSignals ? (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Scanning...
+                  Updating...
                 </>
               ) : (
                 <>
-                  <Zap className="h-4 w-4 mr-2" />
-                  Generate Now
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh Signals
                 </>
               )}
             </Button>
           </div>
           <div className="text-sm text-gray-400">
-            🤖 Auto-scanning every 10 minutes • Market hours: Mon-Fri 00:00-22:00 UTC
+            🌐 Centralized for all users • Updates every 10 minutes
           </div>
         </div>
       </div>
@@ -194,16 +194,16 @@ const TradingSignals = memo(() => {
               </select>
             </div>
             <div className="text-sm text-gray-400">
-              Real-time signals only • Performance optimized
+              Centralized signals • Identical for all users
             </div>
           </div>
         </div>
       )}
 
-      {/* Active Signals Grid */}
+      {/* Active Centralized Signals Grid */}
       <div>
         <h3 className="text-white text-lg font-semibold mb-4">
-          {selectedPair === 'All' ? 'Real-Time Signals' : `${selectedPair} Signals`} ({filteredSignals.length})
+          {selectedPair === 'All' ? 'Centralized Signals' : `${selectedPair} Signals`} ({filteredSignals.length})
         </h3>
         
         {filteredSignals.length > 0 ? (
@@ -228,26 +228,26 @@ const TradingSignals = memo(() => {
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
               {selectedPair === 'All' 
-                ? 'Waiting for real-time market data to generate signals' 
-                : `No real-time signals available for ${selectedPair}`}
+                ? 'No centralized signals available at the moment' 
+                : `No centralized signals available for ${selectedPair}`}
             </div>
             <div className="text-sm text-gray-500 mb-4">
-              The system displays signals when real market data is available from FastForex API
+              Centralized signals are generated automatically and identical for all users
             </div>
             <Button
-              onClick={handleManualSignalGeneration}
-              disabled={generatingSignals}
+              onClick={handleRefreshSignals}
+              disabled={refreshingSignals}
               className="bg-blue-600 hover:bg-blue-700 text-white"
             >
-              {generatingSignals ? (
+              {refreshingSignals ? (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Fetching Market Data...
+                  Refreshing...
                 </>
               ) : (
                 <>
-                  <Zap className="h-4 w-4 mr-2" />
-                  Get Real-Time Signals
+                  <Users className="h-4 w-4 mr-2" />
+                  Refresh Centralized Signals
                 </>
               )}
             </Button>

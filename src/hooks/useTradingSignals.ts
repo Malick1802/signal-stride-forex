@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -86,31 +87,6 @@ export const useTradingSignals = () => {
         return fallbackData;
       }
       
-      // If no data available, trigger fresh fetch
-      console.log('🔄 No recent data, triggering fresh market data fetch...');
-      
-      try {
-        const { data: fetchResult, error: fetchError } = await supabase.functions.invoke('centralized-market-stream');
-        
-        if (!fetchError) {
-          console.log('✅ Fresh market data triggered');
-          await new Promise(resolve => setTimeout(resolve, 3000));
-          
-          const { data: freshData } = await supabase
-            .from('centralized_market_state')
-            .select('symbol, current_price, last_update')
-            .order('last_update', { ascending: false })
-            .limit(100);
-            
-          if (freshData && freshData.length > 0) {
-            console.log(`📊 Retrieved ${freshData.length} fresh centralized records`);
-            return freshData;
-          }
-        }
-      } catch (error) {
-        console.error('❌ Error triggering market data fetch:', error);
-      }
-      
       return [];
       
     } catch (error) {
@@ -121,59 +97,37 @@ export const useTradingSignals = () => {
 
   const fetchSignals = useCallback(async () => {
     try {
-      const { data: activeSignals, error } = await supabase
+      // Fetch only centralized signals to ensure consistency across all users
+      const { data: centralizedSignals, error } = await supabase
         .from('trading_signals')
         .select('*')
         .eq('status', 'active')
+        .eq('is_centralized', true) // Only fetch centralized signals
+        .is('user_id', null) // Centralized signals have null user_id
         .order('created_at', { ascending: false })
         .limit(25);
 
       if (error) {
-        console.error('❌ Error fetching signals:', error);
+        console.error('❌ Error fetching centralized signals:', error);
         setSignals([]);
         return;
       }
 
-      if (!activeSignals || activeSignals.length === 0) {
-        console.log('📭 No active signals found');
-        
-        try {
-          const { data: generateResult } = await supabase.functions.invoke('generate-signals');
-          console.log('✅ Signal generation result:', generateResult);
-          
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
-          const { data: newSignals } = await supabase
-            .from('trading_signals')
-            .select('*')
-            .eq('status', 'active')
-            .order('created_at', { ascending: false })
-            .limit(25);
-            
-          if (newSignals && newSignals.length > 0) {
-            console.log(`📊 Found ${newSignals.length} new signals after generation`);
-            const processedSignals = await processSignals(newSignals);
-            setSignals(processedSignals);
-            setLastUpdate(new Date().toLocaleTimeString());
-            return;
-          }
-        } catch (error) {
-          console.error('❌ Error generating signals:', error);
-        }
-        
+      if (!centralizedSignals || centralizedSignals.length === 0) {
+        console.log('📭 No active centralized signals found');
         setSignals([]);
         setLastUpdate(new Date().toLocaleTimeString());
         return;
       }
 
-      const processedSignals = await processSignals(activeSignals);
+      const processedSignals = await processSignals(centralizedSignals);
       setSignals(processedSignals);
       setLastUpdate(new Date().toLocaleTimeString());
       
       if (processedSignals.length > 0) {
         toast({
-          title: "Signals Updated",
-          description: `${processedSignals.length} trading signals loaded`,
+          title: "Centralized Signals Updated",
+          description: `${processedSignals.length} trading signals loaded for all users`,
         });
       }
       
@@ -186,7 +140,7 @@ export const useTradingSignals = () => {
   }, [toast]);
 
   const processSignals = async (activeSignals: any[]) => {
-    console.log(`📊 Processing ${activeSignals.length} active signals`);
+    console.log(`📊 Processing ${activeSignals.length} centralized signals`);
     
     const symbols = [...new Set(activeSignals
       .filter(signal => signal?.symbol && typeof signal.symbol === 'string')
@@ -240,10 +194,21 @@ export const useTradingSignals = () => {
             return null;
           }
           
-          const chartData = Array.from({ length: 30 }, (_, i) => ({
-            time: i,
-            price: currentMarketPrice * (1 + (Math.random() - 0.5) * 0.002)
-          }));
+          // Use stored chart data or create deterministic fallback
+          let chartData = [];
+          if (signal.chart_data && Array.isArray(signal.chart_data)) {
+            chartData = signal.chart_data;
+          } else {
+            // Create deterministic chart data as fallback
+            const symbolHash = signal.symbol.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
+            for (let i = 0; i < 30; i++) {
+              const factor = 1 + Math.sin((symbolHash + i * 10) / 100) * 0.0008;
+              chartData.push({
+                time: i,
+                price: currentMarketPrice * factor
+              });
+            }
+          }
 
           let takeProfits = [];
           if (signal.take_profits && Array.isArray(signal.take_profits)) {
@@ -262,7 +227,7 @@ export const useTradingSignals = () => {
             confidence: Math.floor(signal.confidence || 87),
             timestamp: signal.created_at || new Date().toISOString(),
             status: signal.status || 'active',
-            analysisText: signal.analysis_text || `AI ${signal.type || 'BUY'} signal for ${signal.symbol}`,
+            analysisText: signal.analysis_text || `Centralized AI ${signal.type || 'BUY'} signal for ${signal.symbol}`,
             chartData: chartData
           };
         } catch (error) {
@@ -272,14 +237,15 @@ export const useTradingSignals = () => {
       })
       .filter(Boolean) as TradingSignal[];
 
-    console.log(`✅ Successfully processed ${transformedSignals.length} signals`);
+    console.log(`✅ Successfully processed ${transformedSignals.length} centralized signals`);
     return transformedSignals;
   };
 
-  const triggerAutomaticSignalGeneration = useCallback(async () => {
+  const triggerCentralizedSignalGeneration = useCallback(async () => {
     try {
-      console.log('🚀 Triggering comprehensive market update...');
+      console.log('🚀 Triggering centralized signal generation...');
       
+      // First ensure market data is available
       const { data: marketResult, error: marketDataError } = await supabase.functions.invoke('centralized-market-stream');
       
       if (marketDataError) {
@@ -294,19 +260,37 @@ export const useTradingSignals = () => {
       
       console.log('✅ Market data fetched');
       
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // Wait a moment then trigger centralized signal generation
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const { data: signalResult, error: signalError } = await supabase.functions.invoke('generate-signals');
+      
+      if (signalError) {
+        console.error('❌ Signal generation failed:', signalError);
+        toast({
+          title: "Generation Failed",
+          description: "Failed to generate centralized signals",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      console.log('✅ Centralized signals generated');
+      
+      // Refresh the signal list
+      await new Promise(resolve => setTimeout(resolve, 1000));
       await fetchSignals();
       
       toast({
-        title: "Update Complete",
-        description: "Market data and signals have been refreshed",
+        title: "Centralized Signals Updated",
+        description: "All users now see the same trading signals",
       });
       
     } catch (error) {
-      console.error('❌ Error in signal generation:', error);
+      console.error('❌ Error in centralized signal generation:', error);
       toast({
         title: "Update Error",
-        description: "Failed to update signals",
+        description: "Failed to update centralized signals",
         variant: "destructive"
       });
     }
@@ -342,13 +326,13 @@ export const useTradingSignals = () => {
         console.log('✅ Real-time tick generator started');
       }
       
-      // Refresh signals
+      // Refresh signals without generating new ones (just fetch existing centralized signals)
       await new Promise(resolve => setTimeout(resolve, 2000));
       await fetchSignals();
       
       toast({
         title: "Real-time Updates Active",
-        description: "Market data and tick generation have been activated",
+        description: "Market data and centralized signals refreshed",
       });
       
     } catch (error) {
@@ -364,39 +348,41 @@ export const useTradingSignals = () => {
   useEffect(() => {
     fetchSignals();
     
-    // Real-time subscriptions with reduced frequency
+    // Real-time subscriptions for centralized signals only
     const signalsChannel = supabase
-      .channel('trading-signals-updates')
+      .channel('centralized-trading-signals')
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'trading_signals'
+          table: 'trading_signals',
+          filter: 'is_centralized=eq.true' // Only listen to centralized signal changes
         },
         (payload) => {
-          setTimeout(fetchSignals, 2000);
+          console.log('📡 Centralized signal change detected:', payload);
+          setTimeout(fetchSignals, 1000); // Slight delay to ensure consistency
         }
       )
       .subscribe();
 
-    // Automatic refresh every 3 minutes
+    // Automatic refresh every 5 minutes (reduced frequency for centralized approach)
     const updateInterval = setInterval(async () => {
-      await triggerAutomaticSignalGeneration();
-    }, 3 * 60 * 1000);
+      await fetchSignals(); // Just fetch existing signals, don't generate new ones
+    }, 5 * 60 * 1000);
 
     return () => {
       supabase.removeChannel(signalsChannel);
       clearInterval(updateInterval);
     };
-  }, [fetchSignals, triggerAutomaticSignalGeneration]);
+  }, [fetchSignals]);
 
   return {
     signals,
     loading,
     lastUpdate,
     fetchSignals,
-    triggerAutomaticSignalGeneration: triggerRealTimeUpdates, // Updated to use real-time system
-    triggerRealTimeUpdates // New function for manual trigger
+    triggerAutomaticSignalGeneration: triggerCentralizedSignalGeneration,
+    triggerRealTimeUpdates
   };
 };
