@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -33,7 +32,7 @@ export const useTradingSignals = () => {
     
     return (utcDay >= 1 && utcDay <= 4) || 
            (utcDay === 0 && utcHour >= 22) || 
-           (utcDay === 5 && utcHour < 22);
+           (utcDay === 5 && utcDay < 22);
   };
 
   const fetchSignals = useCallback(async () => {
@@ -127,7 +126,7 @@ export const useTradingSignals = () => {
                 
               if (freshData && freshData.length > 0) {
                 marketData = freshData;
-                console.log(`Fresh market data found: ${marketData.length} records from ${window.label}`);
+                console.log(`Fresh market data found: ${freshData.length} records from ${window.label}`);
                 break;
               }
             }
@@ -328,7 +327,7 @@ export const useTradingSignals = () => {
       } catch (error) {
         console.error('Scheduled market data update failed:', error);
       }
-    }, isMarketOpen ? 15000 : 30000); // 15 seconds during market hours, 30 seconds when closed
+    }, checkMarketHours() ? 15000 : 30000); // 15 seconds during market hours, 30 seconds when closed
 
     // Signal generation every 5 minutes with staggered timing
     const signalGenerationInterval = setInterval(() => {
