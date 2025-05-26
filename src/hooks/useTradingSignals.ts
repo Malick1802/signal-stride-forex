@@ -32,7 +32,7 @@ export const useTradingSignals = () => {
     
     return (utcDay >= 1 && utcDay <= 4) || 
            (utcDay === 0 && utcHour >= 22) || 
-           (utcDay === 5 && utcDay < 22);
+           (utcDay === 5 && utcHour < 22);
   };
 
   const fetchSignals = useCallback(async () => {
