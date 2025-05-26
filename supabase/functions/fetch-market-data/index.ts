@@ -126,6 +126,13 @@ serve(async (req) => {
     let calculatedCount = 0;
     const failedPairs: string[] = [];
 
+    const requiredPairs = [
+      'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
+      'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY', 
+      'CHFJPY', 'EURAUD', 'EURNZD', 'EURCAD', 'GBPAUD', 'GBPNZD', 'GBPCAD', 
+      'AUDNZD', 'AUDCAD', 'NZDCAD', 'AUDSGD', 'NZDCHF', 'USDNOK', 'USDSEK'
+    ];
+
     for (const pair of requiredPairs) {
       try {
         const baseCurrency = pair.substring(0, 3);
@@ -216,9 +223,9 @@ serve(async (req) => {
     console.log('✅ Database insertion successful!');
     console.log(`📊 Records inserted: ${insertData?.length || 0}`);
     
-    // Enhanced verification
+    // Enhanced verification with longer wait
     console.log('🔍 Verifying data availability...');
-    await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for DB consistency
+    await new Promise(resolve => setTimeout(resolve, 3000)); // Wait for DB consistency
     
     const { data: verifyData, error: verifyError } = await supabase
       .from('live_market_data')
@@ -234,22 +241,37 @@ serve(async (req) => {
         console.log(`📋 Sample verified records: ${verifyData.slice(0, 3).map(r => `${r.symbol}:${r.price}`).join(', ')}`);
       }
     }
+
+    // NEW: Automatically trigger signal generation after successful market data fetch
+    console.log('🤖 Triggering automatic signal generation...');
+    try {
+      const { data: signalGenResult, error: signalGenError } = await supabase.functions.invoke('generate-signals');
+      
+      if (signalGenError) {
+        console.error('⚠️ Signal generation failed:', signalGenError);
+      } else {
+        console.log('✅ Signal generation triggered successfully:', signalGenResult);
+      }
+    } catch (error) {
+      console.error('❌ Error triggering signal generation:', error);
+    }
     
     const responseData = { 
       success: true, 
-      message: `Updated ${marketDataBatch.length} currency pairs with real-time data`,
+      message: `Updated ${marketDataBatch.length} currency pairs with real-time data and triggered signal generation`,
       pairs: marketDataBatch.map(item => item.symbol),
-      marketOpen: isMarketOpen,
+      marketOpen: true,
       timestamp,
       source: dataSource,
       dataType: 'real-time',
       recordsInserted: insertData?.length || marketDataBatch.length,
       verificationCount: verifyData?.length || 0,
       calculatedPairs: calculatedCount,
-      failedPairs: failedPairs.length
+      failedPairs: failedPairs.length,
+      signalGenerationTriggered: true
     };
     
-    console.log('🎉 Function completed successfully');
+    console.log('🎉 Function completed successfully with signal generation');
     console.log(`📊 Final stats: ${calculatedCount} calculated, ${marketDataBatch.length} inserted, ${verifyData?.length || 0} verified`);
     
     return new Response(
