@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -25,30 +25,19 @@ export const useTradingSignals = () => {
   const [lastUpdate, setLastUpdate] = useState<string>('');
   const { toast } = useToast();
 
-  const fetchSignals = async () => {
+  const fetchSignals = useCallback(async () => {
     try {
       console.log('Fetching trading signals...');
       
       const { data: activeSignals, error } = await supabase
         .from('trading_signals')
-        .select(`
-          *,
-          ai_analysis (
-            analysis_text,
-            confidence_score
-          )
-        `)
+        .select('*')
         .eq('status', 'active')
         .order('created_at', { ascending: false })
         .limit(20);
 
       if (error) {
         console.error('Error fetching signals:', error);
-        toast({
-          title: "Database Error",
-          description: "Failed to fetch trading signals",
-          variant: "destructive"
-        });
         return;
       }
 
@@ -57,98 +46,66 @@ export const useTradingSignals = () => {
         
         // Get current market prices for chart data
         const symbols = activeSignals
-          .filter(signal => signal && signal.symbol && typeof signal.symbol === 'string')
+          .filter(signal => signal?.symbol)
           .map(signal => signal.symbol);
           
         const { data: marketData } = await supabase
           .from('live_market_data')
           .select('*')
           .in('symbol', symbols)
-          .order('created_at', { ascending: false });
+          .order('created_at', { ascending: false })
+          .limit(500);
 
         const transformedSignals = activeSignals
-          .filter(signal => {
-            // Strict validation to prevent null errors
-            if (!signal || typeof signal !== 'object') {
-              console.warn('Invalid signal object:', signal);
-              return false;
-            }
-            
-            if (!signal.id || typeof signal.id !== 'string') {
-              console.warn('Invalid signal ID:', signal);
-              return false;
-            }
-            
-            if (!signal.symbol || typeof signal.symbol !== 'string') {
-              console.warn('Invalid signal symbol:', signal);
-              return false;
-            }
-            
-            if (!signal.type || typeof signal.type !== 'string') {
-              console.warn('Invalid signal type:', signal);
-              return false;
-            }
-            
-            if (signal.price === null || signal.price === undefined) {
-              console.warn('Invalid signal price:', signal);
-              return false;
-            }
-            
-            return true;
-          })
+          .filter(signal => signal?.id && signal?.symbol && signal?.type && signal?.price !== null)
           .map(signal => {
             try {
-              // Get recent market data for this symbol for chart
+              // Get market data for this symbol
               const symbolMarketData = marketData?.filter(md => 
-                md && md.symbol === signal.symbol
-              ).slice(0, 24) || [];
+                md?.symbol === signal.symbol
+              ).slice(0, 30) || [];
               
               const currentMarketPrice = symbolMarketData[0]?.price;
               const entryPrice = currentMarketPrice ? 
                 parseFloat(currentMarketPrice.toString()).toFixed(5) : 
-                parseFloat((signal.price || 0).toString()).toFixed(5);
+                parseFloat(signal.price.toString()).toFixed(5);
 
+              // Generate chart data from market data or fallback
               const chartData = symbolMarketData.length > 0 ? 
                 symbolMarketData.reverse().map((md, i) => ({
                   time: i,
-                  price: parseFloat((md.price || 0).toString())
+                  price: parseFloat(md.price.toString())
                 })) :
-                Array.from({ length: 24 }, (_, i) => ({
+                Array.from({ length: 20 }, (_, i) => ({
                   time: i,
-                  price: parseFloat((signal.price || 0).toString()) + (Math.sin(i / 4) * 0.0001)
+                  price: parseFloat(signal.price.toString()) + (Math.sin(i / 4) * 0.0001)
                 }));
 
               return {
                 id: signal.id,
-                pair: signal.symbol || 'Unknown',
-                type: signal.type || 'BUY',
+                pair: signal.symbol,
+                type: signal.type,
                 entryPrice: entryPrice,
                 stopLoss: signal.stop_loss ? parseFloat(signal.stop_loss.toString()).toFixed(5) : '0.00000',
                 takeProfit1: signal.take_profits?.[0] ? parseFloat(signal.take_profits[0].toString()).toFixed(5) : '0.00000',
                 takeProfit2: signal.take_profits?.[1] ? parseFloat(signal.take_profits[1].toString()).toFixed(5) : '0.00000',
                 takeProfit3: signal.take_profits?.[2] ? parseFloat(signal.take_profits[2].toString()).toFixed(5) : '0.00000',
-                confidence: Math.floor(signal.confidence || 75),
-                timestamp: signal.created_at || signal.timestamp || new Date().toISOString(),
+                confidence: Math.floor(signal.confidence || 85),
+                timestamp: signal.created_at || new Date().toISOString(),
                 status: signal.status || 'active',
-                analysisText: signal.analysis_text || signal.ai_analysis?.[0]?.analysis_text || 'Technical analysis indicates favorable market conditions',
+                analysisText: signal.analysis_text || 'High-confidence trading opportunity detected',
                 chartData: chartData
               };
-            } catch (transformError) {
-              console.error('Error transforming signal:', transformError, signal);
+            } catch (error) {
+              console.error('Error transforming signal:', error);
               return null;
             }
           })
-          .filter(signal => signal !== null) as TradingSignal[];
+          .filter(Boolean) as TradingSignal[];
 
         setSignals(transformedSignals);
         setLastUpdate(new Date().toLocaleTimeString());
         
-        if (transformedSignals.length > 0) {
-          toast({
-            title: "Signals Updated",
-            description: `Loaded ${transformedSignals.length} high-confidence trading signals`,
-          });
-        }
       } else {
         console.log('No active signals found');
         setSignals([]);
@@ -156,48 +113,35 @@ export const useTradingSignals = () => {
       }
     } catch (error) {
       console.error('Error fetching signals:', error);
-      toast({
-        title: "Error",
-        description: "Failed to fetch trading signals. Please refresh the page.",
-        variant: "destructive"
-      });
       setSignals([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  // Automatic signal generation trigger with better error handling
-  const triggerAutomaticSignalGeneration = async () => {
+  const triggerAutomaticSignalGeneration = useCallback(async () => {
     try {
-      console.log('Triggering automatic signal generation...');
+      console.log('Triggering market data update...');
       
-      // First ensure we have fresh market data with better error handling
-      try {
-        const { error: marketDataError } = await supabase.functions.invoke('fetch-market-data');
-        if (marketDataError) {
-          console.warn('Market data fetch had issues:', marketDataError);
-          // Continue with signal generation even if market data fetch fails
-        }
-      } catch (marketError) {
-        console.warn('Market data fetch failed, continuing with signal generation:', marketError);
+      // Update market data first
+      const { error: marketDataError } = await supabase.functions.invoke('fetch-market-data');
+      if (marketDataError) {
+        console.warn('Market data update had issues:', marketDataError);
       }
       
-      // Then trigger signal generation
+      // Wait a moment for data to be inserted
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      console.log('Triggering signal generation...');
       const { data, error } = await supabase.functions.invoke('generate-signals');
       
       if (error) {
-        console.error('Error in automatic signal generation:', error);
-        toast({
-          title: "Signal Generation",
-          description: "Unable to generate new signals at this time",
-          variant: "destructive"
-        });
+        console.error('Signal generation error:', error);
         return;
       }
 
       if (data?.signals && data.signals.length > 0) {
-        console.log(`Generated ${data.signals.length} new high-confidence signals`);
+        console.log(`Generated ${data.signals.length} new signals`);
         toast({
           title: "New Signals Generated!",
           description: `${data.signals.length} high-confidence opportunities detected`,
@@ -206,24 +150,19 @@ export const useTradingSignals = () => {
         // Refresh signals after generation
         setTimeout(fetchSignals, 2000);
       } else {
-        console.log('No new high-confidence signals generated');
+        console.log('No new signals generated this cycle');
       }
       
     } catch (error) {
-      console.error('Error triggering automatic signal generation:', error);
-      toast({
-        title: "Signal Generation",
-        description: "Market scanning temporarily unavailable",
-        variant: "destructive"
-      });
+      console.error('Error in signal generation:', error);
     }
-  };
+  }, [fetchSignals, toast]);
 
   useEffect(() => {
     fetchSignals();
     
     // Set up real-time subscription for signals
-    const channel = supabase
+    const signalsChannel = supabase
       .channel('trading-signals-updates')
       .on(
         'postgres_changes',
@@ -239,33 +178,57 @@ export const useTradingSignals = () => {
       )
       .subscribe();
 
-    // Automatic signal generation every 5 minutes during market hours
+    // Set up real-time subscription for market data
+    const marketChannel = supabase
+      .channel('market-data-updates')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'live_market_data'
+        },
+        (payload) => {
+          console.log('Real-time market data update:', payload);
+          // Update signals with new market data
+          setTimeout(fetchSignals, 500);
+        }
+      )
+      .subscribe();
+
+    // Automatic market data and signal generation
     const checkMarketHours = () => {
       const now = new Date();
       const utcHour = now.getUTCHours();
       const utcDay = now.getUTCDay();
       
-      const isMarketOpen = (utcDay >= 1 && utcDay <= 4) || 
-                          (utcDay === 0 && utcHour >= 22) || 
-                          (utcDay === 5 && utcHour < 22);
-      
-      return isMarketOpen;
+      return (utcDay >= 1 && utcDay <= 4) || 
+             (utcDay === 0 && utcHour >= 22) || 
+             (utcDay === 5 && utcHour < 22);
     };
 
-    // Auto-refresh and trigger signal generation
-    const autoGenerationInterval = setInterval(() => {
-      if (checkMarketHours()) {
-        triggerAutomaticSignalGeneration();
-      } else {
-        fetchSignals(); // Just refresh during closed hours
+    // Market data updates every 30 seconds during market hours, 2 minutes when closed
+    const marketDataInterval = setInterval(async () => {
+      const isMarketOpen = checkMarketHours();
+      try {
+        await supabase.functions.invoke('fetch-market-data');
+      } catch (error) {
+        console.error('Automatic market data update failed:', error);
       }
-    }, 300000); // Every 5 minutes
+    }, checkMarketHours() ? 30000 : 120000);
+
+    // Signal generation every 5 minutes
+    const signalGenerationInterval = setInterval(() => {
+      triggerAutomaticSignalGeneration();
+    }, 300000);
 
     return () => {
-      supabase.removeChannel(channel);
-      clearInterval(autoGenerationInterval);
+      supabase.removeChannel(signalsChannel);
+      supabase.removeChannel(marketChannel);
+      clearInterval(marketDataInterval);
+      clearInterval(signalGenerationInterval);
     };
-  }, []);
+  }, [fetchSignals, triggerAutomaticSignalGeneration]);
 
   return {
     signals,
