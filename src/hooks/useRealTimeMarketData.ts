@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -14,8 +15,9 @@ interface UseRealTimeMarketDataProps {
 }
 
 const CHART_DATA_POINTS = 100;
-const UPDATE_INTERVAL = 1000; // 1 second for real-time feel
-const PRICE_FETCH_INTERVAL = 5000; // 5 seconds for API calls
+const UPDATE_INTERVAL = 2000; // Increased to 2 seconds to reduce load
+const PRICE_FETCH_INTERVAL = 10000; // Increased to 10 seconds to reduce API calls
+const DEBOUNCE_DELAY = 100; // Add debouncing
 
 export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDataProps) => {
   const [priceData, setPriceData] = useState<PriceData[]>([]);
@@ -29,6 +31,8 @@ export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDat
   const priceUpdateRef = useRef<NodeJS.Timeout>();
   const lastPriceRef = useRef<number>(0);
   const channelRef = useRef<any>();
+  const debounceRef = useRef<NodeJS.Timeout>();
+  const mountedRef = useRef(true);
 
   const checkMarketHours = useCallback(() => {
     const now = new Date();
@@ -43,8 +47,7 @@ export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDat
   }, []);
 
   const generateRealisticPrice = useCallback((basePrice: number) => {
-    // Generate realistic forex price movements with proper volatility
-    const volatility = 0.0001; // 1 pip movement
+    const volatility = 0.0001;
     const trend = (Math.random() - 0.5) * volatility;
     const noise = (Math.random() - 0.5) * volatility * 0.3;
     
@@ -52,33 +55,46 @@ export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDat
   }, []);
 
   const addNewPricePoint = useCallback((newPrice: number) => {
-    const now = Date.now();
-    const timeString = new Date(now).toLocaleTimeString('en-US', {
-      hour12: false,
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
+    if (!mountedRef.current) return;
 
-    const newDataPoint: PriceData = {
-      timestamp: now,
-      time: timeString,
-      price: newPrice,
-      volume: Math.random() * 100000 + 50000
-    };
+    // Clear existing debounce
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
 
-    setPriceData(prevData => {
-      const newData = [...prevData, newDataPoint];
-      // Keep only the last CHART_DATA_POINTS for performance
-      return newData.slice(-CHART_DATA_POINTS);
-    });
+    // Debounce price updates to prevent excessive re-renders
+    debounceRef.current = setTimeout(() => {
+      if (!mountedRef.current) return;
 
-    setCurrentPrice(newPrice);
-    setLastUpdateTime(timeString);
-    lastPriceRef.current = newPrice;
+      const now = Date.now();
+      const timeString = new Date(now).toLocaleTimeString('en-US', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      });
+
+      const newDataPoint: PriceData = {
+        timestamp: now,
+        time: timeString,
+        price: newPrice,
+        volume: Math.random() * 100000 + 50000
+      };
+
+      setPriceData(prevData => {
+        const newData = [...prevData, newDataPoint];
+        return newData.slice(-CHART_DATA_POINTS);
+      });
+
+      setCurrentPrice(newPrice);
+      setLastUpdateTime(timeString);
+      lastPriceRef.current = newPrice;
+    }, DEBOUNCE_DELAY);
   }, []);
 
   const fetchLatestMarketData = useCallback(async () => {
+    if (!mountedRef.current) return;
+
     try {
       console.log(`🔄 Fetching latest data for ${pair}`);
       
@@ -95,6 +111,8 @@ export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDat
         return;
       }
 
+      if (!mountedRef.current) return;
+
       setIsConnected(true);
 
       if (marketData && marketData.length > 0) {
@@ -110,12 +128,13 @@ export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDat
         }
       }
 
-      // If no real data, continue with simulated movement
       console.log(`📊 No new data for ${pair}, continuing simulation`);
       
     } catch (error) {
       console.error(`❌ Error fetching market data for ${pair}:`, error);
-      setIsConnected(false);
+      if (mountedRef.current) {
+        setIsConnected(false);
+      }
     }
   }, [pair, addNewPricePoint]);
 
@@ -134,23 +153,31 @@ export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDat
       addNewPricePoint(entryPriceNum);
     }
 
-    // Real-time price updates every second for smooth movement
-    intervalRef.current = setInterval(() => {
-      if (lastPriceRef.current > 0) {
-        const newPrice = generateRealisticPrice(lastPriceRef.current);
-        addNewPricePoint(newPrice);
-      }
-    }, UPDATE_INTERVAL);
+    // Only update if market is open and component is mounted
+    if (marketOpen && mountedRef.current) {
+      // Real-time price updates
+      intervalRef.current = setInterval(() => {
+        if (!mountedRef.current) return;
+        
+        if (lastPriceRef.current > 0) {
+          const newPrice = generateRealisticPrice(lastPriceRef.current);
+          addNewPricePoint(newPrice);
+        }
+      }, UPDATE_INTERVAL);
 
-    // Fetch real data periodically
-    priceUpdateRef.current = setInterval(() => {
-      fetchLatestMarketData();
-    }, PRICE_FETCH_INTERVAL);
-
+      // Fetch real data periodically
+      priceUpdateRef.current = setInterval(() => {
+        if (mountedRef.current) {
+          fetchLatestMarketData();
+        }
+      }, PRICE_FETCH_INTERVAL);
+    }
   }, [checkMarketHours, entryPrice, addNewPricePoint, generateRealisticPrice, fetchLatestMarketData]);
 
-  // Setup real-time subscription
+  // Setup real-time subscription with better cleanup
   useEffect(() => {
+    if (!pair) return;
+
     console.log(`🔌 Setting up real-time subscription for ${pair}`);
     
     // Subscribe to real-time updates
@@ -165,6 +192,8 @@ export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDat
           filter: `symbol=eq.${pair}`
         },
         (payload) => {
+          if (!mountedRef.current) return;
+          
           console.log(`🔔 Real-time update received for ${pair}:`, payload.new);
           if (payload.new?.price) {
             const newPrice = parseFloat(payload.new.price.toString());
@@ -177,6 +206,8 @@ export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDat
         }
       )
       .subscribe((status) => {
+        if (!mountedRef.current) return;
+        
         console.log(`📡 Subscription status for ${pair}:`, status);
         setIsConnected(status === 'SUBSCRIBED');
       });
@@ -184,17 +215,34 @@ export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDat
     return () => {
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
       }
     };
   }, [pair, addNewPricePoint]);
 
   // Start the real-time system
   useEffect(() => {
+    mountedRef.current = true;
+    
     startRealTimeSimulation();
     
     return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      if (priceUpdateRef.current) clearInterval(priceUpdateRef.current);
+      mountedRef.current = false;
+      
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = undefined;
+      }
+      
+      if (priceUpdateRef.current) {
+        clearInterval(priceUpdateRef.current);
+        priceUpdateRef.current = undefined;
+      }
+      
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+        debounceRef.current = undefined;
+      }
     };
   }, [startRealTimeSimulation]);
 
@@ -202,7 +250,7 @@ export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDat
     if (priceData.length < 2) return { change: 0, percentage: 0 };
     
     const current = priceData[priceData.length - 1]?.price || 0;
-    const previous = priceData[Math.max(0, priceData.length - 20)]?.price || current; // Compare with 20 points ago
+    const previous = priceData[Math.max(0, priceData.length - 20)]?.price || current;
     
     const change = current - previous;
     const percentage = previous > 0 ? (change / previous) * 100 : 0;
@@ -211,7 +259,6 @@ export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDat
   }, [priceData]);
 
   const getSparklineData = useCallback(() => {
-    // Return last 20 points for mini sparkline charts
     return priceData.slice(-20);
   }, [priceData]);
 

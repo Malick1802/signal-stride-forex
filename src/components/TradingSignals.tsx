@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,7 +8,7 @@ import SignalCard from './SignalCard';
 import { Button } from '@/components/ui/button';
 import { Zap, RefreshCw, Wifi, WifiOff } from 'lucide-react';
 
-const TradingSignals = () => {
+const TradingSignals = memo(() => {
   const { signals, loading, lastUpdate, triggerAutomaticSignalGeneration } = useTradingSignals();
   const { toast } = useToast();
   
@@ -19,13 +19,10 @@ const TradingSignals = () => {
   // Filter out invalid signals and add validation
   const validSignals = signals.filter(signal => {
     if (!signal || typeof signal !== 'object' || !signal.id || !signal.pair || !signal.type) {
-      console.warn('Invalid signal filtered out:', signal);
       return false;
     }
     return true;
   });
-
-  console.log(`TradingSignals: Processing ${signals.length} raw signals, ${validSignals.length} valid signals`);
 
   const availablePairs = Array.from(new Set(validSignals.map(signal => signal.pair))).filter(Boolean);
   const [selectedPair, setSelectedPair] = useState('All');
@@ -39,7 +36,6 @@ const TradingSignals = () => {
   const handleManualSignalGeneration = async () => {
     setGeneratingSignals(true);
     try {
-      console.log('🚀 Manual signal generation triggered');
       await triggerAutomaticSignalGeneration();
     } catch (error) {
       console.error('Error in manual signal generation:', error);
@@ -59,8 +55,6 @@ const TradingSignals = () => {
     setAnalyzingSignal(signalId);
     
     try {
-      console.log('Getting AI analysis for signal:', signalId);
-      
       const { data, error } = await supabase.functions.invoke('ai-analysis', {
         body: { signal_id: signalId }
       });
@@ -139,7 +133,7 @@ const TradingSignals = () => {
             </div>
           </div>
           <div className="text-sm text-gray-400">
-            FastForex API • Only real market data displayed
+            FastForex API • Optimized for performance
           </div>
         </div>
       </div>
@@ -175,7 +169,7 @@ const TradingSignals = () => {
             </Button>
           </div>
           <div className="text-sm text-gray-400">
-            🤖 Auto-scanning every 5 minutes • Market hours: Mon-Fri 00:00-22:00 UTC
+            🤖 Auto-scanning every 10 minutes • Market hours: Mon-Fri 00:00-22:00 UTC
           </div>
         </div>
       </div>
@@ -200,7 +194,7 @@ const TradingSignals = () => {
               </select>
             </div>
             <div className="text-sm text-gray-400">
-              Real-time signals only • No fallback data
+              Real-time signals only • Performance optimized
             </div>
           </div>
         </div>
@@ -215,9 +209,7 @@ const TradingSignals = () => {
         {filteredSignals.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredSignals.map(signal => {
-              // Additional validation per signal
               if (!signal || !signal.id) {
-                console.warn('Skipping invalid signal in render:', signal);
                 return null;
               }
               
@@ -240,7 +232,7 @@ const TradingSignals = () => {
                 : `No real-time signals available for ${selectedPair}`}
             </div>
             <div className="text-sm text-gray-500 mb-4">
-              The system only displays signals when real market data is available from FastForex API
+              The system displays signals when real market data is available from FastForex API
             </div>
             <Button
               onClick={handleManualSignalGeneration}
@@ -264,6 +256,8 @@ const TradingSignals = () => {
       </div>
     </div>
   );
-};
+});
+
+TradingSignals.displayName = 'TradingSignals';
 
 export default TradingSignals;

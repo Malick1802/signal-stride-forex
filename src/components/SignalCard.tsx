@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import { validateSignal, createSafeSignal } from '@/utils/signalValidation';
 import { useRealTimeMarketData } from '@/hooks/useRealTimeMarketData';
 import SignalCardLoading from './SignalCardLoading';
@@ -30,7 +30,7 @@ interface SignalCardProps {
   onGetAIAnalysis: (signalId: string) => void;
 }
 
-const SignalCard = ({ signal, analysis }: SignalCardProps) => {
+const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
   const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
 
   if (!validateSignal(signal)) {
@@ -38,7 +38,6 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
   }
 
   const safeSignal = createSafeSignal(signal);
-  console.log(`SignalCard: Processing signal ${safeSignal.id} - ${safeSignal.pair} ${safeSignal.type}`);
 
   const {
     priceData,
@@ -116,6 +115,8 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
       </div>
     </div>
   );
-};
+});
+
+SignalCard.displayName = 'SignalCard';
 
 export default SignalCard;
