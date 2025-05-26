@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -54,80 +55,70 @@ export const useTradingSignals = () => {
       if (activeSignals && activeSignals.length > 0) {
         console.log(`Found ${activeSignals.length} active signals`);
         
-        // Get current market prices for chart data - use a more aggressive approach
+        // Get current market prices for chart data - with improved querying
         const symbols = activeSignals
           .filter(signal => signal?.symbol)
           .map(signal => signal.symbol);
           
         console.log('Looking for market data for symbols:', symbols);
         
-        // Try multiple time windows to find recent data
+        // Try to get the most recent market data with a more flexible approach
         let marketData = null;
-        const timeWindows = [
-          { hours: 1, label: 'last 1 hour' },
-          { hours: 2, label: 'last 2 hours' },
-          { hours: 6, label: 'last 6 hours' },
-          { hours: 24, label: 'last 24 hours' }
-        ];
+        
+        // First, try to get recent data (last 30 minutes)
+        const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+        
+        const { data: recentData } = await supabase
+          .from('live_market_data')
+          .select('*')
+          .in('symbol', symbols)
+          .gte('created_at', thirtyMinutesAgo)
+          .order('created_at', { ascending: false })
+          .limit(5000);
 
-        for (const window of timeWindows) {
-          const windowStart = new Date(Date.now() - window.hours * 60 * 60 * 1000).toISOString();
+        if (recentData && recentData.length > 0) {
+          marketData = recentData;
+          console.log(`Found ${marketData.length} recent market data records (last 30 min)`);
+        } else {
+          // Fallback: get any available data from last 24 hours
+          const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
           
-          const { data: windowData } = await supabase
+          const { data: olderData } = await supabase
             .from('live_market_data')
             .select('*')
             .in('symbol', symbols)
-            .gte('created_at', windowStart)
+            .gte('created_at', oneDayAgo)
             .order('created_at', { ascending: false })
-            .limit(10000);
+            .limit(5000);
 
-          if (windowData && windowData.length > 0) {
-            marketData = windowData;
-            console.log(`Market data found: ${marketData.length} records from ${window.label}`);
-            break;
+          if (olderData && olderData.length > 0) {
+            marketData = olderData;
+            console.log(`Found ${marketData.length} older market data records (last 24h)`);
           }
         }
 
-        console.log(`Market data query time window: last 2 hours`);
-
+        // If still no data, trigger market data fetch but don't wait too long
         if (!marketData || marketData.length === 0) {
-          console.log('No market data found in any time window, triggering fresh data fetch');
+          console.log('No market data found, triggering fresh data fetch');
           
-          // Trigger immediate market data update with retry logic
           try {
-            for (let attempt = 1; attempt <= 3; attempt++) {
-              console.log(`Market data fetch attempt ${attempt}/3`);
-              const { error: updateError } = await supabase.functions.invoke('fetch-market-data');
-              if (!updateError) {
-                console.log('Fresh market data requested successfully');
-                break;
-              } else {
-                console.warn(`Market data fetch attempt ${attempt} failed:`, updateError);
-                if (attempt < 3) {
-                  await new Promise(resolve => setTimeout(resolve, 2000));
-                }
-              }
-            }
-            
-            // Wait longer for data to be available
-            await new Promise(resolve => setTimeout(resolve, 5000));
-            
-            // Try one more time with fresh data - check multiple windows
-            for (const window of timeWindows) {
-              const windowStart = new Date(Date.now() - window.hours * 60 * 60 * 1000).toISOString();
+            const { error: updateError } = await supabase.functions.invoke('fetch-market-data');
+            if (!updateError) {
+              console.log('Fresh market data requested successfully');
+              
+              // Wait a shorter time and try once more
+              await new Promise(resolve => setTimeout(resolve, 2000));
               
               const { data: freshData } = await supabase
                 .from('live_market_data')
                 .select('*')
                 .in('symbol', symbols)
-                .gte('created_at', windowStart)
                 .order('created_at', { ascending: false })
-                .limit(5000);
+                .limit(1000);
                 
               if (freshData && freshData.length > 0) {
                 marketData = freshData;
-                console.log(`Fresh market data found: ${freshData.length} records from ${window.label}`);
-                break;
+                console.log(`Found ${freshData.length} fresh market data records`);
               }
             }
           } catch (fetchError) {
@@ -141,32 +132,43 @@ export const useTradingSignals = () => {
             try {
               console.log(`Processing signal for ${signal.symbol}...`);
               
-              // Get market data for this symbol
+              // Get market data for this symbol - use the most recent price available
               const symbolMarketData = marketData?.filter(md => 
                 md?.symbol === signal.symbol
-              ).slice(0, 100) || [];
+              ) || [];
               
-              if (symbolMarketData.length === 0) {
-                console.log(`No recent market data found for ${signal.symbol}, using signal price`);
+              let currentMarketPrice = null;
+              let chartData = [];
+              
+              if (symbolMarketData.length > 0) {
+                console.log(`Found ${symbolMarketData.length} market data points for ${signal.symbol}`);
+                
+                // Sort by timestamp to get the most recent price
+                const sortedData = symbolMarketData.sort((a, b) => 
+                  new Date(b.created_at || b.timestamp).getTime() - 
+                  new Date(a.created_at || a.timestamp).getTime()
+                );
+                
+                currentMarketPrice = sortedData[0]?.price;
+                
+                // Create chart data from available market data
+                chartData = sortedData.slice(0, 50).reverse().map((md, i) => ({
+                  time: i,
+                  price: parseFloat(md.price.toString())
+                }));
               } else {
-                console.log(`Found ${symbolMarketData.length} recent market data points for ${signal.symbol}`);
+                console.log(`No recent market data found for ${signal.symbol}, using signal price`);
               }
-              
-              const currentMarketPrice = symbolMarketData[0]?.price;
+
               const entryPrice = currentMarketPrice ? 
                 parseFloat(currentMarketPrice.toString()).toFixed(5) : 
                 parseFloat(signal.price.toString()).toFixed(5);
 
-              // Generate chart data from market data or create realistic fallback
-              const chartData = symbolMarketData.length > 0 ? 
-                symbolMarketData.reverse().map((md, i) => ({
-                  time: i,
-                  price: parseFloat(md.price.toString())
-                })) :
-                // Create more realistic chart data based on signal price
-                Array.from({ length: 30 }, (_, i) => {
-                  const basePrice = parseFloat(signal.price.toString());
-                  const volatility = 0.0002; // Realistic forex volatility
+              // Generate fallback chart data if no market data available
+              if (chartData.length === 0) {
+                const basePrice = parseFloat(signal.price.toString());
+                chartData = Array.from({ length: 30 }, (_, i) => {
+                  const volatility = 0.0002;
                   const trend = (Math.random() - 0.5) * volatility;
                   const noise = (Math.random() - 0.5) * volatility * 0.1;
                   return {
@@ -174,6 +176,7 @@ export const useTradingSignals = () => {
                     price: basePrice + trend * i + noise
                   };
                 });
+              }
 
               return {
                 id: signal.id,
@@ -217,11 +220,11 @@ export const useTradingSignals = () => {
     try {
       console.log('Triggering comprehensive market update...');
       
-      // Update market data first with retry logic
+      // Update market data first
       let marketDataSuccess = false;
-      for (let attempt = 1; attempt <= 3; attempt++) {
+      for (let attempt = 1; attempt <= 2; attempt++) {
         try {
-          console.log(`Market data update attempt ${attempt}/3`);
+          console.log(`Market data update attempt ${attempt}/2`);
           const { error: marketDataError } = await supabase.functions.invoke('fetch-market-data');
           if (!marketDataError) {
             console.log('Market data update completed successfully');
@@ -234,17 +237,17 @@ export const useTradingSignals = () => {
           console.warn(`Market data update attempt ${attempt} error:`, error);
         }
         
-        if (attempt < 3) {
-          await new Promise(resolve => setTimeout(resolve, 2000));
+        if (attempt < 2) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
       }
       
       if (!marketDataSuccess) {
-        console.warn('All market data update attempts failed, continuing with signal generation');
+        console.warn('Market data update failed, continuing with signal generation');
       }
       
-      // Wait longer for data to be properly inserted and indexed
-      await new Promise(resolve => setTimeout(resolve, 4000));
+      // Wait for data to be available
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
       console.log('Triggering signal generation...');
       const { data, error } = await supabase.functions.invoke('generate-signals');
@@ -261,8 +264,8 @@ export const useTradingSignals = () => {
           description: `${data.signals.length} high-confidence opportunities detected`,
         });
         
-        // Refresh signals after generation with extended delay
-        setTimeout(fetchSignals, 5000);
+        // Refresh signals after generation
+        setTimeout(fetchSignals, 3000);
       } else {
         console.log('No new signals generated this cycle');
       }
@@ -287,7 +290,6 @@ export const useTradingSignals = () => {
         },
         (payload) => {
           console.log('Real-time signal update:', payload);
-          // Add delay to ensure data consistency
           setTimeout(fetchSignals, 1000);
         }
       )
@@ -305,13 +307,12 @@ export const useTradingSignals = () => {
         },
         (payload) => {
           console.log('Real-time market data update:', payload);
-          // Update signals with new market data with appropriate delay
-          setTimeout(fetchSignals, 2000);
+          setTimeout(fetchSignals, 1500);
         }
       )
       .subscribe();
 
-    // More frequent market data updates with better error handling
+    // Market data updates with better error handling
     const marketDataInterval = setInterval(async () => {
       const isMarketOpen = checkMarketHours();
       try {
@@ -321,18 +322,16 @@ export const useTradingSignals = () => {
           console.error('Scheduled market data update error:', error);
         } else {
           console.log('Scheduled market data update successful');
-          // Refresh signals after market data update with proper delay
-          setTimeout(fetchSignals, 3000);
+          setTimeout(fetchSignals, 2000);
         }
       } catch (error) {
         console.error('Scheduled market data update failed:', error);
       }
-    }, checkMarketHours() ? 15000 : 30000); // 15 seconds during market hours, 30 seconds when closed
+    }, isMarketOpen ? 20000 : 45000); // 20 seconds during market hours, 45 seconds when closed
 
-    // Signal generation every 5 minutes with staggered timing
+    // Signal generation every 5 minutes
     const signalGenerationInterval = setInterval(() => {
-      // Add random delay to prevent all instances from hitting at the same time
-      const delay = Math.random() * 10000; // 0-10 seconds random delay
+      const delay = Math.random() * 5000; // 0-5 seconds random delay
       setTimeout(triggerAutomaticSignalGeneration, delay);
     }, 300000);
 
