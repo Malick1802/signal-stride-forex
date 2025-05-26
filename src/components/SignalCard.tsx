@@ -42,7 +42,7 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
   const [lastUpdateTime, setLastUpdateTime] = useState<string>('');
   const [dataSource, setDataSource] = useState<string>('FastForex API');
 
-  // Enhanced signal validation with detailed logging
+  // Enhanced signal validation with detailed logging and null checks
   if (!signal) {
     console.error('SignalCard: No signal provided');
     return (
@@ -54,7 +54,7 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
     );
   }
 
-  // Validate required signal properties with fallbacks
+  // Comprehensive validation and safe fallback assignment
   const safeSignal = {
     id: signal.id || 'unknown',
     pair: signal.pair || 'UNKNOWN',
@@ -70,19 +70,21 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
     chartData: signal.chartData || []
   };
 
-  // Log validation results
-  console.log(`SignalCard: Processing signal ${safeSignal.id} - ${safeSignal.pair} ${safeSignal.type}`);
-
-  if (!safeSignal.id || !safeSignal.pair || !safeSignal.type) {
+  // Additional validation for critical fields
+  if (!safeSignal.id || safeSignal.id === 'unknown' || 
+      !safeSignal.pair || safeSignal.pair === 'UNKNOWN' || 
+      !safeSignal.type) {
     console.error('SignalCard: Invalid signal data after validation:', safeSignal);
     return (
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="text-center text-gray-400">
-          Invalid signal data: {safeSignal.pair || 'No pair'} {safeSignal.type || 'No type'}
+          Invalid signal data: {safeSignal.pair} {safeSignal.type}
         </div>
       </div>
     );
   }
+
+  console.log(`SignalCard: Processing signal ${safeSignal.id} - ${safeSignal.pair} ${safeSignal.type}`);
 
   const checkMarketHours = () => {
     const now = new Date();
@@ -111,6 +113,7 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
 
       if (error) {
         console.error(`Error fetching market data for ${safeSignal.pair}:`, error);
+        setFallbackData();
         return;
       }
 
@@ -129,49 +132,63 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
 
         setPriceData(transformedData);
         const latestPrice = transformedData[transformedData.length - 1]?.price;
-        setCurrentPrice(latestPrice);
-        setLastUpdateTime(new Date().toLocaleTimeString('en-US', {
-          hour12: false,
-          hour: '2-digit',
-          minute: '2-digit'
-        }));
-        
-        console.log(`📊 Updated ${safeSignal.pair} with real price: ${latestPrice}`);
-      } else {
-        console.log(`No recent data for ${safeSignal.pair}, using entry price`);
-        // Use entry price as fallback
-        const entryPrice = parseFloat(safeSignal.entryPrice) || 1.0;
-        setCurrentPrice(entryPrice);
-        
-        // Create minimal chart data
-        const now = Date.now();
-        const fallbackData = Array.from({ length: 10 }, (_, i) => ({
-          timestamp: now - (10 - i) * 60000,
-          time: new Date(now - (10 - i) * 60000).toLocaleTimeString('en-US', {
+        if (latestPrice && !isNaN(latestPrice)) {
+          setCurrentPrice(latestPrice);
+          setLastUpdateTime(new Date().toLocaleTimeString('en-US', {
             hour12: false,
             hour: '2-digit',
             minute: '2-digit'
-          }),
-          price: entryPrice * (1 + (Math.random() - 0.5) * 0.001),
-          volume: Math.random() * 100000
-        }));
-        
-        setPriceData(fallbackData);
-        setDataSource('Entry Price (No Live Data)');
+          }));
+          setDataSource('FastForex API (Live)');
+          console.log(`📊 Updated ${safeSignal.pair} with real price: ${latestPrice}`);
+        } else {
+          setFallbackData();
+        }
+      } else {
+        console.log(`No recent data for ${safeSignal.pair}, using entry price`);
+        setFallbackData();
       }
     } catch (error) {
       console.error('Error in fetchRealMarketData:', error);
-      // Fallback to entry price on error
-      const entryPrice = parseFloat(safeSignal.entryPrice) || 1.0;
-      setCurrentPrice(entryPrice);
-      setDataSource('Entry Price (Error)');
+      setFallbackData();
     }
+  };
+
+  const setFallbackData = () => {
+    // Use entry price as fallback with validation
+    const entryPrice = parseFloat(safeSignal.entryPrice) || 1.0;
+    if (isNaN(entryPrice) || entryPrice <= 0) {
+      console.error(`Invalid entry price for ${safeSignal.pair}: ${safeSignal.entryPrice}`);
+      return;
+    }
+    
+    setCurrentPrice(entryPrice);
+    setDataSource('Entry Price (Demo)');
+    
+    // Create minimal chart data
+    const now = Date.now();
+    const fallbackData = Array.from({ length: 10 }, (_, i) => ({
+      timestamp: now - (10 - i) * 60000,
+      time: new Date(now - (10 - i) * 60000).toLocaleTimeString('en-US', {
+        hour12: false,
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+      price: entryPrice * (1 + (Math.random() - 0.5) * 0.001),
+      volume: Math.random() * 100000
+    }));
+    
+    setPriceData(fallbackData);
   };
 
   useEffect(() => {
     const marketOpen = checkMarketHours();
     setIsMarketOpen(marketOpen);
     
+    // Initialize with fallback data first
+    setFallbackData();
+    
+    // Then try to fetch real data
     fetchRealMarketData();
     
     // Update every 15 seconds during market hours
