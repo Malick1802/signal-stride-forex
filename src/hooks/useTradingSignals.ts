@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -38,58 +39,76 @@ export const useTradingSignals = () => {
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       console.log(`🔍 Checking for market data, attempt ${attempt}/${maxRetries}`);
       
-      // Use a wider time window and simpler query structure
-      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
-      
       try {
-        // First, try to get any recent data to verify database connectivity
+        // Use a more generous time window - start with 30 minutes
+        const timeWindow = attempt === 1 ? 30 : attempt === 2 ? 60 : 120; // 30min, 1hr, 2hr
+        const timeAgo = new Date(Date.now() - timeWindow * 60 * 1000).toISOString();
+        
         const { data: recentData, error: recentError } = await supabase
           .from('live_market_data')
-          .select('symbol, price, created_at')
-          .gte('created_at', tenMinutesAgo)
+          .select('symbol, price, created_at, timestamp')
+          .gte('created_at', timeAgo)
           .order('created_at', { ascending: false })
-          .limit(100);
+          .limit(200);
 
         if (recentError) {
           console.error('❌ Database query error:', recentError);
           throw recentError;
         }
 
-        console.log(`📊 Database query returned ${recentData?.length || 0} recent records`);
+        console.log(`📊 Database query returned ${recentData?.length || 0} recent records (${timeWindow}min window)`);
         
         if (recentData && recentData.length > 0) {
-          console.log(`✅ Sample data found:`, recentData.slice(0, 3).map(d => `${d.symbol}:${d.price}`));
+          console.log(`✅ Sample data found:`, recentData.slice(0, 3).map(d => `${d.symbol}:${d.price} at ${d.created_at}`));
           
           const availableSymbols = new Set(recentData.map(d => d.symbol));
           const foundSymbols = symbols.filter(s => availableSymbols.has(s));
           
           console.log(`📈 Found data for ${foundSymbols.length}/${symbols.length} symbols: [${foundSymbols.join(', ')}]`);
           
-          // If we have data for at least 50% of symbols, proceed
-          if (foundSymbols.length >= Math.floor(symbols.length * 0.5)) {
+          // If we have data for at least 30% of symbols, proceed
+          if (foundSymbols.length >= Math.floor(symbols.length * 0.3)) {
             console.log(`✅ Sufficient market data available (${foundSymbols.length}/${symbols.length})`);
             return recentData;
           }
         }
         
-        // If first attempt and no data, trigger fresh fetch
-        if (attempt === 1) {
-          console.log('🔄 No recent data found, triggering fresh market data fetch...');
+        // If first or second attempt and insufficient data, trigger fresh fetch
+        if (attempt <= 2) {
+          console.log('🔄 Insufficient data found, triggering fresh market data fetch...');
           
           try {
             const { data: fetchResult, error: fetchError } = await supabase.functions.invoke('fetch-market-data');
             if (fetchError) {
               console.error('❌ Market data fetch error:', fetchError);
             } else {
-              console.log('✅ Market data fetch triggered successfully:', fetchResult);
+              console.log('✅ Market data fetch completed:', fetchResult);
+              
+              // Wait longer for data to be inserted and available
+              const waitTime = 8000; // 8 seconds
+              console.log(`⏳ Waiting ${waitTime}ms for data insertion...`);
+              await new Promise(resolve => setTimeout(resolve, waitTime));
+              
+              // Try immediate query after waiting
+              const { data: freshData } = await supabase
+                .from('live_market_data')
+                .select('symbol, price, created_at, timestamp')
+                .gte('created_at', new Date(Date.now() - 5 * 60 * 1000).toISOString()) // 5 min window
+                .order('created_at', { ascending: false })
+                .limit(100);
+                
+              if (freshData && freshData.length > 0) {
+                console.log(`✅ Fresh data retrieved: ${freshData.length} records`);
+                return freshData;
+              }
             }
           } catch (error) {
             console.error('❌ Failed to invoke market data fetch:', error);
           }
         }
         
-        // Progressive wait times: 5s, 10s, 15s
-        const waitTime = attempt * 5000;
+        // Progressive wait times: 3s, 6s, 10s
+        const waitTime = attempt * 3000;
         console.log(`⏳ Waiting ${waitTime}ms before next attempt...`);
         await new Promise(resolve => setTimeout(resolve, waitTime));
         
@@ -98,18 +117,18 @@ export const useTradingSignals = () => {
         if (attempt === maxRetries) {
           throw error;
         }
-        await new Promise(resolve => setTimeout(resolve, 3000));
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
     }
     
-    // Final attempt with very wide time window
-    console.log('🔍 Final attempt with 60-minute window...');
+    // Final attempt with very wide time window (6 hours)
+    console.log('🔍 Final attempt with 6-hour window...');
     const { data: finalData } = await supabase
       .from('live_market_data')
-      .select('symbol, price, created_at')
-      .gte('created_at', new Date(Date.now() - 60 * 60 * 1000).toISOString())
+      .select('symbol, price, created_at, timestamp')
+      .gte('created_at', new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString())
       .order('created_at', { ascending: false })
-      .limit(200);
+      .limit(500);
       
     console.log(`📊 Final attempt found ${finalData?.length || 0} records`);
     return finalData || [];
@@ -252,7 +271,7 @@ export const useTradingSignals = () => {
       }
       
       console.log('⏳ Waiting for market data to be processed...');
-      await new Promise(resolve => setTimeout(resolve, 8000));
+      await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
       
       // Then refresh signals
       await fetchSignals();
@@ -282,7 +301,7 @@ export const useTradingSignals = () => {
         },
         (payload) => {
           console.log('🔔 Real-time signal update:', payload);
-          setTimeout(fetchSignals, 2000);
+          setTimeout(fetchSignals, 3000);
         }
       )
       .subscribe();
@@ -297,13 +316,13 @@ export const useTradingSignals = () => {
           table: 'live_market_data'
         },
         (payload) => {
-          console.log('🔔 Real-time market data update');
-          setTimeout(fetchSignals, 3000);
+          console.log('🔔 Real-time market data update for:', payload.new?.symbol);
+          setTimeout(fetchSignals, 5000); // Wait a bit longer for data consistency
         }
       )
       .subscribe();
 
-    // Periodic market data updates
+    // Periodic market data updates - reduced frequency to avoid overwhelming
     const marketOpen = checkMarketHours();
     const updateInterval = setInterval(async () => {
       const isMarketOpen = checkMarketHours();
@@ -315,12 +334,12 @@ export const useTradingSignals = () => {
           console.error('❌ Scheduled update error:', error);
         } else {
           console.log('✅ Scheduled update successful');
-          setTimeout(fetchSignals, 5000);
+          setTimeout(fetchSignals, 8000); // Wait for data to be available
         }
       } catch (error) {
         console.error('❌ Scheduled update failed:', error);
       }
-    }, marketOpen ? 30000 : 120000); // 30s during market hours, 2min when closed
+    }, marketOpen ? 60000 : 180000); // 1min during market hours, 3min when closed
 
     return () => {
       supabase.removeChannel(signalsChannel);
