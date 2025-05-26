@@ -1,9 +1,49 @@
 
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, Database, Wifi } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
 
 const MarketData = () => {
   const [marketData, setMarketData] = useState([]);
+  const [dbStats, setDbStats] = useState({
+    totalRecords: 0,
+    lastUpdate: null,
+    pairs: 0
+  });
+  const [isConnected, setIsConnected] = useState(true);
+
+  const fetchDatabaseStats = async () => {
+    try {
+      // Get count of total records
+      const { count } = await supabase
+        .from('live_market_data')
+        .select('*', { count: 'exact', head: true });
+      
+      // Get latest record
+      const { data: latest } = await supabase
+        .from('live_market_data')
+        .select('created_at')
+        .order('created_at', { ascending: false })
+        .limit(1);
+      
+      // Get unique pairs count
+      const { data: pairs } = await supabase
+        .from('live_market_data')
+        .select('symbol')
+        .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+      
+      const uniquePairs = new Set(pairs?.map(p => p.symbol) || []).size;
+      
+      setDbStats({
+        totalRecords: count || 0,
+        lastUpdate: latest?.[0]?.created_at || null,
+        pairs: uniquePairs
+      });
+    } catch (error) {
+      console.error('Error fetching database stats:', error);
+      setIsConnected(false);
+    }
+  };
 
   useEffect(() => {
     const generateMarketData = () => {
@@ -33,28 +73,73 @@ const MarketData = () => {
     };
 
     generateMarketData();
+    fetchDatabaseStats();
+    
     const interval = setInterval(generateMarketData, 5000);
-    return () => clearInterval(interval);
+    const statsInterval = setInterval(fetchDatabaseStats, 10000);
+    
+    return () => {
+      clearInterval(interval);
+      clearInterval(statsInterval);
+    };
   }, []);
+
+  const formatTimeAgo = (timestamp) => {
+    if (!timestamp) return 'Never';
+    const now = new Date();
+    const time = new Date(timestamp);
+    const diffMs = now.getTime() - time.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${Math.floor(diffHours / 24)}d ago`;
+  };
 
   return (
     <div className="space-y-6">
       {/* Market Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
-          <div className="text-emerald-400 text-2xl font-bold">42</div>
-          <div className="text-gray-400 text-sm">Pairs Monitored</div>
-          <div className="text-emerald-400 text-xs mt-1">+5 this week</div>
+          <div className="flex items-center space-x-2 mb-2">
+            <Database className="h-5 w-5 text-blue-400" />
+            <span className="text-gray-400 text-sm">Database Records</span>
+          </div>
+          <div className="text-blue-400 text-2xl font-bold">{dbStats.totalRecords.toLocaleString()}</div>
+          <div className="text-blue-400 text-xs mt-1">Total market data points</div>
         </div>
+        
         <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
-          <div className="text-blue-400 text-2xl font-bold">1.2M</div>
-          <div className="text-gray-400 text-sm">Total Volume</div>
-          <div className="text-blue-400 text-xs mt-1">Last 24h</div>
+          <div className="flex items-center space-x-2 mb-2">
+            <Clock className="h-5 w-5 text-emerald-400" />
+            <span className="text-gray-400 text-sm">Last Update</span>
+          </div>
+          <div className="text-emerald-400 text-lg font-bold">{formatTimeAgo(dbStats.lastUpdate)}</div>
+          <div className="text-emerald-400 text-xs mt-1">Database sync time</div>
         </div>
+        
         <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
-          <div className="text-purple-400 text-2xl font-bold">0.03s</div>
-          <div className="text-gray-400 text-sm">Avg Latency</div>
-          <div className="text-purple-400 text-xs mt-1">Real-time data</div>
+          <div className="flex items-center space-x-2 mb-2">
+            <TrendingUp className="h-5 w-5 text-purple-400" />
+            <span className="text-gray-400 text-sm">Active Pairs</span>
+          </div>
+          <div className="text-purple-400 text-2xl font-bold">{dbStats.pairs}</div>
+          <div className="text-purple-400 text-xs mt-1">Last 24 hours</div>
+        </div>
+        
+        <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
+          <div className="flex items-center space-x-2 mb-2">
+            <Wifi className={`h-5 w-5 ${isConnected ? 'text-emerald-400' : 'text-red-400'}`} />
+            <span className="text-gray-400 text-sm">Connection</span>
+          </div>
+          <div className={`text-lg font-bold ${isConnected ? 'text-emerald-400' : 'text-red-400'}`}>
+            {isConnected ? 'CONNECTED' : 'DISCONNECTED'}
+          </div>
+          <div className={`text-xs mt-1 ${isConnected ? 'text-emerald-400' : 'text-red-400'}`}>
+            {isConnected ? 'Real-time data' : 'Check connection'}
+          </div>
         </div>
       </div>
 
