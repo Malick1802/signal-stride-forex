@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useCentralizedMarketData } from './useCentralizedMarketData';
 
@@ -40,6 +39,7 @@ export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDat
   });
 
   const mountedRef = useRef(true);
+  const fallbackIntervalRef = useRef<NodeJS.Timeout>();
 
   // Check market hours
   const checkMarketHours = useCallback(() => {
@@ -54,7 +54,7 @@ export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDat
     return !(isFridayEvening || isSaturday || isSundayBeforeOpen);
   }, []);
 
-  // Fallback data for unsupported pairs
+  // Fallback data for unsupported pairs - with simulated real-time updates
   const generateFallbackData = useCallback(() => {
     const entryPriceNum = parseFloat(entryPrice) || 1.0;
     if (isNaN(entryPriceNum) || entryPriceNum <= 0) {
@@ -62,26 +62,34 @@ export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDat
     }
     
     const now = Date.now();
-    const fallbackPriceData = Array.from({ length: 20 }, (_, i) => ({
-      timestamp: now - (20 - i) * 60000,
-      time: new Date(now - (20 - i) * 60000).toLocaleTimeString('en-US', {
-        hour12: false,
-        hour: '2-digit',
-        minute: '2-digit'
-      }),
-      price: entryPriceNum * (1 + (Math.random() - 0.5) * 0.002),
-      volume: Math.random() * 100000
-    }));
     
-    setFallbackData({
-      priceData: fallbackPriceData,
-      currentPrice: fallbackPriceData[fallbackPriceData.length - 1].price,
-      isMarketOpen: checkMarketHours(),
-      lastUpdateTime: new Date().toLocaleTimeString()
+    // Update existing data or create new
+    setFallbackData(prev => {
+      const newDataPoint = {
+        timestamp: now,
+        time: new Date(now).toLocaleTimeString('en-US', {
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        }),
+        price: entryPriceNum * (1 + (Math.random() - 0.5) * 0.002),
+        volume: Math.random() * 100000
+      };
+
+      // Keep last 30 data points and add new one
+      const updatedData = [...prev.priceData, newDataPoint].slice(-30);
+      
+      return {
+        priceData: updatedData,
+        currentPrice: newDataPoint.price,
+        isMarketOpen: checkMarketHours(),
+        lastUpdateTime: new Date().toLocaleTimeString()
+      };
     });
   }, [entryPrice, checkMarketHours]);
 
-  // Initialize data
+  // Initialize data and real-time updates
   useEffect(() => {
     mountedRef.current = true;
     
@@ -91,12 +99,22 @@ export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDat
         triggerMarketUpdate();
       }
     } else {
-      // Generate fallback data for unsupported pairs
+      // Generate initial fallback data
       generateFallbackData();
+      
+      // Set up real-time simulation for unsupported pairs
+      fallbackIntervalRef.current = setInterval(() => {
+        if (mountedRef.current) {
+          generateFallbackData();
+        }
+      }, 2000); // Update every 2 seconds
     }
 
     return () => {
       mountedRef.current = false;
+      if (fallbackIntervalRef.current) {
+        clearInterval(fallbackIntervalRef.current);
+      }
     };
   }, [pair, shouldUseCentralized, marketData, triggerMarketUpdate, generateFallbackData]);
 
@@ -145,8 +163,8 @@ export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDat
     currentPrice: fallbackData.currentPrice,
     isMarketOpen: fallbackData.isMarketOpen,
     lastUpdateTime: fallbackData.lastUpdateTime,
-    dataSource: `Entry Price Simulation (${pair} not in centralized stream)`,
-    isConnected: false,
+    dataSource: `Simulated Real-time (${pair} not centralized)`,
+    isConnected: true, // Always connected for simulated data
     getPriceChange,
     getSparklineData
   };

@@ -37,13 +37,12 @@ export const useCentralizedMarketData = (symbol: string) => {
 
   const fetchCentralizedData = useCallback(async () => {
     if (!symbol || !mountedRef.current || !SUPPORTED_PAIRS.includes(symbol)) {
-      console.log(`❌ Unsupported pair: ${symbol}`);
       return;
     }
 
     // Debounce rapid successive calls
     const now = Date.now();
-    if (now - lastFetchRef.current < 1000) {
+    if (now - lastFetchRef.current < 500) {
       return;
     }
     lastFetchRef.current = now;
@@ -61,13 +60,13 @@ export const useCentralizedMarketData = (symbol: string) => {
         return;
       }
 
-      // Get price history (last 50 points for better performance)
+      // Get price history (last 30 points for better performance)
       const { data: priceHistory, error: historyError } = await supabase
         .from('live_price_history')
         .select('*')
         .eq('symbol', symbol)
         .order('timestamp', { ascending: false })
-        .limit(50);
+        .limit(30);
 
       if (historyError) {
         console.error(`❌ Error fetching price history for ${symbol}:`, historyError);
@@ -131,7 +130,6 @@ export const useCentralizedMarketData = (symbol: string) => {
   // Set up real-time subscriptions to centralized data
   useEffect(() => {
     if (!symbol || !SUPPORTED_PAIRS.includes(symbol)) {
-      console.log(`⚠️ ${symbol} not supported in centralized market stream`);
       setIsConnected(false);
       return;
     }
@@ -139,7 +137,7 @@ export const useCentralizedMarketData = (symbol: string) => {
     mountedRef.current = true;
     fetchCentralizedData();
 
-    // Subscribe to market state changes
+    // Subscribe to market state changes - more aggressive real-time updates
     const stateChannel = supabase
       .channel(`centralized-market-${symbol}`)
       .on(
@@ -152,15 +150,18 @@ export const useCentralizedMarketData = (symbol: string) => {
         },
         (payload) => {
           if (!mountedRef.current) return;
-          fetchCentralizedData();
+          console.log(`🔔 Market state update for ${symbol}`);
+          // Immediate fetch for market state changes
+          setTimeout(fetchCentralizedData, 100);
         }
       )
       .subscribe((status) => {
         if (!mountedRef.current) return;
         setIsConnected(status === 'SUBSCRIBED');
+        console.log(`📡 Market state channel ${symbol}: ${status}`);
       });
 
-    // Subscribe to price history updates (less verbose logging)
+    // Subscribe to price history updates - for chart updates
     const historyChannel = supabase
       .channel(`centralized-history-${symbol}`)
       .on(
@@ -173,16 +174,25 @@ export const useCentralizedMarketData = (symbol: string) => {
         },
         (payload) => {
           if (!mountedRef.current) return;
-          // Debounced fetch to prevent excessive updates
-          setTimeout(fetchCentralizedData, 500);
+          console.log(`📈 New price history for ${symbol}`);
+          // Quick fetch for new price data
+          setTimeout(fetchCentralizedData, 200);
         }
       )
       .subscribe();
 
     channelRef.current = { stateChannel, historyChannel };
 
+    // Periodic refresh to ensure data freshness
+    const refreshInterval = setInterval(() => {
+      if (mountedRef.current) {
+        fetchCentralizedData();
+      }
+    }, 5000); // Every 5 seconds
+
     return () => {
       mountedRef.current = false;
+      clearInterval(refreshInterval);
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current.stateChannel);
         supabase.removeChannel(channelRef.current.historyChannel);
@@ -199,7 +209,9 @@ export const useCentralizedMarketData = (symbol: string) => {
       if (error) {
         console.error('❌ Market stream update failed:', error);
       } else {
-        setTimeout(fetchCentralizedData, 2000);
+        console.log('✅ Market stream update triggered:', data);
+        // Wait a bit then fetch fresh data
+        setTimeout(fetchCentralizedData, 1000);
       }
     } catch (error) {
       console.error('❌ Error triggering market update:', error);
