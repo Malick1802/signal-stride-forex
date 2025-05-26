@@ -6,7 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import SignalStats from './SignalStats';
 import SignalCard from './SignalCard';
 import { Button } from '@/components/ui/button';
-import { Zap, RefreshCw, Wifi, WifiOff, Users, Database } from 'lucide-react';
+import { RefreshCw, Wifi, WifiOff, Users, Activity } from 'lucide-react';
 import { useMarketActivation } from '@/hooks/useMarketActivation';
 
 const TradingSignals = memo(() => {
@@ -16,7 +16,6 @@ const TradingSignals = memo(() => {
   const [analysis, setAnalysis] = useState<Record<string, string>>({});
   const [analyzingSignal, setAnalyzingSignal] = useState<string | null>(null);
   const [refreshingSignals, setRefreshingSignals] = useState(false);
-  const [generatingSignals, setGeneratingSignals] = useState(false);
 
   // Add market activation
   const { activateMarket } = useMarketActivation();
@@ -51,46 +50,6 @@ const TradingSignals = memo(() => {
       });
     } finally {
       setRefreshingSignals(false);
-    }
-  };
-
-  const handleGenerateSignals = async () => {
-    setGeneratingSignals(true);
-    try {
-      console.log('🚀 Manually triggering FastForex signal generation...');
-      
-      const { data: signalResult, error: signalError } = await supabase.functions.invoke('generate-signals');
-      
-      if (signalError) {
-        console.error('❌ Manual signal generation failed:', signalError);
-        toast({
-          title: "Generation Failed",
-          description: "Failed to generate FastForex signals manually",
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      console.log('✅ Manual FastForex signals generated:', signalResult);
-      
-      // Refresh the signal list
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      window.location.reload(); // Force refresh to see new signals
-      
-      toast({
-        title: "Signals Generated!",
-        description: `Generated ${signalResult?.signals?.length || 'new'} FastForex-powered signals`,
-      });
-      
-    } catch (error) {
-      console.error('❌ Error in manual signal generation:', error);
-      toast({
-        title: "Generation Error",
-        description: "Failed to generate signals manually",
-        variant: "destructive"
-      });
-    } finally {
-      setGeneratingSignals(false);
     }
   };
 
@@ -155,6 +114,34 @@ const TradingSignals = memo(() => {
         lastUpdate={lastUpdate}
       />
 
+      {/* Automated System Status */}
+      <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <Activity className="h-5 w-5 text-emerald-400" />
+              <span className="text-white font-medium">Automated FastForex System</span>
+              <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded">
+                LIVE AUTO-UPDATE
+              </span>
+            </div>
+            <div className="flex items-center space-x-2">
+              {hasSignalData ? (
+                <Wifi className="h-4 w-4 text-emerald-400" />
+              ) : (
+                <WifiOff className="h-4 w-4 text-orange-400" />
+              )}
+              <span className="text-sm text-gray-400">
+                {hasSignalData ? 'Real-time updates active' : 'Waiting for next signal cycle'}
+              </span>
+            </div>
+          </div>
+          <div className="text-sm text-gray-400">
+            Updates: Market data every 60s • Ticks every 3s • Signals every 15min
+          </div>
+        </div>
+      </div>
+
       {/* Centralized Status */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="flex items-center justify-between">
@@ -166,52 +153,6 @@ const TradingSignals = memo(() => {
                 FASTFOREX-POWERED
               </span>
             </div>
-            <div className="flex items-center space-x-2">
-              {hasSignalData ? (
-                <Wifi className="h-4 w-4 text-emerald-400" />
-              ) : (
-                <WifiOff className="h-4 w-4 text-red-400" />
-              )}
-              <span className="text-sm text-gray-400">
-                {hasSignalData ? 'All users see identical signals' : 'No signal data - generate new signals'}
-              </span>
-            </div>
-          </div>
-          <div className="text-sm text-gray-400">
-            Real-time FastForex data • 85%+ confidence threshold
-          </div>
-        </div>
-      </div>
-
-      {/* Signal Management Controls */}
-      <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <Database className="h-5 w-5 text-green-400" />
-              <span className="text-white font-medium">FastForex Signal Management</span>
-              <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded">
-                REAL DATA
-              </span>
-            </div>
-            <Button
-              onClick={handleGenerateSignals}
-              disabled={generatingSignals}
-              className="bg-green-600 hover:bg-green-700 text-white text-sm"
-              size="sm"
-            >
-              {generatingSignals ? (
-                <>
-                  <Database className="h-4 w-4 mr-2 animate-pulse" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <Database className="h-4 w-4 mr-2" />
-                  Generate FastForex Signals
-                </>
-              )}
-            </Button>
             <Button
               onClick={handleRefreshSignals}
               disabled={refreshingSignals}
@@ -221,18 +162,18 @@ const TradingSignals = memo(() => {
               {refreshingSignals ? (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Updating...
+                  Refreshing...
                 </>
               ) : (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2" />
-                  Refresh Signals
+                  Manual Refresh
                 </>
               )}
             </Button>
           </div>
           <div className="text-sm text-gray-400">
-            🌐 Centralized FastForex • Updates every 10 minutes
+            🌐 All users see identical signals • Real-time price updates
           </div>
         </div>
       </div>
@@ -257,7 +198,7 @@ const TradingSignals = memo(() => {
               </select>
             </div>
             <div className="text-sm text-gray-400">
-              FastForex-powered signals • Identical for all users
+              FastForex-powered signals • Automatic updates every 15 minutes
             </div>
           </div>
         </div>
@@ -295,36 +236,18 @@ const TradingSignals = memo(() => {
                 : `No centralized signals available for ${selectedPair}`}
             </div>
             <div className="text-sm text-gray-500 mb-6">
-              FastForex-powered signals are generated automatically and identical for all users
+              The automated FastForex system generates new signals every 15 minutes during market hours
             </div>
             <div className="space-x-4">
               <Button
-                onClick={handleGenerateSignals}
-                disabled={generatingSignals}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                {generatingSignals ? (
-                  <>
-                    <Database className="h-4 w-4 mr-2 animate-pulse" />
-                    Generating FastForex Signals...
-                  </>
-                ) : (
-                  <>
-                    <Database className="h-4 w-4 mr-2" />
-                    Generate FastForex Signals
-                  </>
-                )}
-              </Button>
-              <Button
                 onClick={handleRefreshSignals}
                 disabled={refreshingSignals}
-                variant="outline"
-                className="text-white border-white/20 hover:bg-white/10"
+                className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 {refreshingSignals ? (
                   <>
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Refreshing...
+                    Refreshing Centralized Signals...
                   </>
                 ) : (
                   <>

@@ -14,7 +14,10 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🤖 Starting centralized signal generation with FastForex data...');
+    const body = await req.json().catch(() => ({}));
+    const isCronTriggered = body.trigger === 'cron';
+    
+    console.log(`🤖 ${isCronTriggered ? 'Automatic cron' : 'Manual'} signal generation with FastForex data...`);
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -40,13 +43,11 @@ serve(async (req) => {
     if (!marketData || marketData.length === 0) {
       console.log('⚠️ No centralized market data available, triggering market update first...');
       
-      // Try to trigger market data update
       try {
         await supabase.functions.invoke('centralized-market-stream');
         console.log('✅ Market data update triggered, waiting for data...');
         await new Promise(resolve => setTimeout(resolve, 3000));
         
-        // Retry fetching market data
         const { data: retryData } = await supabase
           .from('centralized_market_state')
           .select('*')
@@ -54,9 +55,9 @@ serve(async (req) => {
           .limit(10);
           
         if (!retryData || retryData.length === 0) {
-          console.log('⚠️ Still no market data, generating signals with defaults');
+          console.log('⚠️ Still no market data available');
           return new Response(
-            JSON.stringify({ message: 'No market data available, please try again', signals: [] }),
+            JSON.stringify({ message: 'No market data available', signals: [] }),
             { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
@@ -65,7 +66,7 @@ serve(async (req) => {
       }
     }
 
-    // Priority currency pairs for signal generation (matching centralized system)
+    // Priority currency pairs for signal generation
     const priorityPairs = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD'];
     
     // Get latest price for each priority pair from centralized market state
@@ -82,39 +83,69 @@ serve(async (req) => {
     const signals = [];
     const timestamp = new Date().toISOString();
 
-    // Check if we already have recent centralized signals (within last 30 minutes)
-    const { data: existingSignals } = await supabase
-      .from('trading_signals')
-      .select('id, created_at')
-      .eq('is_centralized', true)
-      .is('user_id', null)
-      .eq('status', 'active')
-      .gte('created_at', new Date(Date.now() - 30 * 60 * 1000).toISOString());
+    // For automatic generation, expire old signals and generate fresh ones
+    if (isCronTriggered) {
+      console.log('🔄 Automatic generation: expiring old signals and generating fresh ones');
+      
+      // Expire signals older than 4 hours for automatic refresh
+      const { error: expireError } = await supabase
+        .from('trading_signals')
+        .update({ status: 'expired' })
+        .eq('is_centralized', true)
+        .is('user_id', null)
+        .lt('created_at', new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString());
 
-    if (existingSignals && existingSignals.length >= 5) {
-      console.log(`✅ Found ${existingSignals.length} recent centralized signals, skipping generation`);
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: `Using existing ${existingSignals.length} centralized signals`,
-          signals: existingSignals.map(s => s.id),
-          timestamp
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
+      if (expireError) {
+        console.error('❌ Error expiring old signals:', expireError);
+      }
 
-    // Clear existing centralized signals if generating new ones
-    const { error: deleteError } = await supabase
-      .from('trading_signals')
-      .delete()
-      .eq('is_centralized', true)
-      .is('user_id', null);
+      // Delete very old expired signals (older than 24 hours)
+      const { error: deleteError } = await supabase
+        .from('trading_signals')
+        .delete()
+        .eq('is_centralized', true)
+        .is('user_id', null)
+        .eq('status', 'expired')
+        .lt('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
 
-    if (deleteError) {
-      console.error('❌ Error clearing existing signals:', deleteError);
+      if (deleteError) {
+        console.error('❌ Error deleting old signals:', deleteError);
+      }
     } else {
-      console.log('✅ Cleared existing centralized signals');
+      // For manual generation, check if we have recent signals
+      const { data: existingSignals } = await supabase
+        .from('trading_signals')
+        .select('id, created_at')
+        .eq('is_centralized', true)
+        .is('user_id', null)
+        .eq('status', 'active')
+        .gte('created_at', new Date(Date.now() - 30 * 60 * 1000).toISOString());
+
+      if (existingSignals && existingSignals.length >= 5) {
+        console.log(`✅ Found ${existingSignals.length} recent centralized signals for manual request`);
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: `Using existing ${existingSignals.length} centralized signals`,
+            signals: existingSignals.map(s => s.id),
+            timestamp
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+
+      // Clear existing centralized signals for manual generation
+      const { error: deleteError } = await supabase
+        .from('trading_signals')
+        .delete()
+        .eq('is_centralized', true)
+        .is('user_id', null);
+
+      if (deleteError) {
+        console.error('❌ Error clearing existing signals:', deleteError);
+      } else {
+        console.log('✅ Cleared existing centralized signals for manual generation');
+      }
     }
 
     for (const pair of priorityPairs) {
@@ -136,11 +167,11 @@ serve(async (req) => {
         const confidence = Math.floor(Math.random() * 15) + 80; // 80-95%
         
         // Calculate price levels based on current FastForex price
-        const priceVariation = currentPrice * 0.0008; // Smaller variation for more realistic entry
+        const priceVariation = currentPrice * 0.0008;
         const entryPrice = currentPrice + (Math.random() - 0.5) * priceVariation;
         
-        const stopLossDistance = currentPrice * 0.004; // 0.4% stop loss
-        const takeProfitDistance = currentPrice * 0.008; // 0.8% take profit
+        const stopLossDistance = currentPrice * 0.004;
+        const takeProfitDistance = currentPrice * 0.008;
         
         const stopLoss = signalType === 'BUY' 
           ? entryPrice - stopLossDistance 
@@ -160,11 +191,10 @@ serve(async (req) => {
 
         // Generate FIXED chart data based on FastForex price
         const chartData = [];
-        const baseTime = Date.now() - (30 * 60 * 1000); // Start 30 minutes ago
+        const baseTime = Date.now() - (30 * 60 * 1000);
         
         for (let i = 0; i < 30; i++) {
-          const timePoint = baseTime + (i * 60 * 1000); // 1-minute intervals
-          // Create realistic price movement around the FastForex entry price
+          const timePoint = baseTime + (i * 60 * 1000);
           const priceMovement = (Math.sin(i * 0.2) + Math.random() * 0.3 - 0.15) * (currentPrice * 0.0003);
           const chartPrice = entryPrice + priceMovement;
           
@@ -174,7 +204,6 @@ serve(async (req) => {
           });
         }
 
-        // Add the current FastForex price as the latest point
         chartData.push({
           time: Date.now(),
           price: parseFloat(entryPrice.toFixed(5))
@@ -194,7 +223,7 @@ serve(async (req) => {
           status: 'active',
           is_centralized: true,
           user_id: null,
-          analysis_text: `FastForex-powered ${signalType} signal for ${pair}. Real market data with ${confidence}% confidence.`,
+          analysis_text: `${isCronTriggered ? 'Auto-generated' : 'Manual'} FastForex-powered ${signalType} signal for ${pair}. Real market data with ${confidence}% confidence.`,
           chart_data: chartData,
           pips: Math.floor(Math.abs(entryPrice - stopLoss) * 10000),
           created_at: timestamp
@@ -231,15 +260,16 @@ serve(async (req) => {
       throw insertError;
     }
 
-    console.log(`✅ Successfully generated ${signals.length} FastForex-powered centralized signals`);
+    console.log(`✅ Successfully generated ${signals.length} ${isCronTriggered ? 'automatic' : 'manual'} FastForex-powered centralized signals`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Generated ${signals.length} FastForex-powered centralized signals`,
+        message: `Generated ${signals.length} ${isCronTriggered ? 'automatic' : 'manual'} FastForex-powered centralized signals`,
         signals: insertedSignals?.map(s => ({ id: s.id, symbol: s.symbol, type: s.type })) || [],
         marketDataUsed: Array.from(latestPrices.keys()),
-        timestamp
+        timestamp,
+        trigger: isCronTriggered ? 'cron' : 'manual'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
