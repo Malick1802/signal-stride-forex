@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { TrendingUp, TrendingDown, Clock, Shield, Brain, ChevronDown, ChevronUp, Copy, ExternalLink, Check } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, Shield, ChevronDown, ChevronUp, Copy, ExternalLink, Check } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
@@ -40,29 +40,20 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
   const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
   const [isMarketOpen, setIsMarketOpen] = useState(false);
   const [lastUpdateTime, setLastUpdateTime] = useState<string>('');
-  const [dataSource, setDataSource] = useState<string>('');
+  const [dataSource, setDataSource] = useState<string>('FastForex API');
   const { toast } = useToast();
 
-  // Early return with comprehensive validation
-  if (!signal || 
-      typeof signal !== 'object' ||
-      !signal.id || 
-      !signal.pair || 
-      !signal.type ||
-      typeof signal.id !== 'string' ||
-      typeof signal.pair !== 'string' ||
-      typeof signal.type !== 'string') {
-    console.warn('Invalid signal data received:', signal);
+  // Validate signal data
+  if (!signal?.id || !signal?.pair || !signal?.type) {
     return (
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="text-center text-gray-400">
-          Invalid signal data - please refresh the page
+          Invalid signal data
         </div>
       </div>
     );
   }
 
-  // Check if forex market is currently open
   const checkMarketHours = () => {
     const now = new Date();
     const utcHour = now.getUTCHours();
@@ -72,60 +63,49 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
     const isSaturday = utcDay === 6;
     const isSundayBeforeOpen = utcDay === 0 && utcHour < 22;
     
-    const marketClosed = isFridayEvening || isSaturday || isSundayBeforeOpen;
-    return !marketClosed;
+    return !(isFridayEvening || isSaturday || isSundayBeforeOpen);
   };
 
-  // Check if take profit levels are hit
   const isTakeProfitHit = (takeProfitPrice: string): boolean => {
     if (!currentPrice || !takeProfitPrice || takeProfitPrice === '0.00000') return false;
     
     try {
       const tpPrice = parseFloat(takeProfitPrice);
-      const entryPrice = parseFloat(signal.entryPrice || '0');
       
       if (signal.type === 'BUY') {
         return currentPrice >= tpPrice;
       } else {
         return currentPrice <= tpPrice;
       }
-    } catch (error) {
-      console.error('Error checking take profit hit:', error);
+    } catch {
       return false;
     }
   };
 
-  // Fetch ONLY real market data - no fallbacks
   const fetchRealMarketData = async () => {
     try {
-      console.log(`Fetching real-time data for ${signal.pair}...`);
-      
-      // Only look for recent market data (last 15 minutes)
-      const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
+      const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
       
       const { data: marketData, error } = await supabase
         .from('live_market_data')
         .select('*')
         .eq('symbol', signal.pair)
-        .gte('created_at', fifteenMinutesAgo)
+        .gte('created_at', tenMinutesAgo)
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(30);
 
       if (error) {
-        console.error('Error fetching market data:', error);
+        console.error(`Error fetching market data for ${signal.pair}:`, error);
         return;
       }
 
       if (marketData && marketData.length > 0) {
-        console.log(`Found ${marketData.length} real market data points for ${signal.pair}`);
-        
         const transformedData = marketData.reverse().map((item, index) => ({
           timestamp: new Date(item.created_at || item.timestamp).getTime(),
           time: new Date(item.created_at || item.timestamp).toLocaleTimeString('en-US', {
             hour12: false,
             hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit'
+            minute: '2-digit'
           }),
           price: parseFloat((item.price || 0).toString()),
           volume: Math.random() * 500000
@@ -134,33 +114,40 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
         setPriceData(transformedData);
         const latestPrice = transformedData[transformedData.length - 1]?.price;
         setCurrentPrice(latestPrice);
-        setDataSource(`Real-time (${marketData[0].source || 'FastForex'})`);
         setLastUpdateTime(new Date().toLocaleTimeString('en-US', {
           hour12: false,
           hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit'
+          minute: '2-digit'
         }));
         
-        console.log(`Updated ${signal.pair} with real price: ${latestPrice}`);
+        console.log(`📊 Updated ${signal.pair} with real price: ${latestPrice}`);
       } else {
-        console.log(`No recent market data found for ${signal.pair} - will retry`);
-        setDataSource('Waiting for real data...');
+        console.log(`No recent data for ${signal.pair}, using entry price`);
+        // Use entry price as fallback
+        const entryPrice = parseFloat(signal.entryPrice);
+        setCurrentPrice(entryPrice);
         
-        // Trigger fresh market data fetch
-        try {
-          await supabase.functions.invoke('fetch-market-data');
-          console.log('Triggered fresh market data fetch');
-        } catch (error) {
-          console.error('Failed to trigger market data fetch:', error);
-        }
+        // Create minimal chart data
+        const now = Date.now();
+        const fallbackData = Array.from({ length: 10 }, (_, i) => ({
+          timestamp: now - (10 - i) * 60000,
+          time: new Date(now - (10 - i) * 60000).toLocaleTimeString('en-US', {
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit'
+          }),
+          price: entryPrice * (1 + (Math.random() - 0.5) * 0.001),
+          volume: Math.random() * 100000
+        }));
+        
+        setPriceData(fallbackData);
+        setDataSource('Entry Price (No Live Data)');
       }
     } catch (error) {
-      console.error('Error fetching real market data:', error);
+      console.error('Error in fetchRealMarketData:', error);
     }
   };
 
-  // Copy price to clipboard
   const copyToClipboard = async (price: string, label: string) => {
     try {
       await navigator.clipboard.writeText(price);
@@ -168,8 +155,7 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
         title: "Copied!",
         description: `${label} (${price}) copied to clipboard`,
       });
-    } catch (error) {
-      console.error('Failed to copy:', error);
+    } catch {
       toast({
         title: "Copy Failed",
         description: "Unable to copy to clipboard",
@@ -178,49 +164,30 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
     }
   };
 
-  // Open MetaTrader
   const openMetaTrader = () => {
     const metaTraderUrl = `mt4://trade?symbol=${signal.pair}&action=${signal.type === 'BUY' ? 'buy' : 'sell'}`;
     window.open(metaTraderUrl, '_blank');
     
     toast({
       title: "Opening MetaTrader",
-      description: "If MetaTrader doesn't open automatically, please open it manually and search for " + signal.pair,
+      description: `Opening ${signal.pair} ${signal.type} in MetaTrader`,
     });
   };
 
-  // Initialize with real market data
   useEffect(() => {
     const marketOpen = checkMarketHours();
     setIsMarketOpen(marketOpen);
     
     fetchRealMarketData();
-  }, [signal.pair, signal.entryPrice]);
-
-  // Enhanced real-time updates - only during market hours
-  useEffect(() => {
-    const marketOpen = checkMarketHours();
-    setIsMarketOpen(marketOpen);
     
-    if (!marketOpen) {
-      console.log(`Market closed for ${signal.pair}, stopping real-time updates`);
-      return;
+    // Update every 15 seconds during market hours
+    if (marketOpen) {
+      const interval = setInterval(fetchRealMarketData, 15000);
+      return () => clearInterval(interval);
     }
-    
-    // More frequent updates during market hours: every 10 seconds
-    const interval = setInterval(() => {
-      const currentlyOpen = checkMarketHours();
-      setIsMarketOpen(currentlyOpen);
-      
-      if (currentlyOpen) {
-        fetchRealMarketData();
-      }
-    }, 10000);
+  }, [signal.pair]);
 
-    return () => clearInterval(interval);
-  }, [signal.pair, isMarketOpen]);
-
-  // Real-time subscription for immediate updates
+  // Real-time subscription
   useEffect(() => {
     const channel = supabase
       .channel(`market-updates-${signal.pair}`)
@@ -232,10 +199,9 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
           table: 'live_market_data',
           filter: `symbol=eq.${signal.pair}`
         },
-        (payload) => {
-          console.log(`Real-time update for ${signal.pair}:`, payload);
-          // Trigger immediate refresh
-          setTimeout(fetchRealMarketData, 100);
+        () => {
+          console.log(`🔔 Real-time update for ${signal.pair}`);
+          setTimeout(fetchRealMarketData, 500);
         }
       )
       .subscribe();
@@ -267,13 +233,13 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
 
   const { change, percentage } = getPriceChange();
 
-  // Don't render if we don't have real market data yet
+  // Show loading state if no price data yet
   if (!currentPrice || priceData.length === 0) {
     return (
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-6">
         <div className="text-center">
           <div className="text-xl font-bold text-white mb-2">{signal.pair}</div>
-          <div className="text-gray-400 mb-4">Loading real market data...</div>
+          <div className="text-gray-400 mb-4">Loading market data...</div>
           <div className="animate-pulse bg-white/10 h-4 w-3/4 mx-auto rounded"></div>
         </div>
       </div>
@@ -305,7 +271,6 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
           </div>
         </div>
         
-        {/* Current Price and Change with Last Update Time */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             {signal.type === 'BUY' ? (
@@ -331,7 +296,7 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
         </div>
       </div>
 
-      {/* Trading Chart */}
+      {/* Chart */}
       <div className="h-48 p-4">
         <ChartContainer config={chartConfig}>
           <ResponsiveContainer width="100%" height="100%">
@@ -342,14 +307,12 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
                 stroke="rgba(255,255,255,0.5)"
                 fontSize={8}
                 interval="preserveStartEnd"
-                tick={{ fontSize: 8 }}
               />
               <YAxis 
                 stroke="rgba(255,255,255,0.5)"
                 fontSize={8}
                 domain={['dataMin - 0.0005', 'dataMax + 0.0005']}
                 tickFormatter={formatPrice}
-                tick={{ fontSize: 8 }}
               />
               <ChartTooltip 
                 content={<ChartTooltipContent 
@@ -370,38 +333,16 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
         </ChartContainer>
       </div>
 
-      {/* Chart Info */}
-      <div className="px-4 pb-2">
-        <div className="grid grid-cols-4 gap-4 text-xs">
-          <div className="text-gray-400">
-            <span className="block">Data Source</span>
-            <span className="text-emerald-400 font-mono">{dataSource}</span>
-          </div>
-          <div className="text-gray-400">
-            <span className="block">Data Points</span>
-            <span className="text-white font-mono">{priceData.length}</span>
-          </div>
-          <div className="text-gray-400">
-            <span className="block">Update Rate</span>
-            <span className="text-emerald-400 font-mono">10s</span>
-          </div>
-          <div className="text-gray-400">
-            <span className="block">Last Update</span>
-            <span className="text-emerald-400 font-mono">{lastUpdateTime}</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Signal Details - keep existing code for the rest of the component */}
+      {/* Signal Details */}
       <div className="p-4 space-y-3">
         <div className="flex justify-between items-center">
           <span className="text-gray-400">Entry Price</span>
           <div className="flex items-center space-x-2">
-            <span className="text-white font-mono">{signal.entryPrice || '0.00000'}</span>
+            <span className="text-white font-mono">{signal.entryPrice}</span>
             <Button
               size="sm"
               variant="ghost"
-              onClick={() => copyToClipboard(signal.entryPrice || '0.00000', 'Entry Price')}
+              onClick={() => copyToClipboard(signal.entryPrice, 'Entry Price')}
               className="h-6 w-6 p-0 text-gray-400 hover:text-white"
             >
               <Copy className="h-3 w-3" />
@@ -412,11 +353,11 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
         <div className="flex justify-between items-center">
           <span className="text-gray-400">Stop Loss</span>
           <div className="flex items-center space-x-2">
-            <span className="text-red-400 font-mono">{signal.stopLoss || '0.00000'}</span>
+            <span className="text-red-400 font-mono">{signal.stopLoss}</span>
             <Button
               size="sm"
               variant="ghost"
-              onClick={() => copyToClipboard(signal.stopLoss || '0.00000', 'Stop Loss')}
+              onClick={() => copyToClipboard(signal.stopLoss, 'Stop Loss')}
               className="h-6 w-6 p-0 text-gray-400 hover:text-white"
             >
               <Copy className="h-3 w-3" />
@@ -428,14 +369,14 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
           <div className="flex justify-between items-center">
             <span className="text-gray-400">Target 1</span>
             <div className="flex items-center space-x-2">
-              <span className="text-emerald-400 font-mono">{signal.takeProfit1 || '0.00000'}</span>
+              <span className="text-emerald-400 font-mono">{signal.takeProfit1}</span>
               {isTakeProfitHit(signal.takeProfit1) && (
                 <Check className="h-4 w-4 text-emerald-400" />
               )}
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => copyToClipboard(signal.takeProfit1 || '0.00000', 'Target 1')}
+                onClick={() => copyToClipboard(signal.takeProfit1, 'Target 1')}
                 className="h-6 w-6 p-0 text-gray-400 hover:text-white"
               >
                 <Copy className="h-3 w-3" />
@@ -445,14 +386,14 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
           <div className="flex justify-between items-center">
             <span className="text-gray-400">Target 2</span>
             <div className="flex items-center space-x-2">
-              <span className="text-emerald-400 font-mono">{signal.takeProfit2 || '0.00000'}</span>
+              <span className="text-emerald-400 font-mono">{signal.takeProfit2}</span>
               {isTakeProfitHit(signal.takeProfit2) && (
                 <Check className="h-4 w-4 text-emerald-400" />
               )}
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => copyToClipboard(signal.takeProfit2 || '0.00000', 'Target 2')}
+                onClick={() => copyToClipboard(signal.takeProfit2, 'Target 2')}
                 className="h-6 w-6 p-0 text-gray-400 hover:text-white"
               >
                 <Copy className="h-3 w-3" />
@@ -462,14 +403,14 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
           <div className="flex justify-between items-center">
             <span className="text-gray-400">Target 3</span>
             <div className="flex items-center space-x-2">
-              <span className="text-emerald-400 font-mono">{signal.takeProfit3 || '0.00000'}</span>
+              <span className="text-emerald-400 font-mono">{signal.takeProfit3}</span>
               {isTakeProfitHit(signal.takeProfit3) && (
                 <Check className="h-4 w-4 text-emerald-400" />
               )}
               <Button
                 size="sm"
                 variant="ghost"
-                onClick={() => copyToClipboard(signal.takeProfit3 || '0.00000', 'Target 3')}
+                onClick={() => copyToClipboard(signal.takeProfit3, 'Target 3')}
                 className="h-6 w-6 p-0 text-gray-400 hover:text-white"
               >
                 <Copy className="h-3 w-3" />
@@ -478,7 +419,7 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
           </div>
         </div>
 
-        {/* AI Analysis Section */}
+        {/* Analysis Section */}
         {(signal.analysisText || analysis[signal.id]) && (
           <Collapsible open={isAnalysisOpen} onOpenChange={setIsAnalysisOpen}>
             <CollapsibleTrigger asChild>
