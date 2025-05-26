@@ -40,6 +40,7 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
   const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
   const [isMarketOpen, setIsMarketOpen] = useState(false);
   const [lastUpdateTime, setLastUpdateTime] = useState<string>('');
+  const [dataSource, setDataSource] = useState<string>('');
   const { toast } = useToast();
 
   // Early return with comprehensive validation
@@ -67,7 +68,6 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
     const utcHour = now.getUTCHours();
     const utcDay = now.getUTCDay();
     
-    // Forex market is closed from Friday 22:00 UTC to Sunday 22:00 UTC
     const isFridayEvening = utcDay === 5 && utcHour >= 22;
     const isSaturday = utcDay === 6;
     const isSundayBeforeOpen = utcDay === 0 && utcHour < 22;
@@ -95,25 +95,30 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
     }
   };
 
-  // Enhanced real market data fetching with more frequent updates
+  // Fetch ONLY real market data - no fallbacks
   const fetchRealMarketData = async () => {
     try {
       console.log(`Fetching real-time data for ${signal.pair}...`);
+      
+      // Only look for recent market data (last 15 minutes)
+      const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000).toISOString();
       
       const { data: marketData, error } = await supabase
         .from('live_market_data')
         .select('*')
         .eq('symbol', signal.pair)
+        .gte('created_at', fifteenMinutesAgo)
         .order('created_at', { ascending: false })
-        .limit(50); // Increased for smoother charts
+        .limit(50);
 
       if (error) {
         console.error('Error fetching market data:', error);
-        generateFallbackData();
         return;
       }
 
       if (marketData && marketData.length > 0) {
+        console.log(`Found ${marketData.length} real market data points for ${signal.pair}`);
+        
         const transformedData = marketData.reverse().map((item, index) => ({
           timestamp: new Date(item.created_at || item.timestamp).getTime(),
           time: new Date(item.created_at || item.timestamp).toLocaleTimeString('en-US', {
@@ -128,7 +133,8 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
 
         setPriceData(transformedData);
         const latestPrice = transformedData[transformedData.length - 1]?.price;
-        setCurrentPrice(latestPrice || parseFloat(signal.entryPrice || '0'));
+        setCurrentPrice(latestPrice);
+        setDataSource(`Real-time (${marketData[0].source || 'FastForex'})`);
         setLastUpdateTime(new Date().toLocaleTimeString('en-US', {
           hour12: false,
           hour: '2-digit',
@@ -136,51 +142,21 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
           second: '2-digit'
         }));
         
-        console.log(`Updated ${signal.pair} price: ${latestPrice}`);
+        console.log(`Updated ${signal.pair} with real price: ${latestPrice}`);
       } else {
-        console.log(`No market data found for ${signal.pair}, using fallback`);
-        generateFallbackData();
+        console.log(`No recent market data found for ${signal.pair} - will retry`);
+        setDataSource('Waiting for real data...');
+        
+        // Trigger fresh market data fetch
+        try {
+          await supabase.functions.invoke('fetch-market-data');
+          console.log('Triggered fresh market data fetch');
+        } catch (error) {
+          console.error('Failed to trigger market data fetch:', error);
+        }
       }
     } catch (error) {
       console.error('Error fetching real market data:', error);
-      generateFallbackData();
-    }
-  };
-
-  // Fallback data generation when real data is unavailable
-  const generateFallbackData = () => {
-    try {
-      const basePrice = parseFloat(signal.entryPrice || '1.0000');
-      const now = Date.now();
-      const data: PriceData[] = [];
-
-      for (let i = 29; i >= 0; i--) {
-        const timestamp = now - (i * 120000); // 2 minute intervals
-        const volatility = 0.00005;
-        const randomMove = (Math.random() - 0.5) * volatility;
-        const price = basePrice + randomMove;
-        
-        data.push({
-          timestamp,
-          time: new Date(timestamp).toLocaleTimeString(),
-          price,
-          volume: Math.random() * 500000
-        });
-      }
-
-      setPriceData(data);
-      setCurrentPrice(data[data.length - 1]?.price || basePrice);
-    } catch (error) {
-      console.error('Error generating fallback data:', error);
-      // Absolute fallback
-      const basePrice = 1.0000;
-      setPriceData([{
-        timestamp: Date.now(),
-        time: new Date().toLocaleTimeString(),
-        price: basePrice,
-        volume: 100000
-      }]);
-      setCurrentPrice(basePrice);
     }
   };
 
@@ -221,14 +197,17 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
     fetchRealMarketData();
   }, [signal.pair, signal.entryPrice]);
 
-  // Enhanced real-time updates with more aggressive polling
+  // Enhanced real-time updates - only during market hours
   useEffect(() => {
     const marketOpen = checkMarketHours();
     setIsMarketOpen(marketOpen);
     
-    // More frequent updates: 15 seconds during market hours, 1 minute when closed
-    const updateInterval = marketOpen ? 15000 : 60000;
+    if (!marketOpen) {
+      console.log(`Market closed for ${signal.pair}, stopping real-time updates`);
+      return;
+    }
     
+    // More frequent updates during market hours: every 10 seconds
     const interval = setInterval(() => {
       const currentlyOpen = checkMarketHours();
       setIsMarketOpen(currentlyOpen);
@@ -236,7 +215,7 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
       if (currentlyOpen) {
         fetchRealMarketData();
       }
-    }, updateInterval);
+    }, 10000);
 
     return () => clearInterval(interval);
   }, [signal.pair, isMarketOpen]);
@@ -256,7 +235,7 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
         (payload) => {
           console.log(`Real-time update for ${signal.pair}:`, payload);
           // Trigger immediate refresh
-          setTimeout(fetchRealMarketData, 500);
+          setTimeout(fetchRealMarketData, 100);
         }
       )
       .subscribe();
@@ -288,6 +267,19 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
 
   const { change, percentage } = getPriceChange();
 
+  // Don't render if we don't have real market data yet
+  if (!currentPrice || priceData.length === 0) {
+    return (
+      <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-6">
+        <div className="text-center">
+          <div className="text-xl font-bold text-white mb-2">{signal.pair}</div>
+          <div className="text-gray-400 mb-4">Loading real market data...</div>
+          <div className="animate-pulse bg-white/10 h-4 w-3/4 mx-auto rounded"></div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 overflow-hidden">
       {/* Header */}
@@ -314,34 +306,32 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
         </div>
         
         {/* Current Price and Change with Last Update Time */}
-        {currentPrice && (
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              {signal.type === 'BUY' ? (
-                <TrendingUp className="h-4 w-4 text-emerald-400" />
-              ) : (
-                <TrendingDown className="h-4 w-4 text-red-400" />
-              )}
-              <span className="text-white text-lg font-mono">{formatPrice(currentPrice)}</span>
-              <div className="flex flex-col text-xs text-gray-400">
-                <span>{isMarketOpen ? 'Real-time' : 'Last close'}</span>
-                {lastUpdateTime && <span>Updated: {lastUpdateTime}</span>}
-              </div>
-            </div>
-            <div className="flex items-center space-x-1">
-              <span className={`text-sm font-mono ${
-                change >= 0 ? 'text-emerald-400' : 'text-red-400'
-              }`}>
-                {change >= 0 ? '+' : ''}{change.toFixed(5)} ({percentage >= 0 ? '+' : ''}{percentage.toFixed(2)}%)
-              </span>
-              <Shield className="h-4 w-4 text-yellow-400" />
-              <span className="text-yellow-400 text-sm font-medium">{signal.confidence}%</span>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            {signal.type === 'BUY' ? (
+              <TrendingUp className="h-4 w-4 text-emerald-400" />
+            ) : (
+              <TrendingDown className="h-4 w-4 text-red-400" />
+            )}
+            <span className="text-white text-lg font-mono">{formatPrice(currentPrice)}</span>
+            <div className="flex flex-col text-xs text-gray-400">
+              <span>{dataSource}</span>
+              {lastUpdateTime && <span>Updated: {lastUpdateTime}</span>}
             </div>
           </div>
-        )}
+          <div className="flex items-center space-x-1">
+            <span className={`text-sm font-mono ${
+              change >= 0 ? 'text-emerald-400' : 'text-red-400'
+            }`}>
+              {change >= 0 ? '+' : ''}{change.toFixed(5)} ({percentage >= 0 ? '+' : ''}{percentage.toFixed(2)}%)
+            </span>
+            <Shield className="h-4 w-4 text-yellow-400" />
+            <span className="text-yellow-400 text-sm font-medium">{signal.confidence}%</span>
+          </div>
+        </div>
       </div>
 
-      {/* Trading Chart with Enhanced Real-time Updates */}
+      {/* Trading Chart */}
       <div className="h-48 p-4">
         <ChartContainer config={chartConfig}>
           <ResponsiveContainer width="100%" height="100%">
@@ -374,21 +364,18 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
                 strokeWidth={2}
                 dot={false}
                 connectNulls
-                strokeDasharray={isMarketOpen ? "0" : "5,5"} // Dashed line when market is closed
               />
             </LineChart>
           </ResponsiveContainer>
         </ChartContainer>
       </div>
 
-      {/* Chart Info with Real-time Status */}
+      {/* Chart Info */}
       <div className="px-4 pb-2">
         <div className="grid grid-cols-4 gap-4 text-xs">
           <div className="text-gray-400">
             <span className="block">Data Source</span>
-            <span className="text-white font-mono">
-              {isMarketOpen ? 'FastForex' : 'Last available'}
-            </span>
+            <span className="text-emerald-400 font-mono">{dataSource}</span>
           </div>
           <div className="text-gray-400">
             <span className="block">Data Points</span>
@@ -396,20 +383,16 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
           </div>
           <div className="text-gray-400">
             <span className="block">Update Rate</span>
-            <span className="text-white font-mono">
-              {isMarketOpen ? '15s' : '1min'}
-            </span>
+            <span className="text-emerald-400 font-mono">10s</span>
           </div>
           <div className="text-gray-400">
             <span className="block">Last Update</span>
-            <span className={`font-mono ${isMarketOpen ? 'text-emerald-400' : 'text-red-400'}`}>
-              {lastUpdateTime || 'Loading...'}
-            </span>
+            <span className="text-emerald-400 font-mono">{lastUpdateTime}</span>
           </div>
         </div>
       </div>
 
-      {/* Signal Details */}
+      {/* Signal Details - keep existing code for the rest of the component */}
       <div className="p-4 space-y-3">
         <div className="flex justify-between items-center">
           <span className="text-gray-400">Entry Price</span>
