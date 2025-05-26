@@ -1,4 +1,3 @@
-
 import React, { useState, memo } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useToast } from '@/hooks/use-toast';
@@ -7,6 +6,7 @@ import SignalStats from './SignalStats';
 import SignalCard from './SignalCard';
 import { Button } from '@/components/ui/button';
 import { Zap, RefreshCw, Wifi, WifiOff, Users } from 'lucide-react';
+import { useMarketActivation } from '@/hooks/useMarketActivation';
 
 const TradingSignals = memo(() => {
   const { signals, loading, lastUpdate, triggerAutomaticSignalGeneration } = useTradingSignals();
@@ -15,6 +15,9 @@ const TradingSignals = memo(() => {
   const [analysis, setAnalysis] = useState<Record<string, string>>({});
   const [analyzingSignal, setAnalyzingSignal] = useState<string | null>(null);
   const [refreshingSignals, setRefreshingSignals] = useState(false);
+
+  // Add market activation
+  const { activateMarket } = useMarketActivation();
 
   // Filter out invalid signals and add validation
   const validSignals = signals.filter(signal => {

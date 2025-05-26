@@ -7,13 +7,45 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Market session volatility multipliers
+const getMarketSession = () => {
+  const now = new Date();
+  const utcHour = now.getUTCHours();
+  
+  // Asian session: 22:00 UTC - 08:00 UTC (low volatility)
+  if (utcHour >= 22 || utcHour < 8) {
+    return { name: 'Asian', volatility: 0.3 };
+  }
+  // European session: 08:00 UTC - 16:00 UTC (medium volatility)
+  else if (utcHour >= 8 && utcHour < 16) {
+    return { name: 'European', volatility: 0.6 };
+  }
+  // US session: 13:00 UTC - 22:00 UTC (high volatility)
+  else {
+    return { name: 'US', volatility: 1.0 };
+  }
+};
+
+const isMarketOpen = () => {
+  const now = new Date();
+  const utcHour = now.getUTCHours();
+  const utcDay = now.getUTCDay();
+  
+  // Market closed from Friday 22:00 UTC to Sunday 22:00 UTC
+  const isFridayEvening = utcDay === 5 && utcHour >= 22;
+  const isSaturday = utcDay === 6;
+  const isSundayBeforeOpen = utcDay === 0 && utcHour < 22;
+  
+  return !(isFridayEvening || isSaturday || isSundayBeforeOpen);
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log('🔥 Starting real-time tick generator...');
+    console.log('🔥 Real-time tick generator triggered...');
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -23,6 +55,22 @@ serve(async (req) => {
     }
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Check if market is open
+    if (!isMarketOpen()) {
+      console.log('💤 Market is closed, skipping tick generation');
+      return new Response(
+        JSON.stringify({ 
+          message: 'Market closed - no ticks generated',
+          timestamp: new Date().toISOString()
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Get current market session
+    const session = getMarketSession();
+    console.log(`📊 Current session: ${session.name} (volatility: ${session.volatility})`);
 
     // Get current baseline prices from centralized market state
     const { data: marketStates, error: stateError } = await supabase
@@ -38,7 +86,6 @@ serve(async (req) => {
     if (!marketStates || marketStates.length === 0) {
       console.log('⚠️ No baseline market data found, triggering market stream first...');
       
-      // Trigger the centralized market stream to get baseline data
       const { error: streamError } = await supabase.functions.invoke('centralized-market-stream');
       if (streamError) {
         console.error('❌ Error triggering market stream:', streamError);
@@ -53,7 +100,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`📊 Generating ticks for ${marketStates.length} pairs`);
+    console.log(`📊 Generating enhanced ticks for ${marketStates.length} pairs`);
 
     const tickUpdates = [];
     const timestamp = new Date().toISOString();
@@ -62,15 +109,37 @@ serve(async (req) => {
       try {
         const basePrice = parseFloat(marketState.current_price.toString());
         
-        // Generate realistic tick movement (±0.01% to ±0.05%)
-        const tickRange = basePrice * 0.0005; // 0.05% range
-        const tickMovement = (Math.random() - 0.5) * 2 * tickRange;
+        // Enhanced tick movement with session-based volatility
+        const baseVolatility = basePrice * 0.0002; // 0.02% base range
+        const sessionVolatility = baseVolatility * session.volatility;
+        
+        // Add slight trend following (10% chance of continuing previous direction)
+        let trendBias = 0;
+        if (Math.random() < 0.1) {
+          // Get recent price history to determine trend
+          const { data: recentHistory } = await supabase
+            .from('live_price_history')
+            .select('price')
+            .eq('symbol', marketState.symbol)
+            .order('timestamp', { ascending: false })
+            .limit(5);
+            
+          if (recentHistory && recentHistory.length >= 2) {
+            const latest = parseFloat(recentHistory[0].price.toString());
+            const previous = parseFloat(recentHistory[1].price.toString());
+            trendBias = (latest > previous ? 1 : -1) * sessionVolatility * 0.3;
+          }
+        }
+        
+        // Generate realistic tick movement
+        const randomMovement = (Math.random() - 0.5) * 2 * sessionVolatility;
+        const tickMovement = randomMovement + trendBias;
         const newPrice = basePrice + tickMovement;
         
-        // Calculate realistic bid/ask spread (typically 1-3 pips for major pairs)
+        // Calculate realistic bid/ask spread
         const isJpyPair = marketState.symbol.includes('JPY');
         const pipValue = isJpyPair ? 0.01 : 0.0001;
-        const spreadPips = 1.5 + (Math.random() * 1.5); // 1.5-3 pip spread
+        const spreadPips = 1.2 + (Math.random() * 1.8) + (session.volatility * 0.5); // Dynamic spread
         const spread = spreadPips * pipValue;
         
         const bid = parseFloat((newPrice - spread/2).toFixed(isJpyPair ? 3 : 5));
@@ -85,19 +154,19 @@ serve(async (req) => {
           ask,
           last_update: timestamp,
           is_market_open: true,
-          source: 'real-time-tick'
+          source: `${session.name.toLowerCase()}-tick`
         };
 
         tickUpdates.push(tickUpdate);
 
-        // Also add to price history for charts
+        // Add to price history for charts
         const historyEntry = {
           symbol: marketState.symbol,
           price: midPrice,
           bid,
           ask,
           timestamp,
-          source: 'real-time-tick'
+          source: `${session.name.toLowerCase()}-tick`
         };
 
         // Insert price history
@@ -109,7 +178,7 @@ serve(async (req) => {
           console.error(`❌ Error inserting price history for ${marketState.symbol}:`, historyError);
         }
 
-        console.log(`📈 ${marketState.symbol}: ${basePrice} → ${midPrice} (bid: ${bid}, ask: ${ask})`);
+        console.log(`📈 ${marketState.symbol}: ${basePrice} → ${midPrice} (${session.name} session)`);
 
       } catch (error) {
         console.error(`❌ Error generating tick for ${marketState.symbol}:`, error);
@@ -127,14 +196,14 @@ serve(async (req) => {
       }
     }
 
-    // Clean up old price history (keep last 100 points per pair)
+    // Clean up old price history (keep last 200 points per pair for performance)
     for (const marketState of marketStates) {
       const { data: oldRecords } = await supabase
         .from('live_price_history')
         .select('id')
         .eq('symbol', marketState.symbol)
         .order('timestamp', { ascending: false })
-        .range(100, 500);
+        .range(200, 1000);
         
       if (oldRecords && oldRecords.length > 0) {
         const idsToDelete = oldRecords.map(r => r.id);
@@ -145,12 +214,14 @@ serve(async (req) => {
       }
     }
 
-    console.log('✅ Real-time tick generation completed');
+    console.log(`✅ Generated ${tickUpdates.length} enhanced real-time ticks (${session.name} session)`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Generated ${tickUpdates.length} real-time ticks`,
+        message: `Generated ${tickUpdates.length} enhanced ticks`,
+        session: session.name,
+        volatility: session.volatility,
         pairs: tickUpdates.map(u => u.symbol),
         timestamp
       }),

@@ -35,19 +35,11 @@ export const useCentralizedMarketData = (symbol: string) => {
   const [dataSource, setDataSource] = useState<string>('Centralized Real-time');
   const channelRef = useRef<any>();
   const mountedRef = useRef(true);
-  const lastFetchRef = useRef<number>(0);
 
   const fetchCentralizedData = useCallback(async () => {
     if (!symbol || !mountedRef.current || !SUPPORTED_PAIRS.includes(symbol)) {
       return;
     }
-
-    // Reduce debouncing for more responsive updates
-    const now = Date.now();
-    if (now - lastFetchRef.current < 100) {
-      return;
-    }
-    lastFetchRef.current = now;
 
     try {
       // Get current market state
@@ -62,7 +54,7 @@ export const useCentralizedMarketData = (symbol: string) => {
         return;
       }
 
-      // Get price history (last 100 points for complete chart data)
+      // Get recent price history (last 100 points for charts)
       const { data: priceHistory, error: historyError } = await supabase
         .from('live_price_history')
         .select('*')
@@ -78,7 +70,7 @@ export const useCentralizedMarketData = (symbol: string) => {
       if (!mountedRef.current) return;
 
       if (marketState) {
-        // Transform price history for charts - purely from centralized database
+        // Transform price history for charts
         const chartData: PriceData[] = (priceHistory || [])
           .reverse()
           .map((item) => ({
@@ -93,7 +85,7 @@ export const useCentralizedMarketData = (symbol: string) => {
             volume: Math.random() * 100000 + 50000
           }));
 
-        // Calculate change using database data only
+        // Calculate change using recent price data
         let change24h = 0;
         let changePercentage = 0;
         
@@ -118,7 +110,7 @@ export const useCentralizedMarketData = (symbol: string) => {
 
         setMarketData(centralizedData);
         setIsConnected(true);
-        setDataSource(`Centralized ${marketState.source === 'real-time-tick' ? 'Live Ticks' : 'Data'}`);
+        setDataSource(`Live ${marketState.source?.includes('tick') ? 'Ticks' : 'Data'}`);
       }
 
     } catch (error) {
@@ -129,7 +121,7 @@ export const useCentralizedMarketData = (symbol: string) => {
     }
   }, [symbol]);
 
-  // Set up real-time subscriptions - database-driven only
+  // Set up real-time subscriptions for instant updates
   useEffect(() => {
     if (!symbol || !SUPPORTED_PAIRS.includes(symbol)) {
       setIsConnected(false);
@@ -139,9 +131,9 @@ export const useCentralizedMarketData = (symbol: string) => {
     mountedRef.current = true;
     fetchCentralizedData();
 
-    // Subscribe to market state changes - real-time database updates only
+    // Subscribe to market state changes for instant price updates
     const stateChannel = supabase
-      .channel(`centralized-market-${symbol}`)
+      .channel(`live-market-${symbol}`)
       .on(
         'postgres_changes',
         {
@@ -152,19 +144,20 @@ export const useCentralizedMarketData = (symbol: string) => {
         },
         (payload) => {
           if (!mountedRef.current) return;
-          console.log(`🔔 Centralized update for ${symbol}`);
-          setTimeout(fetchCentralizedData, 50);
+          console.log(`🔔 Live update for ${symbol}:`, payload.new);
+          // Immediate fetch for latest data
+          fetchCentralizedData();
         }
       )
       .subscribe((status) => {
         if (!mountedRef.current) return;
         setIsConnected(status === 'SUBSCRIBED');
-        console.log(`📡 Centralized channel ${symbol}: ${status}`);
+        console.log(`📡 Live channel ${symbol}: ${status}`);
       });
 
-    // Subscribe to price history updates - for synchronized chart updates
+    // Subscribe to price history for chart updates
     const historyChannel = supabase
-      .channel(`centralized-history-${symbol}`)
+      .channel(`live-history-${symbol}`)
       .on(
         'postgres_changes',
         {
@@ -175,24 +168,17 @@ export const useCentralizedMarketData = (symbol: string) => {
         },
         (payload) => {
           if (!mountedRef.current) return;
-          console.log(`📈 Centralized tick for ${symbol}`);
-          setTimeout(fetchCentralizedData, 100);
+          console.log(`📈 New tick for ${symbol}:`, payload.new);
+          // Quick fetch for chart update
+          fetchCentralizedData();
         }
       )
       .subscribe();
 
     channelRef.current = { stateChannel, historyChannel };
 
-    // Reduced refresh interval - rely more on real-time subscriptions
-    const refreshInterval = setInterval(() => {
-      if (mountedRef.current) {
-        fetchCentralizedData();
-      }
-    }, 5000); // Every 5 seconds instead of 1 second
-
     return () => {
       mountedRef.current = false;
-      clearInterval(refreshInterval);
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current.stateChannel);
         supabase.removeChannel(channelRef.current.historyChannel);
@@ -201,18 +187,16 @@ export const useCentralizedMarketData = (symbol: string) => {
     };
   }, [symbol, fetchCentralizedData]);
 
-  // Trigger market update - no client-side tick generation
+  // Trigger market update if no data exists
   const triggerMarketUpdate = useCallback(async () => {
     try {
-      // Only update baseline data, no tick generation from client
       const { data, error } = await supabase.functions.invoke('centralized-market-stream');
       
       if (error) {
         console.error('❌ Market stream update failed:', error);
       } else {
-        console.log('✅ Centralized market stream updated:', data);
-        // Wait for database to update, then fetch
-        setTimeout(fetchCentralizedData, 1000);
+        console.log('✅ Market stream updated:', data);
+        setTimeout(fetchCentralizedData, 500);
       }
     } catch (error) {
       console.error('❌ Error triggering market update:', error);
