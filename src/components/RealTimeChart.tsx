@@ -4,10 +4,8 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 
 interface PriceData {
-  timestamp: number;
-  time: string;
+  time: number;
   price: number;
-  volume?: number;
 }
 
 interface RealTimeChartProps {
@@ -29,10 +27,23 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected }: Rea
     },
   };
 
+  // Transform the stored chart data for display
+  const chartData = useMemo(() => {
+    if (!priceData || priceData.length === 0) {
+      return [];
+    }
+
+    return priceData.map((point, index) => ({
+      time: `${index}`,
+      price: point.price,
+      timestamp: point.time
+    }));
+  }, [priceData]);
+
   const priceRange = useMemo(() => {
-    if (priceData.length === 0) return { min: 0, max: 0 };
+    if (chartData.length === 0) return { min: 0, max: 0 };
     
-    const prices = priceData.map(d => d.price);
+    const prices = chartData.map(d => d.price);
     const minPrice = Math.min(...prices);
     const maxPrice = Math.max(...prices);
     const padding = (maxPrice - minPrice) * 0.05; // 5% padding
@@ -41,7 +52,7 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected }: Rea
       min: minPrice - padding,
       max: maxPrice + padding
     };
-  }, [priceData]);
+  }, [chartData]);
 
   const connectionStatus = isConnected ? 'CONNECTED' : 'DISCONNECTED';
   const statusColor = isConnected ? 'text-emerald-400' : 'text-red-400';
@@ -52,7 +63,7 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected }: Rea
       <div className="absolute top-2 right-2 z-10">
         <div className={`flex items-center space-x-2 text-xs ${statusColor}`}>
           <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-400' : 'bg-red-400'} ${isConnected ? 'animate-pulse' : ''}`}></div>
-          <span>{connectionStatus}</span>
+          <span>CENTRALIZED</span>
         </div>
       </div>
 
@@ -68,7 +79,7 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected }: Rea
       <div className="h-48 p-4">
         <ChartContainer config={chartConfig}>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={priceData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+            <LineChart data={chartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
               <XAxis 
                 dataKey="time" 
@@ -87,7 +98,7 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected }: Rea
               <ChartTooltip 
                 content={<ChartTooltipContent 
                   formatter={(value: any) => [formatPrice(Number(value)), 'Price']}
-                  labelFormatter={(label) => `Time: ${label}`}
+                  labelFormatter={(label) => `Point: ${label}`}
                 />} 
               />
               <Line
@@ -97,7 +108,7 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected }: Rea
                 strokeWidth={2}
                 dot={false}
                 connectNulls
-                isAnimationActive={false} // Disable animation for real-time smoothness
+                isAnimationActive={false}
               />
             </LineChart>
           </ResponsiveContainer>

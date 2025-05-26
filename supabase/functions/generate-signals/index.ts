@@ -117,7 +117,7 @@ serve(async (req) => {
 
     const CONFIDENCE_THRESHOLD = 85;
     const signalsGenerated = [];
-    const maxSignalsPerRun = 6; // Limited for centralized approach
+    const maxSignalsPerRun = 6;
 
     console.log(`🔍 Analyzing ${Object.keys(symbolData).length} symbols for centralized signal generation`);
 
@@ -182,10 +182,7 @@ serve(async (req) => {
           parseFloat((currentPrice + distance).toFixed(symbol.includes('JPY') ? 3 : 5))
         );
 
-        // Create deterministic chart data
-        const chartData = analysis.chartData;
-
-        // Create centralized signal record
+        // Create centralized signal record with fixed data
         const signalData = {
           symbol,
           type: analysis.signalType,
@@ -195,10 +192,11 @@ serve(async (req) => {
           confidence: Math.round(analysis.confidence),
           pips: Math.abs(takeProfitDistances[0] / pipValue),
           is_centralized: true,
-          user_id: null, // Centralized signals have no user_id
+          user_id: null,
           status: 'active',
           analysis_text: analysis.reasoning,
-          asset_type: 'FOREX'
+          asset_type: 'FOREX',
+          chart_data: analysis.chartData // Store chart data in database
         };
 
         console.log(`🚀 Creating centralized signal for ${symbol}:`, signalData);
@@ -220,7 +218,7 @@ serve(async (req) => {
           type: analysis.signalType,
           price: currentPrice,
           id: signal.id,
-          chartData: chartData
+          chartData: analysis.chartData
         });
         
         console.log(`✅ Generated centralized signal: ${symbol} ${analysis.signalType} @ ${currentPrice} (${analysis.confidence}%)`);
@@ -300,7 +298,7 @@ function analyzeDeterministicMarketConditions(symbol: string, currentPrice: numb
   
   confidence = Math.min(96, Math.max(75, confidence));
   
-  // Generate deterministic chart data
+  // Generate FIXED deterministic chart data that will be stored in the database
   const chartData = [];
   for (let i = 0; i < 30; i++) {
     const timeFactor = i / 30;

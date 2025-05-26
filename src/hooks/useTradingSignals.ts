@@ -19,81 +19,11 @@ interface TradingSignal {
   chartData: Array<{ time: number; price: number }>;
 }
 
-// Supported pairs for centralized market data
-const CENTRALIZED_PAIRS = [
-  'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
-  'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY'
-];
-
-interface CentralizedMarketData {
-  symbol: string;
-  current_price: number;
-  last_update: string;
-}
-
-interface FallbackMarketData {
-  symbol: string;
-  price: number;
-  created_at: string;
-  timestamp: string;
-}
-
 export const useTradingSignals = () => {
   const [signals, setSignals] = useState<TradingSignal[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<string>('');
   const { toast } = useToast();
-
-  const checkMarketHours = () => {
-    const now = new Date();
-    const utcHour = now.getUTCHours();
-    const utcDay = now.getUTCDay();
-    
-    return (utcDay >= 1 && utcDay <= 5) && 
-           (utcDay !== 5 || utcHour < 22) && 
-           (utcDay !== 1 || utcHour >= 22);
-  };
-
-  const ensureMarketDataAvailable = async (symbols: string[]) => {
-    try {
-      // Check for centralized data first
-      const centralizedSymbols = symbols.filter(symbol => CENTRALIZED_PAIRS.includes(symbol));
-      
-      if (centralizedSymbols.length > 0) {
-        const { data: centralizedData, error: centralizedError } = await supabase
-          .from('centralized_market_state')
-          .select('symbol, current_price, last_update')
-          .in('symbol', centralizedSymbols)
-          .order('last_update', { ascending: false });
-
-        if (!centralizedError && centralizedData && centralizedData.length > 0) {
-          console.log(`📊 Found ${centralizedData.length} centralized pairs`);
-          return centralizedData;
-        }
-      }
-      
-      // Fallback to live_market_data for other pairs
-      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-      
-      const { data: fallbackData, error: fallbackError } = await supabase
-        .from('live_market_data')
-        .select('symbol, price, created_at, timestamp')
-        .gte('created_at', oneHourAgo)
-        .order('created_at', { ascending: false })
-        .limit(200);
-
-      if (!fallbackError && fallbackData && fallbackData.length > 0) {
-        console.log(`📈 Found ${fallbackData.length} fallback records`);
-        return fallbackData;
-      }
-      
-      return [];
-      
-    } catch (error) {
-      console.error('❌ Error checking market data:', error);
-      return [];
-    }
-  };
 
   const fetchSignals = useCallback(async () => {
     try {
@@ -102,8 +32,8 @@ export const useTradingSignals = () => {
         .from('trading_signals')
         .select('*')
         .eq('status', 'active')
-        .eq('is_centralized', true) // Only fetch centralized signals
-        .is('user_id', null) // Centralized signals have null user_id
+        .eq('is_centralized', true)
+        .is('user_id', null)
         .order('created_at', { ascending: false })
         .limit(25);
 
@@ -120,15 +50,12 @@ export const useTradingSignals = () => {
         return;
       }
 
-      const processedSignals = await processSignals(centralizedSignals);
+      const processedSignals = processSignals(centralizedSignals);
       setSignals(processedSignals);
       setLastUpdate(new Date().toLocaleTimeString());
       
       if (processedSignals.length > 0) {
-        toast({
-          title: "Centralized Signals Updated",
-          description: `${processedSignals.length} trading signals loaded for all users`,
-        });
+        console.log(`✅ Loaded ${processedSignals.length} centralized signals`);
       }
       
     } catch (error) {
@@ -137,40 +64,10 @@ export const useTradingSignals = () => {
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, []);
 
-  const processSignals = async (activeSignals: any[]) => {
+  const processSignals = (activeSignals: any[]) => {
     console.log(`📊 Processing ${activeSignals.length} centralized signals`);
-    
-    const symbols = [...new Set(activeSignals
-      .filter(signal => signal?.symbol && typeof signal.symbol === 'string')
-      .map(signal => signal.symbol))];
-      
-    console.log('🔍 Getting market data for symbols:', symbols);
-    
-    const marketData = await ensureMarketDataAvailable(symbols);
-    
-    // Group market data by symbol, getting the latest for each
-    const marketDataBySymbol = marketData.reduce((acc, item) => {
-      if (item?.symbol) {
-        // Handle both centralized and fallback data structures
-        const isCentralized = 'current_price' in item;
-        const isRecent = isCentralized 
-          ? (!acc[item.symbol] || new Date(item.last_update) > new Date(acc[item.symbol].timestamp))
-          : (!acc[item.symbol] || new Date(item.created_at || item.timestamp) > new Date(acc[item.symbol].timestamp));
-        
-        if (isRecent) {
-          acc[item.symbol] = {
-            symbol: item.symbol,
-            price: isCentralized ? (item as CentralizedMarketData).current_price : (item as FallbackMarketData).price,
-            timestamp: isCentralized ? (item as CentralizedMarketData).last_update : (item as FallbackMarketData).created_at || (item as FallbackMarketData).timestamp
-          };
-        }
-      }
-      return acc;
-    }, {} as Record<string, { symbol: string; price: number; timestamp: string }>);
-
-    console.log(`📊 Market data available for symbols: [${Object.keys(marketDataBySymbol).join(', ')}]`);
 
     const transformedSignals = activeSignals
       .map(signal => {
@@ -180,36 +77,32 @@ export const useTradingSignals = () => {
             return null;
           }
 
-          const latestMarketData = marketDataBySymbol[signal.symbol];
-          let currentMarketPrice;
+          // Use the stored signal price as the fixed entry price
+          const storedEntryPrice = parseFloat(signal.price?.toString() || '1.0');
           
-          if (latestMarketData && latestMarketData.price) {
-            currentMarketPrice = parseFloat(latestMarketData.price.toString());
-          } else {
-            currentMarketPrice = parseFloat(signal.price?.toString() || '1.0');
-          }
-          
-          if (!currentMarketPrice || isNaN(currentMarketPrice) || currentMarketPrice <= 0) {
-            console.warn(`❌ Invalid price for ${signal.symbol}: ${currentMarketPrice}`);
+          if (!storedEntryPrice || isNaN(storedEntryPrice) || storedEntryPrice <= 0) {
+            console.warn(`❌ Invalid stored price for ${signal.symbol}: ${storedEntryPrice}`);
             return null;
           }
-          
+
           // Use stored chart data or create deterministic fallback
           let chartData = [];
           if (signal.chart_data && Array.isArray(signal.chart_data)) {
             chartData = signal.chart_data;
           } else {
-            // Create deterministic chart data as fallback
+            // Create deterministic chart data as fallback based on signal creation
             const symbolHash = signal.symbol.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
+            const timeHash = new Date(signal.created_at).getTime();
             for (let i = 0; i < 30; i++) {
-              const factor = 1 + Math.sin((symbolHash + i * 10) / 100) * 0.0008;
+              const factor = 1 + Math.sin((symbolHash + timeHash + i * 10) / 1000) * 0.0008;
               chartData.push({
                 time: i,
-                price: currentMarketPrice * factor
+                price: storedEntryPrice * factor
               });
             }
           }
 
+          // Use stored take profits
           let takeProfits = [];
           if (signal.take_profits && Array.isArray(signal.take_profits)) {
             takeProfits = signal.take_profits.map(tp => parseFloat(tp?.toString() || '0'));
@@ -219,7 +112,7 @@ export const useTradingSignals = () => {
             id: signal.id,
             pair: signal.symbol,
             type: signal.type || 'BUY',
-            entryPrice: currentMarketPrice.toFixed(5),
+            entryPrice: storedEntryPrice.toFixed(5), // Fixed entry price from signal creation
             stopLoss: signal.stop_loss ? parseFloat(signal.stop_loss.toString()).toFixed(5) : '0.00000',
             takeProfit1: takeProfits[0] ? takeProfits[0].toFixed(5) : '0.00000',
             takeProfit2: takeProfits[1] ? takeProfits[1].toFixed(5) : '0.00000',
@@ -228,7 +121,7 @@ export const useTradingSignals = () => {
             timestamp: signal.created_at || new Date().toISOString(),
             status: signal.status || 'active',
             analysisText: signal.analysis_text || `Centralized AI ${signal.type || 'BUY'} signal for ${signal.symbol}`,
-            chartData: chartData
+            chartData: chartData // Fixed chart data from signal creation
           };
         } catch (error) {
           console.error(`❌ Error transforming signal for ${signal?.symbol}:`, error);
@@ -241,27 +134,9 @@ export const useTradingSignals = () => {
     return transformedSignals;
   };
 
-  const triggerCentralizedSignalGeneration = useCallback(async () => {
+  const triggerAutomaticSignalGeneration = useCallback(async () => {
     try {
       console.log('🚀 Triggering centralized signal generation...');
-      
-      // First ensure market data is available
-      const { data: marketResult, error: marketDataError } = await supabase.functions.invoke('centralized-market-stream');
-      
-      if (marketDataError) {
-        console.error('❌ Market data update failed:', marketDataError);
-        toast({
-          title: "Update Failed",
-          description: "Failed to fetch latest market data",
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      console.log('✅ Market data fetched');
-      
-      // Wait a moment then trigger centralized signal generation
-      await new Promise(resolve => setTimeout(resolve, 2000));
       
       const { data: signalResult, error: signalError } = await supabase.functions.invoke('generate-signals');
       
@@ -300,7 +175,6 @@ export const useTradingSignals = () => {
     try {
       console.log('🚀 Triggering comprehensive real-time market update...');
       
-      // First trigger baseline data update
       const { data: marketResult, error: marketDataError } = await supabase.functions.invoke('centralized-market-stream');
       
       if (marketDataError) {
@@ -326,7 +200,7 @@ export const useTradingSignals = () => {
         console.log('✅ Real-time tick generator started');
       }
       
-      // Refresh signals without generating new ones (just fetch existing centralized signals)
+      // Refresh signals (just fetch existing centralized signals)
       await new Promise(resolve => setTimeout(resolve, 2000));
       await fetchSignals();
       
@@ -357,18 +231,18 @@ export const useTradingSignals = () => {
           event: '*',
           schema: 'public',
           table: 'trading_signals',
-          filter: 'is_centralized=eq.true' // Only listen to centralized signal changes
+          filter: 'is_centralized=eq.true'
         },
         (payload) => {
           console.log('📡 Centralized signal change detected:', payload);
-          setTimeout(fetchSignals, 1000); // Slight delay to ensure consistency
+          setTimeout(fetchSignals, 1000);
         }
       )
       .subscribe();
 
-    // Automatic refresh every 5 minutes (reduced frequency for centralized approach)
+    // Automatic refresh every 5 minutes
     const updateInterval = setInterval(async () => {
-      await fetchSignals(); // Just fetch existing signals, don't generate new ones
+      await fetchSignals();
     }, 5 * 60 * 1000);
 
     return () => {
@@ -382,7 +256,7 @@ export const useTradingSignals = () => {
     loading,
     lastUpdate,
     fetchSignals,
-    triggerAutomaticSignalGeneration: triggerCentralizedSignalGeneration,
+    triggerAutomaticSignalGeneration,
     triggerRealTimeUpdates
   };
 };

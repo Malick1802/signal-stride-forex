@@ -39,9 +39,9 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
 
   const safeSignal = createSafeSignal(signal);
 
+  // Get live market data for current price display only
   const {
-    priceData,
-    currentPrice,
+    currentPrice: liveCurrentPrice,
     isMarketOpen,
     lastUpdateTime,
     dataSource,
@@ -52,10 +52,13 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
     entryPrice: safeSignal.entryPrice
   });
 
-  if (!currentPrice || priceData.length === 0) {
-    return <SignalCardLoading pair={safeSignal.pair} />;
-  }
+  // Use the stored entry price from the signal (fixed at creation time)
+  const signalEntryPrice = parseFloat(safeSignal.entryPrice);
+  
+  // Use live price for current market display, fallback to entry price if not available
+  const currentMarketPrice = liveCurrentPrice || signalEntryPrice;
 
+  // Calculate change based on signal entry price vs current live price
   const { change, percentage } = getPriceChange();
 
   return (
@@ -63,7 +66,7 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
       <SignalHeader
         pair={safeSignal.pair}
         type={safeSignal.type}
-        currentPrice={currentPrice}
+        currentPrice={currentMarketPrice}
         confidence={safeSignal.confidence}
         isMarketOpen={isMarketOpen}
         change={change}
@@ -73,7 +76,7 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
       />
 
       <RealTimePriceDisplay
-        currentPrice={currentPrice}
+        currentPrice={currentMarketPrice}
         change={change}
         percentage={percentage}
         lastUpdateTime={lastUpdateTime}
@@ -83,9 +86,9 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
       />
 
       <RealTimeChart
-        priceData={priceData}
+        priceData={safeSignal.chartData}
         signalType={safeSignal.type}
-        currentPrice={currentPrice}
+        currentPrice={currentMarketPrice}
         isConnected={isConnected}
       />
 
@@ -95,7 +98,7 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
         takeProfit1={safeSignal.takeProfit1}
         takeProfit2={safeSignal.takeProfit2}
         takeProfit3={safeSignal.takeProfit3}
-        currentPrice={currentPrice}
+        currentPrice={currentMarketPrice}
         signalType={safeSignal.type}
       />
 
