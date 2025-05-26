@@ -42,12 +42,43 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
   const [lastUpdateTime, setLastUpdateTime] = useState<string>('');
   const [dataSource, setDataSource] = useState<string>('FastForex API');
 
-  // Validate signal data
-  if (!signal?.id || !signal?.pair || !signal?.type) {
+  // Enhanced signal validation with detailed logging
+  if (!signal) {
+    console.error('SignalCard: No signal provided');
     return (
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="text-center text-gray-400">
-          Invalid signal data
+          No signal data available
+        </div>
+      </div>
+    );
+  }
+
+  // Validate required signal properties with fallbacks
+  const safeSignal = {
+    id: signal.id || 'unknown',
+    pair: signal.pair || 'UNKNOWN',
+    type: signal.type || 'BUY',
+    entryPrice: signal.entryPrice || '0.00000',
+    stopLoss: signal.stopLoss || '0.00000',
+    takeProfit1: signal.takeProfit1 || '0.00000',
+    takeProfit2: signal.takeProfit2 || '0.00000',
+    takeProfit3: signal.takeProfit3 || '0.00000',
+    confidence: signal.confidence || 0,
+    timestamp: signal.timestamp || new Date().toISOString(),
+    analysisText: signal.analysisText || 'No analysis available',
+    chartData: signal.chartData || []
+  };
+
+  // Log validation results
+  console.log(`SignalCard: Processing signal ${safeSignal.id} - ${safeSignal.pair} ${safeSignal.type}`);
+
+  if (!safeSignal.id || !safeSignal.pair || !safeSignal.type) {
+    console.error('SignalCard: Invalid signal data after validation:', safeSignal);
+    return (
+      <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
+        <div className="text-center text-gray-400">
+          Invalid signal data: {safeSignal.pair || 'No pair'} {safeSignal.type || 'No type'}
         </div>
       </div>
     );
@@ -67,22 +98,24 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
 
   const fetchRealMarketData = async () => {
     try {
+      console.log(`Fetching market data for ${safeSignal.pair}`);
       const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString();
       
       const { data: marketData, error } = await supabase
         .from('live_market_data')
         .select('*')
-        .eq('symbol', signal.pair)
+        .eq('symbol', safeSignal.pair)
         .gte('created_at', tenMinutesAgo)
         .order('created_at', { ascending: false })
         .limit(30);
 
       if (error) {
-        console.error(`Error fetching market data for ${signal.pair}:`, error);
+        console.error(`Error fetching market data for ${safeSignal.pair}:`, error);
         return;
       }
 
       if (marketData && marketData.length > 0) {
+        console.log(`📊 Found ${marketData.length} records for ${safeSignal.pair}`);
         const transformedData = marketData.reverse().map((item, index) => ({
           timestamp: new Date(item.created_at || item.timestamp).getTime(),
           time: new Date(item.created_at || item.timestamp).toLocaleTimeString('en-US', {
@@ -103,11 +136,11 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
           minute: '2-digit'
         }));
         
-        console.log(`📊 Updated ${signal.pair} with real price: ${latestPrice}`);
+        console.log(`📊 Updated ${safeSignal.pair} with real price: ${latestPrice}`);
       } else {
-        console.log(`No recent data for ${signal.pair}, using entry price`);
+        console.log(`No recent data for ${safeSignal.pair}, using entry price`);
         // Use entry price as fallback
-        const entryPrice = parseFloat(signal.entryPrice);
+        const entryPrice = parseFloat(safeSignal.entryPrice) || 1.0;
         setCurrentPrice(entryPrice);
         
         // Create minimal chart data
@@ -128,6 +161,10 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
       }
     } catch (error) {
       console.error('Error in fetchRealMarketData:', error);
+      // Fallback to entry price on error
+      const entryPrice = parseFloat(safeSignal.entryPrice) || 1.0;
+      setCurrentPrice(entryPrice);
+      setDataSource('Entry Price (Error)');
     }
   };
 
@@ -142,22 +179,22 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
       const interval = setInterval(fetchRealMarketData, 15000);
       return () => clearInterval(interval);
     }
-  }, [signal.pair]);
+  }, [safeSignal.pair]);
 
-  // Real-time subscription
+  // Real-time subscription with error handling
   useEffect(() => {
     const channel = supabase
-      .channel(`market-updates-${signal.pair}`)
+      .channel(`market-updates-${safeSignal.pair}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
           table: 'live_market_data',
-          filter: `symbol=eq.${signal.pair}`
+          filter: `symbol=eq.${safeSignal.pair}`
         },
         () => {
-          console.log(`🔔 Real-time update for ${signal.pair}`);
+          console.log(`🔔 Real-time update for ${safeSignal.pair}`);
           setTimeout(fetchRealMarketData, 500);
         }
       )
@@ -166,7 +203,7 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [signal.pair]);
+  }, [safeSignal.pair]);
 
   const getPriceChange = () => {
     if (priceData.length < 2) return { change: 0, percentage: 0 };
@@ -184,7 +221,7 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
     return (
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-6">
         <div className="text-center">
-          <div className="text-xl font-bold text-white mb-2">{signal.pair}</div>
+          <div className="text-xl font-bold text-white mb-2">{safeSignal.pair}</div>
           <div className="text-gray-400 mb-4">Loading market data...</div>
           <div className="animate-pulse bg-white/10 h-4 w-3/4 mx-auto rounded"></div>
         </div>
@@ -195,10 +232,10 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
   return (
     <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 overflow-hidden">
       <SignalHeader
-        pair={signal.pair}
-        type={signal.type}
+        pair={safeSignal.pair}
+        type={safeSignal.type}
         currentPrice={currentPrice}
-        confidence={signal.confidence}
+        confidence={safeSignal.confidence}
         isMarketOpen={isMarketOpen}
         change={change}
         percentage={percentage}
@@ -208,31 +245,31 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
 
       <SignalChart
         priceData={priceData}
-        signalType={signal.type}
+        signalType={safeSignal.type}
       />
 
       <SignalPriceDetails
-        entryPrice={signal.entryPrice}
-        stopLoss={signal.stopLoss}
-        takeProfit1={signal.takeProfit1}
-        takeProfit2={signal.takeProfit2}
-        takeProfit3={signal.takeProfit3}
+        entryPrice={safeSignal.entryPrice}
+        stopLoss={safeSignal.stopLoss}
+        takeProfit1={safeSignal.takeProfit1}
+        takeProfit2={safeSignal.takeProfit2}
+        takeProfit3={safeSignal.takeProfit3}
         currentPrice={currentPrice}
-        signalType={signal.type}
+        signalType={safeSignal.type}
       />
 
       <div className="px-4">
         <SignalAnalysis
-          analysisText={signal.analysisText}
-          analysis={analysis[signal.id]}
+          analysisText={safeSignal.analysisText}
+          analysis={analysis[safeSignal.id]}
           isAnalysisOpen={isAnalysisOpen}
           onToggleAnalysis={setIsAnalysisOpen}
         />
 
         <SignalActions
-          pair={signal.pair}
-          type={signal.type}
-          timestamp={signal.timestamp}
+          pair={safeSignal.pair}
+          type={safeSignal.type}
+          timestamp={safeSignal.timestamp}
         />
       </div>
     </div>

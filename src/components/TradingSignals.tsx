@@ -16,19 +16,38 @@ const TradingSignals = () => {
   const [analyzingSignal, setAnalyzingSignal] = useState<string | null>(null);
   const [generatingSignals, setGeneratingSignals] = useState(false);
 
-  const availablePairs = Array.from(new Set(signals.map(signal => signal.pair))).filter(Boolean);
+  // Filter out invalid signals and add validation
+  const validSignals = signals.filter(signal => {
+    if (!signal || !signal.id || !signal.pair || !signal.type) {
+      console.warn('Invalid signal filtered out:', signal);
+      return false;
+    }
+    return true;
+  });
+
+  console.log(`TradingSignals: Processing ${signals.length} raw signals, ${validSignals.length} valid signals`);
+
+  const availablePairs = Array.from(new Set(validSignals.map(signal => signal.pair))).filter(Boolean);
   const [selectedPair, setSelectedPair] = useState('All');
 
-  const filteredSignals = selectedPair === 'All' ? signals : signals.filter(signal => signal.pair === selectedPair);
+  const filteredSignals = selectedPair === 'All' ? validSignals : validSignals.filter(signal => signal.pair === selectedPair);
 
-  const avgConfidence = signals.length > 0 
-    ? Math.round(signals.reduce((sum, signal) => sum + signal.confidence, 0) / signals.length)
+  const avgConfidence = validSignals.length > 0 
+    ? Math.round(validSignals.reduce((sum, signal) => sum + (signal.confidence || 0), 0) / validSignals.length)
     : 87;
 
   const handleManualSignalGeneration = async () => {
     setGeneratingSignals(true);
     try {
+      console.log('🚀 Manual signal generation triggered');
       await triggerAutomaticSignalGeneration();
+    } catch (error) {
+      console.error('Error in manual signal generation:', error);
+      toast({
+        title: "Generation Error",
+        description: "Failed to generate signals. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setGeneratingSignals(false);
     }
@@ -79,7 +98,7 @@ const TradingSignals = () => {
     }
   };
 
-  if (loading && signals.length === 0) {
+  if (loading && validSignals.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-white">Loading real-time signals...</div>
@@ -87,12 +106,12 @@ const TradingSignals = () => {
     );
   }
 
-  const hasRealTimeData = signals.length > 0;
+  const hasRealTimeData = validSignals.length > 0;
 
   return (
     <div className="space-y-6">
       <SignalStats 
-        signalsCount={signals.length}
+        signalsCount={validSignals.length}
         avgConfidence={avgConfidence}
         lastUpdate={lastUpdate}
       />
@@ -172,10 +191,10 @@ const TradingSignals = () => {
                 onChange={(e) => setSelectedPair(e.target.value)}
                 className="bg-white/10 border border-white/20 rounded px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="All" className="bg-gray-800 text-white">All Pairs ({signals.length})</option>
+                <option value="All" className="bg-gray-800 text-white">All Pairs ({validSignals.length})</option>
                 {availablePairs.map(pair => (
                   <option key={pair} value={pair} className="bg-gray-800 text-white">
-                    {pair} ({signals.filter(s => s.pair === pair).length})
+                    {pair} ({validSignals.filter(s => s.pair === pair).length})
                   </option>
                 ))}
               </select>
@@ -195,15 +214,23 @@ const TradingSignals = () => {
         
         {filteredSignals.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredSignals.map(signal => (
-              <SignalCard
-                key={signal.id}
-                signal={signal}
-                analysis={analysis}
-                analyzingSignal={analyzingSignal}
-                onGetAIAnalysis={handleGetAIAnalysis}
-              />
-            ))}
+            {filteredSignals.map(signal => {
+              // Additional validation per signal
+              if (!signal || !signal.id) {
+                console.warn('Skipping invalid signal in render:', signal);
+                return null;
+              }
+              
+              return (
+                <SignalCard
+                  key={signal.id}
+                  signal={signal}
+                  analysis={analysis}
+                  analyzingSignal={analyzingSignal}
+                  onGetAIAnalysis={handleGetAIAnalysis}
+                />
+              );
+            })}
           </div>
         ) : (
           <div className="text-center py-12">
