@@ -141,16 +141,8 @@ serve(async (req) => {
           continue;
         }
 
-        // Get recent price history for this symbol for chart data
-        const { data: priceHistory } = await supabase
-          .from('live_price_history')
-          .select('price, timestamp')
-          .eq('symbol', symbol)
-          .order('timestamp', { ascending: false })
-          .limit(30);
-
         // Enhanced deterministic market analysis
-        const analysis = analyzeDeterministicMarketConditions(symbol, currentPrice, hourSeed, priceHistory || []);
+        const analysis = analyzeDeterministicMarketConditions(symbol, currentPrice, hourSeed);
         
         console.log(`📊 ${symbol}: Confidence ${analysis.confidence}%, Signal: ${analysis.signalType}, Current Price: ${currentPrice}`);
         
@@ -182,7 +174,7 @@ serve(async (req) => {
           parseFloat((currentPrice + distance).toFixed(symbol.includes('JPY') ? 3 : 5))
         );
 
-        // Create centralized signal record with fixed data
+        // Create centralized signal record with FIXED chart data that will be identical for all users
         const signalData = {
           symbol,
           type: analysis.signalType,
@@ -196,7 +188,7 @@ serve(async (req) => {
           status: 'active',
           analysis_text: analysis.reasoning,
           asset_type: 'FOREX',
-          chart_data: analysis.chartData // Store chart data in database
+          chart_data: analysis.chartData // This FIXED chart data ensures all users see the same graph
         };
 
         console.log(`🚀 Creating centralized signal for ${symbol}:`, signalData);
@@ -260,7 +252,7 @@ serve(async (req) => {
   }
 });
 
-function analyzeDeterministicMarketConditions(symbol: string, currentPrice: number, hourSeed: number, priceHistory: any[]) {
+function analyzeDeterministicMarketConditions(symbol: string, currentPrice: number, hourSeed: number) {
   // Create deterministic "randomness" based on symbol and hour
   const symbolHash = symbol.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
   const deterministicSeed = (symbolHash * hourSeed) % 1000;
@@ -298,14 +290,17 @@ function analyzeDeterministicMarketConditions(symbol: string, currentPrice: numb
   
   confidence = Math.min(96, Math.max(75, confidence));
   
-  // Generate FIXED deterministic chart data that will be stored in the database
+  // Generate COMPLETELY DETERMINISTIC and FIXED chart data that will be stored in the database
+  // This ensures ALL users see the exact same chart for each signal
   const chartData = [];
   for (let i = 0; i < 30; i++) {
+    // Use completely deterministic calculation based on symbol hash and hour seed
     const timeFactor = i / 30;
     const priceFactor = 1 + Math.sin((deterministicSeed + i * 10) / 100) * volatility;
+    
     chartData.push({
       time: i,
-      price: currentPrice * priceFactor
+      price: parseFloat((currentPrice * priceFactor).toFixed(5))
     });
   }
   

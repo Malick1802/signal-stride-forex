@@ -27,12 +27,14 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected }: Rea
     },
   };
 
-  // Transform the stored chart data for display
+  // Use ONLY the stored chart data from signal creation - no dynamic generation
   const chartData = useMemo(() => {
     if (!priceData || priceData.length === 0) {
+      console.warn('No stored chart data available');
       return [];
     }
 
+    // Transform the FIXED stored chart data for display
     return priceData.map((point, index) => ({
       time: `${index}`,
       price: point.price,
@@ -54,20 +56,17 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected }: Rea
     };
   }, [chartData]);
 
-  const connectionStatus = isConnected ? 'CONNECTED' : 'DISCONNECTED';
-  const statusColor = isConnected ? 'text-emerald-400' : 'text-red-400';
-
   return (
     <div className="relative">
       {/* Connection Status Indicator */}
       <div className="absolute top-2 right-2 z-10">
-        <div className={`flex items-center space-x-2 text-xs ${statusColor}`}>
-          <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-400' : 'bg-red-400'} ${isConnected ? 'animate-pulse' : ''}`}></div>
+        <div className="flex items-center space-x-2 text-xs text-emerald-400">
+          <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
           <span>CENTRALIZED</span>
         </div>
       </div>
 
-      {/* Current Price Display */}
+      {/* Fixed Chart Data Display */}
       {currentPrice && (
         <div className="absolute top-2 left-2 z-10">
           <div className="bg-black/50 backdrop-blur-sm rounded px-2 py-1">

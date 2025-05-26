@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -77,7 +76,7 @@ export const useTradingSignals = () => {
             return null;
           }
 
-          // Use the stored signal price as the fixed entry price
+          // Use the stored signal price as the FIXED entry price (never changes)
           const storedEntryPrice = parseFloat(signal.price?.toString() || '1.0');
           
           if (!storedEntryPrice || isNaN(storedEntryPrice) || storedEntryPrice <= 0) {
@@ -85,21 +84,20 @@ export const useTradingSignals = () => {
             return null;
           }
 
-          // Use stored chart data or create deterministic fallback
+          // Use ONLY stored chart data - ensure it exists and is properly formatted
           let chartData = [];
           if (signal.chart_data && Array.isArray(signal.chart_data)) {
-            chartData = signal.chart_data;
+            chartData = signal.chart_data.map(point => ({
+              time: point.time || 0,
+              price: parseFloat(point.price?.toString() || storedEntryPrice.toString())
+            }));
           } else {
-            // Create deterministic chart data as fallback based on signal creation
-            const symbolHash = signal.symbol.split('').reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
-            const timeHash = new Date(signal.created_at).getTime();
-            for (let i = 0; i < 30; i++) {
-              const factor = 1 + Math.sin((symbolHash + timeHash + i * 10) / 1000) * 0.0008;
-              chartData.push({
-                time: i,
-                price: storedEntryPrice * factor
-              });
-            }
+            // If no stored chart data, create minimal fallback (this should rarely happen)
+            console.warn(`⚠️ No stored chart data for ${signal.symbol}, using fallback`);
+            chartData = [
+              { time: 0, price: storedEntryPrice },
+              { time: 29, price: storedEntryPrice }
+            ];
           }
 
           // Use stored take profits
@@ -121,7 +119,7 @@ export const useTradingSignals = () => {
             timestamp: signal.created_at || new Date().toISOString(),
             status: signal.status || 'active',
             analysisText: signal.analysis_text || `Centralized AI ${signal.type || 'BUY'} signal for ${signal.symbol}`,
-            chartData: chartData // Fixed chart data from signal creation
+            chartData: chartData // FIXED chart data from signal creation - same for all users
           };
         } catch (error) {
           console.error(`❌ Error transforming signal for ${signal?.symbol}:`, error);
@@ -130,7 +128,7 @@ export const useTradingSignals = () => {
       })
       .filter(Boolean) as TradingSignal[];
 
-    console.log(`✅ Successfully processed ${transformedSignals.length} centralized signals`);
+    console.log(`✅ Successfully processed ${transformedSignals.length} centralized signals with fixed chart data`);
     return transformedSignals;
   };
 

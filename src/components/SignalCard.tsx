@@ -1,8 +1,6 @@
 
 import React, { useState, memo } from 'react';
 import { validateSignal, createSafeSignal } from '@/utils/signalValidation';
-import { useRealTimeMarketData } from '@/hooks/useRealTimeMarketData';
-import SignalCardLoading from './SignalCardLoading';
 import SignalHeader from './SignalHeader';
 import RealTimeChart from './RealTimeChart';
 import RealTimePriceDisplay from './RealTimePriceDisplay';
@@ -39,34 +37,43 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
 
   const safeSignal = createSafeSignal(signal);
 
-  // Get live market data for current price display only
-  const {
-    currentPrice: liveCurrentPrice,
-    isMarketOpen,
-    lastUpdateTime,
-    dataSource,
-    isConnected,
-    getPriceChange
-  } = useRealTimeMarketData({
-    pair: safeSignal.pair,
-    entryPrice: safeSignal.entryPrice
-  });
-
-  // Use the stored entry price from the signal (fixed at creation time)
+  // Use ONLY the stored entry price from the signal (fixed at creation time)
   const signalEntryPrice = parseFloat(safeSignal.entryPrice);
   
-  // Use live price for current market display, fallback to entry price if not available
-  const currentMarketPrice = liveCurrentPrice || signalEntryPrice;
+  // For centralized signals, the "current price" is just the latest point in stored chart data
+  // This ensures all users see exactly the same current price
+  const currentPrice = safeSignal.chartData.length > 0 
+    ? safeSignal.chartData[safeSignal.chartData.length - 1].price 
+    : signalEntryPrice;
 
-  // Calculate change based on signal entry price vs current live price
-  const { change, percentage } = getPriceChange();
+  // Calculate change based on stored chart data (first vs last point)
+  const getStoredPriceChange = () => {
+    if (safeSignal.chartData.length < 2) {
+      return { change: 0, percentage: 0 };
+    }
+    
+    const firstPrice = safeSignal.chartData[0].price;
+    const lastPrice = safeSignal.chartData[safeSignal.chartData.length - 1].price;
+    const change = lastPrice - firstPrice;
+    const percentage = firstPrice > 0 ? (change / firstPrice) * 100 : 0;
+    
+    return { change, percentage };
+  };
+
+  const { change, percentage } = getStoredPriceChange();
+
+  // Fixed values for centralized display
+  const isMarketOpen = true; // Always show as open for centralized signals
+  const lastUpdateTime = new Date(safeSignal.timestamp).toLocaleTimeString();
+  const dataSource = "Centralized (Fixed)";
+  const isConnected = true; // Always connected for centralized data
 
   return (
     <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 overflow-hidden">
       <SignalHeader
         pair={safeSignal.pair}
         type={safeSignal.type}
-        currentPrice={currentMarketPrice}
+        currentPrice={currentPrice}
         confidence={safeSignal.confidence}
         isMarketOpen={isMarketOpen}
         change={change}
@@ -76,7 +83,7 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
       />
 
       <RealTimePriceDisplay
-        currentPrice={currentMarketPrice}
+        currentPrice={currentPrice}
         change={change}
         percentage={percentage}
         lastUpdateTime={lastUpdateTime}
@@ -88,7 +95,7 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
       <RealTimeChart
         priceData={safeSignal.chartData}
         signalType={safeSignal.type}
-        currentPrice={currentMarketPrice}
+        currentPrice={currentPrice}
         isConnected={isConnected}
       />
 
@@ -98,7 +105,7 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
         takeProfit1={safeSignal.takeProfit1}
         takeProfit2={safeSignal.takeProfit2}
         takeProfit3={safeSignal.takeProfit3}
-        currentPrice={currentMarketPrice}
+        currentPrice={currentPrice}
         signalType={safeSignal.type}
       />
 
