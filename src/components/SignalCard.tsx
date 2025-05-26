@@ -61,19 +61,7 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
   // Get price change from live data
   const { change, percentage } = getPriceChange();
 
-  // Transform stored signal chart data to match expected format
-  const transformedSignalChartData = safeSignal.chartData.map(point => ({
-    timestamp: point.time,
-    time: new Date(point.time).toLocaleTimeString('en-US', {
-      hour12: false,
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    }),
-    price: point.price
-  }));
-
-  // Transform live chart data to match expected format
+  // Transform live chart data to match expected format - ONLY use live data for charts
   const transformedLiveChartData = liveChartData.map(point => ({
     timestamp: typeof point.timestamp === 'number' ? point.timestamp : new Date(point.time).getTime(),
     time: typeof point.time === 'string' ? point.time : new Date(point.timestamp).toLocaleTimeString('en-US', {
@@ -85,16 +73,8 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
     price: point.price
   }));
 
-  // Combine stored signal chart data with live updates for a complete view
-  const combinedChartData = [
-    // Start with stored signal chart data (fixed reference points)
-    ...transformedSignalChartData,
-    // Add recent live data points if available
-    ...(transformedLiveChartData.length > 0 ? transformedLiveChartData.slice(-10) : [])
-  ].filter((point, index, arr) => 
-    // Remove duplicates based on timestamp
-    arr.findIndex(p => Math.abs(p.timestamp - point.timestamp) < 1000) === index
-  );
+  // Use ONLY live chart data for natural price movement - no stored signal data mixed in
+  const chartDataForDisplay = transformedLiveChartData;
 
   return (
     <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 overflow-hidden">
@@ -121,7 +101,7 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
       />
 
       <RealTimeChart
-        priceData={combinedChartData}
+        priceData={chartDataForDisplay}
         signalType={safeSignal.type}
         currentPrice={currentPrice}
         isConnected={isConnected}
