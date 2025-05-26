@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -43,26 +44,41 @@ export const useTradingSignals = () => {
       if (activeSignals && activeSignals.length > 0) {
         console.log(`Found ${activeSignals.length} active signals`);
         
-        // Get current market prices for chart data
+        // Get current market prices for chart data - using more recent data
         const symbols = activeSignals
           .filter(signal => signal?.symbol)
           .map(signal => signal.symbol);
           
+        console.log('Looking for market data for symbols:', symbols);
+        
         const { data: marketData } = await supabase
           .from('live_market_data')
           .select('*')
           .in('symbol', symbols)
           .order('created_at', { ascending: false })
-          .limit(500);
+          .limit(1000); // Increased limit to get more data
+
+        console.log('Market data found:', marketData?.length || 0, 'records');
+        if (marketData && marketData.length > 0) {
+          console.log('Sample market data symbols:', marketData.slice(0, 5).map(md => md.symbol));
+        }
 
         const transformedSignals = activeSignals
           .filter(signal => signal?.id && signal?.symbol && signal?.type && signal?.price !== null)
           .map(signal => {
             try {
+              console.log(`Fetching real-time data for ${signal.symbol}...`);
+              
               // Get market data for this symbol
               const symbolMarketData = marketData?.filter(md => 
                 md?.symbol === signal.symbol
               ).slice(0, 30) || [];
+              
+              if (symbolMarketData.length === 0) {
+                console.log(`No market data found for ${signal.symbol}, using fallback`);
+              } else {
+                console.log(`Found ${symbolMarketData.length} market data points for ${signal.symbol}`);
+              }
               
               const currentMarketPrice = symbolMarketData[0]?.price;
               const entryPrice = currentMarketPrice ? 
@@ -126,10 +142,12 @@ export const useTradingSignals = () => {
       const { error: marketDataError } = await supabase.functions.invoke('fetch-market-data');
       if (marketDataError) {
         console.warn('Market data update had issues:', marketDataError);
+      } else {
+        console.log('Market data update completed successfully');
       }
       
       // Wait a moment for data to be inserted
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
       console.log('Triggering signal generation...');
       const { data, error } = await supabase.functions.invoke('generate-signals');
@@ -147,7 +165,7 @@ export const useTradingSignals = () => {
         });
         
         // Refresh signals after generation
-        setTimeout(fetchSignals, 2000);
+        setTimeout(fetchSignals, 3000);
       } else {
         console.log('No new signals generated this cycle');
       }
@@ -190,12 +208,12 @@ export const useTradingSignals = () => {
         (payload) => {
           console.log('Real-time market data update:', payload);
           // Update signals with new market data immediately
-          setTimeout(fetchSignals, 200);
+          setTimeout(fetchSignals, 500);
         }
       )
       .subscribe();
 
-    // Automatic market data and signal generation with enhanced frequency
+    // Check market hours function
     const checkMarketHours = () => {
       const now = new Date();
       const utcHour = now.getUTCHours();
@@ -206,21 +224,24 @@ export const useTradingSignals = () => {
              (utcDay === 5 && utcHour < 22);
     };
 
-    // Enhanced market data updates: every 15 seconds during market hours, 30 seconds when closed
+    // Enhanced market data updates: every 20 seconds during market hours, 60 seconds when closed
     const marketDataInterval = setInterval(async () => {
       const isMarketOpen = checkMarketHours();
       try {
         console.log(`Triggering market data update (Market ${isMarketOpen ? 'OPEN' : 'CLOSED'})`);
-        await supabase.functions.invoke('fetch-market-data');
+        const { error } = await supabase.functions.invoke('fetch-market-data');
+        if (error) {
+          console.error('Market data update error:', error);
+        }
       } catch (error) {
         console.error('Automatic market data update failed:', error);
       }
-    }, checkMarketHours() ? 15000 : 30000);
+    }, checkMarketHours() ? 20000 : 60000);
 
-    // Signal generation every 3 minutes for more responsive signals
+    // Signal generation every 5 minutes for more responsive signals
     const signalGenerationInterval = setInterval(() => {
       triggerAutomaticSignalGeneration();
-    }, 180000);
+    }, 300000);
 
     return () => {
       supabase.removeChannel(signalsChannel);
