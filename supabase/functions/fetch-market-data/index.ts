@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -46,8 +47,8 @@ serve(async (req) => {
 
     console.log(`Fetching real market data for ${symbols.length} currency pairs from FastForex`);
 
-    // Fetch real-time data from FastForex API with proper format
-    const fastForexUrl = `https://api.fastforex.io/fetch-multi?pairs=${symbols.join(',')}&api_key=${fastForexApiKey}`;
+    // Use the correct FastForex API endpoint format
+    const fastForexUrl = `https://api.fastforex.io/fetch-all?api_key=${fastForexApiKey}`;
     
     console.log('Calling FastForex API...');
     const response = await fetch(fastForexUrl, {
@@ -74,10 +75,15 @@ serve(async (req) => {
       throw new Error('No forex data received from FastForex API');
     }
 
-    // Transform FastForex data to our format
-    const marketDataBatch = Object.entries(data.results).map(([pair, rate]) => {
-      const symbol = pair; // Keep as EURUSD format
-      const price = parseFloat(rate as string);
+    // Filter only the pairs we want and transform FastForex data to our format
+    const marketDataBatch = symbols.map(symbol => {
+      const rate = data.results[symbol];
+      if (!rate) {
+        console.warn(`No data found for ${symbol}`);
+        return null;
+      }
+      
+      const price = parseFloat(rate);
       
       if (isNaN(price) || price <= 0) {
         console.warn(`Invalid price for ${symbol}: ${rate}`);
