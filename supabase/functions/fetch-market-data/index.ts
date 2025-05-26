@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🔧 Getting environment variables...');
+    console.log('🔧 Initializing fetch-market-data function...');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const fastForexApiKey = Deno.env.get('FASTFOREX_API_KEY');
@@ -47,9 +47,9 @@ serve(async (req) => {
                         (utcDay === 0 && utcHour >= 22) || 
                         (utcDay === 5 && utcHour < 22);
 
-    console.log(`📊 Market status: ${isMarketOpen ? 'OPEN' : 'CLOSED'}`);
+    console.log(`📊 Market status: ${isMarketOpen ? 'OPEN' : 'CLOSED'} (UTC Day: ${utcDay}, Hour: ${utcHour})`);
 
-    // All pairs that we need to support
+    // Currency pairs that we need to support
     const requiredPairs = [
       'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
       'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY', 
@@ -57,7 +57,7 @@ serve(async (req) => {
       'AUDNZD', 'AUDCAD', 'NZDCAD', 'AUDSGD', 'NZDCHF', 'USDNOK', 'USDSEK'
     ];
 
-    console.log(`💱 Will calculate ${requiredPairs.length} currency pairs`);
+    console.log(`💱 Processing ${requiredPairs.length} currency pairs...`);
 
     let baseRates: Record<string, number> = {};
     let dataSource = 'unknown';
@@ -67,6 +67,7 @@ serve(async (req) => {
       const fetchMultiUrl = `https://api.fastforex.io/fetch-multi?from=USD&to=${currencies.join(',')}&api_key=${fastForexApiKey}`;
       
       console.log('🌐 Calling FastForex API...');
+      console.log(`📡 API URL: ${fetchMultiUrl.replace(fastForexApiKey, 'API_KEY_HIDDEN')}`);
       
       const response = await fetch(fetchMultiUrl, {
         method: 'GET',
@@ -76,53 +77,54 @@ serve(async (req) => {
         }
       });
       
-      console.log('📡 FastForex API response status:', response.status);
+      console.log(`📡 FastForex API response status: ${response.status}`);
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ FastForex API error:', response.status, errorText);
+        console.error(`❌ FastForex API error: ${response.status} - ${errorText}`);
         throw new Error(`API responded with ${response.status}: ${errorText}`);
       }
       
       const data = await response.json();
-      console.log('📋 Raw API response:', JSON.stringify(data, null, 2));
+      console.log(`📋 FastForex API response keys: ${Object.keys(data).join(', ')}`);
       
       if (data.results && typeof data.results === 'object') {
         console.log('✅ Processing USD-based rates...');
         baseRates = { USD: 1, ...data.results };
         dataSource = 'fastforex-api';
-        console.log('💾 Base rates obtained:', Object.keys(baseRates));
+        console.log(`💾 Base rates for: ${Object.keys(baseRates).join(', ')}`);
       } else {
-        console.error('❌ No results in API response');
+        console.error('❌ Invalid API response structure:', data);
         throw new Error('Invalid API response structure');
       }
     } catch (error) {
-      console.error('❌ FastForex API error:', error.message);
-      throw error; // Don't use fallback data - fail if no real data
+      console.error(`❌ FastForex API error: ${error.message}`);
+      throw error;
     }
 
-    // Clean old data more conservatively
+    // Clean old data before inserting new data
     console.log('🧹 Cleaning old market data...');
     try {
-      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
-      const { error: deleteError } = await supabase
+      const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
+      const { error: deleteError, count: deletedCount } = await supabase
         .from('live_market_data')
         .delete()
-        .lt('created_at', oneHourAgo);
+        .lt('created_at', sixHoursAgo);
         
       if (deleteError) {
         console.warn('⚠️ Cleanup warning:', deleteError);
       } else {
-        console.log('✅ Cleaned old records');
+        console.log(`✅ Cleaned ${deletedCount || 0} old records`);
       }
     } catch (error) {
       console.warn('⚠️ Cleanup error:', error);
     }
 
-    // Calculate all currency pairs
+    // Calculate all currency pairs with better error handling
     console.log('🧮 Calculating currency pairs...');
     const marketData: Record<string, number> = {};
     let calculatedCount = 0;
+    const failedPairs: string[] = [];
 
     for (const pair of requiredPairs) {
       try {
@@ -131,60 +133,75 @@ serve(async (req) => {
         
         if (baseRates[baseCurrency] && baseRates[quoteCurrency]) {
           const rate = baseRates[quoteCurrency] / baseRates[baseCurrency];
-          marketData[pair] = rate;
-          calculatedCount++;
-          console.log(`✅ ${pair}: ${rate.toFixed(5)}`);
+          
+          if (rate > 0 && isFinite(rate)) {
+            marketData[pair] = rate;
+            calculatedCount++;
+            console.log(`✅ ${pair}: ${rate.toFixed(5)}`);
+          } else {
+            console.warn(`⚠️ Invalid rate calculated for ${pair}: ${rate}`);
+            failedPairs.push(pair);
+          }
         } else {
-          console.warn(`⚠️ Missing rates for ${pair}`);
+          console.warn(`⚠️ Missing base rates for ${pair} (${baseCurrency}=${baseRates[baseCurrency]}, ${quoteCurrency}=${baseRates[quoteCurrency]})`);
+          failedPairs.push(pair);
         }
       } catch (error) {
-        console.error(`❌ Error calculating ${pair}:`, error);
-        continue;
+        console.error(`❌ Error calculating ${pair}:`, error.message);
+        failedPairs.push(pair);
       }
     }
 
-    console.log(`📊 Calculated ${calculatedCount}/${requiredPairs.length} pairs`);
-
-    if (calculatedCount === 0) {
-      throw new Error('No currency pairs calculated');
+    console.log(`📊 Successfully calculated ${calculatedCount}/${requiredPairs.length} pairs`);
+    if (failedPairs.length > 0) {
+      console.log(`⚠️ Failed pairs: ${failedPairs.join(', ')}`);
     }
 
-    // Prepare market data for insertion with transaction
-    console.log('💾 Preparing market data batch...');
+    if (calculatedCount === 0) {
+      throw new Error('No currency pairs could be calculated');
+    }
+
+    // Prepare market data for insertion with better validation
+    console.log('💾 Preparing market data for database insertion...');
     const marketDataBatch = [];
     const timestamp = new Date().toISOString();
 
     for (const [symbol, rate] of Object.entries(marketData)) {
-      const price = parseFloat(rate.toString());
-      
-      if (isNaN(price) || price <= 0) {
-        console.warn(`❌ Invalid price for ${symbol}: ${rate}`);
-        continue;
-      }
-      
-      const spread = price * (symbol.includes('JPY') ? 0.002 : 0.00002);
-      const bid = parseFloat((price - spread/2).toFixed(symbol.includes('JPY') ? 3 : 5));
-      const ask = parseFloat((price + spread/2).toFixed(symbol.includes('JPY') ? 3 : 5));
+      try {
+        const price = parseFloat(rate.toString());
+        
+        if (isNaN(price) || price <= 0 || !isFinite(price)) {
+          console.warn(`❌ Invalid price for ${symbol}: ${rate}`);
+          continue;
+        }
+        
+        // Calculate realistic spread (0.002% for JPY pairs, 0.002% for others)
+        const spread = price * (symbol.includes('JPY') ? 0.00002 : 0.00002);
+        const bid = parseFloat((price - spread/2).toFixed(symbol.includes('JPY') ? 3 : 5));
+        const ask = parseFloat((price + spread/2).toFixed(symbol.includes('JPY') ? 3 : 5));
 
-      marketDataBatch.push({
-        symbol,
-        price: parseFloat(price.toFixed(symbol.includes('JPY') ? 3 : 5)),
-        bid,
-        ask,
-        source: dataSource,
-        timestamp,
-        created_at: timestamp
-      });
+        marketDataBatch.push({
+          symbol,
+          price: parseFloat(price.toFixed(symbol.includes('JPY') ? 3 : 5)),
+          bid,
+          ask,
+          source: dataSource,
+          timestamp,
+          created_at: timestamp
+        });
+      } catch (error) {
+        console.error(`❌ Error preparing data for ${symbol}:`, error);
+      }
     }
 
-    console.log(`📊 Prepared ${marketDataBatch.length} records for insertion`);
+    console.log(`📊 Prepared ${marketDataBatch.length} records for database insertion`);
 
     if (marketDataBatch.length === 0) {
       throw new Error('No valid market data to insert');
     }
 
-    // Insert with explicit transaction and verification
-    console.log('🚀 Starting database transaction...');
+    // Insert with explicit error handling and verification
+    console.log('🚀 Inserting data into database...');
     
     const { data: insertData, error: insertError } = await supabase
       .from('live_market_data')
@@ -199,22 +216,24 @@ serve(async (req) => {
     console.log('✅ Database insertion successful!');
     console.log(`📊 Records inserted: ${insertData?.length || 0}`);
     
-    // Immediate verification
+    // Enhanced verification
     console.log('🔍 Verifying data availability...');
+    await new Promise(resolve => setTimeout(resolve, 2000)); // Wait for DB consistency
+    
     const { data: verifyData, error: verifyError } = await supabase
       .from('live_market_data')
       .select('symbol, price, created_at')
       .eq('timestamp', timestamp)
-      .limit(5);
+      .order('created_at', { ascending: false });
       
     if (verifyError) {
-      console.error('⚠️ Verification failed:', verifyError);
+      console.error('⚠️ Verification query failed:', verifyError);
     } else {
-      console.log('✅ Verification successful:', verifyData?.length || 0, 'records found');
+      console.log(`✅ Verification successful: ${verifyData?.length || 0} records confirmed in database`);
+      if (verifyData && verifyData.length > 0) {
+        console.log(`📋 Sample verified records: ${verifyData.slice(0, 3).map(r => `${r.symbol}:${r.price}`).join(', ')}`);
+      }
     }
-    
-    // Wait a moment for database consistency
-    await new Promise(resolve => setTimeout(resolve, 1000));
     
     const responseData = { 
       success: true, 
@@ -225,10 +244,13 @@ serve(async (req) => {
       source: dataSource,
       dataType: 'real-time',
       recordsInserted: insertData?.length || marketDataBatch.length,
-      verificationCount: verifyData?.length || 0
+      verificationCount: verifyData?.length || 0,
+      calculatedPairs: calculatedCount,
+      failedPairs: failedPairs.length
     };
     
     console.log('🎉 Function completed successfully');
+    console.log(`📊 Final stats: ${calculatedCount} calculated, ${marketDataBatch.length} inserted, ${verifyData?.length || 0} verified`);
     
     return new Response(
       JSON.stringify(responseData),
@@ -236,12 +258,14 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('💥 CRITICAL ERROR:', error.message);
+    console.error('💥 CRITICAL ERROR in fetch-market-data:', error.message);
+    console.error('📍 Error stack:', error.stack);
     
     return new Response(
       JSON.stringify({ 
         error: error.message,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        function: 'fetch-market-data'
       }),
       { 
         status: 500, 
