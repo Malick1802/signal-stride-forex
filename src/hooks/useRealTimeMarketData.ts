@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useCentralizedMarketData } from './useCentralizedMarketData';
 
@@ -13,33 +14,31 @@ interface UseRealTimeMarketDataProps {
   entryPrice: string;
 }
 
-// Supported pairs that have centralized real-time data
-const SUPPORTED_CENTRALIZED_PAIRS = [
+// All pairs now use centralized data - no client-side fallbacks
+const CENTRALIZED_PAIRS = [
   'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
-  'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY'
+  'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY',
+  // Expanded to include more pairs for full centralization
+  'GBPNZD', 'AUDNZD', 'CADCHF', 'EURAUD', 'EURNZD', 'GBPCAD', 'NZDCAD',
+  'NZDCHF', 'NZDJPY', 'AUDJPY', 'CHFJPY'
 ];
 
 export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDataProps) => {
-  const shouldUseCentralized = SUPPORTED_CENTRALIZED_PAIRS.includes(pair);
+  // All pairs now use centralized data
+  const shouldUseCentralized = CENTRALIZED_PAIRS.includes(pair);
   
-  const { marketData, isConnected, dataSource, triggerMarketUpdate, triggerTickGenerator } = useCentralizedMarketData(
+  const { marketData, isConnected, dataSource, triggerMarketUpdate } = useCentralizedMarketData(
     shouldUseCentralized ? pair : ''
   );
   
-  const [fallbackData, setFallbackData] = useState<{
-    priceData: PriceData[];
-    currentPrice: number | null;
-    isMarketOpen: boolean;
-    lastUpdateTime: string;
-  }>({
+  const [fallbackState] = useState({
     priceData: [],
     currentPrice: null,
     isMarketOpen: false,
-    lastUpdateTime: ''
+    lastUpdateTime: 'No centralized data available'
   });
 
   const mountedRef = useRef(true);
-  const fallbackIntervalRef = useRef<NodeJS.Timeout>();
 
   // Check market hours
   const checkMarketHours = useCallback(() => {
@@ -54,81 +53,19 @@ export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDat
     return !(isFridayEvening || isSaturday || isSundayBeforeOpen);
   }, []);
 
-  // Fallback data for unsupported pairs - with simulated real-time updates
-  const generateFallbackData = useCallback(() => {
-    const entryPriceNum = parseFloat(entryPrice) || 1.0;
-    if (isNaN(entryPriceNum) || entryPriceNum <= 0) {
-      return;
-    }
-    
-    const now = Date.now();
-    
-    // Update existing data or create new
-    setFallbackData(prev => {
-      const newDataPoint = {
-        timestamp: now,
-        time: new Date(now).toLocaleTimeString('en-US', {
-          hour12: false,
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit'
-        }),
-        price: entryPriceNum * (1 + (Math.random() - 0.5) * 0.002),
-        volume: Math.random() * 100000
-      };
-
-      // Keep last 30 data points and add new one
-      const updatedData = [...prev.priceData, newDataPoint].slice(-30);
-      
-      return {
-        priceData: updatedData,
-        currentPrice: newDataPoint.price,
-        isMarketOpen: checkMarketHours(),
-        lastUpdateTime: new Date().toLocaleTimeString()
-      };
-    });
-  }, [entryPrice, checkMarketHours]);
-
-  // Initialize data and real-time updates with tick generation
+  // Initialize centralized data only - no client-side generation
   useEffect(() => {
     mountedRef.current = true;
     
-    if (shouldUseCentralized) {
-      // Trigger initial market update if no centralized data
-      if (!marketData) {
-        triggerMarketUpdate();
-      }
-      
-      // Start tick generation for real-time movement
-      const tickInterval = setInterval(() => {
-        if (mountedRef.current && isConnected) {
-          triggerTickGenerator();
-        }
-      }, 2000); // Generate ticks every 2 seconds
-
-      return () => {
-        mountedRef.current = false;
-        clearInterval(tickInterval);
-      };
-    } else {
-      // Generate initial fallback data
-      generateFallbackData();
-      
-      // Set up real-time simulation for unsupported pairs
-      fallbackIntervalRef.current = setInterval(() => {
-        if (mountedRef.current) {
-          generateFallbackData();
-        }
-      }, 1000); // Update every 1 second for fallback
-
-      return () => {
-        mountedRef.current = false;
-        if (fallbackIntervalRef.current) {
-          clearInterval(fallbackIntervalRef.current);
-        }
-      };
+    if (shouldUseCentralized && !marketData) {
+      // Trigger initial market update only if no centralized data exists
+      triggerMarketUpdate();
     }
-  }, [pair, shouldUseCentralized, marketData, triggerMarketUpdate, triggerTickGenerator, isConnected, generateFallbackData]);
+
+    return () => {
+      mountedRef.current = false;
+    };
+  }, [pair, shouldUseCentralized, marketData, triggerMarketUpdate]);
 
   const getPriceChange = useCallback(() => {
     if (shouldUseCentralized && marketData) {
@@ -138,45 +75,38 @@ export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDat
       };
     }
     
-    if (!shouldUseCentralized && fallbackData.priceData.length >= 2) {
-      const current = fallbackData.priceData[fallbackData.priceData.length - 1]?.price || 0;
-      const previous = fallbackData.priceData[0]?.price || 0;
-      const change = current - previous;
-      const percentage = previous > 0 ? (change / previous) * 100 : 0;
-      return { change, percentage };
-    }
-    
     return { change: 0, percentage: 0 };
-  }, [shouldUseCentralized, marketData, fallbackData]);
+  }, [shouldUseCentralized, marketData]);
 
   const getSparklineData = useCallback(() => {
     if (shouldUseCentralized && marketData) {
       return marketData.priceHistory.slice(-20);
     }
-    return fallbackData.priceData.slice(-20);
-  }, [shouldUseCentralized, marketData, fallbackData]);
+    return [];
+  }, [shouldUseCentralized, marketData]);
 
-  // Return appropriate data based on pair support
+  // Return centralized data or indicate unsupported pair
   if (shouldUseCentralized) {
     return {
       priceData: marketData?.priceHistory || [],
       currentPrice: marketData?.currentPrice || null,
       isMarketOpen: marketData?.isMarketOpen ?? checkMarketHours(),
       lastUpdateTime: marketData?.lastUpdate || '',
-      dataSource: `${dataSource} (Real-time Ticks)`,
+      dataSource: `${dataSource} (Centralized)`,
       isConnected: isConnected,
       getPriceChange,
       getSparklineData
     };
   }
 
+  // For unsupported pairs, return empty state instead of generating data
   return {
-    priceData: fallbackData.priceData,
-    currentPrice: fallbackData.currentPrice,
-    isMarketOpen: fallbackData.isMarketOpen,
-    lastUpdateTime: fallbackData.lastUpdateTime,
-    dataSource: `Simulated Real-time (${pair} not centralized)`,
-    isConnected: true, // Always connected for simulated data
+    priceData: fallbackState.priceData,
+    currentPrice: fallbackState.currentPrice,
+    isMarketOpen: false,
+    lastUpdateTime: fallbackState.lastUpdateTime,
+    dataSource: `${pair} not centralized - no data available`,
+    isConnected: false,
     getPriceChange,
     getSparklineData
   };

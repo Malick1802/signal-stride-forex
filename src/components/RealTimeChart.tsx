@@ -29,21 +29,19 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
     },
   };
 
-  // Transform chart data for display
+  // Transform chart data - use only centralized live data
   const chartData = useMemo(() => {
     if (!priceData || priceData.length === 0) {
-      console.warn('No chart data available');
+      console.warn('No centralized chart data available');
       return [];
     }
 
-    // Sort by timestamp and transform for recharts
-    const sortedData = [...priceData].sort((a, b) => a.timestamp - b.timestamp);
-    
-    return sortedData.map((point, index) => ({
+    // Use only live centralized data - no stored signal data mixing
+    return priceData.map((point, index) => ({
       time: `${index}`,
       price: point.price,
       timestamp: point.timestamp,
-      // Mark if this is the entry point
+      // Mark entry point for reference only
       isEntry: entryPrice && Math.abs(point.price - entryPrice) < 0.00001
     }));
   }, [priceData, entryPrice]);
@@ -54,7 +52,7 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
     const prices = chartData.map(d => d.price);
     const minPrice = Math.min(...prices);
     const maxPrice = Math.max(...prices);
-    const padding = (maxPrice - minPrice) * 0.05; // 5% padding
+    const padding = (maxPrice - minPrice) * 0.05;
     
     return {
       min: minPrice - padding,
@@ -64,14 +62,14 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
 
   return (
     <div className="relative">
-      {/* Connection Status Indicator */}
+      {/* Centralized Status Indicator */}
       <div className="absolute top-2 right-2 z-10">
         <div className="flex items-center space-x-2 text-xs">
           <div className={`w-2 h-2 rounded-full ${
             isConnected ? 'bg-emerald-400' : 'bg-red-400'
           }`}></div>
           <span className={isConnected ? 'text-emerald-400' : 'text-red-400'}>
-            {isConnected ? 'LIVE' : 'OFFLINE'}
+            {isConnected ? 'CENTRALIZED' : 'OFFLINE'}
           </span>
         </div>
       </div>
@@ -81,13 +79,14 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
         <div className="absolute top-2 left-2 z-10">
           <div className="bg-black/50 backdrop-blur-sm rounded px-2 py-1">
             <span className="text-white text-sm font-mono">{formatPrice(currentPrice)}</span>
+            <div className="text-xs text-emerald-400">LIVE</div>
           </div>
         </div>
       )}
 
       {/* Entry Price Reference Line */}
       {entryPrice && (
-        <div className="absolute top-8 left-2 z-10">
+        <div className="absolute top-12 left-2 z-10">
           <div className="bg-blue-500/50 backdrop-blur-sm rounded px-2 py-1">
             <span className="text-white text-xs font-mono">Entry: {formatPrice(entryPrice)}</span>
           </div>
@@ -115,7 +114,7 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
               />
               <ChartTooltip 
                 content={<ChartTooltipContent 
-                  formatter={(value: any) => [formatPrice(Number(value)), 'Price']}
+                  formatter={(value: any) => [formatPrice(Number(value)), 'Live Price']}
                   labelFormatter={(label) => `Point: ${label}`}
                 />} 
               />

@@ -38,7 +38,7 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
 
   const safeSignal = createSafeSignal(signal);
 
-  // Get real-time market data for current price updates
+  // Get centralized real-time market data only
   const {
     currentPrice: liveCurrentPrice,
     getPriceChange,
@@ -46,7 +46,7 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
     lastUpdateTime,
     isConnected,
     isMarketOpen,
-    priceData: liveChartData
+    priceData: centralizedChartData
   } = useRealTimeMarketData({
     pair: safeSignal.pair,
     entryPrice: safeSignal.entryPrice
@@ -58,43 +58,15 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
   // Use live current price for real-time updates, fallback to entry price
   const currentPrice = liveCurrentPrice || signalEntryPrice;
   
-  // Get price change from live data
+  // Get price change from centralized live data
   const { change, percentage } = getPriceChange();
 
-  // Transform stored signal chart data to match expected format
-  const transformedSignalChartData = safeSignal.chartData.map(point => ({
-    timestamp: point.time,
-    time: new Date(point.time).toLocaleTimeString('en-US', {
-      hour12: false,
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    }),
+  // Use only centralized chart data - no mixing with stored signal data
+  const chartDataToDisplay = centralizedChartData.map(point => ({
+    timestamp: point.timestamp,
+    time: point.time,
     price: point.price
   }));
-
-  // Transform live chart data to match expected format
-  const transformedLiveChartData = liveChartData.map(point => ({
-    timestamp: typeof point.timestamp === 'number' ? point.timestamp : new Date(point.time).getTime(),
-    time: typeof point.time === 'string' ? point.time : new Date(point.timestamp).toLocaleTimeString('en-US', {
-      hour12: false,
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    }),
-    price: point.price
-  }));
-
-  // Combine stored signal chart data with live updates for a complete view
-  const combinedChartData = [
-    // Start with stored signal chart data (fixed reference points)
-    ...transformedSignalChartData,
-    // Add recent live data points if available
-    ...(transformedLiveChartData.length > 0 ? transformedLiveChartData.slice(-10) : [])
-  ].filter((point, index, arr) => 
-    // Remove duplicates based on timestamp
-    arr.findIndex(p => Math.abs(p.timestamp - point.timestamp) < 1000) === index
-  );
 
   return (
     <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 overflow-hidden">
@@ -121,7 +93,7 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
       />
 
       <RealTimeChart
-        priceData={combinedChartData}
+        priceData={chartDataToDisplay}
         signalType={safeSignal.type}
         currentPrice={currentPrice}
         isConnected={isConnected}
