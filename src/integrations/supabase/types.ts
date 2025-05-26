@@ -79,6 +79,45 @@ export type Database = {
           },
         ]
       }
+      centralized_market_state: {
+        Row: {
+          ask: number | null
+          bid: number | null
+          current_price: number
+          id: string
+          is_market_open: boolean | null
+          last_update: string
+          price_change_24h: number | null
+          source: string | null
+          symbol: string
+          volume_24h: number | null
+        }
+        Insert: {
+          ask?: number | null
+          bid?: number | null
+          current_price: number
+          id?: string
+          is_market_open?: boolean | null
+          last_update?: string
+          price_change_24h?: number | null
+          source?: string | null
+          symbol: string
+          volume_24h?: number | null
+        }
+        Update: {
+          ask?: number | null
+          bid?: number | null
+          current_price?: number
+          id?: string
+          is_market_open?: boolean | null
+          last_update?: string
+          price_change_24h?: number | null
+          source?: string | null
+          symbol?: string
+          volume_24h?: number | null
+        }
+        Relationships: []
+      }
       financial_transactions: {
         Row: {
           amount: number
@@ -139,6 +178,39 @@ export type Database = {
           source?: string | null
           symbol?: string
           timestamp?: string | null
+        }
+        Relationships: []
+      }
+      live_price_history: {
+        Row: {
+          ask: number | null
+          bid: number | null
+          created_at: string
+          id: string
+          price: number
+          source: string | null
+          symbol: string
+          timestamp: string
+        }
+        Insert: {
+          ask?: number | null
+          bid?: number | null
+          created_at?: string
+          id?: string
+          price: number
+          source?: string | null
+          symbol: string
+          timestamp?: string
+        }
+        Update: {
+          ask?: number | null
+          bid?: number | null
+          created_at?: string
+          id?: string
+          price?: number
+          source?: string | null
+          symbol?: string
+          timestamp?: string
         }
         Relationships: []
       }
