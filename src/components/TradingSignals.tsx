@@ -6,30 +6,25 @@ import { supabase } from '@/integrations/supabase/client';
 import SignalStats from './SignalStats';
 import SignalCard from './SignalCard';
 import { Button } from '@/components/ui/button';
-import { Zap, RefreshCw } from 'lucide-react';
+import { Zap, RefreshCw, Wifi, WifiOff } from 'lucide-react';
 
 const TradingSignals = () => {
   const { signals, loading, lastUpdate, triggerAutomaticSignalGeneration } = useTradingSignals();
   const { toast } = useToast();
   
-  // AI Analysis state
   const [analysis, setAnalysis] = useState<Record<string, string>>({});
   const [analyzingSignal, setAnalyzingSignal] = useState<string | null>(null);
   const [generatingSignals, setGeneratingSignals] = useState(false);
 
-  // Get available pairs from signals
   const availablePairs = Array.from(new Set(signals.map(signal => signal.pair))).filter(Boolean);
   const [selectedPair, setSelectedPair] = useState('All');
 
-  // Filter signals for selected pair
   const filteredSignals = selectedPair === 'All' ? signals : signals.filter(signal => signal.pair === selectedPair);
 
-  // Calculate average confidence
   const avgConfidence = signals.length > 0 
     ? Math.round(signals.reduce((sum, signal) => sum + signal.confidence, 0) / signals.length)
     : 87;
 
-  // Manual trigger for automatic signal generation
   const handleManualSignalGeneration = async () => {
     setGeneratingSignals(true);
     try {
@@ -39,7 +34,6 @@ const TradingSignals = () => {
     }
   };
 
-  // AI Analysis function
   const handleGetAIAnalysis = async (signalId: string) => {
     if (analyzingSignal === signalId) return;
     
@@ -88,21 +82,50 @@ const TradingSignals = () => {
   if (loading && signals.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-white">Loading signals...</div>
+        <div className="text-white">Loading real-time signals...</div>
       </div>
     );
   }
 
+  const hasRealTimeData = signals.length > 0;
+
   return (
     <div className="space-y-6">
-      {/* Header Stats */}
       <SignalStats 
         signalsCount={signals.length}
         avgConfidence={avgConfidence}
         lastUpdate={lastUpdate}
       />
 
-      {/* Automatic Generation Controls */}
+      {/* Real-time Status */}
+      <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              {hasRealTimeData ? (
+                <Wifi className="h-5 w-5 text-emerald-400" />
+              ) : (
+                <WifiOff className="h-5 w-5 text-red-400" />
+              )}
+              <span className="text-white font-medium">
+                {hasRealTimeData ? 'Real-Time Data Active' : 'Waiting for Real-Time Data'}
+              </span>
+              <span className={`text-xs px-2 py-1 rounded ${
+                hasRealTimeData 
+                  ? 'bg-emerald-500/20 text-emerald-400' 
+                  : 'bg-red-500/20 text-red-400'
+              }`}>
+                {hasRealTimeData ? 'LIVE' : 'NO DATA'}
+              </span>
+            </div>
+          </div>
+          <div className="text-sm text-gray-400">
+            FastForex API • Only real market data displayed
+          </div>
+        </div>
+      </div>
+
+      {/* Signal Generation Controls */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
@@ -127,7 +150,7 @@ const TradingSignals = () => {
               ) : (
                 <>
                   <Zap className="h-4 w-4 mr-2" />
-                  Scan Now
+                  Generate Now
                 </>
               )}
             </Button>
@@ -158,7 +181,7 @@ const TradingSignals = () => {
               </select>
             </div>
             <div className="text-sm text-gray-400">
-              Only showing signals with 85%+ confidence
+              Real-time signals only • No fallback data
             </div>
           </div>
         </div>
@@ -167,7 +190,7 @@ const TradingSignals = () => {
       {/* Active Signals Grid */}
       <div>
         <h3 className="text-white text-lg font-semibold mb-4">
-          {selectedPair === 'All' ? 'High-Confidence Signals' : `${selectedPair} Signals`} ({filteredSignals.length})
+          {selectedPair === 'All' ? 'Real-Time Signals' : `${selectedPair} Signals`} ({filteredSignals.length})
         </h3>
         
         {filteredSignals.length > 0 ? (
@@ -186,11 +209,11 @@ const TradingSignals = () => {
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
               {selectedPair === 'All' 
-                ? 'No high-confidence signals detected - AI is continuously scanning for opportunities' 
-                : `No high-confidence signals available for ${selectedPair}`}
+                ? 'Waiting for real-time market data to generate signals' 
+                : `No real-time signals available for ${selectedPair}`}
             </div>
             <div className="text-sm text-gray-500 mb-4">
-              The system automatically generates signals when confidence levels exceed 85%
+              The system only displays signals when real market data is available from FastForex API
             </div>
             <Button
               onClick={handleManualSignalGeneration}
@@ -200,12 +223,12 @@ const TradingSignals = () => {
               {generatingSignals ? (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Scanning Markets...
+                  Fetching Market Data...
                 </>
               ) : (
                 <>
                   <Zap className="h-4 w-4 mr-2" />
-                  Scan for Opportunities
+                  Get Real-Time Signals
                 </>
               )}
             </Button>
