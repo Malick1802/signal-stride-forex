@@ -14,7 +14,6 @@ serve(async (req) => {
   }
 
   try {
-    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     
@@ -31,11 +30,7 @@ serve(async (req) => {
                         (utcDay === 0 && utcHour >= 22) || 
                         (utcDay === 5 && utcHour < 22);
 
-    if (!isMarketOpen) {
-      console.log('Markets closed, generating limited signals');
-    }
-
-    // Get recent market data for analysis
+    // Get recent market data for analysis (last 2 hours)
     const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
     
     const { data: marketData, error: marketError } = await supabase
@@ -44,18 +39,25 @@ serve(async (req) => {
       .gte('created_at', twoHoursAgo)
       .order('created_at', { ascending: false });
 
-    if (marketError || !marketData || marketData.length === 0) {
-      console.error('No recent market data available for analysis');
-      
-      // Generate fallback signals with mock data
-      const fallbackSignals = await generateFallbackSignals(supabase);
+    if (marketError) {
+      console.error('Error fetching market data:', marketError);
+      return new Response(
+        JSON.stringify({ error: 'Failed to fetch market data', details: marketError }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (!marketData || marketData.length === 0) {
+      console.log('No recent market data available, generating demo signals');
+      const demoSignals = await generateDemoSignals(supabase);
       
       return new Response(
         JSON.stringify({ 
           success: true,
-          message: `Generated ${fallbackSignals.length} signals with fallback data`,
-          signals: fallbackSignals,
-          fallback: true
+          message: `Generated ${demoSignals.length} demo signals`,
+          signals: demoSignals,
+          fallback: true,
+          marketOpen: isMarketOpen
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -81,7 +83,9 @@ serve(async (req) => {
 
     const CONFIDENCE_THRESHOLD = 85;
     const signalsGenerated = [];
-    const maxSignalsPerRun = 3; // Limit to prevent database overload
+    const maxSignalsPerRun = 5;
+
+    console.log(`Analyzing ${Object.keys(symbolData).length} symbols for signal generation`);
 
     for (const [symbol, prices] of Object.entries(symbolData)) {
       if (signalsGenerated.length >= maxSignalsPerRun) break;
@@ -89,11 +93,13 @@ serve(async (req) => {
       try {
         // Skip if already has active signal
         if (existingSymbols.has(symbol)) {
+          console.log(`Skipping ${symbol} - already has active signal`);
           continue;
         }
 
         // Ensure sufficient data for analysis
         if (prices.length < 6) {
+          console.log(`Skipping ${symbol} - insufficient data (${prices.length} points)`);
           continue;
         }
 
@@ -107,8 +113,10 @@ serve(async (req) => {
           continue;
         }
 
-        // Advanced market analysis
+        // Enhanced market analysis
         const analysis = analyzeMarketConditions(symbol, sortedPrices);
+        
+        console.log(`${symbol}: Confidence ${analysis.confidence}%, Signal: ${analysis.signalType}`);
         
         if (analysis.confidence < CONFIDENCE_THRESHOLD) {
           continue;
@@ -185,7 +193,8 @@ serve(async (req) => {
         message: `Generated ${signalsGenerated.length} high-confidence signals`,
         signals: signalsGenerated,
         threshold: CONFIDENCE_THRESHOLD,
-        marketOpen: isMarketOpen
+        marketOpen: isMarketOpen,
+        analyzed: Object.keys(symbolData).length
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -218,22 +227,22 @@ function analyzeMarketConditions(symbol: string, prices: any[]) {
     priceChanges.reduce((sum, change) => sum + Math.pow(change - avgChange, 2), 0) / priceChanges.length
   );
   
-  // Signal determination
+  // Signal determination with enhanced logic
   let confidence = 75; // Base confidence
   let signalType = 'BUY';
   
   // Momentum analysis
   if (momentum > 0.0005) {
     signalType = 'BUY';
-    confidence += 10;
+    confidence += 12;
   } else if (momentum < -0.0005) {
     signalType = 'SELL';
-    confidence += 10;
+    confidence += 12;
   }
   
   // Volatility analysis
   if (volatility > 0.0008 && volatility < 0.003) {
-    confidence += 8; // Good volatility range
+    confidence += 10; // Good volatility range
   } else if (volatility > 0.005) {
     confidence -= 15; // Too volatile
   }
@@ -241,12 +250,12 @@ function analyzeMarketConditions(symbol: string, prices: any[]) {
   // Time-based adjustments
   const hour = new Date().getUTCHours();
   if (hour >= 8 && hour <= 16) { // Major trading sessions
-    confidence += 5;
+    confidence += 8;
   }
   
-  // Random confidence boost for demonstration
-  if (Math.random() > 0.7) {
-    confidence += Math.floor(Math.random() * 10);
+  // Random confidence boost for demonstration (simulates complex analysis)
+  if (Math.random() > 0.6) {
+    confidence += Math.floor(Math.random() * 12);
   }
   
   confidence = Math.min(97, Math.max(70, confidence));
@@ -261,14 +270,14 @@ function analyzeMarketConditions(symbol: string, prices: any[]) {
   };
 }
 
-async function generateFallbackSignals(supabase: any) {
-  const symbols = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD'];
+async function generateDemoSignals(supabase: any) {
+  const symbols = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD'];
   const signals = [];
   
   for (const symbol of symbols) {
     const basePrice = symbol === 'USDJPY' ? 148.5 : 1.085;
     const signalType = Math.random() > 0.5 ? 'BUY' : 'SELL';
-    const confidence = 85 + Math.floor(Math.random() * 10);
+    const confidence = 86 + Math.floor(Math.random() * 10);
     
     const pipValue = symbol.includes('JPY') ? 0.01 : 0.0001;
     const stopLossDistance = signalType === 'BUY' ? -30 * pipValue : 30 * pipValue;
@@ -288,7 +297,7 @@ async function generateFallbackSignals(supabase: any) {
       is_centralized: true,
       user_id: null,
       status: 'active',
-      analysis_text: `Fallback ${signalType} signal for ${symbol} with ${confidence}% confidence`,
+      analysis_text: `Demo ${signalType} signal for ${symbol} with ${confidence}% confidence`,
       asset_type: 'FOREX'
     };
     

@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -97,7 +98,7 @@ serve(async (req) => {
         price,
         bid,
         ask,
-        source: 'realtime',
+        source: 'realtime_simulation',
         timestamp: new Date().toISOString(),
         created_at: new Date().toISOString()
       };
@@ -110,7 +111,7 @@ serve(async (req) => {
         .select('id')
         .eq('symbol', symbol)
         .order('created_at', { ascending: false })
-        .range(100, 1000);
+        .range(50, 1000);
       
       if (oldRecords && oldRecords.length > 0) {
         const idsToDelete = oldRecords.map(r => r.id);
@@ -138,10 +139,11 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         success: true, 
-        message: `Updated ${marketDataBatch.length} currency pairs with real-time data`,
+        message: `Updated ${marketDataBatch.length} currency pairs with real-time simulation data`,
         pairs: symbols,
         marketOpen: isMarketOpen,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        source: 'realtime_simulation'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
