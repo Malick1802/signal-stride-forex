@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Brain, ChevronDown, ChevronUp } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
