@@ -314,9 +314,9 @@ export const useTradingSignals = () => {
 
     // Market data updates with better error handling
     const marketDataInterval = setInterval(async () => {
-      const isMarketOpen = checkMarketHours();
+      const currentMarketStatus = checkMarketHours();
       try {
-        console.log(`Triggering scheduled market data update (Market ${isMarketOpen ? 'OPEN' : 'CLOSED'})`);
+        console.log(`Triggering scheduled market data update (Market ${currentMarketStatus ? 'OPEN' : 'CLOSED'})`);
         const { error } = await supabase.functions.invoke('fetch-market-data');
         if (error) {
           console.error('Scheduled market data update error:', error);
@@ -327,7 +327,7 @@ export const useTradingSignals = () => {
       } catch (error) {
         console.error('Scheduled market data update failed:', error);
       }
-    }, isMarketOpen ? 20000 : 45000); // 20 seconds during market hours, 45 seconds when closed
+    }, currentMarketStatus ? 20000 : 45000); // 20 seconds during market hours, 45 seconds when closed
 
     // Signal generation every 5 minutes
     const signalGenerationInterval = setInterval(() => {
