@@ -31,9 +31,9 @@ serve(async (req) => {
       'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY'
     ];
 
-    console.log(`📊 Fetching real-time data for ${streamingPairs.length} pairs`);
+    console.log(`📊 Fetching baseline data for ${streamingPairs.length} pairs`);
 
-    // Fetch latest rates from FastForex
+    // Fetch latest rates from FastForex (baseline data)
     const currencies = ['EUR', 'GBP', 'JPY', 'CHF', 'AUD', 'CAD', 'NZD'];
     const fetchMultiUrl = `https://api.fastforex.io/fetch-multi?from=USD&to=${currencies.join(',')}&api_key=${fastForexApiKey}`;
     
@@ -52,9 +52,9 @@ serve(async (req) => {
     const data = await response.json();
     const baseRates = { USD: 1, ...data.results };
     
-    console.log('💱 Base rates received:', Object.keys(baseRates));
+    console.log('💱 Baseline rates received:', Object.keys(baseRates));
 
-    // Calculate currency pair rates and update centralized state
+    // Calculate currency pair rates and update baseline state
     const marketUpdates = [];
     const priceHistory = [];
     const timestamp = new Date().toISOString();
@@ -73,7 +73,7 @@ serve(async (req) => {
           const bid = parseFloat((price - spread/2).toFixed(pair.includes('JPY') ? 3 : 5));
           const ask = parseFloat((price + spread/2).toFixed(pair.includes('JPY') ? 3 : 5));
 
-          // Prepare market state update
+          // Prepare baseline market state update
           marketUpdates.push({
             symbol: pair,
             current_price: price,
@@ -81,46 +81,46 @@ serve(async (req) => {
             ask,
             last_update: timestamp,
             is_market_open: true,
-            source: 'fastforex-centralized'
+            source: 'fastforex-baseline'
           });
 
-          // Prepare price history entry
+          // Prepare baseline price history entry
           priceHistory.push({
             symbol: pair,
             price,
             bid,
             ask,
             timestamp,
-            source: 'fastforex-centralized'
+            source: 'fastforex-baseline'
           });
           
-          console.log(`📈 ${pair}: ${price} (bid: ${bid}, ask: ${ask})`);
+          console.log(`📈 ${pair}: ${price} (baseline from FastForex)`);
         }
       } catch (error) {
         console.error(`❌ Error processing ${pair}:`, error);
       }
     }
 
-    console.log(`💾 Updating centralized market state for ${marketUpdates.length} pairs`);
+    console.log(`💾 Updating baseline market state for ${marketUpdates.length} pairs`);
 
-    // Update centralized market state (upsert)
+    // Update centralized market state (baseline)
     for (const update of marketUpdates) {
       const { error } = await supabase
         .from('centralized_market_state')
         .upsert(update, { onConflict: 'symbol' });
         
       if (error) {
-        console.error(`❌ Error updating market state for ${update.symbol}:`, error);
+        console.error(`❌ Error updating baseline market state for ${update.symbol}:`, error);
       }
     }
 
-    // Insert price history for real-time charts
+    // Insert baseline price history
     const { error: historyError } = await supabase
       .from('live_price_history')
       .insert(priceHistory);
       
     if (historyError) {
-      console.error('❌ Error inserting price history:', historyError);
+      console.error('❌ Error inserting baseline price history:', historyError);
     }
 
     // Clean up old price history (keep last 200 points per pair)
@@ -141,15 +141,15 @@ serve(async (req) => {
       }
     }
 
-    console.log('✅ Centralized market stream update completed');
+    console.log('✅ Baseline market stream update completed');
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Updated centralized market data for ${marketUpdates.length} pairs`,
+        message: `Updated baseline market data for ${marketUpdates.length} pairs`,
         pairs: marketUpdates.map(u => u.symbol),
         timestamp,
-        source: 'fastforex-centralized'
+        source: 'fastforex-baseline'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

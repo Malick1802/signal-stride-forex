@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -313,6 +312,55 @@ export const useTradingSignals = () => {
     }
   }, [fetchSignals, toast]);
 
+  const triggerRealTimeUpdates = useCallback(async () => {
+    try {
+      console.log('🚀 Triggering comprehensive real-time market update...');
+      
+      // First trigger baseline data update
+      const { data: marketResult, error: marketDataError } = await supabase.functions.invoke('centralized-market-stream');
+      
+      if (marketDataError) {
+        console.error('❌ Market data update failed:', marketDataError);
+        toast({
+          title: "Update Failed",
+          description: "Failed to fetch baseline market data",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      console.log('✅ Baseline market data updated');
+      
+      // Wait a moment then trigger tick generator
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      const { data: tickResult, error: tickError } = await supabase.functions.invoke('real-time-tick-generator');
+      
+      if (tickError) {
+        console.error('❌ Tick generator failed:', tickError);
+      } else {
+        console.log('✅ Real-time tick generator started');
+      }
+      
+      // Refresh signals
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      await fetchSignals();
+      
+      toast({
+        title: "Real-time Updates Active",
+        description: "Market data and tick generation have been activated",
+      });
+      
+    } catch (error) {
+      console.error('❌ Error in real-time updates:', error);
+      toast({
+        title: "Update Error",
+        description: "Failed to activate real-time updates",
+        variant: "destructive"
+      });
+    }
+  }, [fetchSignals, toast]);
+
   useEffect(() => {
     fetchSignals();
     
@@ -348,6 +396,7 @@ export const useTradingSignals = () => {
     loading,
     lastUpdate,
     fetchSignals,
-    triggerAutomaticSignalGeneration
+    triggerAutomaticSignalGeneration: triggerRealTimeUpdates, // Updated to use real-time system
+    triggerRealTimeUpdates // New function for manual trigger
   };
 };

@@ -22,7 +22,7 @@ const SUPPORTED_CENTRALIZED_PAIRS = [
 export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDataProps) => {
   const shouldUseCentralized = SUPPORTED_CENTRALIZED_PAIRS.includes(pair);
   
-  const { marketData, isConnected, dataSource, triggerMarketUpdate } = useCentralizedMarketData(
+  const { marketData, isConnected, dataSource, triggerMarketUpdate, triggerTickGenerator } = useCentralizedMarketData(
     shouldUseCentralized ? pair : ''
   );
   
@@ -89,7 +89,7 @@ export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDat
     });
   }, [entryPrice, checkMarketHours]);
 
-  // Initialize data and real-time updates
+  // Initialize data and real-time updates with tick generation
   useEffect(() => {
     mountedRef.current = true;
     
@@ -98,6 +98,18 @@ export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDat
       if (!marketData) {
         triggerMarketUpdate();
       }
+      
+      // Start tick generation for real-time movement
+      const tickInterval = setInterval(() => {
+        if (mountedRef.current && isConnected) {
+          triggerTickGenerator();
+        }
+      }, 2000); // Generate ticks every 2 seconds
+
+      return () => {
+        mountedRef.current = false;
+        clearInterval(tickInterval);
+      };
     } else {
       // Generate initial fallback data
       generateFallbackData();
@@ -107,16 +119,16 @@ export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDat
         if (mountedRef.current) {
           generateFallbackData();
         }
-      }, 2000); // Update every 2 seconds
-    }
+      }, 1000); // Update every 1 second for fallback
 
-    return () => {
-      mountedRef.current = false;
-      if (fallbackIntervalRef.current) {
-        clearInterval(fallbackIntervalRef.current);
-      }
-    };
-  }, [pair, shouldUseCentralized, marketData, triggerMarketUpdate, generateFallbackData]);
+      return () => {
+        mountedRef.current = false;
+        if (fallbackIntervalRef.current) {
+          clearInterval(fallbackIntervalRef.current);
+        }
+      };
+    }
+  }, [pair, shouldUseCentralized, marketData, triggerMarketUpdate, triggerTickGenerator, isConnected, generateFallbackData]);
 
   const getPriceChange = useCallback(() => {
     if (shouldUseCentralized && marketData) {
@@ -151,7 +163,7 @@ export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDat
       currentPrice: marketData?.currentPrice || null,
       isMarketOpen: marketData?.isMarketOpen ?? checkMarketHours(),
       lastUpdateTime: marketData?.lastUpdate || '',
-      dataSource: `${dataSource} (Centralized)`,
+      dataSource: `${dataSource} (Real-time Ticks)`,
       isConnected: isConnected,
       getPriceChange,
       getSparklineData
