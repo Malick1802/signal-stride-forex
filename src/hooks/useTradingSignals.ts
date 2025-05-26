@@ -54,7 +54,7 @@ export const useTradingSignals = () => {
       setLastUpdate(new Date().toLocaleTimeString());
       
       if (processedSignals.length > 0) {
-        console.log(`✅ Loaded ${processedSignals.length} centralized signals`);
+        console.log(`✅ Loaded ${processedSignals.length} centralized signals with fixed data`);
       }
       
     } catch (error) {
@@ -84,19 +84,21 @@ export const useTradingSignals = () => {
             return null;
           }
 
-          // Use ONLY stored chart data - ensure it exists and is properly formatted
+          // Use the FIXED stored chart data - this ensures all users see the same chart
           let chartData = [];
           if (signal.chart_data && Array.isArray(signal.chart_data)) {
             chartData = signal.chart_data.map(point => ({
               time: point.time || 0,
               price: parseFloat(point.price?.toString() || storedEntryPrice.toString())
             }));
+            console.log(`📈 Using stored chart data for ${signal.symbol}: ${chartData.length} points`);
           } else {
-            // If no stored chart data, create minimal fallback (this should rarely happen)
-            console.warn(`⚠️ No stored chart data for ${signal.symbol}, using fallback`);
+            // If no stored chart data, create minimal fallback with the entry price
+            console.warn(`⚠️ No stored chart data for ${signal.symbol}, using entry price fallback`);
+            const now = Date.now();
             chartData = [
-              { time: 0, price: storedEntryPrice },
-              { time: 29, price: storedEntryPrice }
+              { time: now - 30000, price: storedEntryPrice },
+              { time: now, price: storedEntryPrice }
             ];
           }
 
@@ -173,7 +175,7 @@ export const useTradingSignals = () => {
     try {
       console.log('🚀 Triggering comprehensive real-time market update...');
       
-      const { data: marketResult, error: marketDataError } = await supabase.functions.invoke('centralized-market-stream');
+      const { data: marketResult, error: marketDataError } = await supabase.functions.invoke('fetch-market-data');
       
       if (marketDataError) {
         console.error('❌ Market data update failed:', marketDataError);
@@ -185,26 +187,15 @@ export const useTradingSignals = () => {
         return;
       }
       
-      console.log('✅ Baseline market data updated');
+      console.log('✅ Market data updated');
       
-      // Wait a moment then trigger tick generator
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const { data: tickResult, error: tickError } = await supabase.functions.invoke('real-time-tick-generator');
-      
-      if (tickError) {
-        console.error('❌ Tick generator failed:', tickError);
-      } else {
-        console.log('✅ Real-time tick generator started');
-      }
-      
-      // Refresh signals (just fetch existing centralized signals)
+      // Refresh signals to show updated current prices
       await new Promise(resolve => setTimeout(resolve, 2000));
       await fetchSignals();
       
       toast({
         title: "Real-time Updates Active",
-        description: "Market data and centralized signals refreshed",
+        description: "Market data refreshed, current prices will update live",
       });
       
     } catch (error) {

@@ -1,6 +1,7 @@
 
 import React, { useState, memo } from 'react';
 import { validateSignal, createSafeSignal } from '@/utils/signalValidation';
+import { useRealTimeMarketData } from '@/hooks/useRealTimeMarketData';
 import SignalHeader from './SignalHeader';
 import RealTimeChart from './RealTimeChart';
 import RealTimePriceDisplay from './RealTimePriceDisplay';
@@ -37,36 +38,39 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
 
   const safeSignal = createSafeSignal(signal);
 
-  // Use ONLY the stored entry price from the signal (fixed at creation time)
+  // Get real-time market data for current price updates
+  const {
+    currentPrice: liveCurrentPrice,
+    getPriceChange,
+    dataSource,
+    lastUpdateTime,
+    isConnected,
+    isMarketOpen,
+    priceData: liveChartData
+  } = useRealTimeMarketData({
+    pair: safeSignal.pair,
+    entryPrice: safeSignal.entryPrice
+  });
+
+  // FIXED signal data (never changes after signal creation)
   const signalEntryPrice = parseFloat(safeSignal.entryPrice);
   
-  // For centralized signals, the "current price" is just the latest point in stored chart data
-  // This ensures all users see exactly the same current price
-  const currentPrice = safeSignal.chartData.length > 0 
-    ? safeSignal.chartData[safeSignal.chartData.length - 1].price 
-    : signalEntryPrice;
+  // Use live current price for real-time updates, fallback to entry price
+  const currentPrice = liveCurrentPrice || signalEntryPrice;
+  
+  // Get price change from live data
+  const { change, percentage } = getPriceChange();
 
-  // Calculate change based on stored chart data (first vs last point)
-  const getStoredPriceChange = () => {
-    if (safeSignal.chartData.length < 2) {
-      return { change: 0, percentage: 0 };
-    }
-    
-    const firstPrice = safeSignal.chartData[0].price;
-    const lastPrice = safeSignal.chartData[safeSignal.chartData.length - 1].price;
-    const change = lastPrice - firstPrice;
-    const percentage = firstPrice > 0 ? (change / firstPrice) * 100 : 0;
-    
-    return { change, percentage };
-  };
-
-  const { change, percentage } = getStoredPriceChange();
-
-  // Fixed values for centralized display
-  const isMarketOpen = true; // Always show as open for centralized signals
-  const lastUpdateTime = new Date(safeSignal.timestamp).toLocaleTimeString();
-  const dataSource = "Centralized (Fixed)";
-  const isConnected = true; // Always connected for centralized data
+  // Combine stored signal chart data with live updates for a complete view
+  const combinedChartData = [
+    // Start with stored signal chart data (fixed reference points)
+    ...safeSignal.chartData,
+    // Add recent live data points if available
+    ...(liveChartData.length > 0 ? liveChartData.slice(-10) : [])
+  ].filter((point, index, arr) => 
+    // Remove duplicates based on timestamp
+    arr.findIndex(p => Math.abs(p.time - point.time) < 1000) === index
+  );
 
   return (
     <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 overflow-hidden">
@@ -93,10 +97,11 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
       />
 
       <RealTimeChart
-        priceData={safeSignal.chartData}
+        priceData={combinedChartData}
         signalType={safeSignal.type}
         currentPrice={currentPrice}
         isConnected={isConnected}
+        entryPrice={signalEntryPrice}
       />
 
       <SignalPriceDetails

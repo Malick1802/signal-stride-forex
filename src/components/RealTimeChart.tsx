@@ -13,9 +13,10 @@ interface RealTimeChartProps {
   signalType: string;
   currentPrice: number | null;
   isConnected: boolean;
+  entryPrice?: number;
 }
 
-const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected }: RealTimeChartProps) => {
+const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entryPrice }: RealTimeChartProps) => {
   const formatPrice = (price: number) => {
     return price.toFixed(5);
   };
@@ -27,20 +28,24 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected }: Rea
     },
   };
 
-  // Use ONLY the stored chart data from signal creation - no dynamic generation
+  // Transform chart data for display
   const chartData = useMemo(() => {
     if (!priceData || priceData.length === 0) {
-      console.warn('No stored chart data available');
+      console.warn('No chart data available');
       return [];
     }
 
-    // Transform the FIXED stored chart data for display
-    return priceData.map((point, index) => ({
+    // Sort by time and transform for recharts
+    const sortedData = [...priceData].sort((a, b) => a.time - b.time);
+    
+    return sortedData.map((point, index) => ({
       time: `${index}`,
       price: point.price,
-      timestamp: point.time
+      timestamp: point.time,
+      // Mark if this is the entry point
+      isEntry: entryPrice && Math.abs(point.price - entryPrice) < 0.00001
     }));
-  }, [priceData]);
+  }, [priceData, entryPrice]);
 
   const priceRange = useMemo(() => {
     if (chartData.length === 0) return { min: 0, max: 0 };
@@ -60,17 +65,30 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected }: Rea
     <div className="relative">
       {/* Connection Status Indicator */}
       <div className="absolute top-2 right-2 z-10">
-        <div className="flex items-center space-x-2 text-xs text-emerald-400">
-          <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
-          <span>CENTRALIZED</span>
+        <div className="flex items-center space-x-2 text-xs">
+          <div className={`w-2 h-2 rounded-full ${
+            isConnected ? 'bg-emerald-400' : 'bg-red-400'
+          }`}></div>
+          <span className={isConnected ? 'text-emerald-400' : 'text-red-400'}>
+            {isConnected ? 'LIVE' : 'OFFLINE'}
+          </span>
         </div>
       </div>
 
-      {/* Fixed Chart Data Display */}
+      {/* Current Price Display */}
       {currentPrice && (
         <div className="absolute top-2 left-2 z-10">
           <div className="bg-black/50 backdrop-blur-sm rounded px-2 py-1">
             <span className="text-white text-sm font-mono">{formatPrice(currentPrice)}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Entry Price Reference Line */}
+      {entryPrice && (
+        <div className="absolute top-8 left-2 z-10">
+          <div className="bg-blue-500/50 backdrop-blur-sm rounded px-2 py-1">
+            <span className="text-white text-xs font-mono">Entry: {formatPrice(entryPrice)}</span>
           </div>
         </div>
       )}
@@ -107,8 +125,21 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected }: Rea
                 strokeWidth={2}
                 dot={false}
                 connectNulls
-                isAnimationActive={false}
+                isAnimationActive={true}
               />
+              {/* Entry price reference line */}
+              {entryPrice && (
+                <Line
+                  type="monotone"
+                  dataKey={() => entryPrice}
+                  stroke="#3b82f6"
+                  strokeWidth={1}
+                  strokeDasharray="5 5"
+                  dot={false}
+                  connectNulls
+                  isAnimationActive={false}
+                />
+              )}
             </LineChart>
           </ResponsiveContainer>
         </ChartContainer>
