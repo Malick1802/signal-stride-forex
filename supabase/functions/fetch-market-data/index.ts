@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -9,12 +8,7 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  console.log('=== FETCH-MARKET-DATA FUNCTION STARTED ===');
-  console.log('Request method:', req.method);
-  console.log('Request URL:', req.url);
-  
   if (req.method === 'OPTIONS') {
-    console.log('Handling CORS preflight request');
     return new Response(null, { headers: corsHeaders });
   }
 
@@ -23,11 +17,6 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const fastForexApiKey = Deno.env.get('FASTFOREX_API_KEY');
-    
-    console.log('Environment check:');
-    console.log('- SUPABASE_URL:', supabaseUrl ? 'SET' : 'MISSING');
-    console.log('- SUPABASE_SERVICE_ROLE_KEY:', supabaseServiceKey ? 'SET' : 'MISSING');
-    console.log('- FASTFOREX_API_KEY:', fastForexApiKey ? 'SET' : 'MISSING');
     
     if (!supabaseUrl || !supabaseServiceKey) {
       console.error('❌ Missing required Supabase environment variables');
@@ -55,8 +44,6 @@ serve(async (req) => {
                         (utcDay === 5 && utcHour < 22);
 
     console.log(`📊 Market status: ${isMarketOpen ? 'OPEN' : 'CLOSED'}`);
-    console.log(`   - UTC Day: ${utcDay} (0=Sunday, 6=Saturday)`);
-    console.log(`   - UTC Hour: ${utcHour}`);
 
     // All pairs that we need to support (including cross-currency pairs)
     const requiredPairs = [
@@ -77,7 +64,6 @@ serve(async (req) => {
       const fetchMultiUrl = `https://api.fastforex.io/fetch-multi?from=USD&to=${currencies.join(',')}&api_key=${fastForexApiKey}`;
       
       console.log('🌐 Calling FastForex fetch-multi endpoint...');
-      console.log('   Target currencies:', currencies.join(', '));
       
       const response = await fetch(fetchMultiUrl, {
         method: 'GET',
@@ -118,6 +104,24 @@ serve(async (req) => {
       console.log('📊 Using fallback base rates');
     }
 
+    // Don't clean old data aggressively - keep last hour of data
+    console.log('🧹 Starting conservative database cleanup...');
+    try {
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+      const { error: deleteError } = await supabase
+        .from('live_market_data')
+        .delete()
+        .lt('created_at', oneHourAgo);
+        
+      if (!deleteError) {
+        console.log(`✅ Cleaned old records older than 1 hour`);
+      } else {
+        console.log(`⚠️ Cleanup had issues:`, deleteError);
+      }
+    } catch (error) {
+      console.error(`❌ Error during cleanup:`, error);
+    }
+
     // Now calculate all required currency pairs using cross-currency calculations
     console.log('🧮 Calculating all currency pairs including cross-pairs...');
     const marketData: Record<string, number> = {};
@@ -152,30 +156,10 @@ serve(async (req) => {
       throw new Error('Failed to calculate any currency pairs');
     }
 
-    // Only clean old data for specific symbols to avoid deleting too much
-    console.log('🧹 Starting selective database cleanup...');
-    const symbolsToClean = Object.keys(marketData);
-    
-    for (const symbol of symbolsToClean.slice(0, 5)) { // Only clean first 5 to reduce load
-      try {
-        const cutoffTime = new Date(Date.now() - 10 * 60 * 1000).toISOString(); // Keep last 10 minutes
-        const { error: deleteError } = await supabase
-          .from('live_market_data')
-          .delete()
-          .eq('symbol', symbol)
-          .lt('created_at', cutoffTime);
-            
-        if (!deleteError) {
-          console.log(`✅ Cleaned old records for ${symbol}`);
-        }
-      } catch (error) {
-        console.error(`❌ Error during cleanup for ${symbol}:`, error);
-      }
-    }
-
     // Process and store the market data
     console.log('💾 Processing market data for database insertion...');
     const marketDataBatch = [];
+    const timestamp = new Date().toISOString();
 
     for (const [symbol, rate] of Object.entries(marketData)) {
       try {
@@ -197,8 +181,8 @@ serve(async (req) => {
           bid,
           ask,
           source: dataSource,
-          timestamp: new Date().toISOString(),
-          created_at: new Date().toISOString()
+          timestamp,
+          created_at: timestamp
         };
 
         marketDataBatch.push(recordData);
@@ -217,7 +201,7 @@ serve(async (req) => {
       throw new Error('No valid market data processed');
     }
 
-    // Insert new market data
+    // Insert new market data with better error handling
     console.log('🚀 Starting database insertion...');
     
     try {
@@ -234,15 +218,30 @@ serve(async (req) => {
       console.log('✅ Database insertion successful!');
       console.log(`   - Records inserted: ${insertData ? insertData.length : marketDataBatch.length}`);
       
+      // Verify data was inserted by checking a few records
+      console.log('🔍 Verifying inserted data...');
+      const { data: verifyData, error: verifyError } = await supabase
+        .from('live_market_data')
+        .select('symbol, price, created_at')
+        .eq('timestamp', timestamp)
+        .limit(5);
+        
+      if (verifyError) {
+        console.error('⚠️ Verification query failed:', verifyError);
+      } else {
+        console.log('✅ Verification successful - sample records:', verifyData?.map(r => `${r.symbol}: ${r.price}`));
+      }
+      
       const responseData = { 
         success: true, 
         message: `Updated ${marketDataBatch.length} currency pairs including cross-pairs`,
         pairs: marketDataBatch.map(item => item.symbol),
         marketOpen: isMarketOpen,
-        timestamp: new Date().toISOString(),
+        timestamp,
         source: dataSource,
         dataType: dataSource === 'fallback' ? 'simulated' : 'real',
-        recordsInserted: insertData ? insertData.length : marketDataBatch.length
+        recordsInserted: insertData ? insertData.length : marketDataBatch.length,
+        verificationSample: verifyData?.map(r => `${r.symbol}: ${r.price}`) || []
       };
       
       console.log('🎉 Function completed successfully');
@@ -298,6 +297,7 @@ async function generateDemoResponse(supabaseUrl: string, supabaseServiceKey: str
   };
   
   const marketDataBatch = [];
+  const timestamp = new Date().toISOString();
   
   for (const [symbol, price] of Object.entries(demoData)) {
     const variation = (Math.random() - 0.5) * 0.001;
@@ -313,8 +313,8 @@ async function generateDemoResponse(supabaseUrl: string, supabaseServiceKey: str
       bid,
       ask,
       source: 'demo',
-      timestamp: new Date().toISOString(),
-      created_at: new Date().toISOString()
+      timestamp,
+      created_at: timestamp
     });
   }
   
@@ -335,7 +335,7 @@ async function generateDemoResponse(supabaseUrl: string, supabaseServiceKey: str
       message: `Updated ${marketDataBatch.length} currency pairs with demo data including cross-pairs`,
       pairs: marketDataBatch.map(item => item.symbol),
       marketOpen: true,
-      timestamp: new Date().toISOString(),
+      timestamp,
       source: 'demo',
       dataType: 'demo',
       recordsInserted: insertData ? insertData.length : marketDataBatch.length

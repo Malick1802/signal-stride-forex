@@ -44,29 +44,35 @@ export const useTradingSignals = () => {
       if (activeSignals && activeSignals.length > 0) {
         console.log(`Found ${activeSignals.length} active signals`);
         
-        // Get current market prices for chart data - fetch more recent data with longer time window
+        // Get current market prices for chart data - use broader time window and more data
         const symbols = activeSignals
           .filter(signal => signal?.symbol)
           .map(signal => signal.symbol);
           
         console.log('Looking for market data for symbols:', symbols);
         
-        // Fetch data from the last 30 minutes to ensure we have recent data
-        const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString();
+        // Fetch data from the last 2 hours to ensure we have recent data
+        const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
         
         const { data: marketData } = await supabase
           .from('live_market_data')
           .select('*')
           .in('symbol', symbols)
-          .gte('created_at', thirtyMinutesAgo)
+          .gte('created_at', twoHoursAgo)
           .order('created_at', { ascending: false })
-          .limit(2000); // Increased limit significantly
+          .limit(5000); // Much higher limit
 
         console.log('Market data found:', marketData?.length || 0, 'records');
-        console.log('Market data query time window: last 30 minutes');
+        console.log('Market data query time window: last 2 hours');
         if (marketData && marketData.length > 0) {
           console.log('Sample market data symbols:', marketData.slice(0, 5).map(md => md.symbol));
           console.log('Latest market data timestamp:', marketData[0]?.created_at);
+          console.log('Market data distribution:', 
+            symbols.map(symbol => ({
+              symbol,
+              count: marketData.filter(md => md.symbol === symbol).length
+            }))
+          );
         }
 
         const transformedSignals = activeSignals
@@ -78,7 +84,7 @@ export const useTradingSignals = () => {
               // Get market data for this symbol
               const symbolMarketData = marketData?.filter(md => 
                 md?.symbol === signal.symbol
-              ).slice(0, 50) || []; // Get more data points
+              ).slice(0, 100) || []; // Get more data points
               
               if (symbolMarketData.length === 0) {
                 console.log(`No recent market data found for ${signal.symbol}, using signal price`);
@@ -153,7 +159,7 @@ export const useTradingSignals = () => {
       }
       
       // Wait longer for data to be inserted and become available
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      await new Promise(resolve => setTimeout(resolve, 5000));
       
       console.log('Triggering signal generation...');
       const { data, error } = await supabase.functions.invoke('generate-signals');
@@ -171,7 +177,7 @@ export const useTradingSignals = () => {
         });
         
         // Refresh signals after generation with longer delay
-        setTimeout(fetchSignals, 4000);
+        setTimeout(fetchSignals, 6000);
       } else {
         console.log('No new signals generated this cycle');
       }
@@ -214,7 +220,7 @@ export const useTradingSignals = () => {
         (payload) => {
           console.log('Real-time market data update:', payload);
           // Update signals with new market data with longer delay
-          setTimeout(fetchSignals, 1000);
+          setTimeout(fetchSignals, 2000);
         }
       )
       .subscribe();
@@ -230,7 +236,7 @@ export const useTradingSignals = () => {
              (utcDay === 5 && utcHour < 22);
     };
 
-    // Reduced frequency to prevent overwhelming the system
+    // More frequent market data updates for better data availability
     const marketDataInterval = setInterval(async () => {
       const isMarketOpen = checkMarketHours();
       try {
@@ -238,16 +244,20 @@ export const useTradingSignals = () => {
         const { error } = await supabase.functions.invoke('fetch-market-data');
         if (error) {
           console.error('Market data update error:', error);
+        } else {
+          console.log('Market data update successful');
+          // Refresh signals after market data update
+          setTimeout(fetchSignals, 3000);
         }
       } catch (error) {
         console.error('Automatic market data update failed:', error);
       }
-    }, checkMarketHours() ? 60000 : 120000); // 1 minute during market hours, 2 minutes when closed
+    }, checkMarketHours() ? 30000 : 60000); // 30 seconds during market hours, 1 minute when closed
 
-    // Signal generation every 10 minutes to prevent overload
+    // Signal generation every 5 minutes
     const signalGenerationInterval = setInterval(() => {
       triggerAutomaticSignalGeneration();
-    }, 600000);
+    }, 300000);
 
     return () => {
       supabase.removeChannel(signalsChannel);
