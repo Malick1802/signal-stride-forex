@@ -25,6 +25,17 @@ export const useTradingSignals = () => {
   const [lastUpdate, setLastUpdate] = useState<string>('');
   const { toast } = useToast();
 
+  // Check market hours function
+  const checkMarketHours = () => {
+    const now = new Date();
+    const utcHour = now.getUTCHours();
+    const utcDay = now.getUTCDay();
+    
+    return (utcDay >= 1 && utcDay <= 4) || 
+           (utcDay === 0 && utcHour >= 22) || 
+           (utcDay === 5 && utcHour < 22);
+  };
+
   const fetchSignals = useCallback(async () => {
     try {
       console.log('Fetching trading signals...');
@@ -78,32 +89,46 @@ export const useTradingSignals = () => {
           }
         }
 
+        console.log(`Market data query time window: last 2 hours`);
+
         if (!marketData || marketData.length === 0) {
           console.log('No market data found in any time window, triggering fresh data fetch');
           
-          // Trigger immediate market data update
+          // Trigger immediate market data update with retry logic
           try {
-            const { error: updateError } = await supabase.functions.invoke('fetch-market-data');
-            if (updateError) {
-              console.warn('Market data update error:', updateError);
-            } else {
-              console.log('Fresh market data requested, waiting for update...');
+            for (let attempt = 1; attempt <= 3; attempt++) {
+              console.log(`Market data fetch attempt ${attempt}/3`);
+              const { error: updateError } = await supabase.functions.invoke('fetch-market-data');
+              if (!updateError) {
+                console.log('Fresh market data requested successfully');
+                break;
+              } else {
+                console.warn(`Market data fetch attempt ${attempt} failed:`, updateError);
+                if (attempt < 3) {
+                  await new Promise(resolve => setTimeout(resolve, 2000));
+                }
+              }
+            }
+            
+            // Wait longer for data to be available
+            await new Promise(resolve => setTimeout(resolve, 5000));
+            
+            // Try one more time with fresh data - check multiple windows
+            for (const window of timeWindows) {
+              const windowStart = new Date(Date.now() - window.hours * 60 * 60 * 1000).toISOString();
               
-              // Wait for data to be available
-              await new Promise(resolve => setTimeout(resolve, 3000));
-              
-              // Try one more time with fresh data
               const { data: freshData } = await supabase
                 .from('live_market_data')
                 .select('*')
                 .in('symbol', symbols)
-                .gte('created_at', new Date(Date.now() - 5 * 60 * 1000).toISOString())
+                .gte('created_at', windowStart)
                 .order('created_at', { ascending: false })
                 .limit(5000);
                 
               if (freshData && freshData.length > 0) {
                 marketData = freshData;
-                console.log(`Fresh market data found: ${marketData.length} records`);
+                console.log(`Fresh market data found: ${marketData.length} records from ${window.label}`);
+                break;
               }
             }
           } catch (fetchError) {
@@ -287,17 +312,6 @@ export const useTradingSignals = () => {
       )
       .subscribe();
 
-    // Check market hours function
-    const checkMarketHours = () => {
-      const now = new Date();
-      const utcHour = now.getUTCHours();
-      const utcDay = now.getUTCDay();
-      
-      return (utcDay >= 1 && utcDay <= 4) || 
-             (utcDay === 0 && utcHour >= 22) || 
-             (utcDay === 5 && utcHour < 22);
-    };
-
     // More frequent market data updates with better error handling
     const marketDataInterval = setInterval(async () => {
       const isMarketOpen = checkMarketHours();
@@ -314,7 +328,7 @@ export const useTradingSignals = () => {
       } catch (error) {
         console.error('Scheduled market data update failed:', error);
       }
-    }, isMarketOpen ? 20000 : 45000); // 20 seconds during market hours, 45 seconds when closed
+    }, isMarketOpen ? 15000 : 30000); // 15 seconds during market hours, 30 seconds when closed
 
     // Signal generation every 5 minutes with staggered timing
     const signalGenerationInterval = setInterval(() => {
