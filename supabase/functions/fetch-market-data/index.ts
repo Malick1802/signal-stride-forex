@@ -17,6 +17,10 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const fastForexApiKey = Deno.env.get('FASTFOREX_API_KEY')!;
     
+    if (!fastForexApiKey) {
+      throw new Error('FastForex API key not configured');
+    }
+    
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     console.log('Starting market data fetch from FastForex...');
@@ -32,37 +36,53 @@ serve(async (req) => {
 
     console.log(`Market status: ${isMarketOpen ? 'OPEN' : 'CLOSED'} (Day: ${utcDay}, Hour: ${utcHour})`);
 
-    // Major forex pairs supported by FastForex
+    // Major forex pairs - use the format FastForex expects
     const symbols = [
-      'EUR/USD', 'GBP/USD', 'USD/JPY', 'USD/CHF', 'AUD/USD', 'USD/CAD',
-      'NZD/USD', 'EUR/GBP', 'EUR/JPY', 'GBP/JPY', 'EUR/CHF', 'GBP/CHF',
-      'AUD/CHF', 'CAD/JPY', 'CHF/JPY', 'EUR/AUD', 'EUR/NZD', 'EUR/CAD',
-      'GBP/AUD', 'GBP/NZD', 'GBP/CAD', 'AUD/NZD', 'AUD/CAD', 'NZD/CAD'
+      'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD',
+      'NZDUSD', 'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF',
+      'AUDCHF', 'CADJPY', 'CHFJPY', 'EURAUD', 'EURNZD', 'EURCAD',
+      'GBPAUD', 'GBPNZD', 'GBPCAD', 'AUDNZD', 'AUDCAD', 'NZDCAD'
     ];
 
     console.log(`Fetching real market data for ${symbols.length} currency pairs from FastForex`);
 
-    // Fetch real-time data from FastForex API
+    // Fetch real-time data from FastForex API with proper format
     const fastForexUrl = `https://api.fastforex.io/fetch-multi?pairs=${symbols.join(',')}&api_key=${fastForexApiKey}`;
     
     console.log('Calling FastForex API...');
-    const response = await fetch(fastForexUrl);
+    const response = await fetch(fastForexUrl, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'ForexSignalApp/1.0'
+      }
+    });
+    
+    console.log(`FastForex API response status: ${response.status}`);
     
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`FastForex API error: ${response.status} - ${errorText}`);
       throw new Error(`FastForex API error: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
-    console.log('FastForex API response received:', data);
+    console.log('FastForex API response received:', Object.keys(data));
 
     if (!data.results || Object.keys(data.results).length === 0) {
+      console.error('No forex data received from FastForex API');
       throw new Error('No forex data received from FastForex API');
     }
 
     // Transform FastForex data to our format
     const marketDataBatch = Object.entries(data.results).map(([pair, rate]) => {
-      const symbol = pair.replace('/', ''); // Convert EUR/USD to EURUSD
+      const symbol = pair; // Keep as EURUSD format
       const price = parseFloat(rate as string);
+      
+      if (isNaN(price) || price <= 0) {
+        console.warn(`Invalid price for ${symbol}: ${rate}`);
+        return null;
+      }
       
       // Calculate realistic bid/ask spread
       const spread = price * (symbol.includes('JPY') ? 0.002 : 0.00002);
@@ -78,9 +98,13 @@ serve(async (req) => {
         timestamp: new Date().toISOString(),
         created_at: new Date().toISOString()
       };
-    });
+    }).filter(Boolean); // Remove null entries
 
     console.log(`Processed ${marketDataBatch.length} forex pairs from FastForex`);
+
+    if (marketDataBatch.length === 0) {
+      throw new Error('No valid market data processed');
+    }
 
     // Clear old data (keep only last 50 records per symbol)
     for (const item of marketDataBatch) {
@@ -123,7 +147,7 @@ serve(async (req) => {
         marketOpen: isMarketOpen,
         timestamp: new Date().toISOString(),
         source: 'fastforex',
-        base_currency: data.base
+        base_currency: data.base || 'USD'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
