@@ -21,19 +21,34 @@ interface CentralizedMarketData {
   changePercentage: number;
 }
 
+// Supported pairs that are available in the centralized market stream
+const SUPPORTED_PAIRS = [
+  'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
+  'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY'
+];
+
 export const useCentralizedMarketData = (symbol: string) => {
   const [marketData, setMarketData] = useState<CentralizedMarketData | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [dataSource, setDataSource] = useState<string>('Centralized FastForex');
   const channelRef = useRef<any>();
   const mountedRef = useRef(true);
+  const lastFetchRef = useRef<number>(0);
 
   const fetchCentralizedData = useCallback(async () => {
-    if (!symbol || !mountedRef.current) return;
+    if (!symbol || !mountedRef.current || !SUPPORTED_PAIRS.includes(symbol)) {
+      console.log(`❌ Unsupported pair: ${symbol}`);
+      return;
+    }
+
+    // Debounce rapid successive calls
+    const now = Date.now();
+    if (now - lastFetchRef.current < 1000) {
+      return;
+    }
+    lastFetchRef.current = now;
 
     try {
-      console.log(`🔄 Fetching centralized data for ${symbol}`);
-
       // Get current market state
       const { data: marketState, error: stateError } = await supabase
         .from('centralized_market_state')
@@ -46,13 +61,13 @@ export const useCentralizedMarketData = (symbol: string) => {
         return;
       }
 
-      // Get price history (last 100 points)
+      // Get price history (last 50 points for better performance)
       const { data: priceHistory, error: historyError } = await supabase
         .from('live_price_history')
         .select('*')
         .eq('symbol', symbol)
         .order('timestamp', { ascending: false })
-        .limit(100);
+        .limit(50);
 
       if (historyError) {
         console.error(`❌ Error fetching price history for ${symbol}:`, historyError);
@@ -103,12 +118,6 @@ export const useCentralizedMarketData = (symbol: string) => {
         setMarketData(centralizedData);
         setIsConnected(true);
         setDataSource('Centralized FastForex (Real-time)');
-        
-        console.log(`📊 Updated centralized data for ${symbol}:`, {
-          price: centralizedData.currentPrice,
-          historyPoints: chartData.length,
-          change: change24h.toFixed(5)
-        });
       }
 
     } catch (error) {
@@ -121,12 +130,14 @@ export const useCentralizedMarketData = (symbol: string) => {
 
   // Set up real-time subscriptions to centralized data
   useEffect(() => {
-    if (!symbol) return;
+    if (!symbol || !SUPPORTED_PAIRS.includes(symbol)) {
+      console.log(`⚠️ ${symbol} not supported in centralized market stream`);
+      setIsConnected(false);
+      return;
+    }
 
     mountedRef.current = true;
     fetchCentralizedData();
-
-    console.log(`🔌 Setting up centralized real-time subscription for ${symbol}`);
 
     // Subscribe to market state changes
     const stateChannel = supabase
@@ -141,17 +152,15 @@ export const useCentralizedMarketData = (symbol: string) => {
         },
         (payload) => {
           if (!mountedRef.current) return;
-          console.log(`🔔 Centralized market state update for ${symbol}:`, payload);
           fetchCentralizedData();
         }
       )
       .subscribe((status) => {
         if (!mountedRef.current) return;
-        console.log(`📡 Market state subscription status for ${symbol}:`, status);
         setIsConnected(status === 'SUBSCRIBED');
       });
 
-    // Subscribe to price history updates
+    // Subscribe to price history updates (less verbose logging)
     const historyChannel = supabase
       .channel(`centralized-history-${symbol}`)
       .on(
@@ -164,8 +173,8 @@ export const useCentralizedMarketData = (symbol: string) => {
         },
         (payload) => {
           if (!mountedRef.current) return;
-          console.log(`🔔 New price history for ${symbol}:`, payload.new);
-          fetchCentralizedData();
+          // Debounced fetch to prevent excessive updates
+          setTimeout(fetchCentralizedData, 500);
         }
       )
       .subscribe();
@@ -185,13 +194,11 @@ export const useCentralizedMarketData = (symbol: string) => {
   // Trigger centralized market stream update
   const triggerMarketUpdate = useCallback(async () => {
     try {
-      console.log('🚀 Triggering centralized market stream update...');
       const { data, error } = await supabase.functions.invoke('centralized-market-stream');
       
       if (error) {
         console.error('❌ Market stream update failed:', error);
       } else {
-        console.log('✅ Market stream update triggered:', data);
         setTimeout(fetchCentralizedData, 2000);
       }
     } catch (error) {
