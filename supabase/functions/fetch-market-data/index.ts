@@ -152,30 +152,21 @@ serve(async (req) => {
       throw new Error('Failed to calculate any currency pairs');
     }
 
-    console.log('🧹 Starting database cleanup...');
-    // Clean old data efficiently
+    // Only clean old data for specific symbols to avoid deleting too much
+    console.log('🧹 Starting selective database cleanup...');
     const symbolsToClean = Object.keys(marketData);
     
-    for (const symbol of symbolsToClean) {
+    for (const symbol of symbolsToClean.slice(0, 5)) { // Only clean first 5 to reduce load
       try {
-        const { data: oldRecords, error: selectError } = await supabase
+        const cutoffTime = new Date(Date.now() - 10 * 60 * 1000).toISOString(); // Keep last 10 minutes
+        const { error: deleteError } = await supabase
           .from('live_market_data')
-          .select('id')
+          .delete()
           .eq('symbol', symbol)
-          .order('created_at', { ascending: false })
-          .range(50, 1000);
-        
-        if (!selectError && oldRecords && oldRecords.length > 0) {
-          console.log(`🗑️ Cleaning ${oldRecords.length} old records for ${symbol}`);
-          const idsToDelete = oldRecords.map(r => r.id);
-          const { error: deleteError } = await supabase
-            .from('live_market_data')
-            .delete()
-            .in('id', idsToDelete);
+          .lt('created_at', cutoffTime);
             
-          if (!deleteError) {
-            console.log(`✅ Cleaned ${idsToDelete.length} old records for ${symbol}`);
-          }
+        if (!deleteError) {
+          console.log(`✅ Cleaned old records for ${symbol}`);
         }
       } catch (error) {
         console.error(`❌ Error during cleanup for ${symbol}:`, error);
