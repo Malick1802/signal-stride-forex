@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -297,49 +298,106 @@ serve(async (req) => {
       throw new Error('No valid market data processed after all attempts');
     }
 
-    // Insert new market data
-    console.log('🚀 Inserting market data into database...');
-    console.log('Sample record:', JSON.stringify(marketDataBatch[0], null, 2));
+    // Insert new market data with detailed logging
+    console.log('🚀 Starting database insertion...');
+    console.log('Sample record for insertion:', JSON.stringify(marketDataBatch[0], null, 2));
     
-    const { data: insertData, error: insertError } = await supabase
-      .from('live_market_data')
-      .insert(marketDataBatch)
-      .select();
+    try {
+      console.log('📝 Calling supabase.from(live_market_data).insert()...');
+      const { data: insertData, error: insertError } = await supabase
+        .from('live_market_data')
+        .insert(marketDataBatch)
+        .select();
 
-    if (insertError) {
-      console.error('❌ Error inserting market data:');
-      console.error('   - Error code:', insertError.code);
-      console.error('   - Error message:', insertError.message);
-      console.error('   - Error details:', insertError.details);
-      console.error('   - Error hint:', insertError.hint);
+      console.log('📊 Database insertion response received');
+      console.log('   - Insert error:', insertError ? JSON.stringify(insertError, null, 2) : 'None');
+      console.log('   - Insert data length:', insertData ? insertData.length : 'None');
+
+      if (insertError) {
+        console.error('❌ Database insertion failed:');
+        console.error('   - Error code:', insertError.code);
+        console.error('   - Error message:', insertError.message);
+        console.error('   - Error details:', insertError.details);
+        console.error('   - Error hint:', insertError.hint);
+        
+        // Try to insert records one by one to identify problematic records
+        console.log('🔍 Attempting individual record insertion to identify issues...');
+        let successCount = 0;
+        for (let i = 0; i < marketDataBatch.length; i++) {
+          try {
+            const record = marketDataBatch[i];
+            console.log(`🔄 Inserting record ${i + 1}/${marketDataBatch.length}: ${record.symbol}`);
+            
+            const { error: singleError } = await supabase
+              .from('live_market_data')
+              .insert([record]);
+              
+            if (singleError) {
+              console.error(`❌ Failed to insert ${record.symbol}:`, singleError);
+            } else {
+              console.log(`✅ Successfully inserted ${record.symbol}`);
+              successCount++;
+            }
+          } catch (singleInsertError) {
+            console.error(`💥 Exception inserting record ${i + 1}:`, singleInsertError);
+          }
+        }
+        
+        console.log(`📊 Individual insertion results: ${successCount}/${marketDataBatch.length} successful`);
+        
+        if (successCount > 0) {
+          const responseData = { 
+            success: true, 
+            message: `Partially updated ${successCount}/${marketDataBatch.length} currency pairs with ${dataSource} data`,
+            pairs: marketDataBatch.slice(0, successCount).map(item => item.symbol),
+            marketOpen: isMarketOpen,
+            timestamp: new Date().toISOString(),
+            source: dataSource,
+            dataType: dataSource === 'fallback' ? 'simulated' : 'real',
+            recordsInserted: successCount,
+            warnings: [`Batch insert failed, used individual inserts. ${marketDataBatch.length - successCount} records failed.`]
+          };
+          
+          console.log('⚠️ Partial success response:', responseData);
+          return new Response(
+            JSON.stringify(responseData),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        } else {
+          throw new Error(`Database insertion completely failed: ${insertError.message}`);
+        }
+      }
+
+      console.log('✅ Database insertion successful!');
+      console.log(`   - Records inserted: ${insertData ? insertData.length : marketDataBatch.length}`);
+      console.log(`   - Data source: ${dataSource}`);
+      console.log(`   - Market status: ${isMarketOpen ? 'OPEN' : 'CLOSED'}`);
+      
+      const responseData = { 
+        success: true, 
+        message: `Updated ${marketDataBatch.length} currency pairs with ${dataSource} data`,
+        pairs: marketDataBatch.map(item => item.symbol),
+        marketOpen: isMarketOpen,
+        timestamp: new Date().toISOString(),
+        source: dataSource,
+        dataType: dataSource === 'fallback' ? 'simulated' : 'real',
+        recordsInserted: insertData ? insertData.length : marketDataBatch.length
+      };
+      
+      console.log('🎉 Function completed successfully:', responseData);
+      
       return new Response(
-        JSON.stringify({ error: 'Failed to insert market data', details: insertError }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify(responseData),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
+      
+    } catch (dbError) {
+      console.error('💥 Database operation exception:');
+      console.error('   - Error type:', dbError.constructor.name);
+      console.error('   - Error message:', dbError.message);
+      console.error('   - Error stack:', dbError.stack);
+      throw dbError;
     }
-
-    console.log('✅ Successfully inserted market data');
-    console.log(`   - Records inserted: ${insertData ? insertData.length : marketDataBatch.length}`);
-    console.log(`   - Data source: ${dataSource}`);
-    console.log(`   - Market status: ${isMarketOpen ? 'OPEN' : 'CLOSED'}`);
-    
-    const responseData = { 
-      success: true, 
-      message: `Updated ${marketDataBatch.length} currency pairs with ${dataSource} data`,
-      pairs: marketDataBatch.map(item => item.symbol),
-      marketOpen: isMarketOpen,
-      timestamp: new Date().toISOString(),
-      source: dataSource,
-      dataType: dataSource === 'fallback' ? 'simulated' : 'real',
-      recordsInserted: insertData ? insertData.length : marketDataBatch.length
-    };
-    
-    console.log('🎉 Function completed successfully:', responseData);
-    
-    return new Response(
-      JSON.stringify(responseData),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
 
   } catch (error) {
     console.error('💥 CRITICAL ERROR in fetch-market-data function:');
