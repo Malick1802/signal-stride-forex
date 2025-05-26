@@ -32,7 +32,7 @@ const SUPPORTED_PAIRS = [
 export const useCentralizedMarketData = (symbol: string) => {
   const [marketData, setMarketData] = useState<CentralizedMarketData | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [dataSource, setDataSource] = useState<string>('Centralized Real-time');
+  const [dataSource, setDataSource] = useState<string>('FastForex Live');
   const channelRef = useRef<any>();
   const mountedRef = useRef(true);
 
@@ -42,7 +42,7 @@ export const useCentralizedMarketData = (symbol: string) => {
     }
 
     try {
-      // Get current market state
+      // Get current FastForex-powered market state
       const { data: marketState, error: stateError } = await supabase
         .from('centralized_market_state')
         .select('*')
@@ -50,27 +50,27 @@ export const useCentralizedMarketData = (symbol: string) => {
         .single();
 
       if (stateError) {
-        console.error(`❌ Error fetching market state for ${symbol}:`, stateError);
+        console.error(`❌ Error fetching FastForex market state for ${symbol}:`, stateError);
         return;
       }
 
-      // Get recent price history (last 100 points for charts) with optimized query
+      // Get recent price history optimized for charts
       const { data: priceHistory, error: historyError } = await supabase
         .from('live_price_history')
         .select('price, timestamp')
         .eq('symbol', symbol)
         .order('timestamp', { ascending: false })
-        .limit(100);
+        .limit(120); // More points for smoother charts
 
       if (historyError) {
-        console.error(`❌ Error fetching price history for ${symbol}:`, historyError);
+        console.error(`❌ Error fetching FastForex price history for ${symbol}:`, historyError);
         return;
       }
 
       if (!mountedRef.current) return;
 
       if (marketState) {
-        // Transform price history for charts with enhanced time formatting
+        // Transform price history for smooth charting
         const chartData: PriceData[] = (priceHistory || [])
           .reverse()
           .map((item, index) => {
@@ -84,15 +84,15 @@ export const useCentralizedMarketData = (symbol: string) => {
                 second: '2-digit'
               }),
               price: parseFloat(item.price.toString()),
-              volume: Math.random() * 100000 + 50000 // Simulated volume
+              volume: Math.random() * 150000 + 80000 // Realistic volume simulation
             };
           });
 
-        // Enhanced change calculation with better error handling
+        // Enhanced change calculation with better precision
         let change24h = 0;
         let changePercentage = 0;
         
-        if (chartData.length >= 2) {
+        if (chartData.length >= 5) {
           const currentPrice = chartData[chartData.length - 1].price;
           const oldPrice = chartData[0].price;
           
@@ -102,14 +102,16 @@ export const useCentralizedMarketData = (symbol: string) => {
           }
         }
 
-        // Determine data source based on the actual source field
-        let sourceDescription = 'Live Data';
-        if (marketState.source?.includes('enhanced')) {
-          sourceDescription = 'Enhanced Live';
+        // Determine FastForex data source type
+        let sourceDescription = 'FastForex Live';
+        if (marketState.source?.includes('fresh')) {
+          sourceDescription = 'FastForex Fresh';
         } else if (marketState.source?.includes('tick')) {
-          sourceDescription = 'Real-time Ticks';
+          sourceDescription = 'FastForex Tick';
         } else if (marketState.source?.includes('weekend')) {
           sourceDescription = 'Weekend Sim';
+        } else if (marketState.source?.includes('event')) {
+          sourceDescription = 'FastForex Event';
         }
 
         const centralizedData: CentralizedMarketData = {
@@ -137,7 +139,7 @@ export const useCentralizedMarketData = (symbol: string) => {
     }
   }, [symbol]);
 
-  // Set up optimized real-time subscriptions
+  // Optimized real-time subscriptions for FastForex data
   useEffect(() => {
     if (!symbol || !SUPPORTED_PAIRS.includes(symbol)) {
       setIsConnected(false);
@@ -147,9 +149,9 @@ export const useCentralizedMarketData = (symbol: string) => {
     mountedRef.current = true;
     fetchCentralizedData();
 
-    // Enhanced real-time subscription with immediate updates
+    // Enhanced real-time subscription for FastForex updates
     const stateChannel = supabase
-      .channel(`live-market-${symbol}`)
+      .channel(`fastforex-live-${symbol}`)
       .on(
         'postgres_changes',
         {
@@ -160,20 +162,20 @@ export const useCentralizedMarketData = (symbol: string) => {
         },
         (payload) => {
           if (!mountedRef.current) return;
-          console.log(`🔔 Real-time update for ${symbol}:`, payload.new);
-          // Immediate fetch for latest data with slight delay to ensure DB consistency
-          setTimeout(fetchCentralizedData, 100);
+          console.log(`🔔 FastForex update for ${symbol}:`, payload.new);
+          // Quick fetch for immediate FastForex data
+          setTimeout(fetchCentralizedData, 80);
         }
       )
       .subscribe((status) => {
         if (!mountedRef.current) return;
         setIsConnected(status === 'SUBSCRIBED');
-        console.log(`📡 Live channel ${symbol}: ${status}`);
+        console.log(`📡 FastForex channel ${symbol}: ${status}`);
       });
 
-    // Optimized price history subscription (only for new inserts)
+    // Optimized price history subscription for FastForex ticks
     const historyChannel = supabase
-      .channel(`live-history-${symbol}`)
+      .channel(`fastforex-history-${symbol}`)
       .on(
         'postgres_changes',
         {
@@ -184,9 +186,9 @@ export const useCentralizedMarketData = (symbol: string) => {
         },
         (payload) => {
           if (!mountedRef.current) return;
-          console.log(`📈 New tick for ${symbol}:`, payload.new);
-          // Quick update for chart data
-          setTimeout(fetchCentralizedData, 50);
+          console.log(`📈 FastForex tick for ${symbol}:`, payload.new);
+          // Very quick update for smooth charting
+          setTimeout(fetchCentralizedData, 40);
         }
       )
       .subscribe();
@@ -203,22 +205,22 @@ export const useCentralizedMarketData = (symbol: string) => {
     };
   }, [symbol, fetchCentralizedData]);
 
-  // Enhanced market update trigger
+  // Enhanced FastForex market update trigger
   const triggerMarketUpdate = useCallback(async () => {
     try {
-      console.log(`🚀 Triggering market update for ${symbol}...`);
+      console.log(`🚀 Triggering FastForex update for ${symbol}...`);
       
       const { data, error } = await supabase.functions.invoke('centralized-market-stream');
       
       if (error) {
-        console.error('❌ Market stream update failed:', error);
+        console.error('❌ FastForex stream update failed:', error);
       } else {
-        console.log('✅ Market stream updated:', data);
-        // Longer delay to ensure all updates propagate
-        setTimeout(fetchCentralizedData, 1000);
+        console.log('✅ FastForex stream updated:', data);
+        // Allow more time for FastForex data to propagate
+        setTimeout(fetchCentralizedData, 1200);
       }
     } catch (error) {
-      console.error('❌ Error triggering market update:', error);
+      console.error('❌ Error triggering FastForex update:', error);
     }
   }, [fetchCentralizedData, symbol]);
 

@@ -1,3 +1,4 @@
+
 import React, { useState, memo } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useToast } from '@/hooks/use-toast';
@@ -5,7 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import SignalStats from './SignalStats';
 import SignalCard from './SignalCard';
 import { Button } from '@/components/ui/button';
-import { Zap, RefreshCw, Wifi, WifiOff, Users } from 'lucide-react';
+import { Zap, RefreshCw, Wifi, WifiOff, Users, Database } from 'lucide-react';
 import { useMarketActivation } from '@/hooks/useMarketActivation';
 
 const TradingSignals = memo(() => {
@@ -15,6 +16,7 @@ const TradingSignals = memo(() => {
   const [analysis, setAnalysis] = useState<Record<string, string>>({});
   const [analyzingSignal, setAnalyzingSignal] = useState<string | null>(null);
   const [refreshingSignals, setRefreshingSignals] = useState(false);
+  const [generatingSignals, setGeneratingSignals] = useState(false);
 
   // Add market activation
   const { activateMarket } = useMarketActivation();
@@ -49,6 +51,46 @@ const TradingSignals = memo(() => {
       });
     } finally {
       setRefreshingSignals(false);
+    }
+  };
+
+  const handleGenerateSignals = async () => {
+    setGeneratingSignals(true);
+    try {
+      console.log('🚀 Manually triggering FastForex signal generation...');
+      
+      const { data: signalResult, error: signalError } = await supabase.functions.invoke('generate-signals');
+      
+      if (signalError) {
+        console.error('❌ Manual signal generation failed:', signalError);
+        toast({
+          title: "Generation Failed",
+          description: "Failed to generate FastForex signals manually",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      console.log('✅ Manual FastForex signals generated:', signalResult);
+      
+      // Refresh the signal list
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      window.location.reload(); // Force refresh to see new signals
+      
+      toast({
+        title: "Signals Generated!",
+        description: `Generated ${signalResult?.signals?.length || 'new'} FastForex-powered signals`,
+      });
+      
+    } catch (error) {
+      console.error('❌ Error in manual signal generation:', error);
+      toast({
+        title: "Generation Error",
+        description: "Failed to generate signals manually",
+        variant: "destructive"
+      });
+    } finally {
+      setGeneratingSignals(false);
     }
   };
 
@@ -121,7 +163,7 @@ const TradingSignals = memo(() => {
               <Users className="h-5 w-5 text-blue-400" />
               <span className="text-white font-medium">Centralized Signals</span>
               <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">
-                SYNCHRONIZED
+                FASTFOREX-POWERED
               </span>
             </div>
             <div className="flex items-center space-x-2">
@@ -131,12 +173,12 @@ const TradingSignals = memo(() => {
                 <WifiOff className="h-4 w-4 text-red-400" />
               )}
               <span className="text-sm text-gray-400">
-                {hasSignalData ? 'All users see identical signals' : 'Waiting for signal data'}
+                {hasSignalData ? 'All users see identical signals' : 'No signal data - generate new signals'}
               </span>
             </div>
           </div>
           <div className="text-sm text-gray-400">
-            Real-time synchronized • 85%+ confidence threshold
+            Real-time FastForex data • 85%+ confidence threshold
           </div>
         </div>
       </div>
@@ -146,12 +188,30 @@ const TradingSignals = memo(() => {
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <Zap className="h-5 w-5 text-yellow-400" />
-              <span className="text-white font-medium">Centralized Signal Management</span>
+              <Database className="h-5 w-5 text-green-400" />
+              <span className="text-white font-medium">FastForex Signal Management</span>
               <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded">
-                DETERMINISTIC
+                REAL DATA
               </span>
             </div>
+            <Button
+              onClick={handleGenerateSignals}
+              disabled={generatingSignals}
+              className="bg-green-600 hover:bg-green-700 text-white text-sm"
+              size="sm"
+            >
+              {generatingSignals ? (
+                <>
+                  <Database className="h-4 w-4 mr-2 animate-pulse" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <Database className="h-4 w-4 mr-2" />
+                  Generate FastForex Signals
+                </>
+              )}
+            </Button>
             <Button
               onClick={handleRefreshSignals}
               disabled={refreshingSignals}
@@ -172,7 +232,7 @@ const TradingSignals = memo(() => {
             </Button>
           </div>
           <div className="text-sm text-gray-400">
-            🌐 Centralized for all users • Updates every 10 minutes
+            🌐 Centralized FastForex • Updates every 10 minutes
           </div>
         </div>
       </div>
@@ -197,7 +257,7 @@ const TradingSignals = memo(() => {
               </select>
             </div>
             <div className="text-sm text-gray-400">
-              Centralized signals • Identical for all users
+              FastForex-powered signals • Identical for all users
             </div>
           </div>
         </div>
@@ -206,7 +266,7 @@ const TradingSignals = memo(() => {
       {/* Active Centralized Signals Grid */}
       <div>
         <h3 className="text-white text-lg font-semibold mb-4">
-          {selectedPair === 'All' ? 'Centralized Signals' : `${selectedPair} Signals`} ({filteredSignals.length})
+          {selectedPair === 'All' ? 'FastForex Signals' : `${selectedPair} Signals`} ({filteredSignals.length})
         </h3>
         
         {filteredSignals.length > 0 ? (
@@ -234,26 +294,46 @@ const TradingSignals = memo(() => {
                 ? 'No centralized signals available at the moment' 
                 : `No centralized signals available for ${selectedPair}`}
             </div>
-            <div className="text-sm text-gray-500 mb-4">
-              Centralized signals are generated automatically and identical for all users
+            <div className="text-sm text-gray-500 mb-6">
+              FastForex-powered signals are generated automatically and identical for all users
             </div>
-            <Button
-              onClick={handleRefreshSignals}
-              disabled={refreshingSignals}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              {refreshingSignals ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Refreshing...
-                </>
-              ) : (
-                <>
-                  <Users className="h-4 w-4 mr-2" />
-                  Refresh Centralized Signals
-                </>
-              )}
-            </Button>
+            <div className="space-x-4">
+              <Button
+                onClick={handleGenerateSignals}
+                disabled={generatingSignals}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                {generatingSignals ? (
+                  <>
+                    <Database className="h-4 w-4 mr-2 animate-pulse" />
+                    Generating FastForex Signals...
+                  </>
+                ) : (
+                  <>
+                    <Database className="h-4 w-4 mr-2" />
+                    Generate FastForex Signals
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={handleRefreshSignals}
+                disabled={refreshingSignals}
+                variant="outline"
+                className="text-white border-white/20 hover:bg-white/10"
+              >
+                {refreshingSignals ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Refreshing...
+                  </>
+                ) : (
+                  <>
+                    <Users className="h-4 w-4 mr-2" />
+                    Refresh Centralized Signals
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         )}
       </div>
