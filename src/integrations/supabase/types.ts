@@ -511,6 +511,7 @@ export type Database = {
           analysis_text: string | null
           asset_type: string | null
           change_24h: number | null
+          chart_data: Json | null
           confidence: number
           created_at: string
           id: string
@@ -533,6 +534,7 @@ export type Database = {
           analysis_text?: string | null
           asset_type?: string | null
           change_24h?: number | null
+          chart_data?: Json | null
           confidence: number
           created_at?: string
           id?: string
@@ -555,6 +557,7 @@ export type Database = {
           analysis_text?: string | null
           asset_type?: string | null
           change_24h?: number | null
+          chart_data?: Json | null
           confidence?: number
           created_at?: string
           id?: string

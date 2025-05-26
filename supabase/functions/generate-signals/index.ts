@@ -195,7 +195,8 @@ serve(async (req) => {
           is_centralized: true,
           user_id: null,
           analysis_text: `FastForex-powered ${signalType} signal for ${pair}. Real market data with ${confidence}% confidence.`,
-          chart_data: chartData, // FIXED chart data from FastForex prices
+          chart_data: chartData,
+          pips: Math.floor(Math.abs(entryPrice - stopLoss) * 10000),
           created_at: timestamp
         };
 
