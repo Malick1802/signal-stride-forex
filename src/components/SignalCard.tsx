@@ -1,10 +1,11 @@
 
 import React, { useState } from 'react';
 import { validateSignal, createSafeSignal } from '@/utils/signalValidation';
-import { useSignalMarketData } from '@/hooks/useSignalMarketData';
+import { useRealTimeMarketData } from '@/hooks/useRealTimeMarketData';
 import SignalCardLoading from './SignalCardLoading';
 import SignalHeader from './SignalHeader';
-import SignalChart from './SignalChart';
+import RealTimeChart from './RealTimeChart';
+import RealTimePriceDisplay from './RealTimePriceDisplay';
 import SignalPriceDetails from './SignalPriceDetails';
 import SignalAnalysis from './SignalAnalysis';
 import SignalActions from './SignalActions';
@@ -45,8 +46,9 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
     isMarketOpen,
     lastUpdateTime,
     dataSource,
+    isConnected,
     getPriceChange
-  } = useSignalMarketData({
+  } = useRealTimeMarketData({
     pair: safeSignal.pair,
     entryPrice: safeSignal.entryPrice
   });
@@ -71,9 +73,21 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
         lastUpdateTime={lastUpdateTime}
       />
 
-      <SignalChart
+      <RealTimePriceDisplay
+        currentPrice={currentPrice}
+        change={change}
+        percentage={percentage}
+        lastUpdateTime={lastUpdateTime}
+        dataSource={dataSource}
+        isConnected={isConnected}
+        isMarketOpen={isMarketOpen}
+      />
+
+      <RealTimeChart
         priceData={priceData}
         signalType={safeSignal.type}
+        currentPrice={currentPrice}
+        isConnected={isConnected}
       />
 
       <SignalPriceDetails
