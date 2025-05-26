@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, TrendingDown, Clock, Shield, Brain, ChevronDown, ChevronUp, Copy, ExternalLink, Check } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -40,6 +39,7 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
   const [isMarketOpen, setIsMarketOpen] = useState(false);
+  const [lastUpdateTime, setLastUpdateTime] = useState<string>('');
   const { toast } = useToast();
 
   // Early return with comprehensive validation
@@ -95,15 +95,17 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
     }
   };
 
-  // Fetch real market data from database
+  // Enhanced real market data fetching with more frequent updates
   const fetchRealMarketData = async () => {
     try {
+      console.log(`Fetching real-time data for ${signal.pair}...`);
+      
       const { data: marketData, error } = await supabase
         .from('live_market_data')
         .select('*')
         .eq('symbol', signal.pair)
         .order('created_at', { ascending: false })
-        .limit(30);
+        .limit(50); // Increased for smoother charts
 
       if (error) {
         console.error('Error fetching market data:', error);
@@ -114,14 +116,29 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
       if (marketData && marketData.length > 0) {
         const transformedData = marketData.reverse().map((item, index) => ({
           timestamp: new Date(item.created_at || item.timestamp).getTime(),
-          time: new Date(item.created_at || item.timestamp).toLocaleTimeString(),
+          time: new Date(item.created_at || item.timestamp).toLocaleTimeString('en-US', {
+            hour12: false,
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit'
+          }),
           price: parseFloat((item.price || 0).toString()),
           volume: Math.random() * 500000
         }));
 
         setPriceData(transformedData);
-        setCurrentPrice(transformedData[transformedData.length - 1]?.price || parseFloat(signal.entryPrice || '0'));
+        const latestPrice = transformedData[transformedData.length - 1]?.price;
+        setCurrentPrice(latestPrice || parseFloat(signal.entryPrice || '0'));
+        setLastUpdateTime(new Date().toLocaleTimeString('en-US', {
+          hour12: false,
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        }));
+        
+        console.log(`Updated ${signal.pair} price: ${latestPrice}`);
       } else {
+        console.log(`No market data found for ${signal.pair}, using fallback`);
         generateFallbackData();
       }
     } catch (error) {
@@ -204,21 +221,50 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
     fetchRealMarketData();
   }, [signal.pair, signal.entryPrice]);
 
-  // Real-time updates
+  // Enhanced real-time updates with more aggressive polling
   useEffect(() => {
-    const updateInterval = isMarketOpen ? 30000 : 300000;
+    const marketOpen = checkMarketHours();
+    setIsMarketOpen(marketOpen);
+    
+    // More frequent updates: 15 seconds during market hours, 1 minute when closed
+    const updateInterval = marketOpen ? 15000 : 60000;
     
     const interval = setInterval(() => {
-      const marketOpen = checkMarketHours();
-      setIsMarketOpen(marketOpen);
+      const currentlyOpen = checkMarketHours();
+      setIsMarketOpen(currentlyOpen);
       
-      if (marketOpen) {
+      if (currentlyOpen) {
         fetchRealMarketData();
       }
     }, updateInterval);
 
     return () => clearInterval(interval);
   }, [signal.pair, isMarketOpen]);
+
+  // Real-time subscription for immediate updates
+  useEffect(() => {
+    const channel = supabase
+      .channel(`market-updates-${signal.pair}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'live_market_data',
+          filter: `symbol=eq.${signal.pair}`
+        },
+        (payload) => {
+          console.log(`Real-time update for ${signal.pair}:`, payload);
+          // Trigger immediate refresh
+          setTimeout(fetchRealMarketData, 500);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [signal.pair]);
 
   const chartConfig = {
     price: {
@@ -267,7 +313,7 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
           </div>
         </div>
         
-        {/* Current Price and Change */}
+        {/* Current Price and Change with Last Update Time */}
         {currentPrice && (
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
@@ -277,9 +323,10 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
                 <TrendingDown className="h-4 w-4 text-red-400" />
               )}
               <span className="text-white text-lg font-mono">{formatPrice(currentPrice)}</span>
-              <span className="text-xs text-gray-400">
-                {isMarketOpen ? 'Real-time' : 'Last close'}
-              </span>
+              <div className="flex flex-col text-xs text-gray-400">
+                <span>{isMarketOpen ? 'Real-time' : 'Last close'}</span>
+                {lastUpdateTime && <span>Updated: {lastUpdateTime}</span>}
+              </div>
             </div>
             <div className="flex items-center space-x-1">
               <span className={`text-sm font-mono ${
@@ -294,7 +341,7 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
         )}
       </div>
 
-      {/* Trading Chart */}
+      {/* Trading Chart with Enhanced Real-time Updates */}
       <div className="h-48 p-4">
         <ChartContainer config={chartConfig}>
           <ResponsiveContainer width="100%" height="100%">
@@ -327,10 +374,39 @@ const SignalCard = ({ signal, analysis }: SignalCardProps) => {
                 strokeWidth={2}
                 dot={false}
                 connectNulls
+                strokeDasharray={isMarketOpen ? "0" : "5,5"} // Dashed line when market is closed
               />
             </LineChart>
           </ResponsiveContainer>
         </ChartContainer>
+      </div>
+
+      {/* Chart Info with Real-time Status */}
+      <div className="px-4 pb-2">
+        <div className="grid grid-cols-4 gap-4 text-xs">
+          <div className="text-gray-400">
+            <span className="block">Data Source</span>
+            <span className="text-white font-mono">
+              {isMarketOpen ? 'FastForex' : 'Last available'}
+            </span>
+          </div>
+          <div className="text-gray-400">
+            <span className="block">Data Points</span>
+            <span className="text-white font-mono">{priceData.length}</span>
+          </div>
+          <div className="text-gray-400">
+            <span className="block">Update Rate</span>
+            <span className="text-white font-mono">
+              {isMarketOpen ? '15s' : '1min'}
+            </span>
+          </div>
+          <div className="text-gray-400">
+            <span className="block">Last Update</span>
+            <span className={`font-mono ${isMarketOpen ? 'text-emerald-400' : 'text-red-400'}`}>
+              {lastUpdateTime || 'Loading...'}
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* Signal Details */}

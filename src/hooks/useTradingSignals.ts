@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -190,13 +189,13 @@ export const useTradingSignals = () => {
         },
         (payload) => {
           console.log('Real-time market data update:', payload);
-          // Update signals with new market data
-          setTimeout(fetchSignals, 500);
+          // Update signals with new market data immediately
+          setTimeout(fetchSignals, 200);
         }
       )
       .subscribe();
 
-    // Automatic market data and signal generation
+    // Automatic market data and signal generation with enhanced frequency
     const checkMarketHours = () => {
       const now = new Date();
       const utcHour = now.getUTCHours();
@@ -207,20 +206,21 @@ export const useTradingSignals = () => {
              (utcDay === 5 && utcHour < 22);
     };
 
-    // Market data updates every 30 seconds during market hours, 2 minutes when closed
+    // Enhanced market data updates: every 15 seconds during market hours, 30 seconds when closed
     const marketDataInterval = setInterval(async () => {
       const isMarketOpen = checkMarketHours();
       try {
+        console.log(`Triggering market data update (Market ${isMarketOpen ? 'OPEN' : 'CLOSED'})`);
         await supabase.functions.invoke('fetch-market-data');
       } catch (error) {
         console.error('Automatic market data update failed:', error);
       }
-    }, checkMarketHours() ? 30000 : 120000);
+    }, checkMarketHours() ? 15000 : 30000);
 
-    // Signal generation every 5 minutes
+    // Signal generation every 3 minutes for more responsive signals
     const signalGenerationInterval = setInterval(() => {
       triggerAutomaticSignalGeneration();
-    }, 300000);
+    }, 180000);
 
     return () => {
       supabase.removeChannel(signalsChannel);
