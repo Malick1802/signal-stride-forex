@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -27,18 +26,18 @@ export const useTradingSignals = () => {
 
   const fetchSignals = useCallback(async () => {
     try {
-      // Fetch only centralized signals to ensure consistency across all users
+      // Fetch only ACTIVE centralized signals to ensure consistency across all users
       const { data: centralizedSignals, error } = await supabase
         .from('trading_signals')
         .select('*')
-        .eq('status', 'active')
+        .eq('status', 'active')  // Only fetch active signals
         .eq('is_centralized', true)
         .is('user_id', null)
         .order('created_at', { ascending: false })
         .limit(25);
 
       if (error) {
-        console.error('❌ Error fetching centralized signals:', error);
+        console.error('❌ Error fetching active centralized signals:', error);
         setSignals([]);
         return;
       }
@@ -55,7 +54,7 @@ export const useTradingSignals = () => {
       setLastUpdate(new Date().toLocaleTimeString());
       
       if (processedSignals.length > 0) {
-        console.log(`✅ Loaded ${processedSignals.length} centralized signals with fixed data`);
+        console.log(`✅ Loaded ${processedSignals.length} active centralized signals`);
       }
       
     } catch (error) {
@@ -67,7 +66,7 @@ export const useTradingSignals = () => {
   }, []);
 
   const processSignals = (activeSignals: any[]) => {
-    console.log(`📊 Processing ${activeSignals.length} centralized signals`);
+    console.log(`📊 Processing ${activeSignals.length} active centralized signals`);
 
     const transformedSignals = activeSignals
       .map(signal => {
@@ -131,7 +130,7 @@ export const useTradingSignals = () => {
       })
       .filter(Boolean) as TradingSignal[];
 
-    console.log(`✅ Successfully processed ${transformedSignals.length} centralized signals with fixed chart data`);
+    console.log(`✅ Successfully processed ${transformedSignals.length} active centralized signals`);
     return transformedSignals;
   };
 
@@ -239,6 +238,23 @@ export const useTradingSignals = () => {
         }
       });
 
+    // Subscribe to signal outcomes to refresh when signals expire
+    const outcomesChannel = supabase
+      .channel(`signal-outcomes-${Date.now()}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'signal_outcomes'
+        },
+        (payload) => {
+          console.log('📡 Signal outcome detected, refreshing active signals:', payload);
+          setTimeout(fetchSignals, 500);
+        }
+      )
+      .subscribe();
+
     // Automatic refresh every 2 minutes (backup for real-time)
     const updateInterval = setInterval(async () => {
       console.log('🔄 Periodic signal refresh...');
@@ -247,6 +263,7 @@ export const useTradingSignals = () => {
 
     return () => {
       supabase.removeChannel(signalsChannel);
+      supabase.removeChannel(outcomesChannel);
       clearInterval(updateInterval);
     };
   }, [fetchSignals]);

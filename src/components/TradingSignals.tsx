@@ -1,6 +1,6 @@
-
 import React, { useState, memo } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
+import { useSignalMonitoring } from '@/hooks/useSignalMonitoring';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import SignalStats from './SignalStats';
@@ -14,6 +14,9 @@ import { useMarketActivation } from '@/hooks/useMarketActivation';
 const TradingSignals = memo(() => {
   const { signals, loading, lastUpdate, triggerAutomaticSignalGeneration } = useTradingSignals();
   const { toast } = useToast();
+  
+  // Add signal monitoring
+  useSignalMonitoring();
   
   const [analysis, setAnalysis] = useState<Record<string, string>>({});
   const [analyzingSignal, setAnalyzingSignal] = useState<string | null>(null);
@@ -130,12 +133,12 @@ const TradingSignals = memo(() => {
               <Activity className="h-5 w-5 text-emerald-400" />
               <span className="text-white font-medium">Automated FastForex System</span>
               <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded">
-                LIVE AUTO-UPDATE
+                LIVE AUTO-UPDATE + MONITORING
               </span>
             </div>
           </div>
           <div className="text-sm text-gray-400">
-            Updates: Market data every 8s • Signals every 45s • Full sync every 3min
+            Updates: Market data every 8s • Signals every 45s • Outcome monitoring every 30s
           </div>
         </div>
       </div>
@@ -196,7 +199,7 @@ const TradingSignals = memo(() => {
               </select>
             </div>
             <div className="text-sm text-gray-400">
-              Auto-refresh active • No manual refresh needed
+              Auto-refresh active • Outcome monitoring enabled
             </div>
           </div>
         </div>
