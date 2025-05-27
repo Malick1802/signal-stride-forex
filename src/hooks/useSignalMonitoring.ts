@@ -147,11 +147,11 @@ export const useSignalMonitoring = () => {
         currentPrices[data.symbol] = parseFloat(data.current_price.toString());
       });
 
-      // Transform signals for monitoring
+      // Transform signals for monitoring with proper type casting
       const signalsToMonitor: SignalToMonitor[] = activeSignals.map(signal => ({
         id: signal.id,
         symbol: signal.symbol,
-        type: signal.type,
+        type: (signal.type === 'BUY' || signal.type === 'SELL') ? signal.type as 'BUY' | 'SELL' : 'BUY',
         entryPrice: parseFloat(signal.price.toString()),
         stopLoss: parseFloat(signal.stop_loss.toString()),
         takeProfits: signal.take_profits?.map((tp: any) => parseFloat(tp.toString())) || [],
