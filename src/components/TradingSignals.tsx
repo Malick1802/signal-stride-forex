@@ -1,4 +1,3 @@
-
 import React, { useState, memo } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useSignalMonitoring } from '@/hooks/useSignalMonitoring';
@@ -9,7 +8,7 @@ import SignalCard from './SignalCard';
 import RealTimeStatus from './RealTimeStatus';
 import GlobalRefreshIndicator from './GlobalRefreshIndicator';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Users, Activity, Brain } from 'lucide-react';
+import { RefreshCw, Users, Activity, Brain, TestTube, Wrench } from 'lucide-react';
 import { useMarketActivation } from '@/hooks/useMarketActivation';
 
 const TradingSignals = memo(() => {
@@ -22,6 +21,8 @@ const TradingSignals = memo(() => {
   const [analysis, setAnalysis] = useState<Record<string, string>>({});
   const [analyzingSignal, setAnalyzingSignal] = useState<string | null>(null);
   const [refreshingSignals, setRefreshingSignals] = useState(false);
+  const [testingSystem, setTestingSystem] = useState(false);
+  const [cleaningCrons, setCleaningCrons] = useState(false);
 
   // Add market activation
   const { activateMarket } = useMarketActivation();
@@ -42,6 +43,77 @@ const TradingSignals = memo(() => {
   const avgConfidence = validSignals.length > 0 
     ? Math.round(validSignals.reduce((sum, signal) => sum + (signal.confidence || 0), 0) / validSignals.length)
     : 87;
+
+  const handleCleanupCrons = async () => {
+    setCleaningCrons(true);
+    try {
+      console.log('🧹 Cleaning up cron jobs...');
+      const { data, error } = await supabase.functions.invoke('cleanup-crons');
+      
+      if (error) {
+        console.error('❌ Cron cleanup error:', error);
+        toast({
+          title: "Cleanup Error",
+          description: "Failed to cleanup cron jobs. Check logs for details.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      console.log('✅ Cron cleanup result:', data);
+      toast({
+        title: "✅ Cron Jobs Cleaned",
+        description: "All cron jobs cleaned up and new signal generation cron created (every 5 minutes)",
+      });
+    } catch (error) {
+      console.error('❌ Error cleaning crons:', error);
+      toast({
+        title: "Cleanup Error",
+        description: "Failed to cleanup cron jobs. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setCleaningCrons(false);
+    }
+  };
+
+  const handleTestSignalGeneration = async () => {
+    setTestingSystem(true);
+    try {
+      console.log('🧪 Testing signal generation system...');
+      const { data, error } = await supabase.functions.invoke('test-signal-generation');
+      
+      if (error) {
+        console.error('❌ Test error:', error);
+        toast({
+          title: "Test Error",
+          description: "Signal generation test failed. Check logs for details.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      console.log('✅ Test result:', data);
+      toast({
+        title: "✅ Test Complete",
+        description: `Market data: ${data.marketDataCount}, Signals before: ${data.signalsBeforeGeneration}, Signals after: ${data.signalsAfterGeneration}`,
+      });
+
+      // Refresh signals after test
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    } catch (error) {
+      console.error('❌ Error testing system:', error);
+      toast({
+        title: "Test Error",
+        description: "Failed to test signal generation. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setTestingSystem(false);
+    }
+  };
 
   const handleRefreshSignals = async () => {
     setRefreshingSignals(true);
@@ -126,6 +198,59 @@ const TradingSignals = memo(() => {
       {/* Real-time Connection Status */}
       <RealTimeStatus />
 
+      {/* System Debugging Panel */}
+      <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <Wrench className="h-5 w-5 text-yellow-400" />
+              <span className="text-white font-medium">System Debugging</span>
+              <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">
+                DEBUG MODE
+              </span>
+            </div>
+          </div>
+          <div className="flex space-x-2">
+            <Button
+              onClick={handleCleanupCrons}
+              disabled={cleaningCrons}
+              className="bg-yellow-600 hover:bg-yellow-700 text-white text-sm"
+              size="sm"
+            >
+              {cleaningCrons ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Cleaning...
+                </>
+              ) : (
+                <>
+                  <Wrench className="h-4 w-4 mr-2" />
+                  Fix Cron Jobs
+                </>
+              )}
+            </Button>
+            <Button
+              onClick={handleTestSignalGeneration}
+              disabled={testingSystem}
+              className="bg-purple-600 hover:bg-purple-700 text-white text-sm"
+              size="sm"
+            >
+              {testingSystem ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Testing...
+                </>
+              ) : (
+                <>
+                  <TestTube className="h-4 w-4 mr-2" />
+                  Test System
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+      </div>
+
       {/* AI-Powered System Status */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="flex items-center justify-between">
@@ -175,7 +300,7 @@ const TradingSignals = memo(() => {
             </Button>
           </div>
           <div className="text-sm text-gray-400">
-            🧠 All users see identical AI-generated signals • Real-time market analysis
+            🧠 All users see identical AI-generated signals • Real-time market analysis • Auto-generated every 5 minutes
           </div>
         </div>
       </div>

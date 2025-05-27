@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -16,11 +17,17 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const isCronTriggered = body.trigger === 'cron';
     
-    console.log(`🤖 ${isCronTriggered ? 'Automatic cron' : 'Manual'} AI-powered signal generation...`);
+    console.log(`🤖 ${isCronTriggered ? 'CRON AUTOMATIC' : 'MANUAL'} AI-powered signal generation starting...`);
+    console.log('⏰ Timestamp:', new Date().toISOString());
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+    
+    console.log('🔍 Environment check:');
+    console.log(`  - Supabase URL: ${supabaseUrl ? '✅ Set' : '❌ Missing'}`);
+    console.log(`  - Service Key: ${supabaseServiceKey ? '✅ Set' : '❌ Missing'}`);
+    console.log(`  - OpenAI Key: ${openAIApiKey ? '✅ Set' : '❌ Missing'}`);
     
     if (!supabaseUrl || !supabaseServiceKey) {
       throw new Error('Missing required Supabase environment variables');
@@ -32,7 +39,27 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // Check current active signals count
+    const { data: existingSignals, error: countError } = await supabase
+      .from('trading_signals')
+      .select('id, symbol, created_at')
+      .eq('is_centralized', true)
+      .is('user_id', null)
+      .eq('status', 'active');
+
+    if (countError) {
+      console.error('❌ Error checking existing signals:', countError);
+    } else {
+      console.log(`📊 Current active centralized signals: ${existingSignals?.length || 0}`);
+      if (existingSignals && existingSignals.length > 0) {
+        existingSignals.forEach(signal => {
+          console.log(`  - ${signal.symbol} (created: ${signal.created_at})`);
+        });
+      }
+    }
+
     // Get recent centralized market data from FastForex
+    console.log('📈 Fetching centralized market data...');
     const { data: marketData, error: marketError } = await supabase
       .from('centralized_market_state')
       .select('*')
@@ -44,26 +71,18 @@ serve(async (req) => {
       throw marketError;
     }
 
+    console.log(`💾 Found ${marketData?.length || 0} market data points`);
+
     if (!marketData || marketData.length === 0) {
       console.log('⚠️ No centralized market data available, triggering market update first...');
       
       try {
-        await supabase.functions.invoke('centralized-market-stream');
-        console.log('✅ Market data update triggered, waiting for data...');
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        
-        const { data: retryData } = await supabase
-          .from('centralized_market_state')
-          .select('*')
-          .order('last_update', { ascending: false })
-          .limit(10);
-          
-        if (!retryData || retryData.length === 0) {
-          console.log('⚠️ Still no market data available');
-          return new Response(
-            JSON.stringify({ message: 'No market data available', signals: [] }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
+        const { error: updateError } = await supabase.functions.invoke('centralized-market-stream');
+        if (updateError) {
+          console.error('❌ Failed to trigger market update:', updateError);
+        } else {
+          console.log('✅ Market data update triggered, waiting for data...');
+          await new Promise(resolve => setTimeout(resolve, 3000));
         }
       } catch (error) {
         console.error('❌ Failed to trigger market update:', error);
@@ -80,18 +99,21 @@ serve(async (req) => {
       const pairData = marketData?.find(item => item.symbol === pair);
       if (pairData) {
         latestPrices.set(pair, pairData);
-        console.log(`📊 Found centralized data for ${pair}: ${pairData.current_price}`);
+        console.log(`📊 Found centralized data for ${pair}: ${pairData.current_price} (updated: ${pairData.last_update})`);
+      } else {
+        console.log(`⚠️ No centralized data found for ${pair}`);
       }
     }
+
+    console.log(`🎯 Will generate signals for ${latestPrices.size} pairs with available data`);
 
     const signals = [];
     const timestamp = new Date().toISOString();
 
-    // For automatic generation, only remove stale signals (older than 7 days) with outcomes
+    // For cron triggers, only clean up very old signals to avoid conflicts
     if (isCronTriggered) {
-      console.log('🔄 Automatic generation: cleaning up old completed signals');
+      console.log('🔄 Cron trigger: cleaning up old expired signals...');
       
-      // Only delete signals older than 7 days that already have outcomes recorded
       const { error: deleteError } = await supabase
         .from('trading_signals')
         .delete()
@@ -101,90 +123,32 @@ serve(async (req) => {
         .lt('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
 
       if (deleteError) {
-        console.error('❌ Error deleting old completed signals:', deleteError);
+        console.error('❌ Error deleting old signals:', deleteError);
       } else {
-        console.log('✅ Cleaned up old completed signals (7+ days with outcomes)');
-      }
-
-      // Clean up very old active signals (14+ days) as safety mechanism - mark as expired with outcome
-      const { data: staleSignals } = await supabase
-        .from('trading_signals')
-        .select('*')
-        .eq('is_centralized', true)
-        .is('user_id', null)
-        .eq('status', 'active')
-        .lt('created_at', new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString());
-
-      if (staleSignals && staleSignals.length > 0) {
-        console.log(`⚠️ Found ${staleSignals.length} stale signals (14+ days), marking as expired with timeout outcome`);
-        
-        for (const staleSignal of staleSignals) {
-          // Create timeout outcome
-          await supabase
-            .from('signal_outcomes')
-            .insert({
-              signal_id: staleSignal.id,
-              hit_target: false,
-              exit_price: staleSignal.price, // Use entry price as exit price for timeout
-              target_hit_level: null,
-              pnl_pips: 0, // No profit/loss for timeout
-              notes: 'Signal expired due to timeout (14+ days with no outcome)'
-            });
-
-          // Mark signal as expired
-          await supabase
-            .from('trading_signals')
-            .update({ 
-              status: 'expired',
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', staleSignal.id);
-        }
-        
-        console.log('✅ Processed stale signals with timeout outcomes');
+        console.log('✅ Cleaned up old expired signals (7+ days)');
       }
     } else {
-      // For manual generation, check if we have recent signals
-      const { data: existingSignals } = await supabase
-        .from('trading_signals')
-        .select('id, created_at')
-        .eq('is_centralized', true)
-        .is('user_id', null)
-        .eq('status', 'active')
-        .gte('created_at', new Date(Date.now() - 30 * 60 * 1000).toISOString());
-
-      if (existingSignals && existingSignals.length >= 5) {
-        console.log(`✅ Found ${existingSignals.length} recent centralized signals for manual request`);
-        return new Response(
-          JSON.stringify({
-            success: true,
-            message: `Using existing ${existingSignals.length} centralized signals`,
-            signals: existingSignals.map(s => s.id),
-            timestamp
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Clear existing centralized signals for manual generation
+      console.log('🔄 Manual trigger: clearing existing active signals...');
+      
       const { error: deleteError } = await supabase
         .from('trading_signals')
         .delete()
         .eq('is_centralized', true)
-        .is('user_id', null);
+        .is('user_id', null)
+        .eq('status', 'active');
 
       if (deleteError) {
         console.error('❌ Error clearing existing signals:', deleteError);
       } else {
-        console.log('✅ Cleared existing centralized signals for manual generation');
+        console.log('✅ Cleared existing active centralized signals for manual generation');
       }
     }
 
-    // Generate AI-powered signals for each priority pair
+    // Generate AI-powered signals for each priority pair with available data
     for (const pair of priorityPairs) {
       const marketPoint = latestPrices.get(pair);
       if (!marketPoint) {
-        console.log(`⚠️ No centralized market data for ${pair}, skipping`);
+        console.log(`⚠️ Skipping ${pair} - no market data available`);
         continue;
       }
 
@@ -195,7 +159,7 @@ serve(async (req) => {
           continue;
         }
 
-        console.log(`🧠 Generating AI analysis for ${pair} at price ${currentPrice}`);
+        console.log(`🧠 Generating AI analysis for ${pair} at price ${currentPrice}...`);
 
         // Get historical price data for context
         const { data: historicalData } = await supabase
@@ -210,15 +174,8 @@ serve(async (req) => {
         const priceChange = priceHistory.length > 1 ? 
           ((currentPrice - priceHistory[priceHistory.length - 1]) / priceHistory[priceHistory.length - 1] * 100) : 0;
 
-        const marketContext = {
-          symbol: pair,
-          currentPrice,
-          priceHistory: priceHistory.slice(0, 5), // Last 5 data points
-          priceChange24h: priceChange,
-          timestamp: new Date().toISOString()
-        };
-
         // Call OpenAI for market analysis and signal generation
+        console.log(`🔮 Calling OpenAI API for ${pair} analysis...`);
         const aiAnalysisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -235,7 +192,7 @@ serve(async (req) => {
                 Respond with a JSON object containing:
                 {
                   "signal": "BUY" or "SELL" or "NEUTRAL",
-                  "confidence": number between 70-95,
+                  "confidence": number between 75-95,
                   "entry_price": number (current price adjusted for optimal entry),
                   "stop_loss_pips": number between 15-40,
                   "take_profit_pips": [number, number, number] (3 levels, progressive),
@@ -262,7 +219,7 @@ serve(async (req) => {
         });
 
         if (!aiAnalysisResponse.ok) {
-          console.error(`❌ OpenAI API error for ${pair}: ${aiAnalysisResponse.status}`);
+          console.error(`❌ OpenAI API error for ${pair}: ${aiAnalysisResponse.status} ${aiAnalysisResponse.statusText}`);
           continue;
         }
 
@@ -277,7 +234,6 @@ serve(async (req) => {
         // Parse AI response
         let aiSignal;
         try {
-          // Extract JSON from AI response
           const jsonMatch = aiContent.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
             aiSignal = JSON.parse(jsonMatch[0]);
@@ -295,6 +251,8 @@ serve(async (req) => {
           console.log(`⚠️ AI recommended NEUTRAL or invalid signal for ${pair}, skipping`);
           continue;
         }
+
+        console.log(`✅ AI generated ${aiSignal.signal} signal for ${pair} with ${aiSignal.confidence}% confidence`);
 
         // Calculate price levels based on AI recommendations
         const entryPrice = aiSignal.entry_price || currentPrice;
@@ -352,7 +310,7 @@ serve(async (req) => {
             parseFloat(takeProfit2.toFixed(pair.includes('JPY') ? 3 : 5)),
             parseFloat(takeProfit3.toFixed(pair.includes('JPY') ? 3 : 5))
           ],
-          confidence: Math.min(Math.max(aiSignal.confidence || 85, 70), 95),
+          confidence: Math.min(Math.max(aiSignal.confidence || 85, 75), 95),
           status: 'active',
           is_centralized: true,
           user_id: null,
@@ -371,18 +329,22 @@ serve(async (req) => {
     }
 
     if (signals.length === 0) {
-      console.log('⚠️ No AI signals generated, market conditions may be unclear');
+      console.log('⚠️ No AI signals generated - market conditions may be unclear or insufficient data');
       return new Response(
         JSON.stringify({ 
-          message: 'No AI signals generated - market conditions unclear', 
+          success: false,
+          message: 'No AI signals generated - market conditions unclear or insufficient data', 
           signals: [],
-          marketDataCount: marketData?.length || 0
+          marketDataCount: marketData?.length || 0,
+          availablePairs: Array.from(latestPrices.keys()),
+          timestamp
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     // Insert new AI-generated signals
+    console.log(`💾 Inserting ${signals.length} new AI-generated centralized signals...`);
     const { data: insertedSignals, error: insertError } = await supabase
       .from('trading_signals')
       .insert(signals)
@@ -393,13 +355,22 @@ serve(async (req) => {
       throw insertError;
     }
 
-    console.log(`✅ Successfully generated ${signals.length} AI-powered centralized signals`);
+    console.log(`🎉 SUCCESS! Generated ${signals.length} AI-powered centralized signals`);
+    insertedSignals?.forEach(signal => {
+      console.log(`  - ${signal.symbol} ${signal.type} @ ${signal.price} (${signal.confidence}% confidence)`);
+    });
 
     return new Response(
       JSON.stringify({
         success: true,
         message: `Generated ${signals.length} AI-powered centralized signals`,
-        signals: insertedSignals?.map(s => ({ id: s.id, symbol: s.symbol, type: s.type, confidence: s.confidence })) || [],
+        signals: insertedSignals?.map(s => ({ 
+          id: s.id, 
+          symbol: s.symbol, 
+          type: s.type, 
+          price: s.price,
+          confidence: s.confidence 
+        })) || [],
         marketDataUsed: Array.from(latestPrices.keys()),
         timestamp,
         trigger: isCronTriggered ? 'cron' : 'manual',
@@ -412,6 +383,7 @@ serve(async (req) => {
     console.error('💥 AI signal generation error:', error);
     return new Response(
       JSON.stringify({ 
+        success: false,
         error: error.message,
         timestamp: new Date().toISOString()
       }),
