@@ -95,29 +95,29 @@ const TradingSignals = memo(() => {
   const handleCleanupCrons = async () => {
     setCleaningCrons(true);
     try {
-      console.log('🧹 Cleaning up cron jobs...');
+      console.log('🧹 Setting up automatic signal generation...');
       const { data, error } = await supabase.functions.invoke('cleanup-crons');
       
       if (error) {
-        console.error('❌ Cron cleanup error:', error);
+        console.error('❌ Automatic setup error:', error);
         toast({
-          title: "Cleanup Error",
-          description: "Failed to cleanup cron jobs. Check logs for details.",
+          title: "Setup Error",
+          description: "Failed to setup automatic signal generation. Check logs for details.",
           variant: "destructive"
         });
         return;
       }
 
-      console.log('✅ Cron cleanup result:', data);
+      console.log('✅ Automatic setup result:', data);
       toast({
-        title: "✅ Cron Jobs Cleaned",
-        description: "All cron jobs cleaned up and new signal generation cron created (every 5 minutes)",
+        title: "✅ Automatic Generation Active",
+        description: "Signals will now be generated automatically every 5 minutes with outcome-based expiration",
       });
     } catch (error) {
-      console.error('❌ Error cleaning crons:', error);
+      console.error('❌ Error setting up automatic generation:', error);
       toast({
-        title: "Cleanup Error",
-        description: "Failed to cleanup cron jobs. Please try again.",
+        title: "Setup Error",
+        description: "Failed to setup automatic signal generation. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -250,15 +250,53 @@ const TradingSignals = memo(() => {
       {/* Real-time Connection Status */}
       <RealTimeStatus />
 
+      {/* Enhanced Automatic System Status */}
+      <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <Zap className="h-5 w-5 text-emerald-400" />
+              <span className="text-white font-medium">Automatic Signal Generation</span>
+              <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded">
+                OUTCOME-BASED EXPIRATION
+              </span>
+            </div>
+          </div>
+          <div className="flex space-x-2">
+            <Button
+              onClick={handleCleanupCrons}
+              disabled={cleaningCrons}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm"
+              size="sm"
+            >
+              {cleaningCrons ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Setting up...
+                </>
+              ) : (
+                <>
+                  <Zap className="h-4 w-4 mr-2" />
+                  Activate Auto Generation
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+        <div className="mt-2 text-xs text-gray-400">
+          🤖 Automatic mode: Generates signals every 5 minutes • Signals expire only when take profit or stop loss is hit • Continuous signal flow
+        </div>
+      </div>
+
       {/* Enhanced System Debugging Panel */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <Wrench className="h-5 w-5 text-yellow-400" />
-              <span className="text-white font-medium">System Debugging & Testing</span>
+              <span className="text-white font-medium">Manual Controls & Testing</span>
               <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">
-                ENHANCED DEBUG MODE
+                DEBUG MODE
               </span>
             </div>
           </div>
@@ -282,24 +320,6 @@ const TradingSignals = memo(() => {
               )}
             </Button>
             <Button
-              onClick={handleCleanupCrons}
-              disabled={cleaningCrons}
-              className="bg-yellow-600 hover:bg-yellow-700 text-white text-sm"
-              size="sm"
-            >
-              {cleaningCrons ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Cleaning...
-                </>
-              ) : (
-                <>
-                  <Wrench className="h-4 w-4 mr-2" />
-                  Fix Cron Jobs
-                </>
-              )}
-            </Button>
-            <Button
               onClick={handleComprehensiveTest}
               disabled={testingSystem}
               className="bg-purple-600 hover:bg-purple-700 text-white text-sm"
@@ -312,15 +332,15 @@ const TradingSignals = memo(() => {
                 </>
               ) : (
                 <>
-                  <Zap className="h-4 w-4 mr-2" />
-                  Comprehensive Test
+                  <TestTube className="h-4 w-4 mr-2" />
+                  System Test
                 </>
               )}
             </Button>
           </div>
         </div>
         <div className="mt-2 text-xs text-gray-400">
-          🧪 Test Mode: Lower confidence requirements (50-85%) • More liberal signal generation • Testing application functionality
+          🧪 Manual controls for testing • Test signals use lower thresholds • System diagnostics available
         </div>
       </div>
 
@@ -337,7 +357,7 @@ const TradingSignals = memo(() => {
             </div>
           </div>
           <div className="text-sm text-gray-400">
-            🤖 AI Analysis: Real-time market data • Advanced pattern recognition • Intelligent signal generation • Enhanced debugging
+            🤖 AI Analysis: Real-time market data • Outcome-based signal lifecycle • Intelligent signal generation
           </div>
         </div>
       </div>
@@ -350,7 +370,7 @@ const TradingSignals = memo(() => {
               <Users className="h-5 w-5 text-blue-400" />
               <span className="text-white font-medium">Centralized AI Signals</span>
               <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">
-                LIVE AI ANALYSIS
+                AUTOMATIC GENERATION
               </span>
             </div>
             <Button
@@ -367,13 +387,13 @@ const TradingSignals = memo(() => {
               ) : (
                 <>
                   <Brain className="h-4 w-4 mr-2" />
-                  Generate AI Signals
+                  Manual Generate
                 </>
               )}
             </Button>
           </div>
           <div className="text-sm text-gray-400">
-            🧠 All users see identical AI-generated signals • Real-time market analysis • Auto-generated every 5 minutes
+            🧠 All users see identical signals • Expires on outcomes only • Auto-generated every 5 minutes
           </div>
         </div>
       </div>

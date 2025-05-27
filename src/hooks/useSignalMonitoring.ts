@@ -53,6 +53,7 @@ export const useSignalMonitoring = () => {
             hitTarget = true;
             targetLevel = i + 1;
             exitPrice = tpPrice;
+            break; // Take the first hit target
           }
         }
       }
@@ -170,12 +171,12 @@ export const useSignalMonitoring = () => {
     // Initial check
     monitorActiveSignals();
 
-    // Monitor every 30 seconds
-    const monitorInterval = setInterval(monitorActiveSignals, 30000);
+    // Monitor every 15 seconds for faster outcome detection
+    const monitorInterval = setInterval(monitorActiveSignals, 15000);
 
     // Subscribe to real-time price updates for immediate checking
     const priceChannel = supabase
-      .channel('price-monitoring')
+      .channel('outcome-monitoring')
       .on(
         'postgres_changes',
         {
@@ -184,8 +185,8 @@ export const useSignalMonitoring = () => {
           table: 'centralized_market_state'
         },
         () => {
-          // Debounced check after price updates
-          setTimeout(monitorActiveSignals, 2000);
+          // Immediate check after price updates
+          setTimeout(monitorActiveSignals, 1000);
         }
       )
       .subscribe();
