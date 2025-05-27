@@ -1,4 +1,3 @@
-
 import React, { useState, memo } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useSignalMonitoring } from '@/hooks/useSignalMonitoring';
@@ -9,7 +8,7 @@ import SignalCard from './SignalCard';
 import RealTimeStatus from './RealTimeStatus';
 import GlobalRefreshIndicator from './GlobalRefreshIndicator';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Users, Activity, Brain, TestTube, Wrench, Zap } from 'lucide-react';
+import { RefreshCw, Users, Activity, Brain, TestTube, Wrench, Zap, FlaskConical } from 'lucide-react';
 import { useMarketActivation } from '@/hooks/useMarketActivation';
 
 const TradingSignals = memo(() => {
@@ -24,6 +23,7 @@ const TradingSignals = memo(() => {
   const [refreshingSignals, setRefreshingSignals] = useState(false);
   const [testingSystem, setTestingSystem] = useState(false);
   const [cleaningCrons, setCleaningCrons] = useState(false);
+  const [generatingTestSignals, setGeneratingTestSignals] = useState(false);
 
   // Add market activation
   const { activateMarket } = useMarketActivation();
@@ -44,6 +44,53 @@ const TradingSignals = memo(() => {
   const avgConfidence = validSignals.length > 0 
     ? Math.round(validSignals.reduce((sum, signal) => sum + (signal.confidence || 0), 0) / validSignals.length)
     : 87;
+
+  const handleGenerateTestSignals = async () => {
+    setGeneratingTestSignals(true);
+    try {
+      console.log('🧪 Generating test signals with reduced confidence requirements...');
+      const { data, error } = await supabase.functions.invoke('generate-signals', {
+        body: { 
+          trigger: 'test',
+          test_mode: true
+        }
+      });
+      
+      if (error) {
+        console.error('❌ Test signal generation error:', error);
+        toast({
+          title: "Test Signal Error",
+          description: "Failed to generate test signals. Check logs for details.",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      console.log('✅ Test signal generation result:', data);
+      
+      const testResults = data.stats || {};
+      let message = `Generated ${data.signals?.length || 0} test signals. Success rate: ${testResults.signalSuccessRate || 'unknown'}`;
+      
+      toast({
+        title: "🧪 Test Signals Generated",
+        description: message,
+      });
+
+      // Refresh signals after generation
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+    } catch (error) {
+      console.error('❌ Error generating test signals:', error);
+      toast({
+        title: "Test Signal Error",
+        description: "Failed to generate test signals. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setGeneratingTestSignals(false);
+    }
+  };
 
   const handleCleanupCrons = async () => {
     setCleaningCrons(true);
@@ -217,6 +264,24 @@ const TradingSignals = memo(() => {
           </div>
           <div className="flex space-x-2">
             <Button
+              onClick={handleGenerateTestSignals}
+              disabled={generatingTestSignals}
+              className="bg-green-600 hover:bg-green-700 text-white text-sm"
+              size="sm"
+            >
+              {generatingTestSignals ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Generating...
+                </>
+              ) : (
+                <>
+                  <FlaskConical className="h-4 w-4 mr-2" />
+                  Test Mode Signals
+                </>
+              )}
+            </Button>
+            <Button
               onClick={handleCleanupCrons}
               disabled={cleaningCrons}
               className="bg-yellow-600 hover:bg-yellow-700 text-white text-sm"
@@ -255,7 +320,7 @@ const TradingSignals = memo(() => {
           </div>
         </div>
         <div className="mt-2 text-xs text-gray-400">
-          🔍 Comprehensive testing: OpenAI API • Market Data • Signal Generation • Cron Jobs • Error Detection
+          🧪 Test Mode: Lower confidence requirements (50-85%) • More liberal signal generation • Testing application functionality
         </div>
       </div>
 
@@ -374,6 +439,23 @@ const TradingSignals = memo(() => {
               The enhanced AI system analyzes real-time market data and generates intelligent signals automatically
             </div>
             <div className="space-x-4">
+              <Button
+                onClick={handleGenerateTestSignals}
+                disabled={generatingTestSignals}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                {generatingTestSignals ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Generating Test Signals...
+                  </>
+                ) : (
+                  <>
+                    <FlaskConical className="h-4 w-4 mr-2" />
+                    Generate Test Signals
+                  </>
+                )}
+              </Button>
               <Button
                 onClick={handleRefreshSignals}
                 disabled={refreshingSignals}

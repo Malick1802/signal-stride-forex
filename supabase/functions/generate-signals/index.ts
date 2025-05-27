@@ -16,8 +16,10 @@ serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const isCronTriggered = body.trigger === 'cron';
+    const isTestMode = body.test_mode === true || body.trigger === 'test';
     
     console.log(`🤖 ${isCronTriggered ? 'CRON AUTOMATIC' : 'MANUAL'} AI-powered signal generation starting...`);
+    console.log(`🧪 Test mode: ${isTestMode ? 'ENABLED (Lower thresholds)' : 'DISABLED (Production)'}`);
     console.log('⏰ Timestamp:', new Date().toISOString());
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -96,7 +98,7 @@ serve(async (req) => {
       }
     }
 
-    // ALL AVAILABLE CURRENCY PAIRS - Expanded from 5 to 25 pairs
+    // ALL AVAILABLE CURRENCY PAIRS - Expanded from 5 to 14 pairs
     const allCurrencyPairs = [
       // Major pairs
       'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD',
@@ -104,7 +106,7 @@ serve(async (req) => {
       'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY'
     ];
     
-    console.log(`🌍 EXPANDED ANALYSIS: Now analyzing ${allCurrencyPairs.length} currency pairs (up from 5)`);
+    console.log(`🌍 EXPANDED ANALYSIS: Now analyzing ${allCurrencyPairs.length} currency pairs`);
     
     // Get latest price for each currency pair from centralized market state
     const latestPrices = new Map();
@@ -208,7 +210,7 @@ serve(async (req) => {
         const priceChange = priceHistory.length > 1 ? 
           ((currentPrice - priceHistory[priceHistory.length - 1]) / priceHistory[priceHistory.length - 1] * 100) : 0;
 
-        // Enhanced AI prompt for better signal quality across all pairs
+        // Enhanced AI prompt with REDUCED CONSERVATISM for testing
         console.log(`🔮 Calling OpenAI API for ${pair} analysis...`);
         const aiAnalysisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
@@ -221,12 +223,12 @@ serve(async (req) => {
             messages: [
               {
                 role: 'system',
-                content: `You are a professional forex trading analyst with expertise in technical analysis. Analyze the provided market data and generate trading signal recommendations for ${pair}.
+                content: `You are a professional forex trading analyst. ${isTestMode ? 'TESTING MODE: Generate signals more liberally for application testing purposes. Lower your thresholds for signal generation.' : ''} Analyze the provided market data and generate trading signal recommendations for ${pair}.
                 
                 Respond with a JSON object containing:
                 {
                   "signal": "BUY" or "SELL" or "NEUTRAL",
-                  "confidence": number between 75-95,
+                  "confidence": number between ${isTestMode ? '50-85' : '70-90'} (${isTestMode ? 'testing mode - more liberal' : 'production mode'}),
                   "entry_price": number (current price adjusted for optimal entry),
                   "stop_loss_pips": number between 15-40,
                   "take_profit_pips": [number, number, number] (3 levels, progressive),
@@ -234,15 +236,27 @@ serve(async (req) => {
                   "risk_level": "LOW", "MEDIUM", or "HIGH"
                 }
                 
+                ${isTestMode ? `
+                TESTING MODE INSTRUCTIONS:
+                - Be MORE willing to generate BUY/SELL signals (aim for 60-70% signal rate vs neutral)
+                - Lower your conviction requirements for signal generation
+                - Focus on moderate-confidence opportunities (50-85% confidence range)
+                - Generate signals even for smaller price movements or less clear patterns
+                - This is for testing the application functionality, so err on the side of generating signals
+                ` : `
+                PRODUCTION MODE:
+                - Only generate BUY/SELL signals when you have strong conviction
+                - Use NEUTRAL when market conditions are unclear or conflicting
+                - Be selective with signal generation to maintain high quality
+                `}
+                
                 Consider:
                 - Technical patterns and price action for ${pair}
                 - Market momentum and volatility
                 - Support/resistance levels
                 - Currency pair characteristics (major/cross pair behavior)
                 - Current market session timing
-                - Risk management principles
-                
-                Only generate BUY/SELL signals when you have strong conviction. Use NEUTRAL when market conditions are unclear or conflicting. Be more selective with signal generation to maintain high quality across all ${allCurrencyPairs.length} analyzed pairs.`
+                - Risk management principles`
               },
               {
                 role: 'user',
@@ -253,12 +267,13 @@ serve(async (req) => {
                 Market Timestamp: ${timestamp}
                 Session: ${new Date().getUTCHours() >= 12 && new Date().getUTCHours() < 20 ? 'US Trading Hours' : 'Outside US Hours'}
                 Pair Type: ${['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD'].includes(pair) ? 'Major Pair' : 'Cross Pair'}
+                Testing Mode: ${isTestMode ? 'YES - Generate signals more liberally' : 'NO - Production standards'}
                 
-                Generate a trading signal with specific entry, stop loss, and take profit levels. Be thorough in your technical analysis and only issue signals when you have strong conviction.`
+                Generate a trading signal with specific entry, stop loss, and take profit levels. ${isTestMode ? 'Since this is testing mode, be more willing to generate actionable signals.' : 'Only issue signals when you have strong conviction.'}`
               }
             ],
             max_tokens: 800,
-            temperature: 0.3 // Lower temperature for more consistent analysis across all pairs
+            temperature: isTestMode ? 0.6 : 0.3 // Higher temperature in test mode for more varied responses
           }),
         });
 
@@ -279,7 +294,7 @@ serve(async (req) => {
           continue;
         }
 
-        console.log(`🤖 Raw AI response for ${pair}:`, aiContent.substring(0, 150) + '...');
+        console.log(`🤖 Raw AI response for ${pair}:`, aiContent.substring(0, 200) + '...');
 
         // Parse AI response
         let aiSignal;
@@ -292,6 +307,7 @@ serve(async (req) => {
           }
         } catch (parseError) {
           console.error(`❌ Failed to parse AI response for ${pair}:`, parseError);
+          console.log(`📝 Full AI response for debugging: ${aiContent}`);
           errorCount++;
           continue;
         }
@@ -303,14 +319,26 @@ serve(async (req) => {
           continue;
         }
 
+        console.log(`📊 AI Decision for ${pair}: ${aiSignal.signal} (${aiSignal.confidence}% confidence)`);
+        console.log(`📝 Reasoning: ${aiSignal.analysis?.substring(0, 150)}...`);
+
         if (aiSignal.signal === 'NEUTRAL' || !['BUY', 'SELL'].includes(aiSignal.signal)) {
           console.log(`⚠️ AI recommended ${aiSignal.signal} signal for ${pair}, skipping`);
           neutralSignals++;
           continue;
         }
 
+        // Validate confidence range based on mode
+        const minConfidence = isTestMode ? 50 : 70;
+        const maxConfidence = isTestMode ? 85 : 90;
+        
+        if (aiSignal.confidence < minConfidence || aiSignal.confidence > maxConfidence) {
+          console.log(`⚠️ AI confidence ${aiSignal.confidence}% outside range ${minConfidence}-${maxConfidence}% for ${pair}`);
+          aiSignal.confidence = Math.min(Math.max(aiSignal.confidence, minConfidence), maxConfidence);
+          console.log(`🔧 Adjusted confidence to ${aiSignal.confidence}% for ${pair}`);
+        }
+
         console.log(`✅ AI generated ${aiSignal.signal} signal for ${pair} with ${aiSignal.confidence}% confidence`);
-        console.log(`📝 Analysis: ${aiSignal.analysis?.substring(0, 100)}...`);
 
         // Calculate price levels based on AI recommendations
         const entryPrice = aiSignal.entry_price || currentPrice;
@@ -368,11 +396,11 @@ serve(async (req) => {
             parseFloat(takeProfit2.toFixed(pair.includes('JPY') ? 3 : 5)),
             parseFloat(takeProfit3.toFixed(pair.includes('JPY') ? 3 : 5))
           ],
-          confidence: Math.min(Math.max(aiSignal.confidence || 85, 75), 95),
+          confidence: Math.min(Math.max(aiSignal.confidence || (isTestMode ? 60 : 75), minConfidence), maxConfidence),
           status: 'active',
           is_centralized: true,
           user_id: null,
-          analysis_text: `AI-Generated ${aiSignal.signal} Signal for ${pair}: ${aiSignal.analysis || 'Advanced technical analysis indicates favorable conditions.'}`,
+          analysis_text: `${isTestMode ? '[TEST MODE] ' : ''}AI-Generated ${aiSignal.signal} Signal for ${pair}: ${aiSignal.analysis || 'Advanced technical analysis indicates favorable conditions.'}`,
           chart_data: chartData,
           pips: stopLossPips,
           created_at: timestamp
@@ -384,7 +412,7 @@ serve(async (req) => {
 
         // Add small delay between AI calls to avoid rate limiting
         if (allCurrencyPairs.indexOf(pair) < allCurrencyPairs.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 100));
+          await new Promise(resolve => setTimeout(resolve, 200));
         }
 
       } catch (error) {
@@ -393,16 +421,17 @@ serve(async (req) => {
       }
     }
 
-    console.log(`📊 EXPANDED SIGNAL GENERATION SUMMARY:`);
+    console.log(`📊 ${isTestMode ? 'TEST MODE ' : ''}SIGNAL GENERATION SUMMARY:`);
     console.log(`  - Total pairs analyzed: ${allCurrencyPairs.length}`);
     console.log(`  - Pairs with market data: ${latestPrices.size}`);
     console.log(`  - Successful signals: ${successfulSignals}`);
     console.log(`  - Neutral signals: ${neutralSignals}`);
     console.log(`  - Errors: ${errorCount}`);
     console.log(`  - Signal success rate: ${((successfulSignals / latestPrices.size) * 100).toFixed(1)}%`);
+    console.log(`  - Mode: ${isTestMode ? 'TEST (Lower thresholds)' : 'PRODUCTION (Higher thresholds)'}`);
 
     if (signals.length === 0) {
-      console.log('⚠️ No AI signals generated from any of the analyzed pairs');
+      console.log(`⚠️ No AI signals generated from any of the analyzed pairs ${isTestMode ? '(even in test mode)' : ''}`);
       return new Response(
         JSON.stringify({ 
           success: false,
@@ -415,7 +444,8 @@ serve(async (req) => {
             pairsWithData: latestPrices.size,
             successful: successfulSignals,
             neutral: neutralSignals,
-            errors: errorCount
+            errors: errorCount,
+            testMode: isTestMode
           },
           timestamp
         }),
@@ -435,7 +465,7 @@ serve(async (req) => {
       throw insertError;
     }
 
-    console.log(`🎉 SUCCESS! Generated ${signals.length} AI-powered centralized signals from ${allCurrencyPairs.length} currency pairs`);
+    console.log(`🎉 SUCCESS! Generated ${signals.length} AI-powered centralized signals from ${allCurrencyPairs.length} currency pairs ${isTestMode ? '(TEST MODE)' : ''}`);
     insertedSignals?.forEach(signal => {
       console.log(`  - ${signal.symbol} ${signal.type} @ ${signal.price} (${signal.confidence}% confidence)`);
     });
@@ -443,7 +473,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Generated ${signals.length} AI-powered centralized signals from ${allCurrencyPairs.length} analyzed pairs`,
+        message: `Generated ${signals.length} AI-powered centralized signals from ${allCurrencyPairs.length} analyzed pairs ${isTestMode ? '(TEST MODE)' : ''}`,
         signals: insertedSignals?.map(s => ({ 
           id: s.id, 
           symbol: s.symbol, 
@@ -458,12 +488,13 @@ serve(async (req) => {
           successful: successfulSignals,
           neutral: neutralSignals,
           errors: errorCount,
-          signalSuccessRate: `${((successfulSignals / latestPrices.size) * 100).toFixed(1)}%`
+          signalSuccessRate: `${((successfulSignals / latestPrices.size) * 100).toFixed(1)}%`,
+          testMode: isTestMode
         },
         timestamp,
         trigger: isCronTriggered ? 'cron' : 'manual',
         aiPowered: true,
-        expandedAnalysis: true
+        testMode: isTestMode
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
