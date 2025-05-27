@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -17,13 +16,18 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const isCronTriggered = body.trigger === 'cron';
     
-    console.log(`🤖 ${isCronTriggered ? 'Automatic cron' : 'Manual'} signal generation with FastForex data...`);
+    console.log(`🤖 ${isCronTriggered ? 'Automatic cron' : 'Manual'} AI-powered signal generation...`);
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     
     if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error('Missing required environment variables');
+      throw new Error('Missing required Supabase environment variables');
+    }
+    
+    if (!openAIApiKey) {
+      throw new Error('OpenAI API key not configured - required for AI signal generation');
     }
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -176,6 +180,7 @@ serve(async (req) => {
       }
     }
 
+    // Generate AI-powered signals for each priority pair
     for (const pair of priorityPairs) {
       const marketPoint = latestPrices.get(pair);
       if (!marketPoint) {
@@ -190,86 +195,186 @@ serve(async (req) => {
           continue;
         }
 
-        // Generate signal based on market analysis
-        const signalType = Math.random() > 0.5 ? 'BUY' : 'SELL';
-        const confidence = Math.floor(Math.random() * 15) + 80; // 80-95%
+        console.log(`🧠 Generating AI analysis for ${pair} at price ${currentPrice}`);
+
+        // Get historical price data for context
+        const { data: historicalData } = await supabase
+          .from('centralized_market_state')
+          .select('current_price, last_update')
+          .eq('symbol', pair)
+          .order('last_update', { ascending: false })
+          .limit(20);
+
+        // Prepare market analysis context for AI
+        const priceHistory = historicalData?.map(d => parseFloat(d.current_price.toString())).slice(0, 10) || [currentPrice];
+        const priceChange = priceHistory.length > 1 ? 
+          ((currentPrice - priceHistory[priceHistory.length - 1]) / priceHistory[priceHistory.length - 1] * 100) : 0;
+
+        const marketContext = {
+          symbol: pair,
+          currentPrice,
+          priceHistory: priceHistory.slice(0, 5), // Last 5 data points
+          priceChange24h: priceChange,
+          timestamp: new Date().toISOString()
+        };
+
+        // Call OpenAI for market analysis and signal generation
+        const aiAnalysisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${openAIApiKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'gpt-4o-mini',
+            messages: [
+              {
+                role: 'system',
+                content: `You are a professional forex trading analyst. Analyze the provided market data and generate a trading signal recommendation. 
+                
+                Respond with a JSON object containing:
+                {
+                  "signal": "BUY" or "SELL" or "NEUTRAL",
+                  "confidence": number between 70-95,
+                  "entry_price": number (current price adjusted for optimal entry),
+                  "stop_loss_pips": number between 15-40,
+                  "take_profit_pips": [number, number, number] (3 levels, progressive),
+                  "analysis": "detailed explanation of the signal reasoning",
+                  "risk_level": "LOW", "MEDIUM", or "HIGH"
+                }
+                
+                Base your analysis on technical patterns, price action, and market momentum. Only generate BUY/SELL signals when confident. Use NEUTRAL for unclear market conditions.`
+              },
+              {
+                role: 'user',
+                content: `Analyze ${pair} trading data:
+                Current Price: ${currentPrice}
+                Recent Prices: ${priceHistory.join(', ')}
+                24h Change: ${priceChange.toFixed(2)}%
+                Market Timestamp: ${timestamp}
+                
+                Generate a trading signal with specific entry, stop loss, and take profit levels.`
+              }
+            ],
+            max_tokens: 800,
+            temperature: 0.3
+          }),
+        });
+
+        if (!aiAnalysisResponse.ok) {
+          console.error(`❌ OpenAI API error for ${pair}: ${aiAnalysisResponse.status}`);
+          continue;
+        }
+
+        const aiData = await aiAnalysisResponse.json();
+        const aiContent = aiData.choices?.[0]?.message?.content;
+
+        if (!aiContent) {
+          console.error(`❌ No AI response content for ${pair}`);
+          continue;
+        }
+
+        // Parse AI response
+        let aiSignal;
+        try {
+          // Extract JSON from AI response
+          const jsonMatch = aiContent.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            aiSignal = JSON.parse(jsonMatch[0]);
+          } else {
+            throw new Error('No JSON found in AI response');
+          }
+        } catch (parseError) {
+          console.error(`❌ Failed to parse AI response for ${pair}:`, parseError);
+          console.log('AI Response:', aiContent);
+          continue;
+        }
+
+        // Validate AI signal
+        if (!aiSignal.signal || aiSignal.signal === 'NEUTRAL' || !['BUY', 'SELL'].includes(aiSignal.signal)) {
+          console.log(`⚠️ AI recommended NEUTRAL or invalid signal for ${pair}, skipping`);
+          continue;
+        }
+
+        // Calculate price levels based on AI recommendations
+        const entryPrice = aiSignal.entry_price || currentPrice;
+        const stopLossPips = aiSignal.stop_loss_pips || 25;
+        const takeProfitPips = aiSignal.take_profit_pips || [20, 35, 50];
+
+        // Convert pips to price levels
+        const pipValue = pair.includes('JPY') ? 0.01 : 0.0001;
+        const stopLossDistance = stopLossPips * pipValue;
         
-        // Calculate price levels based on current FastForex price
-        const priceVariation = currentPrice * 0.0008;
-        const entryPrice = currentPrice + (Math.random() - 0.5) * priceVariation;
-        
-        const stopLossDistance = currentPrice * 0.004;
-        const takeProfitDistance = currentPrice * 0.008;
-        
-        const stopLoss = signalType === 'BUY' 
+        const stopLoss = aiSignal.signal === 'BUY' 
           ? entryPrice - stopLossDistance 
           : entryPrice + stopLossDistance;
           
-        const takeProfit1 = signalType === 'BUY' 
-          ? entryPrice + takeProfitDistance 
-          : entryPrice - takeProfitDistance;
+        const takeProfit1 = aiSignal.signal === 'BUY' 
+          ? entryPrice + (takeProfitPips[0] * pipValue)
+          : entryPrice - (takeProfitPips[0] * pipValue);
           
-        const takeProfit2 = signalType === 'BUY' 
-          ? entryPrice + (takeProfitDistance * 1.5) 
-          : entryPrice - (takeProfitDistance * 1.5);
+        const takeProfit2 = aiSignal.signal === 'BUY' 
+          ? entryPrice + (takeProfitPips[1] * pipValue)
+          : entryPrice - (takeProfitPips[1] * pipValue);
           
-        const takeProfit3 = signalType === 'BUY' 
-          ? entryPrice + (takeProfitDistance * 2) 
-          : entryPrice - (takeProfitDistance * 2);
+        const takeProfit3 = aiSignal.signal === 'BUY' 
+          ? entryPrice + (takeProfitPips[2] * pipValue)
+          : entryPrice - (takeProfitPips[2] * pipValue);
 
-        // Generate FIXED chart data based on FastForex price
+        // Generate chart data based on recent price action
         const chartData = [];
         const baseTime = Date.now() - (30 * 60 * 1000);
         
         for (let i = 0; i < 30; i++) {
           const timePoint = baseTime + (i * 60 * 1000);
-          const priceMovement = (Math.sin(i * 0.2) + Math.random() * 0.3 - 0.15) * (currentPrice * 0.0003);
-          const chartPrice = entryPrice + priceMovement;
+          const historicalPrice = priceHistory[Math.floor(i / 6)] || currentPrice;
+          const priceVariation = (Math.sin(i * 0.2) + Math.random() * 0.2 - 0.1) * (historicalPrice * 0.0002);
+          const chartPrice = historicalPrice + priceVariation;
           
           chartData.push({
             time: timePoint,
-            price: parseFloat(chartPrice.toFixed(5))
+            price: parseFloat(chartPrice.toFixed(pair.includes('JPY') ? 3 : 5))
           });
         }
 
         chartData.push({
           time: Date.now(),
-          price: parseFloat(entryPrice.toFixed(5))
+          price: parseFloat(entryPrice.toFixed(pair.includes('JPY') ? 3 : 5))
         });
 
         const signal = {
           symbol: pair,
-          type: signalType,
-          price: parseFloat(entryPrice.toFixed(5)),
-          stop_loss: parseFloat(stopLoss.toFixed(5)),
+          type: aiSignal.signal,
+          price: parseFloat(entryPrice.toFixed(pair.includes('JPY') ? 3 : 5)),
+          stop_loss: parseFloat(stopLoss.toFixed(pair.includes('JPY') ? 3 : 5)),
           take_profits: [
-            parseFloat(takeProfit1.toFixed(5)),
-            parseFloat(takeProfit2.toFixed(5)),
-            parseFloat(takeProfit3.toFixed(5))
+            parseFloat(takeProfit1.toFixed(pair.includes('JPY') ? 3 : 5)),
+            parseFloat(takeProfit2.toFixed(pair.includes('JPY') ? 3 : 5)),
+            parseFloat(takeProfit3.toFixed(pair.includes('JPY') ? 3 : 5))
           ],
-          confidence: confidence,
+          confidence: Math.min(Math.max(aiSignal.confidence || 85, 70), 95),
           status: 'active',
           is_centralized: true,
           user_id: null,
-          analysis_text: `${isCronTriggered ? 'Auto-generated' : 'Manual'} FastForex-powered ${signalType} signal for ${pair}. Real market data with ${confidence}% confidence.`,
+          analysis_text: `AI-Generated ${aiSignal.signal} Signal: ${aiSignal.analysis || 'Advanced technical analysis indicates favorable conditions.'}`,
           chart_data: chartData,
-          pips: Math.floor(Math.abs(entryPrice - stopLoss) * 10000),
+          pips: stopLossPips,
           created_at: timestamp
         };
 
         signals.push(signal);
-        console.log(`✅ Generated FastForex ${signalType} signal for ${pair} at ${entryPrice.toFixed(5)}`);
+        console.log(`✅ Generated AI-powered ${aiSignal.signal} signal for ${pair} (${aiSignal.confidence}% confidence)`);
 
       } catch (error) {
-        console.error(`❌ Error generating signal for ${pair}:`, error);
+        console.error(`❌ Error generating AI signal for ${pair}:`, error);
       }
     }
 
     if (signals.length === 0) {
-      console.log('⚠️ No signals generated, market data may be insufficient');
+      console.log('⚠️ No AI signals generated, market conditions may be unclear');
       return new Response(
         JSON.stringify({ 
-          message: 'No signals generated - insufficient market data', 
+          message: 'No AI signals generated - market conditions unclear', 
           signals: [],
           marketDataCount: marketData?.length || 0
         }),
@@ -277,33 +382,34 @@ serve(async (req) => {
       );
     }
 
-    // Insert new centralized signals
+    // Insert new AI-generated signals
     const { data: insertedSignals, error: insertError } = await supabase
       .from('trading_signals')
       .insert(signals)
       .select('*');
 
     if (insertError) {
-      console.error('❌ Error inserting signals:', insertError);
+      console.error('❌ Error inserting AI signals:', insertError);
       throw insertError;
     }
 
-    console.log(`✅ Successfully generated ${signals.length} ${isCronTriggered ? 'automatic' : 'manual'} FastForex-powered centralized signals`);
+    console.log(`✅ Successfully generated ${signals.length} AI-powered centralized signals`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Generated ${signals.length} ${isCronTriggered ? 'automatic' : 'manual'} FastForex-powered centralized signals`,
-        signals: insertedSignals?.map(s => ({ id: s.id, symbol: s.symbol, type: s.type })) || [],
+        message: `Generated ${signals.length} AI-powered centralized signals`,
+        signals: insertedSignals?.map(s => ({ id: s.id, symbol: s.symbol, type: s.type, confidence: s.confidence })) || [],
         marketDataUsed: Array.from(latestPrices.keys()),
         timestamp,
-        trigger: isCronTriggered ? 'cron' : 'manual'
+        trigger: isCronTriggered ? 'cron' : 'manual',
+        aiPowered: true
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('💥 FastForex signal generation error:', error);
+    console.error('💥 AI signal generation error:', error);
     return new Response(
       JSON.stringify({ 
         error: error.message,

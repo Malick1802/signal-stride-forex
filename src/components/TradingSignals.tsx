@@ -1,3 +1,4 @@
+
 import React, { useState, memo } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useSignalMonitoring } from '@/hooks/useSignalMonitoring';
@@ -8,7 +9,7 @@ import SignalCard from './SignalCard';
 import RealTimeStatus from './RealTimeStatus';
 import GlobalRefreshIndicator from './GlobalRefreshIndicator';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Users, Activity } from 'lucide-react';
+import { RefreshCw, Users, Activity, Brain } from 'lucide-react';
 import { useMarketActivation } from '@/hooks/useMarketActivation';
 
 const TradingSignals = memo(() => {
@@ -47,10 +48,10 @@ const TradingSignals = memo(() => {
     try {
       await triggerAutomaticSignalGeneration();
     } catch (error) {
-      console.error('Error refreshing centralized signals:', error);
+      console.error('Error refreshing AI signals:', error);
       toast({
         title: "Refresh Error",
-        description: "Failed to refresh centralized signals. Please try again.",
+        description: "Failed to refresh AI-powered signals. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -72,7 +73,7 @@ const TradingSignals = memo(() => {
         console.error('AI analysis error:', error);
         toast({
           title: "Analysis Error",
-          description: "Failed to get AI analysis. Please try again.",
+          description: "Failed to get additional AI analysis. Please try again.",
           variant: "destructive"
         });
         return;
@@ -86,14 +87,14 @@ const TradingSignals = memo(() => {
         
         toast({
           title: "Analysis Complete",
-          description: "AI analysis has been generated for this signal.",
+          description: "Additional AI analysis has been generated for this signal.",
         });
       }
     } catch (error) {
       console.error('Error getting AI analysis:', error);
       toast({
         title: "Analysis Error",
-        description: "Failed to get AI analysis. Please try again.",
+        description: "Failed to get additional AI analysis. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -104,7 +105,7 @@ const TradingSignals = memo(() => {
   if (loading && validSignals.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-white">Loading centralized signals...</div>
+        <div className="text-white">Loading AI-powered signals...</div>
       </div>
     );
   }
@@ -125,20 +126,20 @@ const TradingSignals = memo(() => {
       {/* Real-time Connection Status */}
       <RealTimeStatus />
 
-      {/* Automated System Status */}
+      {/* AI-Powered System Status */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <Activity className="h-5 w-5 text-emerald-400" />
-              <span className="text-white font-medium">Automated FastForex System</span>
-              <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded">
-                LIVE AUTO-UPDATE + MONITORING
+              <Brain className="h-5 w-5 text-purple-400" />
+              <span className="text-white font-medium">AI-Powered Trading System</span>
+              <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-1 rounded">
+                OPENAI + FASTFOREX
               </span>
             </div>
           </div>
           <div className="text-sm text-gray-400">
-            Updates: Market data every 8s • Signals every 45s • Outcome monitoring every 30s
+            AI Analysis: Real-time market data • Advanced pattern recognition • Intelligent signal generation
           </div>
         </div>
       </div>
@@ -149,9 +150,9 @@ const TradingSignals = memo(() => {
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <Users className="h-5 w-5 text-blue-400" />
-              <span className="text-white font-medium">Centralized Signals</span>
+              <span className="text-white font-medium">Centralized AI Signals</span>
               <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">
-                FASTFOREX-POWERED
+                LIVE AI ANALYSIS
               </span>
             </div>
             <Button
@@ -163,18 +164,18 @@ const TradingSignals = memo(() => {
               {refreshingSignals ? (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Refreshing...
+                  Generating...
                 </>
               ) : (
                 <>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Manual Refresh
+                  <Brain className="h-4 w-4 mr-2" />
+                  Generate AI Signals
                 </>
               )}
             </Button>
           </div>
           <div className="text-sm text-gray-400">
-            🌐 All users see identical signals • Coordinated real-time updates
+            🧠 All users see identical AI-generated signals • Real-time market analysis
           </div>
         </div>
       </div>
@@ -199,16 +200,16 @@ const TradingSignals = memo(() => {
               </select>
             </div>
             <div className="text-sm text-gray-400">
-              Auto-refresh active • Outcome monitoring enabled
+              AI-powered • Outcome monitoring enabled
             </div>
           </div>
         </div>
       )}
 
-      {/* Active Centralized Signals Grid */}
+      {/* Active AI-Generated Signals Grid */}
       <div>
         <h3 className="text-white text-lg font-semibold mb-4">
-          {selectedPair === 'All' ? 'FastForex Signals' : `${selectedPair} Signals`} ({filteredSignals.length})
+          {selectedPair === 'All' ? 'AI Trading Signals' : `${selectedPair} AI Signals`} ({filteredSignals.length})
         </h3>
         
         {filteredSignals.length > 0 ? (
@@ -233,11 +234,11 @@ const TradingSignals = memo(() => {
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
               {selectedPair === 'All' 
-                ? 'No centralized signals available at the moment' 
-                : `No centralized signals available for ${selectedPair}`}
+                ? 'No AI-generated signals available at the moment' 
+                : `No AI-generated signals available for ${selectedPair}`}
             </div>
             <div className="text-sm text-gray-500 mb-6">
-              The automated FastForex system generates new signals every 15 minutes during market hours
+              The AI system analyzes real-time market data and generates intelligent signals automatically
             </div>
             <div className="space-x-4">
               <Button
@@ -248,12 +249,12 @@ const TradingSignals = memo(() => {
                 {refreshingSignals ? (
                   <>
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Refreshing Centralized Signals...
+                    Generating AI Signals...
                   </>
                 ) : (
                   <>
-                    <Users className="h-4 w-4 mr-2" />
-                    Refresh Centralized Signals
+                    <Brain className="h-4 w-4 mr-2" />
+                    Generate AI Signals
                   </>
                 )}
               </Button>
