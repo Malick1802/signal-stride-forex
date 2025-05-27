@@ -87,7 +87,7 @@ export const useSignalMonitoring = () => {
             continue;
           }
 
-          // Update signal status to expired
+          // Update signal status to expired ONLY after outcome is recorded
           const { error: updateError } = await supabase
             .from('trading_signals')
             .update({ 
@@ -101,7 +101,7 @@ export const useSignalMonitoring = () => {
             continue;
           }
 
-          console.log(`✅ Signal ${signal.id} marked as expired with outcome recorded`);
+          console.log(`✅ Signal ${signal.id} expired with outcome: ${hitTarget ? 'WIN' : 'LOSS'} (${pnlPips} pips)`);
           
           // Show notification
           toast({

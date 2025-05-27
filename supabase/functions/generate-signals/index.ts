@@ -83,33 +83,61 @@ serve(async (req) => {
     const signals = [];
     const timestamp = new Date().toISOString();
 
-    // For automatic generation, expire old signals and generate fresh ones
+    // For automatic generation, only remove stale signals (older than 7 days) with outcomes
     if (isCronTriggered) {
-      console.log('🔄 Automatic generation: expiring old signals and generating fresh ones');
+      console.log('🔄 Automatic generation: cleaning up old completed signals');
       
-      // Expire signals older than 4 hours for automatic refresh
-      const { error: expireError } = await supabase
-        .from('trading_signals')
-        .update({ status: 'expired' })
-        .eq('is_centralized', true)
-        .is('user_id', null)
-        .lt('created_at', new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString());
-
-      if (expireError) {
-        console.error('❌ Error expiring old signals:', expireError);
-      }
-
-      // Delete very old expired signals (older than 24 hours)
+      // Only delete signals older than 7 days that already have outcomes recorded
       const { error: deleteError } = await supabase
         .from('trading_signals')
         .delete()
         .eq('is_centralized', true)
         .is('user_id', null)
         .eq('status', 'expired')
-        .lt('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+        .lt('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
 
       if (deleteError) {
-        console.error('❌ Error deleting old signals:', deleteError);
+        console.error('❌ Error deleting old completed signals:', deleteError);
+      } else {
+        console.log('✅ Cleaned up old completed signals (7+ days with outcomes)');
+      }
+
+      // Clean up very old active signals (14+ days) as safety mechanism - mark as expired with outcome
+      const { data: staleSignals } = await supabase
+        .from('trading_signals')
+        .select('*')
+        .eq('is_centralized', true)
+        .is('user_id', null)
+        .eq('status', 'active')
+        .lt('created_at', new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString());
+
+      if (staleSignals && staleSignals.length > 0) {
+        console.log(`⚠️ Found ${staleSignals.length} stale signals (14+ days), marking as expired with timeout outcome`);
+        
+        for (const staleSignal of staleSignals) {
+          // Create timeout outcome
+          await supabase
+            .from('signal_outcomes')
+            .insert({
+              signal_id: staleSignal.id,
+              hit_target: false,
+              exit_price: staleSignal.price, // Use entry price as exit price for timeout
+              target_hit_level: null,
+              pnl_pips: 0, // No profit/loss for timeout
+              notes: 'Signal expired due to timeout (14+ days with no outcome)'
+            });
+
+          // Mark signal as expired
+          await supabase
+            .from('trading_signals')
+            .update({ 
+              status: 'expired',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', staleSignal.id);
+        }
+        
+        console.log('✅ Processed stale signals with timeout outcomes');
       }
     } else {
       // For manual generation, check if we have recent signals
