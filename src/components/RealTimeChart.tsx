@@ -37,17 +37,25 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
     if (Array.isArray(priceData) && priceData.length > 0) {
       const transformedData = priceData.map((point, index) => {
         try {
+          // Ensure price is a number
+          const priceValue = typeof point.price === 'number' ? point.price : Number(point.price);
+          
           return {
             time: `${index}`,
-            price: typeof point.price === 'number' ? point.price : parseFloat(point.price.toString()),
+            price: isNaN(priceValue) ? 0 : priceValue,
             timestamp: point.timestamp,
-            isEntry: entryPrice && Math.abs(point.price - entryPrice) < 0.00001
+            isEntry: entryPrice && Math.abs(priceValue - entryPrice) < 0.00001
           };
         } catch (error) {
           console.warn('Error transforming chart point:', point, error);
-          return null;
+          return {
+            time: `${index}`,
+            price: 0,
+            timestamp: point.timestamp || Date.now(),
+            isEntry: false
+          };
         }
-      }).filter(Boolean);
+      });
       
       console.log(`✅ Transformed ${transformedData.length} chart points`);
       return transformedData;
