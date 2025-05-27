@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -15,9 +16,8 @@ serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const isCronTriggered = body.trigger === 'cron';
-    const isAutomatedAnalysis = body.trigger === 'automated';
     
-    console.log(`🤖 ${isCronTriggered ? 'Automatic cron' : isAutomatedAnalysis ? 'Automated AI' : 'Manual'} signal generation...`);
+    console.log(`🤖 ${isCronTriggered ? 'Automatic cron' : 'Manual'} signal generation with FastForex data...`);
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -27,28 +27,6 @@ serve(async (req) => {
     }
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // For automated analysis, trigger the AI analysis function instead
-    if (isAutomatedAnalysis) {
-      console.log('🤖 Triggering automated AI signal analysis...');
-      
-      const { data: analysisResult, error: analysisError } = await supabase.functions.invoke('automated-signal-analysis');
-      
-      if (analysisError) {
-        console.error('❌ Automated analysis failed:', analysisError);
-        throw analysisError;
-      }
-      
-      return new Response(
-        JSON.stringify({
-          success: true,
-          message: 'Automated AI analysis completed',
-          result: analysisResult,
-          timestamp: new Date().toISOString()
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
 
     // Get recent centralized market data from FastForex
     const { data: marketData, error: marketError } = await supabase
