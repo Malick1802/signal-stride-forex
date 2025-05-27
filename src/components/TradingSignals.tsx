@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import SignalStats from './SignalStats';
 import SignalCard from './SignalCard';
 import RealTimeStatus from './RealTimeStatus';
+import GlobalRefreshIndicator from './GlobalRefreshIndicator';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Users, Activity } from 'lucide-react';
 import { useMarketActivation } from '@/hooks/useMarketActivation';
@@ -115,6 +116,9 @@ const TradingSignals = memo(() => {
         lastUpdate={lastUpdate}
       />
 
+      {/* Global Refresh Status */}
+      <GlobalRefreshIndicator />
+
       {/* Real-time Connection Status */}
       <RealTimeStatus />
 
@@ -131,7 +135,7 @@ const TradingSignals = memo(() => {
             </div>
           </div>
           <div className="text-sm text-gray-400">
-            Updates: Market data every 60s • Ticks every 3s • Signals every 15min
+            Updates: Market data every 8s • Signals every 45s • Full sync every 3min
           </div>
         </div>
       </div>
@@ -167,7 +171,7 @@ const TradingSignals = memo(() => {
             </Button>
           </div>
           <div className="text-sm text-gray-400">
-            🌐 All users see identical signals • Real-time price updates
+            🌐 All users see identical signals • Coordinated real-time updates
           </div>
         </div>
       </div>
@@ -192,7 +196,7 @@ const TradingSignals = memo(() => {
               </select>
             </div>
             <div className="text-sm text-gray-400">
-              FastForex-powered signals • Automatic updates every 15 minutes
+              Auto-refresh active • No manual refresh needed
             </div>
           </div>
         </div>
@@ -247,7 +251,7 @@ const TradingSignals = memo(() => {
                   <>
                     <Users className="h-4 w-4 mr-2" />
                     Refresh Centralized Signals
-                  </>
+                  </Users>
                 )}
               </Button>
             </div>
