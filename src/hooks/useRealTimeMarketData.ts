@@ -42,6 +42,7 @@ export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDat
   const mountedRef = useRef(true);
   const [lastDataUpdate, setLastDataUpdate] = useState<number>(0);
   const lastGlobalUpdateRef = useRef<number>(0);
+  const updateTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Enhanced market hours check
   const checkMarketHours = useCallback(() => {
@@ -56,22 +57,27 @@ export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDat
     return !(isFridayEvening || isSaturday || isSundayBeforeOpen);
   }, []);
 
-  // React to global refresh updates
+  // React to global refresh updates with debouncing
   useEffect(() => {
     if (shouldUseCentralized && lastPriceUpdate > lastGlobalUpdateRef.current && mountedRef.current) {
       console.log(`🔄 [${pair}] Responding to global refresh update`);
       lastGlobalUpdateRef.current = lastPriceUpdate;
       
-      // Fetch fresh data in response to global update
-      setTimeout(() => {
+      // Clear existing timeout
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+      }
+      
+      // Debounce fetch calls
+      updateTimeoutRef.current = setTimeout(() => {
         if (mountedRef.current) {
           refetch();
         }
-      }, 100);
+      }, 500);
     }
   }, [lastPriceUpdate, pair, shouldUseCentralized, refetch]);
 
-  // Enhanced auto-trigger for initial load
+  // Enhanced auto-trigger for initial load with reduced frequency
   useEffect(() => {
     mountedRef.current = true;
     
@@ -81,13 +87,16 @@ export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDat
         if (mountedRef.current && !marketData) {
           triggerMarketUpdate();
         }
-      }, 500);
+      }, 1000);
       
       return () => clearTimeout(timer);
     }
 
     return () => {
       mountedRef.current = false;
+      if (updateTimeoutRef.current) {
+        clearTimeout(updateTimeoutRef.current);
+      }
     };
   }, [pair, shouldUseCentralized, marketData, triggerMarketUpdate, isInitialLoad, isLoading]);
 

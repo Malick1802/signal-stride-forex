@@ -171,10 +171,12 @@ export const useSignalMonitoring = () => {
     // Initial check
     monitorActiveSignals();
 
-    // Monitor every 15 seconds for faster outcome detection
-    const monitorInterval = setInterval(monitorActiveSignals, 15000);
+    // Monitor every 30 seconds instead of 15 to reduce performance impact
+    const monitorInterval = setInterval(monitorActiveSignals, 30000);
 
-    // Subscribe to real-time price updates for immediate checking
+    // Subscribe to real-time price updates for immediate checking with debouncing
+    let updateTimeout: NodeJS.Timeout | null = null;
+    
     const priceChannel = supabase
       .channel('outcome-monitoring')
       .on(
@@ -185,14 +187,20 @@ export const useSignalMonitoring = () => {
           table: 'centralized_market_state'
         },
         () => {
-          // Immediate check after price updates
-          setTimeout(monitorActiveSignals, 1000);
+          // Debounce updates to prevent too frequent checks
+          if (updateTimeout) {
+            clearTimeout(updateTimeout);
+          }
+          updateTimeout = setTimeout(monitorActiveSignals, 2000);
         }
       )
       .subscribe();
 
     return () => {
       clearInterval(monitorInterval);
+      if (updateTimeout) {
+        clearTimeout(updateTimeout);
+      }
       supabase.removeChannel(priceChannel);
     };
   }, [monitorActiveSignals]);

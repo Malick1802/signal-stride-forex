@@ -34,7 +34,8 @@ serve(async (req) => {
       'generate-signals-every-5min', 
       'auto-signal-generation',
       'centralized-signal-generation',
-      'ai-signal-generation-5min'
+      'ai-signal-generation-5min',
+      'automatic-signal-generation'
     ];
 
     for (const jobName of existingJobs) {
@@ -53,13 +54,12 @@ serve(async (req) => {
     // Create the definitive cron job for automatic signal generation
     console.log('📅 Creating new automatic signal generation cron job...');
     
-    // Use proper environment variables for the cron job
-    const cronJobSql = `
-      SELECT cron.schedule(
-        'automatic-signal-generation',
-        '*/5 * * * *',
-        $$
-        SELECT net.http_post(
+    const { error: cronError } = await supabase
+      .from('cron.job')
+      .insert({
+        jobname: 'automatic-signal-generation',
+        schedule: '*/5 * * * *',
+        command: `SELECT net.http_post(
           url := '${supabaseUrl}/functions/v1/generate-signals',
           headers := jsonb_build_object(
             'Content-Type', 'application/json',
@@ -69,12 +69,8 @@ serve(async (req) => {
             'trigger', 'cron',
             'automatic', true
           )
-        );
-        $$
-      );
-    `;
-
-    const { error: cronError } = await supabase.rpc('sql', { query: cronJobSql });
+        );`
+      });
 
     if (cronError) {
       console.error('❌ Error creating automatic cron job:', cronError);
