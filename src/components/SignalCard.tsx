@@ -38,7 +38,7 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
 
   const safeSignal = createSafeSignal(signal);
 
-  // Get centralized real-time market data only
+  // Get live centralized real-time market data
   const {
     currentPrice: liveCurrentPrice,
     getPriceChange,
@@ -46,27 +46,31 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
     lastUpdateTime,
     isConnected,
     isMarketOpen,
-    priceData: centralizedChartData
+    priceData: centralizedChartData,
+    isLoading
   } = useRealTimeMarketData({
     pair: safeSignal.pair,
     entryPrice: safeSignal.entryPrice
   });
 
-  // FIXED signal data (never changes after signal creation)
+  // Fixed signal entry price (never changes)
   const signalEntryPrice = parseFloat(safeSignal.entryPrice);
   
-  // Use live current price for real-time updates, fallback to entry price
+  // Use live current price for real-time updates, fallback to entry price only if no live data
   const currentPrice = liveCurrentPrice || signalEntryPrice;
   
-  // Get price change from centralized live data
+  // Get live price change data
   const { change, percentage } = getPriceChange();
 
-  // Use only centralized chart data - no mixing with stored signal data
+  // Use ONLY centralized chart data for real-time updates
   const chartDataToDisplay = centralizedChartData.map(point => ({
     timestamp: point.timestamp,
     time: point.time,
     price: point.price
   }));
+
+  // Enhanced connection status
+  const connectionStatus = isConnected && centralizedChartData.length > 0;
 
   return (
     <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 overflow-hidden">
@@ -83,21 +87,22 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
       />
 
       <RealTimePriceDisplay
-        currentPrice={currentPrice}
+        currentPrice={liveCurrentPrice}
         change={change}
         percentage={percentage}
         lastUpdateTime={lastUpdateTime}
         dataSource={dataSource}
-        isConnected={isConnected}
+        isConnected={connectionStatus}
         isMarketOpen={isMarketOpen}
       />
 
       <RealTimeChart
         priceData={chartDataToDisplay}
         signalType={safeSignal.type}
-        currentPrice={currentPrice}
-        isConnected={isConnected}
+        currentPrice={liveCurrentPrice}
+        isConnected={connectionStatus}
         entryPrice={signalEntryPrice}
+        isLoading={isLoading}
       />
 
       <SignalPriceDetails

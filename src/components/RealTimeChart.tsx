@@ -15,9 +15,10 @@ interface RealTimeChartProps {
   currentPrice: number | null;
   isConnected: boolean;
   entryPrice?: number;
+  isLoading?: boolean;
 }
 
-const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entryPrice }: RealTimeChartProps) => {
+const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entryPrice, isLoading = false }: RealTimeChartProps) => {
   const formatPrice = (price: number) => {
     return price.toFixed(5);
   };
@@ -29,46 +30,35 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
     },
   };
 
-  // Transform chart data with better error handling and immediate display
+  // Enhanced chart data processing with immediate updates
   const chartData = useMemo(() => {
-    console.log(`📊 Processing chart data: ${priceData?.length || 0} points, currentPrice: ${currentPrice}`);
+    console.log(`📊 [Chart] Processing data: ${priceData?.length || 0} points, currentPrice: ${currentPrice}, loading: ${isLoading}`);
     
-    // If we have price data, use it
+    // Prioritize live price data for real-time updates
     if (Array.isArray(priceData) && priceData.length > 0) {
       const transformedData = priceData.map((point, index) => {
-        try {
-          // Ensure price is a number
-          const priceValue = typeof point.price === 'number' ? point.price : Number(point.price);
-          
-          return {
-            time: `${index}`,
-            price: isNaN(priceValue) ? 0 : priceValue,
-            timestamp: point.timestamp,
-            isEntry: entryPrice && Math.abs(priceValue - entryPrice) < 0.00001
-          };
-        } catch (error) {
-          console.warn('Error transforming chart point:', point, error);
-          return {
-            time: `${index}`,
-            price: 0,
-            timestamp: point.timestamp || Date.now(),
-            isEntry: false
-          };
-        }
+        const priceValue = typeof point.price === 'number' ? point.price : Number(point.price);
+        
+        return {
+          time: `${index}`,
+          price: isNaN(priceValue) ? 0 : priceValue,
+          timestamp: point.timestamp,
+          isEntry: entryPrice && Math.abs(priceValue - entryPrice) < 0.00001
+        };
       });
       
-      console.log(`✅ Transformed ${transformedData.length} chart points`);
+      console.log(`✅ [Chart] Live data ready: ${transformedData.length} points`);
       return transformedData;
     }
 
-    // If no price data but we have current price, create minimal chart
-    if (currentPrice && typeof currentPrice === 'number') {
+    // Enhanced fallback with current price
+    if (currentPrice && typeof currentPrice === 'number' && !isLoading) {
       const now = Date.now();
       const fallbackData = [
         {
           time: "0",
           price: currentPrice,
-          timestamp: now - 60000,
+          timestamp: now - 30000,
           isEntry: false
         },
         {
@@ -78,13 +68,13 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
           isEntry: false
         }
       ];
-      console.log(`📊 Created fallback chart data with current price: ${currentPrice}`);
+      console.log(`📊 [Chart] Using live fallback: ${currentPrice}`);
       return fallbackData;
     }
 
-    console.log('📊 No chart data available');
+    console.log(`📊 [Chart] No data available, loading: ${isLoading}`);
     return [];
-  }, [priceData, currentPrice, entryPrice]);
+  }, [priceData, currentPrice, entryPrice, isLoading]);
 
   const priceRange = useMemo(() => {
     if (chartData.length === 0) return { min: 0, max: 0 };
@@ -106,20 +96,25 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
 
   return (
     <div className="relative">
-      {/* Live Status Indicator */}
+      {/* Enhanced Live Status Indicator */}
       <div className="absolute top-2 right-2 z-10">
         <div className="flex items-center space-x-2 text-xs">
           <div className={`w-2 h-2 rounded-full ${
-            isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'
+            isLoading ? 'bg-yellow-400 animate-pulse' :
+            isConnected && hasValidData ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'
           }`}></div>
-          <span className={isConnected ? 'text-emerald-400' : 'text-red-400'}>
-            {isConnected ? 'LIVE' : 'CONNECTING...'}
+          <span className={
+            isLoading ? 'text-yellow-400' :
+            isConnected && hasValidData ? 'text-emerald-400' : 'text-red-400'
+          }>
+            {isLoading ? 'LOADING...' : 
+             isConnected && hasValidData ? 'LIVE' : 'CONNECTING...'}
           </span>
         </div>
       </div>
 
-      {/* Current Price Display */}
-      {currentPrice && (
+      {/* Enhanced Current Price Display */}
+      {currentPrice && !isLoading && (
         <div className="absolute top-2 left-2 z-10">
           <div className="bg-black/50 backdrop-blur-sm rounded px-2 py-1">
             <span className="text-white text-sm font-mono">{formatPrice(currentPrice)}</span>
@@ -137,12 +132,13 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
         </div>
       )}
 
-      {/* Data Status */}
+      {/* Enhanced Data Status */}
       {!hasValidData && (
         <div className="absolute inset-0 flex items-center justify-center z-10">
           <div className="bg-black/50 backdrop-blur-sm rounded px-3 py-2">
             <span className="text-white text-sm">
-              {isConnected ? 'Loading live data...' : 'Connecting to live feed...'}
+              {isLoading ? 'Loading live data...' : 
+               isConnected ? 'Waiting for live feed...' : 'Connecting to live feed...'}
             </span>
           </div>
         </div>
@@ -183,7 +179,7 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
                     dot={false}
                     connectNulls
                     isAnimationActive={true}
-                    animationDuration={300}
+                    animationDuration={200}
                   />
                   {/* Entry price reference line */}
                   {entryPrice && (
