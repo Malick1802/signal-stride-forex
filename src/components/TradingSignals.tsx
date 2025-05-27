@@ -1,3 +1,4 @@
+
 import React, { useState, memo } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useSignalMonitoring } from '@/hooks/useSignalMonitoring';
@@ -8,7 +9,7 @@ import SignalCard from './SignalCard';
 import RealTimeStatus from './RealTimeStatus';
 import GlobalRefreshIndicator from './GlobalRefreshIndicator';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Users, Activity, Brain, TestTube, Wrench } from 'lucide-react';
+import { RefreshCw, Users, Activity, Brain, TestTube, Wrench, Zap } from 'lucide-react';
 import { useMarketActivation } from '@/hooks/useMarketActivation';
 
 const TradingSignals = memo(() => {
@@ -77,26 +78,30 @@ const TradingSignals = memo(() => {
     }
   };
 
-  const handleTestSignalGeneration = async () => {
+  const handleComprehensiveTest = async () => {
     setTestingSystem(true);
     try {
-      console.log('🧪 Testing signal generation system...');
+      console.log('🧪 Running comprehensive system test...');
       const { data, error } = await supabase.functions.invoke('test-signal-generation');
       
       if (error) {
-        console.error('❌ Test error:', error);
+        console.error('❌ Comprehensive test error:', error);
         toast({
-          title: "Test Error",
-          description: "Signal generation test failed. Check logs for details.",
+          title: "Test Error", 
+          description: "Comprehensive test failed. Check logs for details.",
           variant: "destructive"
         });
         return;
       }
 
-      console.log('✅ Test result:', data);
+      console.log('✅ Comprehensive test result:', data);
+      
+      const testResults = data.tests || {};
+      let message = `OpenAI: ${testResults.openAI || 'unknown'}, Market Data: ${testResults.marketData || 0}, Signals: ${testResults.signalsAfterGeneration || 0}`;
+      
       toast({
-        title: "✅ Test Complete",
-        description: `Market data: ${data.marketDataCount}, Signals before: ${data.signalsBeforeGeneration}, Signals after: ${data.signalsAfterGeneration}`,
+        title: "✅ Comprehensive Test Complete",
+        description: message,
       });
 
       // Refresh signals after test
@@ -104,10 +109,10 @@ const TradingSignals = memo(() => {
         window.location.reload();
       }, 2000);
     } catch (error) {
-      console.error('❌ Error testing system:', error);
+      console.error('❌ Error running comprehensive test:', error);
       toast({
         title: "Test Error",
-        description: "Failed to test signal generation. Please try again.",
+        description: "Failed to run comprehensive test. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -198,15 +203,15 @@ const TradingSignals = memo(() => {
       {/* Real-time Connection Status */}
       <RealTimeStatus />
 
-      {/* System Debugging Panel */}
+      {/* Enhanced System Debugging Panel */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <Wrench className="h-5 w-5 text-yellow-400" />
-              <span className="text-white font-medium">System Debugging</span>
+              <span className="text-white font-medium">System Debugging & Testing</span>
               <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">
-                DEBUG MODE
+                ENHANCED DEBUG MODE
               </span>
             </div>
           </div>
@@ -230,7 +235,7 @@ const TradingSignals = memo(() => {
               )}
             </Button>
             <Button
-              onClick={handleTestSignalGeneration}
+              onClick={handleComprehensiveTest}
               disabled={testingSystem}
               className="bg-purple-600 hover:bg-purple-700 text-white text-sm"
               size="sm"
@@ -242,12 +247,15 @@ const TradingSignals = memo(() => {
                 </>
               ) : (
                 <>
-                  <TestTube className="h-4 w-4 mr-2" />
-                  Test System
+                  <Zap className="h-4 w-4 mr-2" />
+                  Comprehensive Test
                 </>
               )}
             </Button>
           </div>
+        </div>
+        <div className="mt-2 text-xs text-gray-400">
+          🔍 Comprehensive testing: OpenAI API • Market Data • Signal Generation • Cron Jobs • Error Detection
         </div>
       </div>
 
@@ -259,12 +267,12 @@ const TradingSignals = memo(() => {
               <Brain className="h-5 w-5 text-purple-400" />
               <span className="text-white font-medium">AI-Powered Trading System</span>
               <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-1 rounded">
-                OPENAI + FASTFOREX
+                OPENAI GPT-4O-MINI + FASTFOREX
               </span>
             </div>
           </div>
           <div className="text-sm text-gray-400">
-            AI Analysis: Real-time market data • Advanced pattern recognition • Intelligent signal generation
+            🤖 AI Analysis: Real-time market data • Advanced pattern recognition • Intelligent signal generation • Enhanced debugging
           </div>
         </div>
       </div>
@@ -325,7 +333,7 @@ const TradingSignals = memo(() => {
               </select>
             </div>
             <div className="text-sm text-gray-400">
-              AI-powered • Outcome monitoring enabled
+              AI-powered • Outcome monitoring enabled • Enhanced debugging active
             </div>
           </div>
         </div>
@@ -363,7 +371,7 @@ const TradingSignals = memo(() => {
                 : `No AI-generated signals available for ${selectedPair}`}
             </div>
             <div className="text-sm text-gray-500 mb-6">
-              The AI system analyzes real-time market data and generates intelligent signals automatically
+              The enhanced AI system analyzes real-time market data and generates intelligent signals automatically
             </div>
             <div className="space-x-4">
               <Button
@@ -380,6 +388,23 @@ const TradingSignals = memo(() => {
                   <>
                     <Brain className="h-4 w-4 mr-2" />
                     Generate AI Signals
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={handleComprehensiveTest}
+                disabled={testingSystem}
+                className="bg-purple-600 hover:bg-purple-700 text-white"
+              >
+                {testingSystem ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Testing System...
+                  </>
+                ) : (
+                  <>
+                    <Zap className="h-4 w-4 mr-2" />
+                    Debug System
                   </>
                 )}
               </Button>

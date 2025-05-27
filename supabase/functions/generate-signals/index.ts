@@ -27,13 +27,14 @@ serve(async (req) => {
     console.log('🔍 Environment check:');
     console.log(`  - Supabase URL: ${supabaseUrl ? '✅ Set' : '❌ Missing'}`);
     console.log(`  - Service Key: ${supabaseServiceKey ? '✅ Set' : '❌ Missing'}`);
-    console.log(`  - OpenAI Key: ${openAIApiKey ? '✅ Set' : '❌ Missing'}`);
+    console.log(`  - OpenAI Key: ${openAIApiKey ? '✅ Set (length: ' + (openAIApiKey?.length || 0) + ')' : '❌ Missing'}`);
     
     if (!supabaseUrl || !supabaseServiceKey) {
       throw new Error('Missing required Supabase environment variables');
     }
     
     if (!openAIApiKey) {
+      console.error('❌ CRITICAL: OpenAI API key not configured');
       throw new Error('OpenAI API key not configured - required for AI signal generation');
     }
     
@@ -72,6 +73,12 @@ serve(async (req) => {
     }
 
     console.log(`💾 Found ${marketData?.length || 0} market data points`);
+    if (marketData && marketData.length > 0) {
+      console.log('📊 Available market data:');
+      marketData.slice(0, 5).forEach(data => {
+        console.log(`  - ${data.symbol}: ${data.current_price} (${data.last_update})`);
+      });
+    }
 
     if (!marketData || marketData.length === 0) {
       console.log('⚠️ No centralized market data available, triggering market update first...');
@@ -106,6 +113,20 @@ serve(async (req) => {
     }
 
     console.log(`🎯 Will generate signals for ${latestPrices.size} pairs with available data`);
+
+    if (latestPrices.size === 0) {
+      console.error('❌ No market data available for any priority pairs');
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          message: 'No market data available for signal generation', 
+          signals: [],
+          availablePairs: [],
+          timestamp: new Date().toISOString()
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     const signals = [];
     const timestamp = new Date().toISOString();
@@ -145,6 +166,10 @@ serve(async (req) => {
     }
 
     // Generate AI-powered signals for each priority pair with available data
+    let successfulSignals = 0;
+    let neutralSignals = 0;
+    let errorCount = 0;
+
     for (const pair of priorityPairs) {
       const marketPoint = latestPrices.get(pair);
       if (!marketPoint) {
@@ -200,7 +225,7 @@ serve(async (req) => {
                   "risk_level": "LOW", "MEDIUM", or "HIGH"
                 }
                 
-                Base your analysis on technical patterns, price action, and market momentum. Only generate BUY/SELL signals when confident. Use NEUTRAL for unclear market conditions.`
+                Base your analysis on technical patterns, price action, and market momentum. Only generate BUY/SELL signals when confident. Use NEUTRAL for unclear market conditions. For this session, try to be more decisive and generate actionable signals when possible.`
               },
               {
                 role: 'user',
@@ -209,17 +234,21 @@ serve(async (req) => {
                 Recent Prices: ${priceHistory.join(', ')}
                 24h Change: ${priceChange.toFixed(2)}%
                 Market Timestamp: ${timestamp}
+                Session: ${new Date().getUTCHours() >= 12 && new Date().getUTCHours() < 20 ? 'US Trading Hours' : 'Outside US Hours'}
                 
-                Generate a trading signal with specific entry, stop loss, and take profit levels.`
+                Generate a trading signal with specific entry, stop loss, and take profit levels. Be decisive in your analysis.`
               }
             ],
             max_tokens: 800,
-            temperature: 0.3
+            temperature: 0.4 // Slightly higher temperature for more varied responses
           }),
         });
 
         if (!aiAnalysisResponse.ok) {
           console.error(`❌ OpenAI API error for ${pair}: ${aiAnalysisResponse.status} ${aiAnalysisResponse.statusText}`);
+          const errorText = await aiAnalysisResponse.text();
+          console.error('OpenAI Error Details:', errorText);
+          errorCount++;
           continue;
         }
 
@@ -228,8 +257,11 @@ serve(async (req) => {
 
         if (!aiContent) {
           console.error(`❌ No AI response content for ${pair}`);
+          errorCount++;
           continue;
         }
+
+        console.log(`🤖 Raw AI response for ${pair}:`, aiContent.substring(0, 200) + '...');
 
         // Parse AI response
         let aiSignal;
@@ -243,16 +275,25 @@ serve(async (req) => {
         } catch (parseError) {
           console.error(`❌ Failed to parse AI response for ${pair}:`, parseError);
           console.log('AI Response:', aiContent);
+          errorCount++;
           continue;
         }
 
         // Validate AI signal
-        if (!aiSignal.signal || aiSignal.signal === 'NEUTRAL' || !['BUY', 'SELL'].includes(aiSignal.signal)) {
-          console.log(`⚠️ AI recommended NEUTRAL or invalid signal for ${pair}, skipping`);
+        if (!aiSignal.signal) {
+          console.log(`⚠️ AI response missing signal field for ${pair}`);
+          errorCount++;
+          continue;
+        }
+
+        if (aiSignal.signal === 'NEUTRAL' || !['BUY', 'SELL'].includes(aiSignal.signal)) {
+          console.log(`⚠️ AI recommended ${aiSignal.signal} signal for ${pair}, skipping`);
+          neutralSignals++;
           continue;
         }
 
         console.log(`✅ AI generated ${aiSignal.signal} signal for ${pair} with ${aiSignal.confidence}% confidence`);
+        console.log(`📝 Analysis: ${aiSignal.analysis?.substring(0, 100)}...`);
 
         // Calculate price levels based on AI recommendations
         const entryPrice = aiSignal.entry_price || currentPrice;
@@ -321,22 +362,34 @@ serve(async (req) => {
         };
 
         signals.push(signal);
+        successfulSignals++;
         console.log(`✅ Generated AI-powered ${aiSignal.signal} signal for ${pair} (${aiSignal.confidence}% confidence)`);
 
       } catch (error) {
         console.error(`❌ Error generating AI signal for ${pair}:`, error);
+        errorCount++;
       }
     }
 
+    console.log(`📊 Signal generation summary:`);
+    console.log(`  - Successful signals: ${successfulSignals}`);
+    console.log(`  - Neutral signals: ${neutralSignals}`);
+    console.log(`  - Errors: ${errorCount}`);
+
     if (signals.length === 0) {
-      console.log('⚠️ No AI signals generated - market conditions may be unclear or insufficient data');
+      console.log('⚠️ No AI signals generated - market conditions may be unclear or all signals were neutral');
       return new Response(
         JSON.stringify({ 
           success: false,
-          message: 'No AI signals generated - market conditions unclear or insufficient data', 
+          message: `No AI signals generated - ${neutralSignals} neutral signals, ${errorCount} errors`, 
           signals: [],
           marketDataCount: marketData?.length || 0,
           availablePairs: Array.from(latestPrices.keys()),
+          stats: {
+            successful: successfulSignals,
+            neutral: neutralSignals,
+            errors: errorCount
+          },
           timestamp
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -372,6 +425,11 @@ serve(async (req) => {
           confidence: s.confidence 
         })) || [],
         marketDataUsed: Array.from(latestPrices.keys()),
+        stats: {
+          successful: successfulSignals,
+          neutral: neutralSignals,
+          errors: errorCount
+        },
         timestamp,
         trigger: isCronTriggered ? 'cron' : 'manual',
         aiPowered: true
