@@ -12,6 +12,7 @@ interface SignalHeaderProps {
   percentage: number;
   dataSource: string;
   lastUpdateTime: string;
+  entryPrice?: number;
 }
 
 const SignalHeader = ({
@@ -23,11 +24,41 @@ const SignalHeader = ({
   change,
   percentage,
   dataSource,
-  lastUpdateTime
+  lastUpdateTime,
+  entryPrice
 }: SignalHeaderProps) => {
   const formatPrice = (price: number) => {
     return price.toFixed(5);
   };
+
+  // Calculate signal performance if entry price is available
+  const calculateSignalPerformance = () => {
+    if (!entryPrice || !currentPrice) {
+      return { pips: 0, percentage: 0, isProfit: false };
+    }
+
+    let pips = 0;
+    let isProfit = false;
+
+    if (type === 'BUY') {
+      pips = (currentPrice - entryPrice) * 10000;
+      isProfit = currentPrice > entryPrice;
+    } else {
+      pips = (entryPrice - currentPrice) * 10000;
+      isProfit = entryPrice > currentPrice;
+    }
+
+    const percentageChange = entryPrice > 0 ? Math.abs((currentPrice - entryPrice) / entryPrice) * 100 : 0;
+    
+    return {
+      pips: Math.round(pips),
+      percentage: isProfit ? percentageChange : -percentageChange,
+      isProfit
+    };
+  };
+
+  const signalPerformance = calculateSignalPerformance();
+  const showSignalPerformance = entryPrice && currentPrice;
 
   return (
     <div className="p-4 border-b border-white/10">
@@ -63,14 +94,32 @@ const SignalHeader = ({
           <div className="flex flex-col text-xs text-gray-400">
             <span>{dataSource}</span>
             {lastUpdateTime && <span>Updated: {lastUpdateTime}</span>}
+            {entryPrice && (
+              <span>Entry: {formatPrice(entryPrice)}</span>
+            )}
           </div>
         </div>
         <div className="flex items-center space-x-1">
-          <span className={`text-sm font-mono ${
-            change >= 0 ? 'text-emerald-400' : 'text-red-400'
-          }`}>
-            {change >= 0 ? '+' : ''}{change.toFixed(5)} ({percentage >= 0 ? '+' : ''}{percentage.toFixed(2)}%)
-          </span>
+          {showSignalPerformance ? (
+            <div className="flex flex-col items-end">
+              <span className={`text-sm font-mono ${
+                signalPerformance.isProfit ? 'text-emerald-400' : 'text-red-400'
+              }`}>
+                {signalPerformance.isProfit ? '+' : ''}{signalPerformance.pips} pips
+              </span>
+              <span className={`text-xs font-mono ${
+                signalPerformance.isProfit ? 'text-emerald-400' : 'text-red-400'
+              }`}>
+                {signalPerformance.isProfit ? '+' : ''}{signalPerformance.percentage.toFixed(2)}%
+              </span>
+            </div>
+          ) : (
+            <span className={`text-sm font-mono ${
+              change >= 0 ? 'text-emerald-400' : 'text-red-400'
+            }`}>
+              {change >= 0 ? '+' : ''}{change.toFixed(5)} ({percentage >= 0 ? '+' : ''}{percentage.toFixed(2)}%)
+            </span>
+          )}
           <Shield className="h-4 w-4 text-yellow-400" />
           <span className="text-yellow-400 text-sm font-medium">{confidence}%</span>
         </div>

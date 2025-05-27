@@ -10,6 +10,8 @@ interface RealTimePriceDisplayProps {
   dataSource: string;
   isConnected: boolean;
   isMarketOpen: boolean;
+  entryPrice?: number;
+  signalType?: string;
 }
 
 const RealTimePriceDisplay = ({
@@ -19,13 +21,48 @@ const RealTimePriceDisplay = ({
   lastUpdateTime,
   dataSource,
   isConnected,
-  isMarketOpen
+  isMarketOpen,
+  entryPrice,
+  signalType
 }: RealTimePriceDisplayProps) => {
   const formatPrice = (price: number) => {
     return price.toFixed(5);
   };
 
-  const isPositive = change >= 0;
+  // Calculate signal performance if we have entry price and signal type
+  const calculateSignalPerformance = () => {
+    if (!entryPrice || !currentPrice || !signalType) {
+      return { pips: 0, percentage: 0, isProfit: false };
+    }
+
+    let pips = 0;
+    let isProfit = false;
+
+    if (signalType === 'BUY') {
+      pips = (currentPrice - entryPrice) * 10000;
+      isProfit = currentPrice > entryPrice;
+    } else {
+      pips = (entryPrice - currentPrice) * 10000;
+      isProfit = entryPrice > currentPrice;
+    }
+
+    const percentageChange = entryPrice > 0 ? Math.abs((currentPrice - entryPrice) / entryPrice) * 100 : 0;
+    
+    return {
+      pips: Math.round(pips),
+      percentage: isProfit ? percentageChange : -percentageChange,
+      isProfit
+    };
+  };
+
+  const signalPerformance = calculateSignalPerformance();
+  const showSignalPerformance = entryPrice && currentPrice && signalType;
+
+  // Use signal performance if available, otherwise use market change
+  const displayChange = showSignalPerformance ? signalPerformance.pips / 10000 : change;
+  const displayPercentage = showSignalPerformance ? signalPerformance.percentage : percentage;
+  const isPositive = showSignalPerformance ? signalPerformance.isProfit : change >= 0;
+
   const changeColor = isPositive ? 'text-emerald-400' : 'text-red-400';
   const TrendIcon = isPositive ? TrendingUp : TrendingDown;
 
@@ -47,12 +84,25 @@ const RealTimePriceDisplay = ({
             </div>
             <div className={`flex items-center space-x-1 ${changeColor}`}>
               <TrendIcon className="h-4 w-4" />
-              <span className="text-sm font-mono">
-                {isPositive ? '+' : ''}{change.toFixed(5)}
-              </span>
-              <span className="text-xs">
-                ({isPositive ? '+' : ''}{percentage.toFixed(2)}%)
-              </span>
+              {showSignalPerformance ? (
+                <div className="flex flex-col text-xs">
+                  <span className="font-mono">
+                    {isPositive ? '+' : ''}{signalPerformance.pips} pips
+                  </span>
+                  <span className="font-mono">
+                    ({isPositive ? '+' : ''}{displayPercentage.toFixed(2)}%)
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <span className="text-sm font-mono">
+                    {isPositive ? '+' : ''}{displayChange.toFixed(5)}
+                  </span>
+                  <span className="text-xs">
+                    ({isPositive ? '+' : ''}{displayPercentage.toFixed(2)}%)
+                  </span>
+                </>
+              )}
             </div>
           </>
         ) : (

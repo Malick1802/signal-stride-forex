@@ -59,7 +59,7 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
   // Use live current price for real-time updates, fallback to entry price only if no live data
   const currentPrice = liveCurrentPrice || signalEntryPrice;
   
-  // Get live price change data
+  // Get live price change data (this will be market data, not signal performance)
   const { change, percentage } = getPriceChange();
 
   // Use ONLY centralized chart data for real-time updates
@@ -84,6 +84,7 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
         percentage={percentage}
         dataSource={dataSource}
         lastUpdateTime={lastUpdateTime}
+        entryPrice={signalEntryPrice}
       />
 
       <RealTimePriceDisplay
@@ -94,6 +95,8 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
         dataSource={dataSource}
         isConnected={connectionStatus}
         isMarketOpen={isMarketOpen}
+        entryPrice={signalEntryPrice}
+        signalType={safeSignal.type}
       />
 
       <RealTimeChart
