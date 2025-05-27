@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -211,9 +212,9 @@ export const useTradingSignals = () => {
   useEffect(() => {
     fetchSignals();
     
-    // Real-time subscriptions for centralized signals only
+    // Enhanced real-time subscriptions for centralized signals with better error handling
     const signalsChannel = supabase
-      .channel('centralized-trading-signals')
+      .channel(`centralized-trading-signals-${Date.now()}`)
       .on(
         'postgres_changes',
         {
@@ -223,16 +224,26 @@ export const useTradingSignals = () => {
           filter: 'is_centralized=eq.true'
         },
         (payload) => {
-          console.log('📡 Centralized signal change detected:', payload);
-          setTimeout(fetchSignals, 1000);
+          console.log('📡 Real-time centralized signal change detected:', payload);
+          // Immediate refresh for real-time signal updates
+          setTimeout(fetchSignals, 200);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log(`📡 Centralized signals subscription status: ${status}`);
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Real-time signal updates connected');
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error('❌ Signal subscription failed, attempting to reconnect...');
+          setTimeout(fetchSignals, 2000);
+        }
+      });
 
-    // Automatic refresh every 5 minutes
+    // Automatic refresh every 2 minutes (backup for real-time)
     const updateInterval = setInterval(async () => {
+      console.log('🔄 Periodic signal refresh...');
       await fetchSignals();
-    }, 5 * 60 * 1000);
+    }, 2 * 60 * 1000);
 
     return () => {
       supabase.removeChannel(signalsChannel);

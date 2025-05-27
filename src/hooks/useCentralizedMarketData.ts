@@ -33,7 +33,7 @@ export const useCentralizedMarketData = (symbol: string) => {
   const [marketData, setMarketData] = useState<CentralizedMarketData | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [dataSource, setDataSource] = useState<string>('FastForex Live');
-  const channelRef = useRef<any>();
+  const channelsRef = useRef<any[]>([]);
   const mountedRef = useRef(true);
 
   const fetchCentralizedData = useCallback(async () => {
@@ -139,7 +139,7 @@ export const useCentralizedMarketData = (symbol: string) => {
     }
   }, [symbol]);
 
-  // Optimized real-time subscriptions for FastForex data
+  // Enhanced real-time subscriptions with better error handling
   useEffect(() => {
     if (!symbol || !SUPPORTED_PAIRS.includes(symbol)) {
       setIsConnected(false);
@@ -149,9 +149,15 @@ export const useCentralizedMarketData = (symbol: string) => {
     mountedRef.current = true;
     fetchCentralizedData();
 
-    // Enhanced real-time subscription for FastForex updates
+    // Clear existing channels
+    channelsRef.current.forEach(channel => {
+      supabase.removeChannel(channel);
+    });
+    channelsRef.current = [];
+
+    // Enhanced real-time subscription for FastForex market state updates
     const stateChannel = supabase
-      .channel(`fastforex-live-${symbol}`)
+      .channel(`fastforex-state-${symbol}-${Date.now()}`)
       .on(
         'postgres_changes',
         {
@@ -162,20 +168,25 @@ export const useCentralizedMarketData = (symbol: string) => {
         },
         (payload) => {
           if (!mountedRef.current) return;
-          console.log(`🔔 FastForex update for ${symbol}:`, payload.new);
-          // Quick fetch for immediate FastForex data
-          setTimeout(fetchCentralizedData, 80);
+          console.log(`🔔 Real-time FastForex state update for ${symbol}:`, payload.new || payload.old);
+          // Immediate fetch for real-time updates
+          setTimeout(fetchCentralizedData, 50);
         }
       )
       .subscribe((status) => {
         if (!mountedRef.current) return;
-        setIsConnected(status === 'SUBSCRIBED');
-        console.log(`📡 FastForex channel ${symbol}: ${status}`);
+        console.log(`📡 FastForex state channel ${symbol}: ${status}`);
+        if (status === 'SUBSCRIBED') {
+          setIsConnected(true);
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          setIsConnected(false);
+          console.error(`❌ FastForex state subscription failed for ${symbol}: ${status}`);
+        }
       });
 
-    // Optimized price history subscription for FastForex ticks
+    // Real-time subscription for price history updates
     const historyChannel = supabase
-      .channel(`fastforex-history-${symbol}`)
+      .channel(`fastforex-history-${symbol}-${Date.now()}`)
       .on(
         'postgres_changes',
         {
@@ -186,24 +197,49 @@ export const useCentralizedMarketData = (symbol: string) => {
         },
         (payload) => {
           if (!mountedRef.current) return;
-          console.log(`📈 FastForex tick for ${symbol}:`, payload.new);
-          // Very quick update for smooth charting
-          setTimeout(fetchCentralizedData, 40);
+          console.log(`📈 Real-time FastForex price tick for ${symbol}:`, payload.new);
+          // Very quick update for smooth real-time charting
+          setTimeout(fetchCentralizedData, 25);
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        if (!mountedRef.current) return;
+        console.log(`📊 FastForex history channel ${symbol}: ${status}`);
+      });
 
-    channelRef.current = { stateChannel, historyChannel };
+    channelsRef.current = [stateChannel, historyChannel];
+
+    // Connection health monitoring
+    const healthCheck = setInterval(() => {
+      if (!mountedRef.current) return;
+      
+      // Verify we're still getting updates
+      const lastUpdate = marketData?.lastUpdate;
+      if (lastUpdate) {
+        const now = new Date();
+        const lastUpdateTime = new Date();
+        const [hours, minutes, seconds] = lastUpdate.split(':').map(Number);
+        lastUpdateTime.setHours(hours, minutes, seconds);
+        
+        const timeDiff = now.getTime() - lastUpdateTime.getTime();
+        
+        // If no updates for more than 2 minutes, try to reconnect
+        if (timeDiff > 120000) {
+          console.log(`⚠️ No updates for ${symbol} in ${timeDiff/1000}s, refreshing...`);
+          fetchCentralizedData();
+        }
+      }
+    }, 30000); // Check every 30 seconds
 
     return () => {
       mountedRef.current = false;
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current.stateChannel);
-        supabase.removeChannel(channelRef.current.historyChannel);
-        channelRef.current = null;
-      }
+      channelsRef.current.forEach(channel => {
+        supabase.removeChannel(channel);
+      });
+      channelsRef.current = [];
+      clearInterval(healthCheck);
     };
-  }, [symbol, fetchCentralizedData]);
+  }, [symbol, fetchCentralizedData, marketData?.lastUpdate]);
 
   // Enhanced FastForex market update trigger
   const triggerMarketUpdate = useCallback(async () => {
@@ -216,8 +252,8 @@ export const useCentralizedMarketData = (symbol: string) => {
         console.error('❌ FastForex stream update failed:', error);
       } else {
         console.log('✅ FastForex stream updated:', data);
-        // Allow more time for FastForex data to propagate
-        setTimeout(fetchCentralizedData, 1200);
+        // Allow time for FastForex data to propagate
+        setTimeout(fetchCentralizedData, 1000);
       }
     } catch (error) {
       console.error('❌ Error triggering FastForex update:', error);

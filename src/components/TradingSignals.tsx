@@ -5,8 +5,9 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import SignalStats from './SignalStats';
 import SignalCard from './SignalCard';
+import RealTimeStatus from './RealTimeStatus';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Wifi, WifiOff, Users, Activity } from 'lucide-react';
+import { RefreshCw, Users, Activity } from 'lucide-react';
 import { useMarketActivation } from '@/hooks/useMarketActivation';
 
 const TradingSignals = memo(() => {
@@ -114,6 +115,9 @@ const TradingSignals = memo(() => {
         lastUpdate={lastUpdate}
       />
 
+      {/* Real-time Connection Status */}
+      <RealTimeStatus />
+
       {/* Automated System Status */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="flex items-center justify-between">
@@ -123,16 +127,6 @@ const TradingSignals = memo(() => {
               <span className="text-white font-medium">Automated FastForex System</span>
               <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded">
                 LIVE AUTO-UPDATE
-              </span>
-            </div>
-            <div className="flex items-center space-x-2">
-              {hasSignalData ? (
-                <Wifi className="h-4 w-4 text-emerald-400" />
-              ) : (
-                <WifiOff className="h-4 w-4 text-orange-400" />
-              )}
-              <span className="text-sm text-gray-400">
-                {hasSignalData ? 'Real-time updates active' : 'Waiting for next signal cycle'}
               </span>
             </div>
           </div>
