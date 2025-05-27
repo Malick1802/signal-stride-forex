@@ -7,6 +7,7 @@ import SignalStats from './SignalStats';
 import SignalCard from './SignalCard';
 import RealTimeStatus from './RealTimeStatus';
 import GlobalRefreshIndicator from './GlobalRefreshIndicator';
+import AutomatedAnalysisControl from './AutomatedAnalysisControl';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Users, Activity } from 'lucide-react';
 import { useMarketActivation } from '@/hooks/useMarketActivation';
@@ -124,6 +125,9 @@ const TradingSignals = memo(() => {
 
       {/* Real-time Connection Status */}
       <RealTimeStatus />
+
+      {/* Automated AI Analysis Control */}
+      <AutomatedAnalysisControl />
 
       {/* Automated System Status */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
