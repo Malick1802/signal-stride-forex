@@ -28,7 +28,7 @@ serve(async (req) => {
     // Clear ALL existing cron jobs to prevent conflicts
     console.log('❌ Removing all existing signal-related cron jobs...');
     
-    // Remove all possible signal generation cron jobs
+    // Remove all possible signal generation cron jobs using cron.unschedule
     const existingJobs = [
       'invoke-generate-signals-every-5min',
       'generate-signals-every-5min', 
@@ -40,7 +40,7 @@ serve(async (req) => {
 
     for (const jobName of existingJobs) {
       try {
-        const { error } = await supabase.rpc('cron.unschedule', { job_name: jobName });
+        const { error } = await supabase.rpc('cron_unschedule', { job_name: jobName });
         if (error) {
           console.log(`⚠️ Job ${jobName} might not exist:`, error.message);
         } else {
@@ -51,15 +51,15 @@ serve(async (req) => {
       }
     }
 
-    // Create the definitive cron job for automatic signal generation
+    // Create the definitive cron job for automatic signal generation using SQL
     console.log('📅 Creating new automatic signal generation cron job...');
     
-    const { error: cronError } = await supabase
-      .from('cron.job')
-      .insert({
-        jobname: 'automatic-signal-generation',
-        schedule: '*/5 * * * *',
-        command: `SELECT net.http_post(
+    const cronJobSql = `
+      SELECT cron.schedule(
+        'automatic-signal-generation',
+        '*/5 * * * *',
+        $$
+        SELECT net.http_post(
           url := '${supabaseUrl}/functions/v1/generate-signals',
           headers := jsonb_build_object(
             'Content-Type', 'application/json',
@@ -69,8 +69,12 @@ serve(async (req) => {
             'trigger', 'cron',
             'automatic', true
           )
-        );`
-      });
+        );
+        $$
+      );
+    `;
+
+    const { error: cronError } = await supabase.rpc('sql', { query: cronJobSql });
 
     if (cronError) {
       console.error('❌ Error creating automatic cron job:', cronError);
