@@ -33,16 +33,20 @@ export const useCentralizedMarketData = (symbol: string) => {
   const [marketData, setMarketData] = useState<CentralizedMarketData | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [dataSource, setDataSource] = useState<string>('FastForex Live');
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const channelsRef = useRef<any[]>([]);
   const mountedRef = useRef(true);
+  const retryTimeoutRef = useRef<NodeJS.Timeout>();
 
-  const fetchCentralizedData = useCallback(async () => {
+  const fetchCentralizedData = useCallback(async (isRetry = false) => {
     if (!symbol || !mountedRef.current || !SUPPORTED_PAIRS.includes(symbol)) {
       return;
     }
 
     try {
-      // Get current FastForex-powered market state
+      console.log(`🔄 Fetching centralized data for ${symbol}${isRetry ? ' (retry)' : ''}`);
+
+      // Get current FastForex-powered market state with immediate response
       const { data: marketState, error: stateError } = await supabase
         .from('centralized_market_state')
         .select('*')
@@ -51,50 +55,77 @@ export const useCentralizedMarketData = (symbol: string) => {
 
       if (stateError) {
         console.error(`❌ Error fetching FastForex market state for ${symbol}:`, stateError);
+        if (!isRetry) {
+          // Retry once after a short delay
+          retryTimeoutRef.current = setTimeout(() => fetchCentralizedData(true), 1000);
+        }
         return;
       }
 
-      // Get recent price history optimized for charts
+      // Get recent price history with more aggressive caching
       const { data: priceHistory, error: historyError } = await supabase
         .from('live_price_history')
         .select('price, timestamp')
         .eq('symbol', symbol)
         .order('timestamp', { ascending: false })
-        .limit(120); // More points for smoother charts
+        .limit(150); // More points for smoother charts
 
       if (historyError) {
-        console.error(`❌ Error fetching FastForex price history for ${symbol}:`, historyError);
-        return;
+        console.warn(`⚠️ Error fetching price history for ${symbol}:`, historyError);
+        // Continue with just market state if history fails
       }
 
       if (!mountedRef.current) return;
 
       if (marketState) {
-        // Safely transform price history for smooth charting
+        // Transform price history with better error handling
         const chartData: PriceData[] = Array.isArray(priceHistory) && priceHistory.length > 0
           ? priceHistory
               .reverse()
               .map((item, index) => {
-                const itemTime = new Date(item.timestamp);
-                return {
-                  timestamp: itemTime.getTime(),
-                  time: itemTime.toLocaleTimeString('en-US', {
-                    hour12: false,
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit'
-                  }),
-                  price: parseFloat(item.price.toString()),
-                  volume: Math.random() * 150000 + 80000 // Realistic volume simulation
-                };
+                try {
+                  const itemTime = new Date(item.timestamp);
+                  return {
+                    timestamp: itemTime.getTime(),
+                    time: itemTime.toLocaleTimeString('en-US', {
+                      hour12: false,
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit'
+                    }),
+                    price: parseFloat(item.price.toString()),
+                    volume: Math.random() * 150000 + 80000
+                  };
+                } catch (error) {
+                  console.warn(`Warning: Invalid price history item for ${symbol}:`, item);
+                  return null;
+                }
               })
-          : []; // Safe fallback to empty array
+              .filter(Boolean) as PriceData[]
+          : [];
 
-        // Enhanced change calculation with better precision
+        // If no chart data, create a single point with current price
+        if (chartData.length === 0 && marketState.current_price) {
+          const now = Date.now();
+          chartData.push({
+            timestamp: now,
+            time: new Date(now).toLocaleTimeString('en-US', {
+              hour12: false,
+              hour: '2-digit',
+              minute: '2-digit',
+              second: '2-digit'
+            }),
+            price: parseFloat(marketState.current_price.toString()),
+            volume: 100000
+          });
+          console.log(`📊 Created fallback chart data for ${symbol}`);
+        }
+
+        // Enhanced change calculation
         let change24h = 0;
         let changePercentage = 0;
         
-        if (chartData.length >= 5) {
+        if (chartData.length >= 2) {
           const currentPrice = chartData[chartData.length - 1].price;
           const oldPrice = chartData[0].price;
           
@@ -104,7 +135,7 @@ export const useCentralizedMarketData = (symbol: string) => {
           }
         }
 
-        // Determine FastForex data source type
+        // Determine data source description
         let sourceDescription = 'FastForex Live';
         if (marketState.source?.includes('fresh')) {
           sourceDescription = 'FastForex Fresh';
@@ -112,8 +143,6 @@ export const useCentralizedMarketData = (symbol: string) => {
           sourceDescription = 'FastForex Tick';
         } else if (marketState.source?.includes('weekend')) {
           sourceDescription = 'Weekend Sim';
-        } else if (marketState.source?.includes('event')) {
-          sourceDescription = 'FastForex Event';
         }
 
         const centralizedData: CentralizedMarketData = {
@@ -131,18 +160,24 @@ export const useCentralizedMarketData = (symbol: string) => {
         setMarketData(centralizedData);
         setIsConnected(true);
         setDataSource(sourceDescription);
-        console.log(`✅ FastForex data loaded for ${symbol}: ${chartData.length} price points`);
+        setIsInitialLoad(false);
+        
+        console.log(`✅ FastForex data loaded for ${symbol}: ${chartData.length} price points, current: ${centralizedData.currentPrice}`);
       }
 
     } catch (error) {
       console.error(`❌ Error in fetchCentralizedData for ${symbol}:`, error);
       if (mountedRef.current) {
         setIsConnected(false);
+        if (!isRetry) {
+          // Retry once after error
+          retryTimeoutRef.current = setTimeout(() => fetchCentralizedData(true), 2000);
+        }
       }
     }
   }, [symbol]);
 
-  // Enhanced real-time subscriptions with better error handling
+  // Enhanced real-time subscriptions with immediate data fetch
   useEffect(() => {
     if (!symbol || !SUPPORTED_PAIRS.includes(symbol)) {
       setIsConnected(false);
@@ -150,6 +185,8 @@ export const useCentralizedMarketData = (symbol: string) => {
     }
 
     mountedRef.current = true;
+    
+    // Immediate data fetch on mount
     fetchCentralizedData();
 
     // Clear existing channels safely
@@ -164,7 +201,7 @@ export const useCentralizedMarketData = (symbol: string) => {
     }
     channelsRef.current = [];
 
-    // Enhanced real-time subscription for FastForex market state updates
+    // Real-time subscription with faster updates
     const stateChannel = supabase
       .channel(`fastforex-state-${symbol}-${Date.now()}`)
       .on(
@@ -177,9 +214,9 @@ export const useCentralizedMarketData = (symbol: string) => {
         },
         (payload) => {
           if (!mountedRef.current) return;
-          console.log(`🔔 Real-time FastForex state update for ${symbol}:`, payload.new || payload.old);
-          // Immediate fetch for real-time updates
-          setTimeout(fetchCentralizedData, 50);
+          console.log(`🔔 Real-time FastForex state update for ${symbol}`);
+          // Immediate update for real-time feel
+          setTimeout(fetchCentralizedData, 10);
         }
       )
       .subscribe((status) => {
@@ -190,10 +227,16 @@ export const useCentralizedMarketData = (symbol: string) => {
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           setIsConnected(false);
           console.error(`❌ FastForex state subscription failed for ${symbol}: ${status}`);
+          // Auto-retry connection
+          setTimeout(() => {
+            if (mountedRef.current) {
+              fetchCentralizedData();
+            }
+          }, 3000);
         }
       });
 
-    // Real-time subscription for price history updates
+    // Real-time subscription for price history updates with faster response
     const historyChannel = supabase
       .channel(`fastforex-history-${symbol}-${Date.now()}`)
       .on(
@@ -206,9 +249,9 @@ export const useCentralizedMarketData = (symbol: string) => {
         },
         (payload) => {
           if (!mountedRef.current) return;
-          console.log(`📈 Real-time FastForex price tick for ${symbol}:`, payload.new);
+          console.log(`📈 Real-time FastForex price tick for ${symbol}`);
           // Very quick update for smooth real-time charting
-          setTimeout(fetchCentralizedData, 25);
+          setTimeout(fetchCentralizedData, 5);
         }
       )
       .subscribe((status) => {
@@ -218,30 +261,36 @@ export const useCentralizedMarketData = (symbol: string) => {
 
     channelsRef.current = [stateChannel, historyChannel];
 
-    // Connection health monitoring
+    // Connection health monitoring with auto-recovery
     const healthCheck = setInterval(() => {
       if (!mountedRef.current) return;
       
-      // Verify we're still getting updates
-      const lastUpdate = marketData?.lastUpdate;
-      if (lastUpdate) {
+      // Check data freshness
+      if (marketData?.lastUpdate) {
         const now = new Date();
+        const lastUpdateParts = marketData.lastUpdate.split(':').map(Number);
         const lastUpdateTime = new Date();
-        const [hours, minutes, seconds] = lastUpdate.split(':').map(Number);
-        lastUpdateTime.setHours(hours, minutes, seconds);
+        lastUpdateTime.setHours(lastUpdateParts[0], lastUpdateParts[1], lastUpdateParts[2]);
         
         const timeDiff = now.getTime() - lastUpdateTime.getTime();
         
-        // If no updates for more than 2 minutes, try to reconnect
-        if (timeDiff > 120000) {
-          console.log(`⚠️ No updates for ${symbol} in ${timeDiff/1000}s, refreshing...`);
+        // If no updates for more than 90 seconds, refresh
+        if (timeDiff > 90000) {
+          console.log(`⚠️ Stale data for ${symbol}, refreshing...`);
           fetchCentralizedData();
         }
+      } else if (!isInitialLoad) {
+        // If no data at all after initial load, try to fetch
+        console.log(`⚠️ No data for ${symbol}, attempting refresh...`);
+        fetchCentralizedData();
       }
     }, 30000); // Check every 30 seconds
 
     return () => {
       mountedRef.current = false;
+      if (retryTimeoutRef.current) {
+        clearTimeout(retryTimeoutRef.current);
+      }
       if (channelsRef.current && Array.isArray(channelsRef.current)) {
         channelsRef.current.forEach(channel => {
           try {
@@ -254,9 +303,9 @@ export const useCentralizedMarketData = (symbol: string) => {
       channelsRef.current = [];
       clearInterval(healthCheck);
     };
-  }, [symbol, fetchCentralizedData, marketData?.lastUpdate]);
+  }, [symbol, fetchCentralizedData, marketData?.lastUpdate, isInitialLoad]);
 
-  // Enhanced FastForex market update trigger
+  // Enhanced market update trigger with better error handling
   const triggerMarketUpdate = useCallback(async () => {
     try {
       console.log(`🚀 Triggering FastForex update for ${symbol}...`);
@@ -267,8 +316,8 @@ export const useCentralizedMarketData = (symbol: string) => {
         console.error('❌ FastForex stream update failed:', error);
       } else {
         console.log('✅ FastForex stream updated:', data);
-        // Allow time for FastForex data to propagate
-        setTimeout(fetchCentralizedData, 1000);
+        // Allow time for data to propagate, then fetch
+        setTimeout(fetchCentralizedData, 500);
       }
     } catch (error) {
       console.error('❌ Error triggering FastForex update:', error);
@@ -280,6 +329,7 @@ export const useCentralizedMarketData = (symbol: string) => {
     isConnected,
     dataSource,
     triggerMarketUpdate,
-    refetch: fetchCentralizedData
+    refetch: fetchCentralizedData,
+    isInitialLoad
   };
 };

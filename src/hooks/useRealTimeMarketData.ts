@@ -14,30 +14,21 @@ interface UseRealTimeMarketDataProps {
   entryPrice: string;
 }
 
-// All pairs now use centralized data - no client-side fallbacks
+// All pairs use centralized data
 const CENTRALIZED_PAIRS = [
   'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
   'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY',
-  // Expanded to include more pairs for full centralization
   'GBPNZD', 'AUDNZD', 'CADCHF', 'EURAUD', 'EURNZD', 'GBPCAD', 'NZDCAD',
   'NZDCHF', 'NZDJPY', 'AUDJPY', 'CHFJPY'
 ];
 
 export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDataProps) => {
-  // All pairs now use centralized data
   const shouldUseCentralized = CENTRALIZED_PAIRS.includes(pair);
   
-  const { marketData, isConnected, dataSource, triggerMarketUpdate } = useCentralizedMarketData(
+  const { marketData, isConnected, dataSource, triggerMarketUpdate, isInitialLoad } = useCentralizedMarketData(
     shouldUseCentralized ? pair : ''
   );
   
-  const [fallbackState] = useState({
-    priceData: [],
-    currentPrice: null,
-    isMarketOpen: false,
-    lastUpdateTime: 'No centralized data available'
-  });
-
   const mountedRef = useRef(true);
 
   // Check market hours
@@ -53,19 +44,25 @@ export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDat
     return !(isFridayEvening || isSaturday || isSundayBeforeOpen);
   }, []);
 
-  // Initialize centralized data only - no client-side generation
+  // Auto-trigger updates if no data on first load
   useEffect(() => {
     mountedRef.current = true;
     
-    if (shouldUseCentralized && !marketData) {
-      // Trigger initial market update only if no centralized data exists
-      triggerMarketUpdate();
+    if (shouldUseCentralized && isInitialLoad && !marketData) {
+      console.log(`🔄 Auto-triggering data fetch for ${pair} on first load`);
+      const timer = setTimeout(() => {
+        if (mountedRef.current && !marketData) {
+          triggerMarketUpdate();
+        }
+      }, 2000);
+      
+      return () => clearTimeout(timer);
     }
 
     return () => {
       mountedRef.current = false;
     };
-  }, [pair, shouldUseCentralized, marketData, triggerMarketUpdate]);
+  }, [pair, shouldUseCentralized, marketData, triggerMarketUpdate, isInitialLoad]);
 
   const getPriceChange = useCallback(() => {
     if (shouldUseCentralized && marketData) {
@@ -85,27 +82,30 @@ export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDat
     return [];
   }, [shouldUseCentralized, marketData]);
 
-  // Return centralized data or indicate unsupported pair
+  // Return centralized data with better status indicators
   if (shouldUseCentralized) {
+    const hasData = marketData && marketData.priceHistory.length > 0;
+    const connectionStatus = isConnected && hasData;
+    
     return {
       priceData: marketData?.priceHistory || [],
       currentPrice: marketData?.currentPrice || null,
       isMarketOpen: marketData?.isMarketOpen ?? checkMarketHours(),
       lastUpdateTime: marketData?.lastUpdate || '',
-      dataSource: `${dataSource} (Centralized)`,
-      isConnected: isConnected,
+      dataSource: `${dataSource} (Centralized)${hasData ? '' : ' - Loading...'}`,
+      isConnected: connectionStatus,
       getPriceChange,
       getSparklineData
     };
   }
 
-  // For unsupported pairs, return empty state instead of generating data
+  // For unsupported pairs, return empty state
   return {
-    priceData: fallbackState.priceData,
-    currentPrice: fallbackState.currentPrice,
+    priceData: [],
+    currentPrice: null,
     isMarketOpen: false,
-    lastUpdateTime: fallbackState.lastUpdateTime,
-    dataSource: `${pair} not centralized - no data available`,
+    lastUpdateTime: '',
+    dataSource: `${pair} not supported`,
     isConnected: false,
     getPriceChange,
     getSparklineData

@@ -29,42 +29,64 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
     },
   };
 
-  // Transform chart data safely - use only centralized live data
+  // Transform chart data with better error handling and immediate display
   const chartData = useMemo(() => {
-    if (!Array.isArray(priceData) || priceData.length === 0) {
-      console.log('📊 No chart data available - using fallback');
-      // Create fallback data point if we have current price
-      if (currentPrice) {
-        const now = Date.now();
-        return [
-          {
-            time: "0",
-            price: currentPrice,
-            timestamp: now,
-            isEntry: false
-          }
-        ];
-      }
-      return [];
+    console.log(`📊 Processing chart data: ${priceData?.length || 0} points, currentPrice: ${currentPrice}`);
+    
+    // If we have price data, use it
+    if (Array.isArray(priceData) && priceData.length > 0) {
+      const transformedData = priceData.map((point, index) => {
+        try {
+          return {
+            time: `${index}`,
+            price: typeof point.price === 'number' ? point.price : parseFloat(point.price.toString()),
+            timestamp: point.timestamp,
+            isEntry: entryPrice && Math.abs(point.price - entryPrice) < 0.00001
+          };
+        } catch (error) {
+          console.warn('Error transforming chart point:', point, error);
+          return null;
+        }
+      }).filter(Boolean);
+      
+      console.log(`✅ Transformed ${transformedData.length} chart points`);
+      return transformedData;
     }
 
-    // Use only live centralized data - no stored signal data mixing
-    return priceData.map((point, index) => ({
-      time: `${index}`,
-      price: point.price,
-      timestamp: point.timestamp,
-      // Mark entry point for reference only
-      isEntry: entryPrice && Math.abs(point.price - entryPrice) < 0.00001
-    }));
+    // If no price data but we have current price, create minimal chart
+    if (currentPrice && typeof currentPrice === 'number') {
+      const now = Date.now();
+      const fallbackData = [
+        {
+          time: "0",
+          price: currentPrice,
+          timestamp: now - 60000,
+          isEntry: false
+        },
+        {
+          time: "1",
+          price: currentPrice,
+          timestamp: now,
+          isEntry: false
+        }
+      ];
+      console.log(`📊 Created fallback chart data with current price: ${currentPrice}`);
+      return fallbackData;
+    }
+
+    console.log('📊 No chart data available');
+    return [];
   }, [priceData, currentPrice, entryPrice]);
 
   const priceRange = useMemo(() => {
     if (chartData.length === 0) return { min: 0, max: 0 };
     
-    const prices = chartData.map(d => d.price);
+    const prices = chartData.map(d => d.price).filter(p => typeof p === 'number' && !isNaN(p));
+    if (prices.length === 0) return { min: 0, max: 0 };
+    
     const minPrice = Math.min(...prices);
     const maxPrice = Math.max(...prices);
-    const padding = (maxPrice - minPrice) * 0.05 || 0.0001; // Ensure minimum padding
+    const padding = (maxPrice - minPrice) * 0.05 || 0.0001;
     
     return {
       min: minPrice - padding,
@@ -72,16 +94,18 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
     };
   }, [chartData]);
 
+  const hasValidData = chartData.length > 0 && chartData.some(d => typeof d.price === 'number' && !isNaN(d.price));
+
   return (
     <div className="relative">
-      {/* Centralized Status Indicator */}
+      {/* Live Status Indicator */}
       <div className="absolute top-2 right-2 z-10">
         <div className="flex items-center space-x-2 text-xs">
           <div className={`w-2 h-2 rounded-full ${
-            isConnected ? 'bg-emerald-400' : 'bg-red-400'
+            isConnected ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'
           }`}></div>
           <span className={isConnected ? 'text-emerald-400' : 'text-red-400'}>
-            {isConnected ? 'LIVE' : 'OFFLINE'}
+            {isConnected ? 'LIVE' : 'CONNECTING...'}
           </span>
         </div>
       </div>
@@ -96,7 +120,7 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
         </div>
       )}
 
-      {/* Entry Price Reference Line */}
+      {/* Entry Price Reference */}
       {entryPrice && (
         <div className="absolute top-12 left-2 z-10">
           <div className="bg-blue-500/50 backdrop-blur-sm rounded px-2 py-1">
@@ -105,11 +129,13 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
         </div>
       )}
 
-      {/* Chart Data Status */}
-      {chartData.length === 0 && (
+      {/* Data Status */}
+      {!hasValidData && (
         <div className="absolute inset-0 flex items-center justify-center z-10">
           <div className="bg-black/50 backdrop-blur-sm rounded px-3 py-2">
-            <span className="text-white text-sm">Loading live data...</span>
+            <span className="text-white text-sm">
+              {isConnected ? 'Loading live data...' : 'Connecting to live feed...'}
+            </span>
           </div>
         </div>
       )}
@@ -129,7 +155,7 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
               <YAxis 
                 stroke="rgba(255,255,255,0.5)"
                 fontSize={8}
-                domain={chartData.length > 0 ? [priceRange.min, priceRange.max] : ['auto', 'auto']}
+                domain={hasValidData ? [priceRange.min, priceRange.max] : ['auto', 'auto']}
                 tickFormatter={formatPrice}
                 tick={{ fontSize: 8 }}
               />
@@ -139,27 +165,32 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
                   labelFormatter={(label) => `Point: ${label}`}
                 />} 
               />
-              <Line
-                type="monotone"
-                dataKey="price"
-                stroke={signalType === 'BUY' ? "#10b981" : "#ef4444"}
-                strokeWidth={2}
-                dot={false}
-                connectNulls
-                isAnimationActive={true}
-              />
-              {/* Entry price reference line */}
-              {entryPrice && chartData.length > 0 && (
-                <Line
-                  type="monotone"
-                  dataKey={() => entryPrice}
-                  stroke="#3b82f6"
-                  strokeWidth={1}
-                  strokeDasharray="5 5"
-                  dot={false}
-                  connectNulls
-                  isAnimationActive={false}
-                />
+              {hasValidData && (
+                <>
+                  <Line
+                    type="monotone"
+                    dataKey="price"
+                    stroke={signalType === 'BUY' ? "#10b981" : "#ef4444"}
+                    strokeWidth={2}
+                    dot={false}
+                    connectNulls
+                    isAnimationActive={true}
+                    animationDuration={300}
+                  />
+                  {/* Entry price reference line */}
+                  {entryPrice && (
+                    <Line
+                      type="monotone"
+                      dataKey={() => entryPrice}
+                      stroke="#3b82f6"
+                      strokeWidth={1}
+                      strokeDasharray="5 5"
+                      dot={false}
+                      connectNulls
+                      isAnimationActive={false}
+                    />
+                  )}
+                </>
               )}
             </LineChart>
           </ResponsiveContainer>
