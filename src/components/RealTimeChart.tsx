@@ -29,10 +29,22 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
     },
   };
 
-  // Transform chart data - use only centralized live data
+  // Transform chart data safely - use only centralized live data
   const chartData = useMemo(() => {
-    if (!priceData || priceData.length === 0) {
-      console.warn('No centralized chart data available');
+    if (!Array.isArray(priceData) || priceData.length === 0) {
+      console.log('📊 No chart data available - using fallback');
+      // Create fallback data point if we have current price
+      if (currentPrice) {
+        const now = Date.now();
+        return [
+          {
+            time: "0",
+            price: currentPrice,
+            timestamp: now,
+            isEntry: false
+          }
+        ];
+      }
       return [];
     }
 
@@ -44,7 +56,7 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
       // Mark entry point for reference only
       isEntry: entryPrice && Math.abs(point.price - entryPrice) < 0.00001
     }));
-  }, [priceData, entryPrice]);
+  }, [priceData, currentPrice, entryPrice]);
 
   const priceRange = useMemo(() => {
     if (chartData.length === 0) return { min: 0, max: 0 };
@@ -52,7 +64,7 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
     const prices = chartData.map(d => d.price);
     const minPrice = Math.min(...prices);
     const maxPrice = Math.max(...prices);
-    const padding = (maxPrice - minPrice) * 0.05;
+    const padding = (maxPrice - minPrice) * 0.05 || 0.0001; // Ensure minimum padding
     
     return {
       min: minPrice - padding,
@@ -69,7 +81,7 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
             isConnected ? 'bg-emerald-400' : 'bg-red-400'
           }`}></div>
           <span className={isConnected ? 'text-emerald-400' : 'text-red-400'}>
-            {isConnected ? 'CENTRALIZED' : 'OFFLINE'}
+            {isConnected ? 'LIVE' : 'OFFLINE'}
           </span>
         </div>
       </div>
@@ -93,6 +105,15 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
         </div>
       )}
 
+      {/* Chart Data Status */}
+      {chartData.length === 0 && (
+        <div className="absolute inset-0 flex items-center justify-center z-10">
+          <div className="bg-black/50 backdrop-blur-sm rounded px-3 py-2">
+            <span className="text-white text-sm">Loading live data...</span>
+          </div>
+        </div>
+      )}
+
       <div className="h-48 p-4">
         <ChartContainer config={chartConfig}>
           <ResponsiveContainer width="100%" height="100%">
@@ -108,7 +129,7 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
               <YAxis 
                 stroke="rgba(255,255,255,0.5)"
                 fontSize={8}
-                domain={[priceRange.min, priceRange.max]}
+                domain={chartData.length > 0 ? [priceRange.min, priceRange.max] : ['auto', 'auto']}
                 tickFormatter={formatPrice}
                 tick={{ fontSize: 8 }}
               />
@@ -128,7 +149,7 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
                 isAnimationActive={true}
               />
               {/* Entry price reference line */}
-              {entryPrice && (
+              {entryPrice && chartData.length > 0 && (
                 <Line
                   type="monotone"
                   dataKey={() => entryPrice}

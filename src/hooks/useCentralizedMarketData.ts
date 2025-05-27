@@ -70,23 +70,25 @@ export const useCentralizedMarketData = (symbol: string) => {
       if (!mountedRef.current) return;
 
       if (marketState) {
-        // Transform price history for smooth charting
-        const chartData: PriceData[] = (priceHistory || [])
-          .reverse()
-          .map((item, index) => {
-            const itemTime = new Date(item.timestamp);
-            return {
-              timestamp: itemTime.getTime(),
-              time: itemTime.toLocaleTimeString('en-US', {
-                hour12: false,
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit'
-              }),
-              price: parseFloat(item.price.toString()),
-              volume: Math.random() * 150000 + 80000 // Realistic volume simulation
-            };
-          });
+        // Safely transform price history for smooth charting
+        const chartData: PriceData[] = Array.isArray(priceHistory) && priceHistory.length > 0
+          ? priceHistory
+              .reverse()
+              .map((item, index) => {
+                const itemTime = new Date(item.timestamp);
+                return {
+                  timestamp: itemTime.getTime(),
+                  time: itemTime.toLocaleTimeString('en-US', {
+                    hour12: false,
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                  }),
+                  price: parseFloat(item.price.toString()),
+                  volume: Math.random() * 150000 + 80000 // Realistic volume simulation
+                };
+              })
+          : []; // Safe fallback to empty array
 
         // Enhanced change calculation with better precision
         let change24h = 0;
@@ -129,6 +131,7 @@ export const useCentralizedMarketData = (symbol: string) => {
         setMarketData(centralizedData);
         setIsConnected(true);
         setDataSource(sourceDescription);
+        console.log(`✅ FastForex data loaded for ${symbol}: ${chartData.length} price points`);
       }
 
     } catch (error) {
@@ -149,10 +152,16 @@ export const useCentralizedMarketData = (symbol: string) => {
     mountedRef.current = true;
     fetchCentralizedData();
 
-    // Clear existing channels
-    channelsRef.current.forEach(channel => {
-      supabase.removeChannel(channel);
-    });
+    // Clear existing channels safely
+    if (channelsRef.current && Array.isArray(channelsRef.current)) {
+      channelsRef.current.forEach(channel => {
+        try {
+          supabase.removeChannel(channel);
+        } catch (error) {
+          console.warn('Error removing channel:', error);
+        }
+      });
+    }
     channelsRef.current = [];
 
     // Enhanced real-time subscription for FastForex market state updates
@@ -233,9 +242,15 @@ export const useCentralizedMarketData = (symbol: string) => {
 
     return () => {
       mountedRef.current = false;
-      channelsRef.current.forEach(channel => {
-        supabase.removeChannel(channel);
-      });
+      if (channelsRef.current && Array.isArray(channelsRef.current)) {
+        channelsRef.current.forEach(channel => {
+          try {
+            supabase.removeChannel(channel);
+          } catch (error) {
+            console.warn('Error removing channel:', error);
+          }
+        });
+      }
       channelsRef.current = [];
       clearInterval(healthCheck);
     };
