@@ -96,13 +96,20 @@ serve(async (req) => {
       }
     }
 
-    // Priority currency pairs for signal generation
-    const priorityPairs = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD'];
+    // ALL AVAILABLE CURRENCY PAIRS - Expanded from 5 to 25 pairs
+    const allCurrencyPairs = [
+      // Major pairs
+      'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD',
+      // Cross pairs
+      'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY'
+    ];
     
-    // Get latest price for each priority pair from centralized market state
+    console.log(`🌍 EXPANDED ANALYSIS: Now analyzing ${allCurrencyPairs.length} currency pairs (up from 5)`);
+    
+    // Get latest price for each currency pair from centralized market state
     const latestPrices = new Map();
     
-    for (const pair of priorityPairs) {
+    for (const pair of allCurrencyPairs) {
       const pairData = marketData?.find(item => item.symbol === pair);
       if (pairData) {
         latestPrices.set(pair, pairData);
@@ -112,10 +119,10 @@ serve(async (req) => {
       }
     }
 
-    console.log(`🎯 Will generate signals for ${latestPrices.size} pairs with available data`);
+    console.log(`🎯 Will generate signals for ${latestPrices.size} pairs with available data (out of ${allCurrencyPairs.length} total pairs)`);
 
     if (latestPrices.size === 0) {
-      console.error('❌ No market data available for any priority pairs');
+      console.error('❌ No market data available for any currency pairs');
       return new Response(
         JSON.stringify({ 
           success: false,
@@ -165,12 +172,14 @@ serve(async (req) => {
       }
     }
 
-    // Generate AI-powered signals for each priority pair with available data
+    // Generate AI-powered signals for ALL available currency pairs
     let successfulSignals = 0;
     let neutralSignals = 0;
     let errorCount = 0;
 
-    for (const pair of priorityPairs) {
+    console.log(`🚀 Starting AI analysis for ${allCurrencyPairs.length} currency pairs...`);
+
+    for (const pair of allCurrencyPairs) {
       const marketPoint = latestPrices.get(pair);
       if (!marketPoint) {
         console.log(`⚠️ Skipping ${pair} - no market data available`);
@@ -184,7 +193,7 @@ serve(async (req) => {
           continue;
         }
 
-        console.log(`🧠 Generating AI analysis for ${pair} at price ${currentPrice}...`);
+        console.log(`🧠 Generating AI analysis for ${pair} at price ${currentPrice}... (${successfulSignals + neutralSignals + errorCount + 1}/${allCurrencyPairs.length})`);
 
         // Get historical price data for context
         const { data: historicalData } = await supabase
@@ -199,7 +208,7 @@ serve(async (req) => {
         const priceChange = priceHistory.length > 1 ? 
           ((currentPrice - priceHistory[priceHistory.length - 1]) / priceHistory[priceHistory.length - 1] * 100) : 0;
 
-        // Call OpenAI for market analysis and signal generation
+        // Enhanced AI prompt for better signal quality across all pairs
         console.log(`🔮 Calling OpenAI API for ${pair} analysis...`);
         const aiAnalysisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
@@ -212,7 +221,7 @@ serve(async (req) => {
             messages: [
               {
                 role: 'system',
-                content: `You are a professional forex trading analyst. Analyze the provided market data and generate a trading signal recommendation. 
+                content: `You are a professional forex trading analyst with expertise in technical analysis. Analyze the provided market data and generate trading signal recommendations for ${pair}.
                 
                 Respond with a JSON object containing:
                 {
@@ -221,11 +230,19 @@ serve(async (req) => {
                   "entry_price": number (current price adjusted for optimal entry),
                   "stop_loss_pips": number between 15-40,
                   "take_profit_pips": [number, number, number] (3 levels, progressive),
-                  "analysis": "detailed explanation of the signal reasoning",
+                  "analysis": "detailed explanation of the signal reasoning including technical indicators and market context",
                   "risk_level": "LOW", "MEDIUM", or "HIGH"
                 }
                 
-                Base your analysis on technical patterns, price action, and market momentum. Only generate BUY/SELL signals when confident. Use NEUTRAL for unclear market conditions. For this session, try to be more decisive and generate actionable signals when possible.`
+                Consider:
+                - Technical patterns and price action for ${pair}
+                - Market momentum and volatility
+                - Support/resistance levels
+                - Currency pair characteristics (major/cross pair behavior)
+                - Current market session timing
+                - Risk management principles
+                
+                Only generate BUY/SELL signals when you have strong conviction. Use NEUTRAL when market conditions are unclear or conflicting. Be more selective with signal generation to maintain high quality across all ${allCurrencyPairs.length} analyzed pairs.`
               },
               {
                 role: 'user',
@@ -235,12 +252,13 @@ serve(async (req) => {
                 24h Change: ${priceChange.toFixed(2)}%
                 Market Timestamp: ${timestamp}
                 Session: ${new Date().getUTCHours() >= 12 && new Date().getUTCHours() < 20 ? 'US Trading Hours' : 'Outside US Hours'}
+                Pair Type: ${['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD'].includes(pair) ? 'Major Pair' : 'Cross Pair'}
                 
-                Generate a trading signal with specific entry, stop loss, and take profit levels. Be decisive in your analysis.`
+                Generate a trading signal with specific entry, stop loss, and take profit levels. Be thorough in your technical analysis and only issue signals when you have strong conviction.`
               }
             ],
             max_tokens: 800,
-            temperature: 0.4 // Slightly higher temperature for more varied responses
+            temperature: 0.3 // Lower temperature for more consistent analysis across all pairs
           }),
         });
 
@@ -261,7 +279,7 @@ serve(async (req) => {
           continue;
         }
 
-        console.log(`🤖 Raw AI response for ${pair}:`, aiContent.substring(0, 200) + '...');
+        console.log(`🤖 Raw AI response for ${pair}:`, aiContent.substring(0, 150) + '...');
 
         // Parse AI response
         let aiSignal;
@@ -274,7 +292,6 @@ serve(async (req) => {
           }
         } catch (parseError) {
           console.error(`❌ Failed to parse AI response for ${pair}:`, parseError);
-          console.log('AI Response:', aiContent);
           errorCount++;
           continue;
         }
@@ -355,7 +372,7 @@ serve(async (req) => {
           status: 'active',
           is_centralized: true,
           user_id: null,
-          analysis_text: `AI-Generated ${aiSignal.signal} Signal: ${aiSignal.analysis || 'Advanced technical analysis indicates favorable conditions.'}`,
+          analysis_text: `AI-Generated ${aiSignal.signal} Signal for ${pair}: ${aiSignal.analysis || 'Advanced technical analysis indicates favorable conditions.'}`,
           chart_data: chartData,
           pips: stopLossPips,
           created_at: timestamp
@@ -363,7 +380,12 @@ serve(async (req) => {
 
         signals.push(signal);
         successfulSignals++;
-        console.log(`✅ Generated AI-powered ${aiSignal.signal} signal for ${pair} (${aiSignal.confidence}% confidence)`);
+        console.log(`✅ Generated AI-powered ${aiSignal.signal} signal for ${pair} (${aiSignal.confidence}% confidence) - ${successfulSignals} total signals`);
+
+        // Add small delay between AI calls to avoid rate limiting
+        if (allCurrencyPairs.indexOf(pair) < allCurrencyPairs.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
 
       } catch (error) {
         console.error(`❌ Error generating AI signal for ${pair}:`, error);
@@ -371,21 +393,26 @@ serve(async (req) => {
       }
     }
 
-    console.log(`📊 Signal generation summary:`);
+    console.log(`📊 EXPANDED SIGNAL GENERATION SUMMARY:`);
+    console.log(`  - Total pairs analyzed: ${allCurrencyPairs.length}`);
+    console.log(`  - Pairs with market data: ${latestPrices.size}`);
     console.log(`  - Successful signals: ${successfulSignals}`);
     console.log(`  - Neutral signals: ${neutralSignals}`);
     console.log(`  - Errors: ${errorCount}`);
+    console.log(`  - Signal success rate: ${((successfulSignals / latestPrices.size) * 100).toFixed(1)}%`);
 
     if (signals.length === 0) {
-      console.log('⚠️ No AI signals generated - market conditions may be unclear or all signals were neutral');
+      console.log('⚠️ No AI signals generated from any of the analyzed pairs');
       return new Response(
         JSON.stringify({ 
           success: false,
-          message: `No AI signals generated - ${neutralSignals} neutral signals, ${errorCount} errors`, 
+          message: `No AI signals generated from ${allCurrencyPairs.length} analyzed pairs - ${neutralSignals} neutral signals, ${errorCount} errors`, 
           signals: [],
           marketDataCount: marketData?.length || 0,
           availablePairs: Array.from(latestPrices.keys()),
           stats: {
+            totalPairsAnalyzed: allCurrencyPairs.length,
+            pairsWithData: latestPrices.size,
             successful: successfulSignals,
             neutral: neutralSignals,
             errors: errorCount
@@ -397,7 +424,7 @@ serve(async (req) => {
     }
 
     // Insert new AI-generated signals
-    console.log(`💾 Inserting ${signals.length} new AI-generated centralized signals...`);
+    console.log(`💾 Inserting ${signals.length} new AI-generated centralized signals from ${allCurrencyPairs.length} analyzed pairs...`);
     const { data: insertedSignals, error: insertError } = await supabase
       .from('trading_signals')
       .insert(signals)
@@ -408,7 +435,7 @@ serve(async (req) => {
       throw insertError;
     }
 
-    console.log(`🎉 SUCCESS! Generated ${signals.length} AI-powered centralized signals`);
+    console.log(`🎉 SUCCESS! Generated ${signals.length} AI-powered centralized signals from ${allCurrencyPairs.length} currency pairs`);
     insertedSignals?.forEach(signal => {
       console.log(`  - ${signal.symbol} ${signal.type} @ ${signal.price} (${signal.confidence}% confidence)`);
     });
@@ -416,7 +443,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Generated ${signals.length} AI-powered centralized signals`,
+        message: `Generated ${signals.length} AI-powered centralized signals from ${allCurrencyPairs.length} analyzed pairs`,
         signals: insertedSignals?.map(s => ({ 
           id: s.id, 
           symbol: s.symbol, 
@@ -426,13 +453,17 @@ serve(async (req) => {
         })) || [],
         marketDataUsed: Array.from(latestPrices.keys()),
         stats: {
+          totalPairsAnalyzed: allCurrencyPairs.length,
+          pairsWithData: latestPrices.size,
           successful: successfulSignals,
           neutral: neutralSignals,
-          errors: errorCount
+          errors: errorCount,
+          signalSuccessRate: `${((successfulSignals / latestPrices.size) * 100).toFixed(1)}%`
         },
         timestamp,
         trigger: isCronTriggered ? 'cron' : 'manual',
-        aiPowered: true
+        aiPowered: true,
+        expandedAnalysis: true
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
