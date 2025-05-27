@@ -1,3 +1,4 @@
+
 import React, { useState, memo } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useSignalMonitoring } from '@/hooks/useSignalMonitoring';
@@ -8,7 +9,7 @@ import SignalCard from './SignalCard';
 import RealTimeStatus from './RealTimeStatus';
 import GlobalRefreshIndicator from './GlobalRefreshIndicator';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Users, Activity, Brain, TestTube, Wrench, Zap, FlaskConical } from 'lucide-react';
+import { RefreshCw, Users, Activity, Brain, TestTube, Wrench, Zap } from 'lucide-react';
 import { useMarketActivation } from '@/hooks/useMarketActivation';
 
 const TradingSignals = memo(() => {
@@ -23,7 +24,6 @@ const TradingSignals = memo(() => {
   const [refreshingSignals, setRefreshingSignals] = useState(false);
   const [testingSystem, setTestingSystem] = useState(false);
   const [cleaningCrons, setCleaningCrons] = useState(false);
-  const [generatingTestSignals, setGeneratingTestSignals] = useState(false);
 
   // Add market activation
   const { activateMarket } = useMarketActivation();
@@ -45,89 +45,32 @@ const TradingSignals = memo(() => {
     ? Math.round(validSignals.reduce((sum, signal) => sum + (signal.confidence || 0), 0) / validSignals.length)
     : 87;
 
-  const handleGenerateTestSignals = async () => {
-    setGeneratingTestSignals(true);
-    try {
-      console.log('🧪 Generating test signals with reduced confidence requirements...');
-      const { data, error } = await supabase.functions.invoke('generate-signals', {
-        body: { 
-          trigger: 'test',
-          test_mode: true
-        }
-      });
-      
-      if (error) {
-        console.error('❌ Test signal generation error:', error);
-        toast({
-          title: "Test Signal Error",
-          description: "Failed to generate test signals. Check logs for details.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      console.log('✅ Test signal generation result:', data);
-      
-      const testResults = data.stats || {};
-      let message = `Generated ${data.signals?.length || 0} test signals. Success rate: ${testResults.signalSuccessRate || 'unknown'}`;
-      
-      toast({
-        title: "🧪 Test Signals Generated",
-        description: message,
-      });
-
-      // Refresh signals after generation
-      setTimeout(() => {
-        window.location.reload();
-      }, 2000);
-    } catch (error) {
-      console.error('❌ Error generating test signals:', error);
-      toast({
-        title: "Test Signal Error",
-        description: "Failed to generate test signals. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setGeneratingTestSignals(false);
-    }
-  };
-
   const handleCleanupCrons = async () => {
     setCleaningCrons(true);
     try {
-      console.log('🧹 Setting up automatic signal generation...');
+      console.log('🧹 Cleaning up cron jobs...');
       const { data, error } = await supabase.functions.invoke('cleanup-crons');
       
       if (error) {
-        console.error('❌ Automatic setup error:', error);
+        console.error('❌ Cron cleanup error:', error);
         toast({
-          title: "Setup Error",
-          description: "Failed to setup automatic signal generation. Check logs for details.",
+          title: "Cleanup Error",
+          description: "Failed to cleanup cron jobs. Check logs for details.",
           variant: "destructive"
         });
         return;
       }
 
-      console.log('✅ Automatic setup result:', data);
-      
-      // Check if the response indicates missing extensions
-      if (data?.message?.includes('pg_cron not available') || data?.message?.includes('HTTP calls not available')) {
-        toast({
-          title: "⚠️ Extensions Required",
-          description: data.message + (data.note ? ` - ${data.note}` : ''),
-          variant: "destructive"
-        });
-      } else {
-        toast({
-          title: "✅ Automatic Generation Active",
-          description: "Signals will now be generated automatically every 5 minutes with outcome-based expiration",
-        });
-      }
-    } catch (error) {
-      console.error('❌ Error setting up automatic generation:', error);
+      console.log('✅ Cron cleanup result:', data);
       toast({
-        title: "Setup Error",
-        description: "Failed to setup automatic signal generation. Please try again.",
+        title: "✅ Cron Jobs Cleaned",
+        description: "All cron jobs cleaned up and new signal generation cron created (every 5 minutes)",
+      });
+    } catch (error) {
+      console.error('❌ Error cleaning crons:', error);
+      toast({
+        title: "Cleanup Error",
+        description: "Failed to cleanup cron jobs. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -260,15 +203,15 @@ const TradingSignals = memo(() => {
       {/* Real-time Connection Status */}
       <RealTimeStatus />
 
-      {/* Enhanced Automatic System Status */}
+      {/* Enhanced System Debugging Panel */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <Zap className="h-5 w-5 text-emerald-400" />
-              <span className="text-white font-medium">Automatic Signal Generation</span>
-              <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded">
-                OUTCOME-BASED EXPIRATION
+              <Wrench className="h-5 w-5 text-yellow-400" />
+              <span className="text-white font-medium">System Debugging & Testing</span>
+              <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">
+                ENHANCED DEBUG MODE
               </span>
             </div>
           </div>
@@ -276,58 +219,18 @@ const TradingSignals = memo(() => {
             <Button
               onClick={handleCleanupCrons}
               disabled={cleaningCrons}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm"
+              className="bg-yellow-600 hover:bg-yellow-700 text-white text-sm"
               size="sm"
             >
               {cleaningCrons ? (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Setting up...
+                  Cleaning...
                 </>
               ) : (
                 <>
-                  <Zap className="h-4 w-4 mr-2" />
-                  Activate Auto Generation
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-        <div className="mt-2 text-xs text-gray-400">
-          🤖 Automatic mode: Generates signals every 5 minutes • Signals expire only when take profit or stop loss is hit • Continuous signal flow
-          <br />
-          ⚠️ Note: Requires pg_cron and pg_net extensions in Supabase (may not be available on free tier)
-        </div>
-      </div>
-
-      {/* Enhanced System Debugging Panel */}
-      <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <Wrench className="h-5 w-5 text-yellow-400" />
-              <span className="text-white font-medium">Manual Controls & Testing</span>
-              <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">
-                DEBUG MODE
-              </span>
-            </div>
-          </div>
-          <div className="flex space-x-2">
-            <Button
-              onClick={handleGenerateTestSignals}
-              disabled={generatingTestSignals}
-              className="bg-green-600 hover:bg-green-700 text-white text-sm"
-              size="sm"
-            >
-              {generatingTestSignals ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <FlaskConical className="h-4 w-4 mr-2" />
-                  Test Mode Signals
+                  <Wrench className="h-4 w-4 mr-2" />
+                  Fix Cron Jobs
                 </>
               )}
             </Button>
@@ -344,15 +247,15 @@ const TradingSignals = memo(() => {
                 </>
               ) : (
                 <>
-                  <TestTube className="h-4 w-4 mr-2" />
-                  System Test
+                  <Zap className="h-4 w-4 mr-2" />
+                  Comprehensive Test
                 </>
               )}
             </Button>
           </div>
         </div>
         <div className="mt-2 text-xs text-gray-400">
-          🧪 Manual controls for testing • Test signals use lower thresholds • System diagnostics available
+          🔍 Comprehensive testing: OpenAI API • Market Data • Signal Generation • Cron Jobs • Error Detection
         </div>
       </div>
 
@@ -369,7 +272,7 @@ const TradingSignals = memo(() => {
             </div>
           </div>
           <div className="text-sm text-gray-400">
-            🤖 AI Analysis: Real-time market data • Outcome-based signal lifecycle • Intelligent signal generation
+            🤖 AI Analysis: Real-time market data • Advanced pattern recognition • Intelligent signal generation • Enhanced debugging
           </div>
         </div>
       </div>
@@ -382,7 +285,7 @@ const TradingSignals = memo(() => {
               <Users className="h-5 w-5 text-blue-400" />
               <span className="text-white font-medium">Centralized AI Signals</span>
               <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">
-                AUTOMATIC GENERATION
+                LIVE AI ANALYSIS
               </span>
             </div>
             <Button
@@ -399,13 +302,13 @@ const TradingSignals = memo(() => {
               ) : (
                 <>
                   <Brain className="h-4 w-4 mr-2" />
-                  Manual Generate
+                  Generate AI Signals
                 </>
               )}
             </Button>
           </div>
           <div className="text-sm text-gray-400">
-            🧠 All users see identical signals • Expires on outcomes only • Auto-generated every 5 minutes
+            🧠 All users see identical AI-generated signals • Real-time market analysis • Auto-generated every 5 minutes
           </div>
         </div>
       </div>
@@ -471,23 +374,6 @@ const TradingSignals = memo(() => {
               The enhanced AI system analyzes real-time market data and generates intelligent signals automatically
             </div>
             <div className="space-x-4">
-              <Button
-                onClick={handleGenerateTestSignals}
-                disabled={generatingTestSignals}
-                className="bg-green-600 hover:bg-green-700 text-white"
-              >
-                {generatingTestSignals ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Generating Test Signals...
-                  </>
-                ) : (
-                  <>
-                    <FlaskConical className="h-4 w-4 mr-2" />
-                    Generate Test Signals
-                  </>
-                )}
-              </Button>
               <Button
                 onClick={handleRefreshSignals}
                 disabled={refreshingSignals}
