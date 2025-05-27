@@ -109,10 +109,20 @@ const TradingSignals = memo(() => {
       }
 
       console.log('✅ Automatic setup result:', data);
-      toast({
-        title: "✅ Automatic Generation Active",
-        description: "Signals will now be generated automatically every 5 minutes with outcome-based expiration",
-      });
+      
+      // Check if the response indicates missing extensions
+      if (data?.message?.includes('pg_cron not available') || data?.message?.includes('HTTP calls not available')) {
+        toast({
+          title: "⚠️ Extensions Required",
+          description: data.message + (data.note ? ` - ${data.note}` : ''),
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "✅ Automatic Generation Active",
+          description: "Signals will now be generated automatically every 5 minutes with outcome-based expiration",
+        });
+      }
     } catch (error) {
       console.error('❌ Error setting up automatic generation:', error);
       toast({
@@ -285,6 +295,8 @@ const TradingSignals = memo(() => {
         </div>
         <div className="mt-2 text-xs text-gray-400">
           🤖 Automatic mode: Generates signals every 5 minutes • Signals expire only when take profit or stop loss is hit • Continuous signal flow
+          <br />
+          ⚠️ Note: Requires pg_cron and pg_net extensions in Supabase (may not be available on free tier)
         </div>
       </div>
 
