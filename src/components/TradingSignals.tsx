@@ -1,4 +1,3 @@
-
 import React, { useState, memo } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useSignalMonitoring } from '@/hooks/useSignalMonitoring';
@@ -25,7 +24,6 @@ const TradingSignals = memo(() => {
   const [detectingOpportunities, setDetectingOpportunities] = useState(false);
   const [testingSystem, setTestingSystem] = useState(false);
   const [cleaningCrons, setCleaningCrons] = useState(false);
-  const [generatingTestSignals, setGeneratingTestSignals] = useState(false);
 
   // Add market activation
   const { activateMarket } = useMarketActivation();
@@ -46,53 +44,6 @@ const TradingSignals = memo(() => {
   const avgConfidence = validSignals.length > 0 
     ? Math.round(validSignals.reduce((sum, signal) => sum + (signal.confidence || 0), 0) / validSignals.length)
     : 87;
-
-  const handleGenerateTestSignals = async () => {
-    setGeneratingTestSignals(true);
-    try {
-      console.log('🧪 Generating ULTRA-AGGRESSIVE test signals with very liberal opportunity detection...');
-      const { data, error } = await supabase.functions.invoke('generate-signals', {
-        body: { 
-          trigger: 'test',
-          test_mode: true
-        }
-      });
-      
-      if (error) {
-        console.error('❌ Test signal generation error:', error);
-        toast({
-          title: "Test Signal Error",
-          description: "Failed to generate test signals. Check logs for details.",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      console.log('✅ Test signal generation result:', data);
-      
-      const testResults = data.stats || {};
-      let message = `Generated ${data.signals?.length || 0} test opportunities from ${testResults.opportunitiesAnalyzed || 0} pairs analyzed (${testResults.detectionRate || '0%'} rate)`;
-      
-      toast({
-        title: "🧪 Ultra-Aggressive Test Complete",
-        description: message,
-      });
-
-      // Refresh signals after generation
-      setTimeout(() => {
-        window.location.reload();
-      }, 2000);
-    } catch (error) {
-      console.error('❌ Error generating test signals:', error);
-      toast({
-        title: "Test Signal Error",
-        description: "Failed to generate test signals. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setGeneratingTestSignals(false);
-    }
-  };
 
   const handleCleanupCrons = async () => {
     setCleaningCrons(true);
@@ -291,37 +242,19 @@ const TradingSignals = memo(() => {
         </div>
       </div>
 
-      {/* Enhanced System Debugging Panel */}
+      {/* System Debugging Panel */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <Wrench className="h-5 w-5 text-yellow-400" />
-              <span className="text-white font-medium">Ultra-Aggressive Testing Controls</span>
-              <span className="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded">
-                TESTING MODE
+              <span className="text-white font-medium">System Controls</span>
+              <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">
+                PRODUCTION
               </span>
             </div>
           </div>
           <div className="flex space-x-2">
-            <Button
-              onClick={handleGenerateTestSignals}
-              disabled={generatingTestSignals}
-              className="bg-red-600 hover:bg-red-700 text-white text-sm"
-              size="sm"
-            >
-              {generatingTestSignals ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Testing...
-                </>
-              ) : (
-                <>
-                  <FlaskConical className="h-4 w-4 mr-2" />
-                  Ultra-Aggressive Test (75-80% Rate)
-                </>
-              )}
-            </Button>
             <Button
               onClick={handleCleanupCrons}
               disabled={cleaningCrons}
@@ -360,8 +293,8 @@ const TradingSignals = memo(() => {
             </Button>
           </div>
         </div>
-        <div className="mt-2 text-xs text-red-400">
-          🚨 ULTRA-AGGRESSIVE MODE: Generates signals at 75-80% rate for testing • Much lower confidence thresholds (45-75%) • Very liberal opportunity detection
+        <div className="mt-2 text-xs text-blue-400">
+          🎯 PRODUCTION MODE: Conservative signal generation (10-15% rate) • High confidence thresholds (75-90%) • Selective opportunity detection
         </div>
       </div>
 
@@ -458,23 +391,6 @@ const TradingSignals = memo(() => {
                   <>
                     <Target className="h-4 w-4 mr-2" />
                     Detect New Opportunities
-                  </>
-                )}
-              </Button>
-              <Button
-                onClick={handleGenerateTestSignals}
-                disabled={generatingTestSignals}
-                className="bg-red-600 hover:bg-red-700 text-white"
-              >
-                {generatingTestSignals ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Ultra-Test Detection...
-                  </>
-                ) : (
-                  <>
-                    <FlaskConical className="h-4 w-4 mr-2" />
-                    Ultra-Aggressive Test Mode
                   </>
                 )}
               </Button>
