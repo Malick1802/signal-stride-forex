@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
@@ -29,11 +30,13 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
     },
   };
 
-  // Optimized chart data processing
+  // Enhanced chart data processing with immediate updates
   const chartData = useMemo(() => {
-    // Prioritize existing price data
+    console.log(`📊 [Chart] Processing data: ${priceData?.length || 0} points, currentPrice: ${currentPrice}, loading: ${isLoading}`);
+    
+    // Prioritize live price data for real-time updates
     if (Array.isArray(priceData) && priceData.length > 0) {
-      const transformedData = priceData.slice(0, 50).map((point, index) => {
+      const transformedData = priceData.map((point, index) => {
         const priceValue = typeof point.price === 'number' ? point.price : Number(point.price);
         
         return {
@@ -44,21 +47,32 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
         };
       });
       
+      console.log(`✅ [Chart] Live data ready: ${transformedData.length} points`);
       return transformedData;
     }
 
-    // Simplified fallback with current price
+    // Enhanced fallback with current price
     if (currentPrice && typeof currentPrice === 'number' && !isLoading) {
-      return [
+      const now = Date.now();
+      const fallbackData = [
         {
           time: "0",
           price: currentPrice,
-          timestamp: Date.now(),
+          timestamp: now - 30000,
+          isEntry: false
+        },
+        {
+          time: "1",
+          price: currentPrice,
+          timestamp: now,
           isEntry: false
         }
       ];
+      console.log(`📊 [Chart] Using live fallback: ${currentPrice}`);
+      return fallbackData;
     }
 
+    console.log(`📊 [Chart] No data available, loading: ${isLoading}`);
     return [];
   }, [priceData, currentPrice, entryPrice, isLoading]);
 
@@ -82,38 +96,49 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
 
   return (
     <div className="relative">
-      {/* Simplified Status Indicator */}
+      {/* Enhanced Live Status Indicator */}
       <div className="absolute top-2 right-2 z-10">
         <div className="flex items-center space-x-2 text-xs">
           <div className={`w-2 h-2 rounded-full ${
-            isLoading ? 'bg-yellow-400' :
-            isConnected && hasValidData ? 'bg-emerald-400' : 'bg-red-400'
+            isLoading ? 'bg-yellow-400 animate-pulse' :
+            isConnected && hasValidData ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'
           }`}></div>
           <span className={
             isLoading ? 'text-yellow-400' :
             isConnected && hasValidData ? 'text-emerald-400' : 'text-red-400'
           }>
-            {isLoading ? 'LOADING' : 
-             isConnected && hasValidData ? 'LIVE' : 'OFFLINE'}
+            {isLoading ? 'LOADING...' : 
+             isConnected && hasValidData ? 'LIVE' : 'CONNECTING...'}
           </span>
         </div>
       </div>
 
-      {/* Current Price Display */}
+      {/* Enhanced Current Price Display */}
       {currentPrice && !isLoading && (
         <div className="absolute top-2 left-2 z-10">
           <div className="bg-black/50 backdrop-blur-sm rounded px-2 py-1">
             <span className="text-white text-sm font-mono">{formatPrice(currentPrice)}</span>
+            <div className="text-xs text-emerald-400">LIVE</div>
           </div>
         </div>
       )}
 
-      {/* Simplified No Data Message */}
-      {!hasValidData && !isLoading && (
+      {/* Entry Price Reference */}
+      {entryPrice && (
+        <div className="absolute top-12 left-2 z-10">
+          <div className="bg-blue-500/50 backdrop-blur-sm rounded px-2 py-1">
+            <span className="text-white text-xs font-mono">Entry: {formatPrice(entryPrice)}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Enhanced Data Status */}
+      {!hasValidData && (
         <div className="absolute inset-0 flex items-center justify-center z-10">
           <div className="bg-black/50 backdrop-blur-sm rounded px-3 py-2">
             <span className="text-white text-sm">
-              No chart data available
+              {isLoading ? 'Loading live data...' : 
+               isConnected ? 'Waiting for live feed...' : 'Connecting to live feed...'}
             </span>
           </div>
         </div>
@@ -140,20 +165,36 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
               />
               <ChartTooltip 
                 content={<ChartTooltipContent 
-                  formatter={(value: any) => [formatPrice(Number(value)), 'Price']}
+                  formatter={(value: any) => [formatPrice(Number(value)), 'Live Price']}
                   labelFormatter={(label) => `Point: ${label}`}
                 />} 
               />
               {hasValidData && (
-                <Line
-                  type="monotone"
-                  dataKey="price"
-                  stroke={signalType === 'BUY' ? "#10b981" : "#ef4444"}
-                  strokeWidth={2}
-                  dot={false}
-                  connectNulls
-                  isAnimationActive={false} // Disable animations for performance
-                />
+                <>
+                  <Line
+                    type="monotone"
+                    dataKey="price"
+                    stroke={signalType === 'BUY' ? "#10b981" : "#ef4444"}
+                    strokeWidth={2}
+                    dot={false}
+                    connectNulls
+                    isAnimationActive={true}
+                    animationDuration={200}
+                  />
+                  {/* Entry price reference line */}
+                  {entryPrice && (
+                    <Line
+                      type="monotone"
+                      dataKey={() => entryPrice}
+                      stroke="#3b82f6"
+                      strokeWidth={1}
+                      strokeDasharray="5 5"
+                      dot={false}
+                      connectNulls
+                      isAnimationActive={false}
+                    />
+                  )}
+                </>
               )}
             </LineChart>
           </ResponsiveContainer>

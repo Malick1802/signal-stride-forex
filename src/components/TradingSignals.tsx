@@ -11,12 +11,10 @@ import { Button } from '@/components/ui/button';
 import { RefreshCw, Users, Activity, Brain, TestTube, Wrench, Zap, FlaskConical, Target } from 'lucide-react';
 import { useMarketActivation } from '@/hooks/useMarketActivation';
 import AutomationDashboard from './AutomationDashboard';
-import { useConnectionManager } from '@/hooks/useConnectionManager';
 
 const TradingSignals = memo(() => {
   const { signals, loading, lastUpdate, triggerAutomaticSignalGeneration } = useTradingSignals();
   const { toast } = useToast();
-  const { getConnectionStatus, isThrottled, activeConnections, queuedRequests } = useConnectionManager();
   
   // Add signal monitoring
   useSignalMonitoring();
@@ -184,13 +182,12 @@ const TradingSignals = memo(() => {
   if (loading && validSignals.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-white">Loading signals (connection throttled)...</div>
+        <div className="text-white">Loading ULTRA-AGGRESSIVE AI opportunities...</div>
       </div>
     );
   }
 
   const hasSignalData = validSignals.length > 0;
-  const connectionStatus = getConnectionStatus();
 
   return (
     <div className="space-y-6">
@@ -199,25 +196,6 @@ const TradingSignals = memo(() => {
         avgConfidence={avgConfidence}
         lastUpdate={lastUpdate}
       />
-
-      {/* Emergency Connection Status */}
-      <div className="bg-blue-500/10 backdrop-blur-sm rounded-xl border border-blue-500/20 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <div className={`w-3 h-3 rounded-full ${connectionStatus.isHealthy ? 'bg-emerald-400' : 'bg-red-400'}`}></div>
-              <span className="text-white font-medium">Connection Manager</span>
-              <span className={`text-xs px-2 py-1 rounded ${connectionStatus.isHealthy ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>
-                {connectionStatus.isHealthy ? 'HEALTHY' : 'THROTTLED'}
-              </span>
-            </div>
-          </div>
-          <div className="text-sm text-blue-400">
-            Active: {activeConnections}/5 • Queued: {queuedRequests} • {isThrottled ? 'THROTTLED' : 'NORMAL'}
-            {connectionStatus.circuitOpen && ' • CIRCUIT OPEN'}
-          </div>
-        </div>
-      </div>
 
       {/* GitHub Actions Automation Dashboard */}
       <AutomationDashboard />
@@ -234,14 +212,14 @@ const TradingSignals = memo(() => {
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <TestTube className="h-5 w-5 text-orange-400" />
-              <span className="text-white font-medium">EMERGENCY MODE</span>
+              <span className="text-white font-medium">ULTRA-AGGRESSIVE TEST MODE</span>
               <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-1 rounded">
-                CONNECTION THROTTLED
+                70-80% GENERATION RATE
               </span>
             </div>
           </div>
           <div className="text-sm text-orange-400">
-            🚨 Emergency connection limits active • Max 5 concurrent • 500ms intervals • Circuit breaker enabled
+            🧪 Test Mode Active: Liberal signal generation (70-80% rate) • Lower confidence thresholds (45-75%) • All signals cleared for testing
           </div>
         </div>
       </div>

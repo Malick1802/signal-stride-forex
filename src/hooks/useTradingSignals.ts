@@ -1,7 +1,7 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useConnectionManager } from './useConnectionManager';
 
 interface TradingSignal {
   id: string;
@@ -25,43 +25,47 @@ export const useTradingSignals = () => {
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<string>('');
   const { toast } = useToast();
-  const { queueRequest } = useConnectionManager();
 
   const fetchSignals = useCallback(async () => {
-    await queueRequest(async () => {
-      try {
-        console.log('🔄 Fetching signals (throttled)...');
-        
-        // Single optimized query
-        const { data: centralizedSignals, error } = await supabase
-          .from('trading_signals')
-          .select('*')
-          .eq('status', 'active')
-          .eq('is_centralized', true)
-          .is('user_id', null)
-          .order('created_at', { ascending: false })
-          .limit(30); // Reduced limit
+    try {
+      // Fetch only ACTIVE centralized signals
+      const { data: centralizedSignals, error } = await supabase
+        .from('trading_signals')
+        .select('*')
+        .eq('status', 'active')
+        .eq('is_centralized', true)
+        .is('user_id', null)
+        .order('created_at', { ascending: false })
+        .limit(50); // Increased limit for ultra-aggressive mode
 
-        if (error) {
-          console.error('❌ Error fetching signals:', error);
-          setSignals([]);
-          return;
-        }
-
-        const processedSignals = processSignals(centralizedSignals || []);
-        setSignals(processedSignals);
-        setLastUpdate(new Date().toLocaleTimeString());
-        
-        console.log(`✅ Loaded ${processedSignals.length} signals (throttled)`);
-        
-      } catch (error) {
-        console.error('❌ Error in fetchSignals:', error);
+      if (error) {
+        console.error('❌ Error fetching active centralized signals:', error);
         setSignals([]);
-      } finally {
-        setLoading(false);
+        return;
       }
-    });
-  }, [queueRequest]);
+
+      if (!centralizedSignals || centralizedSignals.length === 0) {
+        console.log('📭 No active centralized signals found');
+        setSignals([]);
+        setLastUpdate(new Date().toLocaleTimeString());
+        return;
+      }
+
+      const processedSignals = processSignals(centralizedSignals);
+      setSignals(processedSignals);
+      setLastUpdate(new Date().toLocaleTimeString());
+      
+      if (processedSignals.length > 0) {
+        console.log(`✅ Loaded ${processedSignals.length} active centralized signals (ULTRA-AGGRESSIVE TEST MODE)`);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error in fetchSignals:', error);
+      setSignals([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   const processSignals = (activeSignals: any[]) => {
     console.log(`📊 Processing ${activeSignals.length} active centralized signals (ULTRA-AGGRESSIVE MODE)`);
@@ -136,50 +140,89 @@ export const useTradingSignals = () => {
   };
 
   const triggerIndividualSignalGeneration = useCallback(async () => {
-    await queueRequest(async () => {
-      try {
-        console.log('🚀 Triggering signal generation (throttled)...');
-        
-        const { data: signalResult, error: signalError } = await supabase.functions.invoke('generate-signals');
-        
-        if (signalError) {
-          console.error('❌ Signal generation failed:', signalError);
-          toast({
-            title: "Generation Failed",
-            description: "Failed to detect new trading opportunities",
-            variant: "destructive"
-          });
-          return;
-        }
-        
-        console.log('✅ Signal generation completed');
-        
-        // Delayed refresh to avoid connection spam
-        setTimeout(fetchSignals, 2000);
-        
+    try {
+      console.log('🚀 Triggering ULTRA-AGGRESSIVE opportunity detection...');
+      
+      const { data: signalResult, error: signalError } = await supabase.functions.invoke('generate-signals');
+      
+      if (signalError) {
+        console.error('❌ ULTRA-AGGRESSIVE signal generation failed:', signalError);
         toast({
-          title: "Signal Generation Complete",
-          description: `Generated ${signalResult?.stats?.signalsGenerated || 0} new signals`,
-        });
-        
-      } catch (error) {
-        console.error('❌ Error in signal generation:', error);
-        toast({
-          title: "Generation Error",
+          title: "Generation Failed",
           description: "Failed to detect new trading opportunities",
           variant: "destructive"
         });
+        return;
       }
-    });
-  }, [queueRequest, fetchSignals, toast]);
+      
+      console.log('✅ ULTRA-AGGRESSIVE opportunity detection completed');
+      
+      // Refresh the signal list
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      await fetchSignals();
+      
+      const signalsGenerated = signalResult?.stats?.signalsGenerated || 0;
+      const opportunitiesAnalyzed = signalResult?.stats?.opportunitiesAnalyzed || 0;
+      const generationRate = signalResult?.stats?.generationRate || '0%';
+      
+      toast({
+        title: "ULTRA-AGGRESSIVE Detection Complete",
+        description: `${signalsGenerated} new signals generated from ${opportunitiesAnalyzed} pairs (${generationRate} rate)`,
+      });
+      
+    } catch (error) {
+      console.error('❌ Error in ULTRA-AGGRESSIVE signal generation:', error);
+      toast({
+        title: "Detection Error",
+        description: "Failed to detect new trading opportunities",
+        variant: "destructive"
+      });
+    }
+  }, [fetchSignals, toast]);
+
+  const triggerRealTimeUpdates = useCallback(async () => {
+    try {
+      console.log('🚀 Triggering comprehensive real-time market update...');
+      
+      const { data: marketResult, error: marketDataError } = await supabase.functions.invoke('fetch-market-data');
+      
+      if (marketDataError) {
+        console.error('❌ Market data update failed:', marketDataError);
+        toast({
+          title: "Update Failed",
+          description: "Failed to fetch baseline market data",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      console.log('✅ Market data updated');
+      
+      // Refresh signals to show updated current prices
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      await fetchSignals();
+      
+      toast({
+        title: "Real-time Updates Active",
+        description: "Market data refreshed, current prices will update live",
+      });
+      
+    } catch (error) {
+      console.error('❌ Error in real-time updates:', error);
+      toast({
+        title: "Update Error",
+        description: "Failed to activate real-time updates",
+        variant: "destructive"
+      });
+    }
+  }, [fetchSignals, toast]);
 
   useEffect(() => {
-    // Initial fetch
     fetchSignals();
     
-    // Single shared real-time subscription instead of 27+ individual ones
+    // Enhanced real-time subscriptions for centralized signals
     const signalsChannel = supabase
-      .channel('emergency-signals-batch')
+      .channel(`centralized-trading-signals-${Date.now()}`)
       .on(
         'postgres_changes',
         {
@@ -189,20 +232,47 @@ export const useTradingSignals = () => {
           filter: 'is_centralized=eq.true'
         },
         (payload) => {
-          console.log('📡 Batched signal change detected:', payload.eventType);
-          // Debounced refresh - only refresh once every 3 seconds
-          setTimeout(fetchSignals, 3000);
+          console.log('📡 Real-time centralized signal change detected (ULTRA-AGGRESSIVE MODE):', payload);
+          // Immediate refresh for real-time signal updates
+          setTimeout(fetchSignals, 200);
         }
       )
       .subscribe((status) => {
-        console.log(`📡 Emergency signals subscription: ${status}`);
+        console.log(`📡 Centralized signals subscription status: ${status}`);
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Real-time signal updates connected (ULTRA-AGGRESSIVE MODE)');
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          console.error('❌ Signal subscription failed, attempting to reconnect...');
+          setTimeout(fetchSignals, 2000);
+        }
       });
 
-    // Much less frequent automatic refresh (every 2 minutes instead of constant)
-    const updateInterval = setInterval(fetchSignals, 2 * 60 * 1000);
+    // Subscribe to signal outcomes to refresh when signals expire
+    const outcomesChannel = supabase
+      .channel(`signal-outcomes-${Date.now()}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'signal_outcomes'
+        },
+        (payload) => {
+          console.log('📡 Signal outcome detected, refreshing active signals:', payload);
+          setTimeout(fetchSignals, 500);
+        }
+      )
+      .subscribe();
+
+    // Automatic refresh every 2 minutes (backup for real-time)
+    const updateInterval = setInterval(async () => {
+      console.log('🔄 Periodic signal refresh (ULTRA-AGGRESSIVE MODE)...');
+      await fetchSignals();
+    }, 2 * 60 * 1000);
 
     return () => {
       supabase.removeChannel(signalsChannel);
+      supabase.removeChannel(outcomesChannel);
       clearInterval(updateInterval);
     };
   }, [fetchSignals]);
@@ -214,40 +284,40 @@ export const useTradingSignals = () => {
     fetchSignals,
     triggerAutomaticSignalGeneration: triggerIndividualSignalGeneration,
     triggerRealTimeUpdates: useCallback(async () => {
-      await queueRequest(async () => {
-        try {
-          console.log('🚀 Triggering market update (throttled)...');
-          
-          const { data: marketResult, error: marketDataError } = await supabase.functions.invoke('fetch-market-data');
-          
-          if (marketDataError) {
-            console.error('❌ Market data update failed:', marketDataError);
-            toast({
-              title: "Update Failed",
-              description: "Failed to fetch market data",
-              variant: "destructive"
-            });
-            return;
-          }
-          
-          console.log('✅ Market data updated');
-          
-          setTimeout(fetchSignals, 3000);
-          
+      try {
+        console.log('🚀 Triggering comprehensive real-time market update...');
+        
+        const { data: marketResult, error: marketDataError } = await supabase.functions.invoke('fetch-market-data');
+        
+        if (marketDataError) {
+          console.error('❌ Market data update failed:', marketDataError);
           toast({
-            title: "Market Update Complete",
-            description: "Market data refreshed successfully",
-          });
-          
-        } catch (error) {
-          console.error('❌ Error in market updates:', error);
-          toast({
-            title: "Update Error",
-            description: "Failed to update market data",
+            title: "Update Failed",
+            description: "Failed to fetch baseline market data",
             variant: "destructive"
           });
+          return;
         }
-      });
-    }, [queueRequest, fetchSignals, toast])
+        
+        console.log('✅ Market data updated');
+        
+        // Refresh signals to show updated current prices
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        await fetchSignals();
+        
+        toast({
+          title: "Real-time Updates Active",
+          description: "Market data refreshed, current prices will update live",
+        });
+        
+      } catch (error) {
+        console.error('❌ Error in real-time updates:', error);
+        toast({
+          title: "Update Error",
+          description: "Failed to activate real-time updates",
+          variant: "destructive"
+        });
+      }
+    }, [fetchSignals, toast])
   };
 };
