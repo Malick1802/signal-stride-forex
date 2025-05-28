@@ -18,9 +18,10 @@ serve(async (req) => {
     const isCronTriggered = body.trigger === 'cron';
     const targetPair = body.symbol; // Optional: generate signal for specific pair
     
-    console.log(`🤖 ${isCronTriggered ? 'CRON AUTOMATIC' : 'MANUAL'} Individual AI signal generation starting...`);
+    console.log(`🤖 ${isCronTriggered ? 'CRON AUTOMATIC' : 'MANUAL'} ULTRA-AGGRESSIVE AI signal generation starting...`);
     console.log(`🎯 Target pair: ${targetPair || 'Auto-detect opportunity'}`);
     console.log('⏰ Timestamp:', new Date().toISOString());
+    console.log('🧪 MODE: ULTRA-AGGRESSIVE TEST MODE (70-80% generation rate)');
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -42,23 +43,19 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Check current active signals count
-    const { data: existingSignals, error: countError } = await supabase
+    // CLEAR ALL ACTIVE SIGNALS FIRST for testing
+    console.log('🧹 CLEARING ALL ACTIVE SIGNALS FOR TESTING...');
+    const { data: deletedSignals, error: deleteError } = await supabase
       .from('trading_signals')
-      .select('id, symbol, created_at')
+      .delete()
       .eq('is_centralized', true)
       .is('user_id', null)
       .eq('status', 'active');
 
-    if (countError) {
-      console.error('❌ Error checking existing signals:', countError);
+    if (deleteError) {
+      console.error('❌ Error clearing active signals:', deleteError);
     } else {
-      console.log(`📊 Current active centralized signals: ${existingSignals?.length || 0}`);
-      if (existingSignals && existingSignals.length > 0) {
-        existingSignals.forEach(signal => {
-          console.log(`  - ${signal.symbol} (created: ${signal.created_at})`);
-        });
-      }
+      console.log(`✅ Cleared all active centralized signals for testing`);
     }
 
     // Get recent centralized market data from FastForex
@@ -92,7 +89,7 @@ serve(async (req) => {
       }
     }
 
-    // EXPANDED CURRENCY PAIRS - Now includes all 26 supported pairs
+    // ALL CURRENCY PAIRS - Now all available since we cleared signals
     const allCurrencyPairs = [
       // Major pairs
       'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD',
@@ -103,12 +100,10 @@ serve(async (req) => {
       'NZDCHF', 'NZDJPY', 'AUDJPY', 'CHFJPY', 'EURCAD', 'GBPAUD'
     ];
     
-    // Filter pairs that already have active signals to avoid duplicates
-    const existingPairs = new Set(existingSignals?.map(s => s.symbol) || []);
-    const availablePairs = targetPair ? [targetPair] : allCurrencyPairs.filter(pair => !existingPairs.has(pair));
+    // Since we cleared all signals, all pairs are available
+    const availablePairs = targetPair ? [targetPair] : allCurrencyPairs;
     
-    console.log(`🔍 Available pairs for new signals: ${availablePairs.length}`);
-    console.log(`🚫 Existing pairs with active signals: ${Array.from(existingPairs).join(', ')}`);
+    console.log(`🔍 Available pairs for new signals: ${availablePairs.length} (ALL PAIRS - signals cleared)`);
     
     // Get latest price for available currency pairs
     const latestPrices = new Map();
@@ -121,16 +116,16 @@ serve(async (req) => {
       }
     }
 
-    console.log(`🎯 Will analyze ${latestPrices.size} pairs for individual signal opportunities`);
+    console.log(`🎯 Will analyze ${latestPrices.size} pairs for ULTRA-AGGRESSIVE signal opportunities`);
 
     if (latestPrices.size === 0) {
-      console.log('⚠️ No available pairs for new signals (all pairs already have active signals or no market data)');
+      console.log('⚠️ No market data available for signal generation');
       return new Response(
         JSON.stringify({ 
           success: true,
-          message: 'No new signal opportunities - all pairs either have active signals or lack market data', 
+          message: 'No market data available for signal generation', 
           signals: [],
-          existingSignals: existingSignals?.length || 0,
+          existingSignals: 0,
           availablePairs: [],
           timestamp: new Date().toISOString()
         }),
@@ -143,9 +138,9 @@ serve(async (req) => {
     let opportunitiesAnalyzed = 0;
     const generatedSignals = [];
 
-    console.log(`🚀 Starting individual AI analysis for ${availablePairs.length} available pairs...`);
+    console.log(`🚀 Starting ULTRA-AGGRESSIVE AI analysis for ${availablePairs.length} pairs...`);
 
-    // Analyze pairs individually and generate signals only when opportunities are detected
+    // Analyze pairs individually with ULTRA-AGGRESSIVE generation
     for (const pair of availablePairs) {
       const marketPoint = latestPrices.get(pair);
       if (!marketPoint) {
@@ -156,7 +151,7 @@ serve(async (req) => {
         opportunitiesAnalyzed++;
         const currentPrice = parseFloat(marketPoint.current_price.toString());
         
-        console.log(`🧠 Analyzing ${pair} for individual opportunity at price ${currentPrice}...`);
+        console.log(`🧠 ULTRA-AGGRESSIVE analysis of ${pair} at price ${currentPrice}...`);
 
         // Get historical price data for context
         const { data: historicalData } = await supabase
@@ -171,8 +166,8 @@ serve(async (req) => {
         const priceChange = priceHistory.length > 1 ? 
           ((currentPrice - priceHistory[priceHistory.length - 1]) / priceHistory[priceHistory.length - 1] * 100) : 0;
 
-        // PRODUCTION AI prompt - conservative and selective
-        console.log(`🔮 Checking for AI opportunity in ${pair}...`);
+        // ULTRA-AGGRESSIVE AI prompt - very liberal signal generation
+        console.log(`🔮 ULTRA-AGGRESSIVE AI opportunity check for ${pair}...`);
         const aiAnalysisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -184,40 +179,40 @@ serve(async (req) => {
             messages: [
               {
                 role: 'system',
-                content: `You are a professional forex trading analyst focused on INDIVIDUAL OPPORTUNITY DETECTION. PRODUCTION MODE: Only generate signals when you detect genuine, high-probability trading opportunities.
+                content: `You are a ultra-aggressive forex trading AI in TEST MODE. ULTRA-AGGRESSIVE MODE: Generate BUY/SELL signals frequently (aim for 70-80% of the time).
 
-                IMPORTANT: You should RARELY generate BUY/SELL signals when analyzing ${pair}. Only generate signals when you have strong conviction about a trading opportunity (roughly 10-15% of the time).
+                IMPORTANT: You should FREQUENTLY generate BUY/SELL signals when analyzing ${pair}. This is test mode - be very liberal with signal generation.
                 
                 Respond with a JSON object containing:
                 {
                   "signal": "BUY" or "SELL" or "NEUTRAL",
-                  "confidence": number between 75-90,
+                  "confidence": number between 45-75,
                   "opportunity_strength": "LOW", "MEDIUM", or "HIGH",
                   "entry_price": number (current price adjusted for optimal entry),
                   "stop_loss_pips": number between 15-40,
                   "take_profit_pips": [number, number, number] (3 levels),
-                  "analysis": "detailed explanation focusing on why this is a trading opportunity",
-                  "market_setup": "description of the specific market setup detected"
+                  "analysis": "detailed explanation of the trading opportunity",
+                  "market_setup": "description of the market setup detected"
                 }
                 
-                PRODUCTION MODE - Only generate BUY/SELL when you detect: Clear technical patterns (breakouts, reversals, etc.), Strong momentum or volatility, Significant support/resistance levels being tested, Currency-specific fundamental factors.
+                ULTRA-AGGRESSIVE TEST MODE - Generate BUY/SELL signals even for: Minor price movements, Small volatility changes, Weak technical patterns, Mixed signals, Low volume periods.
                 
-                Use NEUTRAL frequently when: Market is ranging/sideways, No clear technical setup, Mixed or unclear signals, Low volatility with no clear direction`
+                Use NEUTRAL only rarely (less than 30% of the time) when there's absolutely no direction at all.`
               },
               {
                 role: 'user',
-                content: `Analyze ${pair} for individual trading opportunity:
+                content: `Analyze ${pair} for ULTRA-AGGRESSIVE trading opportunity:
                 Current Price: ${currentPrice}
                 Recent Prices: ${priceHistory.join(', ')}
                 24h Change: ${priceChange.toFixed(2)}%
                 Market Session: ${new Date().getUTCHours() >= 12 && new Date().getUTCHours() < 20 ? 'Active Trading Hours' : 'Off-Peak Hours'}
                 Pair Type: ${['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD'].includes(pair) ? 'Major Pair' : 'Cross Pair'}
                 
-                Detect if there's a genuine trading opportunity for ${pair} right now. Only generate a signal if you see a clear setup with high probability of success.`
+                Generate a signal for ${pair} - be ultra-aggressive and liberal with signal generation for testing purposes.`
               }
             ],
             max_tokens: 600,
-            temperature: 0.4  // Conservative temperature for production
+            temperature: 0.8  // Higher temperature for more aggressive generation
           }),
         });
 
@@ -248,17 +243,17 @@ serve(async (req) => {
           continue;
         }
 
-        console.log(`📊 AI Decision for ${pair}: ${aiSignal.signal} (${aiSignal.confidence}% confidence, ${aiSignal.opportunity_strength} strength)`);
+        console.log(`📊 ULTRA-AGGRESSIVE AI Decision for ${pair}: ${aiSignal.signal} (${aiSignal.confidence}% confidence, ${aiSignal.opportunity_strength} strength)`);
 
         if (aiSignal.signal === 'NEUTRAL' || !['BUY', 'SELL'].includes(aiSignal.signal)) {
-          console.log(`⚪ No opportunity detected for ${pair} - continuing monitoring`);
+          console.log(`⚪ No signal generated for ${pair} this round`);
           continue;
         }
 
-        console.log(`🎯 OPPORTUNITY DETECTED for ${pair}: ${aiSignal.signal} signal`);
+        console.log(`🎯 ULTRA-AGGRESSIVE SIGNAL GENERATED for ${pair}: ${aiSignal.signal} signal`);
         console.log(`📝 Setup: ${aiSignal.market_setup}`);
 
-        // Generate signal only when opportunity is detected
+        // Generate signal with ultra-aggressive settings
         const entryPrice = aiSignal.entry_price || currentPrice;
         const stopLossPips = aiSignal.stop_loss_pips || 25;
         const takeProfitPips = aiSignal.take_profit_pips || [20, 35, 50];
@@ -318,14 +313,14 @@ serve(async (req) => {
           status: 'active',
           is_centralized: true,
           user_id: null,
-          analysis_text: `AI-Detected ${aiSignal.opportunity_strength} Opportunity: ${aiSignal.analysis}`,
+          analysis_text: `ULTRA-AGGRESSIVE ${aiSignal.opportunity_strength} Opportunity: ${aiSignal.analysis}`,
           chart_data: chartData,
           pips: stopLossPips,
           created_at: timestamp
         };
 
-        // Insert the individual signal immediately
-        console.log(`💾 Inserting individual AI signal for ${pair}...`);
+        // Insert the ultra-aggressive signal immediately
+        console.log(`💾 Inserting ULTRA-AGGRESSIVE AI signal for ${pair}...`);
         const { data: insertedSignal, error: insertError } = await supabase
           .from('trading_signals')
           .insert([signal])
@@ -339,17 +334,11 @@ serve(async (req) => {
 
         signalsGenerated++;
         generatedSignals.push(insertedSignal);
-        console.log(`✅ Generated individual AI signal for ${pair} (${aiSignal.confidence}% confidence)`);
+        console.log(`✅ Generated ULTRA-AGGRESSIVE AI signal for ${pair} (${aiSignal.confidence}% confidence)`);
 
-        // Add delay between analyses to avoid rate limiting and make it more realistic
+        // Add minimal delay between analyses
         if (availablePairs.indexOf(pair) < availablePairs.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 1000));
-        }
-
-        // For cron triggers, limit to prevent overwhelming
-        if (isCronTriggered && signalsGenerated >= 3) {
-          console.log(`⏰ Cron trigger: Generated ${signalsGenerated} signals, stopping for this cycle`);
-          break;
+          await new Promise(resolve => setTimeout(resolve, 500));
         }
 
       } catch (error) {
@@ -357,17 +346,17 @@ serve(async (req) => {
       }
     }
 
-    console.log(`📊 INDIVIDUAL SIGNAL GENERATION SUMMARY:`);
+    console.log(`📊 ULTRA-AGGRESSIVE SIGNAL GENERATION SUMMARY:`);
     console.log(`  - Opportunities analyzed: ${opportunitiesAnalyzed}`);
     console.log(`  - Signals generated: ${signalsGenerated}`);
-    console.log(`  - Detection rate: ${opportunitiesAnalyzed > 0 ? ((signalsGenerated / opportunitiesAnalyzed) * 100).toFixed(1) : 0}%`);
-    console.log(`  - Mode: PRODUCTION (Selective)`);
-    console.log(`  - Total active signals: ${(existingSignals?.length || 0) + signalsGenerated}`);
+    console.log(`  - Generation rate: ${opportunitiesAnalyzed > 0 ? ((signalsGenerated / opportunitiesAnalyzed) * 100).toFixed(1) : 0}%`);
+    console.log(`  - Mode: ULTRA-AGGRESSIVE TEST MODE`);
+    console.log(`  - Expected rate: 70-80%`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Individual signal generation completed - ${signalsGenerated} new opportunities detected from ${opportunitiesAnalyzed} pairs analyzed`,
+        message: `ULTRA-AGGRESSIVE signal generation completed - ${signalsGenerated} new signals generated from ${opportunitiesAnalyzed} pairs analyzed`,
         signals: generatedSignals?.map(s => ({ 
           id: s.id, 
           symbol: s.symbol, 
@@ -378,21 +367,21 @@ serve(async (req) => {
         stats: {
           opportunitiesAnalyzed,
           signalsGenerated,
-          detectionRate: `${opportunitiesAnalyzed > 0 ? ((signalsGenerated / opportunitiesAnalyzed) * 100).toFixed(1) : 0}%`,
-          existingSignals: existingSignals?.length || 0,
-          totalActiveSignals: (existingSignals?.length || 0) + signalsGenerated,
-          testMode: false,
-          expectedRate: '10-15%'
+          generationRate: `${opportunitiesAnalyzed > 0 ? ((signalsGenerated / opportunitiesAnalyzed) * 100).toFixed(1) : 0}%`,
+          existingSignals: 0,
+          totalActiveSignals: signalsGenerated,
+          testMode: true,
+          expectedRate: '70-80%'
         },
         timestamp,
         trigger: isCronTriggered ? 'cron' : 'manual',
-        approach: 'individual_opportunity_detection'
+        approach: 'ultra_aggressive_test_mode'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('💥 Individual AI signal generation error:', error);
+    console.error('💥 ULTRA-AGGRESSIVE AI signal generation error:', error);
     return new Response(
       JSON.stringify({ 
         success: false,

@@ -43,7 +43,7 @@ const TradingSignals = memo(() => {
 
   const avgConfidence = validSignals.length > 0 
     ? Math.round(validSignals.reduce((sum, signal) => sum + (signal.confidence || 0), 0) / validSignals.length)
-    : 87;
+    : 60; // Lower average for ultra-aggressive mode
 
   const handleCleanupCrons = async () => {
     setCleaningCrons(true);
@@ -182,7 +182,7 @@ const TradingSignals = memo(() => {
   if (loading && validSignals.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-white">Loading individual AI opportunities...</div>
+        <div className="text-white">Loading ULTRA-AGGRESSIVE AI opportunities...</div>
       </div>
     );
   }
@@ -206,13 +206,31 @@ const TradingSignals = memo(() => {
       {/* Real-time Connection Status */}
       <RealTimeStatus />
 
+      {/* ULTRA-AGGRESSIVE Test Mode Notice */}
+      <div className="bg-orange-500/10 backdrop-blur-sm rounded-xl border border-orange-500/20 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <TestTube className="h-5 w-5 text-orange-400" />
+              <span className="text-white font-medium">ULTRA-AGGRESSIVE TEST MODE</span>
+              <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-1 rounded">
+                70-80% GENERATION RATE
+              </span>
+            </div>
+          </div>
+          <div className="text-sm text-orange-400">
+            🧪 Test Mode Active: Liberal signal generation (70-80% rate) • Lower confidence thresholds (45-75%) • All signals cleared for testing
+          </div>
+        </div>
+      </div>
+
       {/* Individual Opportunity Detection System */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <Target className="h-5 w-5 text-green-400" />
-              <span className="text-white font-medium">Individual Opportunity Detection</span>
+              <span className="text-white font-medium">ULTRA-AGGRESSIVE Opportunity Detection</span>
               <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
                 AI-POWERED
               </span>
@@ -231,13 +249,13 @@ const TradingSignals = memo(() => {
               ) : (
                 <>
                   <Target className="h-4 w-4 mr-2" />
-                  Detect Opportunities
+                  Generate Test Signals
                 </>
               )}
             </Button>
           </div>
           <div className="text-sm text-gray-400">
-            🎯 AI analyzes each pair individually • Only generates signals when genuine opportunities are detected • Adds to existing signals
+            🧪 ULTRA-AGGRESSIVE mode: Generates signals for most pairs • Liberal thresholds • Perfect for automation testing
           </div>
         </div>
       </div>
@@ -249,8 +267,8 @@ const TradingSignals = memo(() => {
             <div className="flex items-center space-x-2">
               <Wrench className="h-5 w-5 text-yellow-400" />
               <span className="text-white font-medium">System Controls</span>
-              <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">
-                PRODUCTION
+              <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-1 rounded">
+                TEST MODE
               </span>
             </div>
           </div>
@@ -293,8 +311,8 @@ const TradingSignals = memo(() => {
             </Button>
           </div>
         </div>
-        <div className="mt-2 text-xs text-blue-400">
-          🎯 PRODUCTION MODE: Conservative signal generation (10-15% rate) • High confidence thresholds (75-90%) • Selective opportunity detection
+        <div className="mt-2 text-xs text-orange-400">
+          🧪 ULTRA-AGGRESSIVE TEST MODE: Liberal signal generation (70-80% rate) • Low confidence thresholds (45-75%) • Perfect for automation testing
         </div>
       </div>
 
@@ -304,14 +322,14 @@ const TradingSignals = memo(() => {
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <Brain className="h-5 w-5 text-purple-400" />
-              <span className="text-white font-medium">AI Individual Opportunity System</span>
-              <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-1 rounded">
-                INDIVIDUAL DETECTION
+              <span className="text-white font-medium">ULTRA-AGGRESSIVE AI System</span>
+              <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-1 rounded">
+                TEST MODE
               </span>
             </div>
           </div>
           <div className="text-sm text-gray-400">
-            🎯 Each pair analyzed individually • Signals generated only when opportunities detected • No batch generation
+            🧪 Each pair analyzed with liberal thresholds • 70-80% generation rate • Perfect for testing automation
           </div>
         </div>
       </div>
@@ -336,16 +354,16 @@ const TradingSignals = memo(() => {
               </select>
             </div>
             <div className="text-sm text-gray-400">
-              Individual opportunity detection • Outcome-based expiration • Real-time monitoring
+              ULTRA-AGGRESSIVE test signals • Liberal generation • Real-time monitoring
             </div>
           </div>
         </div>
       )}
 
-      {/* Active Individual AI Signals Grid */}
+      {/* Active ULTRA-AGGRESSIVE AI Signals Grid */}
       <div>
         <h3 className="text-white text-lg font-semibold mb-4">
-          {selectedPair === 'All' ? 'Individual AI Opportunities' : `${selectedPair} Opportunities`} ({filteredSignals.length})
+          {selectedPair === 'All' ? 'ULTRA-AGGRESSIVE Test Signals' : `${selectedPair} Test Signals`} ({filteredSignals.length})
         </h3>
         
         {filteredSignals.length > 0 ? (
@@ -370,11 +388,11 @@ const TradingSignals = memo(() => {
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
               {selectedPair === 'All' 
-                ? 'No individual opportunities detected at the moment' 
-                : `No opportunities detected for ${selectedPair}`}
+                ? 'No test signals generated yet' 
+                : `No test signals for ${selectedPair}`}
             </div>
             <div className="text-sm text-gray-500 mb-6">
-              The AI system analyzes each currency pair individually and only generates signals when genuine trading opportunities are detected
+              🧪 ULTRA-AGGRESSIVE mode is active - the AI will generate signals for most currency pairs when you click "Generate Test Signals"
             </div>
             <div className="space-x-4">
               <Button
@@ -385,12 +403,12 @@ const TradingSignals = memo(() => {
                 {detectingOpportunities ? (
                   <>
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Detecting Opportunities...
+                    Generating Test Signals...
                   </>
                 ) : (
                   <>
                     <Target className="h-4 w-4 mr-2" />
-                    Detect New Opportunities
+                    Generate Test Signals
                   </>
                 )}
               </Button>
