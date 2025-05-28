@@ -1,8 +1,15 @@
+
 # Welcome to your Lovable project
 
 ## Project info
 
 **URL**: https://lovable.dev/projects/da46b985-2e68-44b3-90bc-922d481bf104
+
+## Automated Trading Signal Generation
+
+🤖 **Status**: Active GitHub Actions automation running every 5 minutes during market hours (Monday-Friday, 00:00-22:00 UTC)
+
+📊 **Last Updated**: January 28, 2025 - Repository reactivated for automated signal generation
 
 ## How can I edit this code?
 
@@ -23,7 +30,7 @@ The only requirement is having Node.js & npm installed - [install with nvm](http
 Follow these steps:
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.<!-- Last updated: [current date] -->
+# Step 1: Clone the repository using the project's Git URL.
 git clone <YOUR_GIT_URL>
 
 # Step 2: Navigate to the project directory.
@@ -59,6 +66,17 @@ This project is built with:
 - React
 - shadcn-ui
 - Tailwind CSS
+
+## Automated Signal Generation
+
+🚀 **GitHub Actions Workflow**: Fully automated trading signal generation
+- ⏰ **Schedule**: Every 5 minutes during market hours
+- 🌍 **Market Hours**: Monday-Friday, 00:00-22:00 UTC  
+- 🤖 **AI-Powered**: Uses OpenAI GPT-4o-mini for intelligent signal analysis
+- 📊 **Real-time Data**: FastForex API integration for live market data
+- 🔄 **Auto-sync**: Signals automatically appear in the trading dashboard
+
+**Monitor Status**: Check the [GitHub Actions tab](https://github.com/your-username/your-repo/actions) to see automated runs
 
 ## How can I deploy this project?
 
