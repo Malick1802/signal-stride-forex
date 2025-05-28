@@ -94,10 +94,15 @@ serve(async (req) => {
       }
     }
 
-    // ALL AVAILABLE CURRENCY PAIRS
+    // EXPANDED CURRENCY PAIRS - Now includes all 26 supported pairs
     const allCurrencyPairs = [
+      // Major pairs
       'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD',
-      'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY'
+      // Major crosses
+      'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY',
+      // Additional cross pairs
+      'GBPNZD', 'AUDNZD', 'CADCHF', 'EURAUD', 'EURNZD', 'GBPCAD', 'NZDCAD',
+      'NZDCHF', 'NZDJPY', 'AUDJPY', 'CHFJPY', 'EURCAD', 'GBPAUD'
     ];
     
     // Filter pairs that already have active signals to avoid duplicates
