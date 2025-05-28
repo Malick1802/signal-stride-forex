@@ -10,6 +10,7 @@ import GlobalRefreshIndicator from './GlobalRefreshIndicator';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Users, Activity, Brain, TestTube, Wrench, Zap, FlaskConical } from 'lucide-react';
 import { useMarketActivation } from '@/hooks/useMarketActivation';
+import AutomationDashboard from './AutomationDashboard';
 
 const TradingSignals = memo(() => {
   const { signals, loading, lastUpdate, triggerAutomaticSignalGeneration } = useTradingSignals();
@@ -244,6 +245,9 @@ const TradingSignals = memo(() => {
         lastUpdate={lastUpdate}
       />
 
+      {/* GitHub Actions Automation Dashboard */}
+      <AutomationDashboard />
+
       {/* Global Refresh Status */}
       <GlobalRefreshIndicator />
 
@@ -256,9 +260,9 @@ const TradingSignals = memo(() => {
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <Wrench className="h-5 w-5 text-yellow-400" />
-              <span className="text-white font-medium">System Debugging & Testing</span>
+              <span className="text-white font-medium">Manual System Controls</span>
               <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">
-                ENHANCED DEBUG MODE
+                BACKUP CONTROLS
               </span>
             </div>
           </div>
@@ -320,7 +324,7 @@ const TradingSignals = memo(() => {
           </div>
         </div>
         <div className="mt-2 text-xs text-gray-400">
-          🧪 Test Mode: Lower confidence requirements (50-85%) • More liberal signal generation • Testing application functionality
+          🤖 GitHub Actions handles automatic generation • These are backup manual controls • Automation runs every 5 minutes during market hours
         </div>
       </div>
 
