@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -20,7 +19,7 @@ serve(async (req) => {
     const targetPair = body.symbol; // Optional: generate signal for specific pair
     
     console.log(`🤖 ${isCronTriggered ? 'CRON AUTOMATIC' : 'MANUAL'} Individual AI signal generation starting...`);
-    console.log(`🧪 Test mode: ${isTestMode ? 'ENABLED (Lower thresholds)' : 'DISABLED (Production)'}`);
+    console.log(`🧪 Test mode: ${isTestMode ? 'ENABLED (ULTRA-AGGRESSIVE for testing)' : 'DISABLED (Production)'}`);
     console.log(`🎯 Target pair: ${targetPair || 'Auto-detect opportunity'}`);
     console.log('⏰ Timestamp:', new Date().toISOString());
     
@@ -124,6 +123,9 @@ serve(async (req) => {
     }
 
     console.log(`🎯 Will analyze ${latestPrices.size} pairs for individual signal opportunities`);
+    if (isTestMode) {
+      console.log(`🧪 ULTRA-AGGRESSIVE TEST MODE: Expecting 70-80% signal generation rate (${Math.round(latestPrices.size * 0.75)} signals expected)`);
+    }
 
     if (latestPrices.size === 0) {
       console.log('⚠️ No available pairs for new signals (all pairs already have active signals or no market data)');
@@ -173,7 +175,7 @@ serve(async (req) => {
         const priceChange = priceHistory.length > 1 ? 
           ((currentPrice - priceHistory[priceHistory.length - 1]) / priceHistory[priceHistory.length - 1] * 100) : 0;
 
-        // AI prompt focused on individual opportunity detection
+        // ULTRA-AGGRESSIVE AI prompt for testing
         console.log(`🔮 Checking for AI opportunity in ${pair}...`);
         const aiAnalysisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
@@ -186,16 +188,14 @@ serve(async (req) => {
             messages: [
               {
                 role: 'system',
-                content: `You are a professional forex trading analyst focused on INDIVIDUAL OPPORTUNITY DETECTION. ${isTestMode ? 'TESTING MODE: Be more liberal with signal generation for testing.' : 'PRODUCTION MODE: Only generate signals when you detect genuine trading opportunities.'} 
+                content: `You are a professional forex trading analyst focused on INDIVIDUAL OPPORTUNITY DETECTION. ${isTestMode ? 'ULTRA-AGGRESSIVE TESTING MODE: Generate signals liberally for testing purposes. Be very generous with opportunities - consider most market conditions as tradeable.' : 'PRODUCTION MODE: Only generate signals when you detect genuine trading opportunities.'} 
 
-                IMPORTANT: You should ONLY generate BUY/SELL signals when you detect a GENUINE trading opportunity for ${pair}. Most of the time, you should return NEUTRAL (no opportunity detected).
-
-                ${isTestMode ? 'In testing mode, generate signals about 30% of the time when asked.' : 'In production mode, only generate signals when you have strong conviction about a trading opportunity (roughly 10-15% of the time).'}
+                IMPORTANT: You should ${isTestMode ? 'FREQUENTLY' : 'RARELY'} generate BUY/SELL signals when analyzing ${pair}. ${isTestMode ? 'In testing mode, generate signals about 75-80% of the time when asked. Be very liberal - even small price movements or minor technical patterns should be considered opportunities.' : 'In production mode, only generate signals when you have strong conviction about a trading opportunity (roughly 10-15% of the time).'}
                 
                 Respond with a JSON object containing:
                 {
                   "signal": "BUY" or "SELL" or "NEUTRAL",
-                  "confidence": number between ${isTestMode ? '60-85' : '75-90'},
+                  "confidence": number between ${isTestMode ? '45-75' : '75-90'},
                   "opportunity_strength": "LOW", "MEDIUM", or "HIGH",
                   "entry_price": number (current price adjusted for optimal entry),
                   "stop_loss_pips": number between 15-40,
@@ -204,17 +204,9 @@ serve(async (req) => {
                   "market_setup": "description of the specific market setup detected"
                 }
                 
-                Only generate BUY/SELL when you detect:
-                - Clear technical patterns (breakouts, reversals, etc.)
-                - Strong momentum or volatility
-                - Significant support/resistance levels being tested
-                - Currency-specific fundamental factors
+                ${isTestMode ? 'TESTING MODE GUIDELINES - Generate BUY/SELL when you see: ANY price movement, ANY small pattern, minor support/resistance touches, sideways movement with potential breakout, any currency news or fundamentals, even ranging markets with potential direction.' : 'PRODUCTION MODE - Only generate BUY/SELL when you detect: Clear technical patterns (breakouts, reversals, etc.), Strong momentum or volatility, Significant support/resistance levels being tested, Currency-specific fundamental factors'}
                 
-                Use NEUTRAL when:
-                - Market is ranging/sideways
-                - No clear technical setup
-                - Mixed or unclear signals
-                - Low volatility with no clear direction`
+                Use NEUTRAL ${isTestMode ? 'sparingly (only 20-25% of the time) - be generous with opportunities' : 'frequently when: Market is ranging/sideways, No clear technical setup, Mixed or unclear signals, Low volatility with no clear direction'}`
               },
               {
                 role: 'user',
@@ -225,11 +217,11 @@ serve(async (req) => {
                 Market Session: ${new Date().getUTCHours() >= 12 && new Date().getUTCHours() < 20 ? 'Active Trading Hours' : 'Off-Peak Hours'}
                 Pair Type: ${['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD'].includes(pair) ? 'Major Pair' : 'Cross Pair'}
                 
-                Detect if there's a genuine trading opportunity for ${pair} right now. Only generate a signal if you see a clear setup. ${isTestMode ? 'Testing mode active - be more generous with opportunities.' : 'Production mode - be selective.'}`
+                ${isTestMode ? 'ULTRA-AGGRESSIVE TESTING: Look for ANY trading opportunity in ' + pair + '. Be very liberal - most conditions should be seen as tradeable. Generate signals generously for testing purposes.' : 'Detect if there\'s a genuine trading opportunity for ' + pair + ' right now. Only generate a signal if you see a clear setup.'}`
               }
             ],
             max_tokens: 600,
-            temperature: isTestMode ? 0.7 : 0.4
+            temperature: isTestMode ? 0.9 : 0.4  // Much higher temperature for testing
           }),
         });
 
@@ -330,7 +322,7 @@ serve(async (req) => {
           status: 'active',
           is_centralized: true,
           user_id: null,
-          analysis_text: `${isTestMode ? '[TEST] ' : ''}AI-Detected ${aiSignal.opportunity_strength} Opportunity: ${aiSignal.analysis}`,
+          analysis_text: `${isTestMode ? '[ULTRA-TEST] ' : ''}AI-Detected ${aiSignal.opportunity_strength} Opportunity: ${aiSignal.analysis}`,
           chart_data: chartData,
           pips: stopLossPips,
           created_at: timestamp
@@ -358,8 +350,8 @@ serve(async (req) => {
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
 
-        // For cron triggers, only generate 1-2 signals per run to be realistic
-        if (isCronTriggered && signalsGenerated >= 2) {
+        // For cron triggers, limit to prevent overwhelming
+        if (isCronTriggered && signalsGenerated >= 3) {
           console.log(`⏰ Cron trigger: Generated ${signalsGenerated} signals, stopping for this cycle`);
           break;
         }
@@ -373,7 +365,7 @@ serve(async (req) => {
     console.log(`  - Opportunities analyzed: ${opportunitiesAnalyzed}`);
     console.log(`  - Signals generated: ${signalsGenerated}`);
     console.log(`  - Detection rate: ${opportunitiesAnalyzed > 0 ? ((signalsGenerated / opportunitiesAnalyzed) * 100).toFixed(1) : 0}%`);
-    console.log(`  - Mode: ${isTestMode ? 'TEST (More opportunities)' : 'PRODUCTION (Selective)'}`);
+    console.log(`  - Mode: ${isTestMode ? 'ULTRA-AGGRESSIVE TEST (75-80% target rate)' : 'PRODUCTION (Selective)'}`);
     console.log(`  - Total active signals: ${(existingSignals?.length || 0) + signalsGenerated}`);
 
     return new Response(
@@ -393,7 +385,8 @@ serve(async (req) => {
           detectionRate: `${opportunitiesAnalyzed > 0 ? ((signalsGenerated / opportunitiesAnalyzed) * 100).toFixed(1) : 0}%`,
           existingSignals: existingSignals?.length || 0,
           totalActiveSignals: (existingSignals?.length || 0) + signalsGenerated,
-          testMode: isTestMode
+          testMode: isTestMode,
+          expectedRate: isTestMode ? '75-80%' : '10-15%'
         },
         timestamp,
         trigger: isCronTriggered ? 'cron' : 'manual',

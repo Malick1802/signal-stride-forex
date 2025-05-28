@@ -1,3 +1,4 @@
+
 import React, { useState, memo } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useSignalMonitoring } from '@/hooks/useSignalMonitoring';
@@ -49,7 +50,7 @@ const TradingSignals = memo(() => {
   const handleGenerateTestSignals = async () => {
     setGeneratingTestSignals(true);
     try {
-      console.log('🧪 Generating test signals with individual opportunity detection...');
+      console.log('🧪 Generating ULTRA-AGGRESSIVE test signals with very liberal opportunity detection...');
       const { data, error } = await supabase.functions.invoke('generate-signals', {
         body: { 
           trigger: 'test',
@@ -70,10 +71,10 @@ const TradingSignals = memo(() => {
       console.log('✅ Test signal generation result:', data);
       
       const testResults = data.stats || {};
-      let message = `Generated ${data.signals?.length || 0} test opportunities from ${testResults.opportunitiesAnalyzed || 0} pairs analyzed`;
+      let message = `Generated ${data.signals?.length || 0} test opportunities from ${testResults.opportunitiesAnalyzed || 0} pairs analyzed (${testResults.detectionRate || '0%'} rate)`;
       
       toast({
-        title: "🧪 Test Opportunities Generated",
+        title: "🧪 Ultra-Aggressive Test Complete",
         description: message,
       });
 
@@ -296,9 +297,9 @@ const TradingSignals = memo(() => {
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <Wrench className="h-5 w-5 text-yellow-400" />
-              <span className="text-white font-medium">Manual System Controls</span>
-              <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">
-                BACKUP CONTROLS
+              <span className="text-white font-medium">Ultra-Aggressive Testing Controls</span>
+              <span className="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded">
+                TESTING MODE
               </span>
             </div>
           </div>
@@ -306,18 +307,18 @@ const TradingSignals = memo(() => {
             <Button
               onClick={handleGenerateTestSignals}
               disabled={generatingTestSignals}
-              className="bg-green-600 hover:bg-green-700 text-white text-sm"
+              className="bg-red-600 hover:bg-red-700 text-white text-sm"
               size="sm"
             >
               {generatingTestSignals ? (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Detecting...
+                  Testing...
                 </>
               ) : (
                 <>
                   <FlaskConical className="h-4 w-4 mr-2" />
-                  Test Mode Detection
+                  Ultra-Aggressive Test (75-80% Rate)
                 </>
               )}
             </Button>
@@ -359,8 +360,8 @@ const TradingSignals = memo(() => {
             </Button>
           </div>
         </div>
-        <div className="mt-2 text-xs text-gray-400">
-          🤖 GitHub Actions handles automatic detection • These are backup manual controls • Individual opportunities detected every 5 minutes
+        <div className="mt-2 text-xs text-red-400">
+          🚨 ULTRA-AGGRESSIVE MODE: Generates signals at 75-80% rate for testing • Much lower confidence thresholds (45-75%) • Very liberal opportunity detection
         </div>
       </div>
 
@@ -463,17 +464,17 @@ const TradingSignals = memo(() => {
               <Button
                 onClick={handleGenerateTestSignals}
                 disabled={generatingTestSignals}
-                className="bg-orange-600 hover:bg-orange-700 text-white"
+                className="bg-red-600 hover:bg-red-700 text-white"
               >
                 {generatingTestSignals ? (
                   <>
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Test Detection...
+                    Ultra-Test Detection...
                   </>
                 ) : (
                   <>
                     <FlaskConical className="h-4 w-4 mr-2" />
-                    Test Mode Detection
+                    Ultra-Aggressive Test Mode
                   </>
                 )}
               </Button>
