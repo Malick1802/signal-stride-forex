@@ -1,4 +1,3 @@
-
 import React, { useState, memo } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useSignalMonitoring } from '@/hooks/useSignalMonitoring';
@@ -8,6 +7,7 @@ import SignalStats from './SignalStats';
 import SignalCard from './SignalCard';
 import RealTimeStatus from './RealTimeStatus';
 import GlobalRefreshIndicator from './GlobalRefreshIndicator';
+import AutoSignalGenerator from './AutoSignalGenerator';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Users, Activity, Brain, TestTube, Wrench, Zap } from 'lucide-react';
 import { useMarketActivation } from '@/hooks/useMarketActivation';
@@ -200,6 +200,9 @@ const TradingSignals = memo(() => {
       {/* Global Refresh Status */}
       <GlobalRefreshIndicator />
 
+      {/* Auto Signal Generation System */}
+      <AutoSignalGenerator />
+
       {/* Real-time Connection Status */}
       <RealTimeStatus />
 
@@ -272,7 +275,7 @@ const TradingSignals = memo(() => {
             </div>
           </div>
           <div className="text-sm text-gray-400">
-            🤖 AI Analysis: Real-time market data • Advanced pattern recognition • Intelligent signal generation • Enhanced debugging
+            🤖 AI Analysis: Real-time market data • Advanced pattern recognition • Intelligent signal generation • Automatic scheduling
           </div>
         </div>
       </div>
@@ -308,7 +311,7 @@ const TradingSignals = memo(() => {
             </Button>
           </div>
           <div className="text-sm text-gray-400">
-            🧠 All users see identical AI-generated signals • Real-time market analysis • Auto-generated every 5 minutes
+            🧠 All users see identical AI-generated signals • Real-time market analysis • Auto-generated & manual generation
           </div>
         </div>
       </div>
