@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -26,11 +27,11 @@ export const useTradingSignals = () => {
 
   const fetchSignals = useCallback(async () => {
     try {
-      // Fetch only ACTIVE centralized signals to ensure consistency across all users
+      // Fetch only ACTIVE centralized signals
       const { data: centralizedSignals, error } = await supabase
         .from('trading_signals')
         .select('*')
-        .eq('status', 'active')  // Only fetch active signals
+        .eq('status', 'active')
         .eq('is_centralized', true)
         .is('user_id', null)
         .order('created_at', { ascending: false })
@@ -76,7 +77,7 @@ export const useTradingSignals = () => {
             return null;
           }
 
-          // Use the stored signal price as the FIXED entry price (never changes)
+          // Use the stored signal price as the FIXED entry price
           const storedEntryPrice = parseFloat(signal.price?.toString() || '1.0');
           
           if (!storedEntryPrice || isNaN(storedEntryPrice) || storedEntryPrice <= 0) {
@@ -84,7 +85,7 @@ export const useTradingSignals = () => {
             return null;
           }
 
-          // Use the FIXED stored chart data - this ensures all users see the same chart
+          // Use the FIXED stored chart data
           let chartData = [];
           if (signal.chart_data && Array.isArray(signal.chart_data)) {
             chartData = signal.chart_data.map(point => ({
@@ -93,7 +94,6 @@ export const useTradingSignals = () => {
             }));
             console.log(`📈 Using stored chart data for ${signal.symbol}: ${chartData.length} points`);
           } else {
-            // If no stored chart data, create minimal fallback with the entry price
             console.warn(`⚠️ No stored chart data for ${signal.symbol}, using entry price fallback`);
             const now = Date.now();
             chartData = [
@@ -112,7 +112,7 @@ export const useTradingSignals = () => {
             id: signal.id,
             pair: signal.symbol,
             type: signal.type || 'BUY',
-            entryPrice: storedEntryPrice.toFixed(5), // Fixed entry price from signal creation
+            entryPrice: storedEntryPrice.toFixed(5),
             stopLoss: signal.stop_loss ? parseFloat(signal.stop_loss.toString()).toFixed(5) : '0.00000',
             takeProfit1: takeProfits[0] ? takeProfits[0].toFixed(5) : '0.00000',
             takeProfit2: takeProfits[1] ? takeProfits[1].toFixed(5) : '0.00000',
@@ -120,8 +120,8 @@ export const useTradingSignals = () => {
             confidence: Math.floor(signal.confidence || 87),
             timestamp: signal.created_at || new Date().toISOString(),
             status: signal.status || 'active',
-            analysisText: signal.analysis_text || `Centralized AI ${signal.type || 'BUY'} signal for ${signal.symbol}`,
-            chartData: chartData // FIXED chart data from signal creation - same for all users
+            analysisText: signal.analysis_text || `Individual AI ${signal.type || 'BUY'} signal for ${signal.symbol}`,
+            chartData: chartData
           };
         } catch (error) {
           console.error(`❌ Error transforming signal for ${signal?.symbol}:`, error);
@@ -134,38 +134,41 @@ export const useTradingSignals = () => {
     return transformedSignals;
   };
 
-  const triggerAutomaticSignalGeneration = useCallback(async () => {
+  const triggerIndividualSignalGeneration = useCallback(async () => {
     try {
-      console.log('🚀 Triggering centralized signal generation...');
+      console.log('🚀 Triggering individual opportunity detection...');
       
       const { data: signalResult, error: signalError } = await supabase.functions.invoke('generate-signals');
       
       if (signalError) {
-        console.error('❌ Signal generation failed:', signalError);
+        console.error('❌ Individual signal generation failed:', signalError);
         toast({
           title: "Generation Failed",
-          description: "Failed to generate centralized signals",
+          description: "Failed to detect new trading opportunities",
           variant: "destructive"
         });
         return;
       }
       
-      console.log('✅ Centralized signals generated');
+      console.log('✅ Individual opportunity detection completed');
       
       // Refresh the signal list
       await new Promise(resolve => setTimeout(resolve, 1000));
       await fetchSignals();
       
+      const signalsGenerated = signalResult?.stats?.signalsGenerated || 0;
+      const opportunitiesAnalyzed = signalResult?.stats?.opportunitiesAnalyzed || 0;
+      
       toast({
-        title: "Centralized Signals Updated",
-        description: "All users now see the same trading signals",
+        title: "Opportunity Detection Complete",
+        description: `${signalsGenerated} new opportunities detected from ${opportunitiesAnalyzed} pairs analyzed`,
       });
       
     } catch (error) {
-      console.error('❌ Error in centralized signal generation:', error);
+      console.error('❌ Error in individual signal generation:', error);
       toast({
-        title: "Update Error",
-        description: "Failed to update centralized signals",
+        title: "Detection Error",
+        description: "Failed to detect new trading opportunities",
         variant: "destructive"
       });
     }
@@ -211,7 +214,7 @@ export const useTradingSignals = () => {
   useEffect(() => {
     fetchSignals();
     
-    // Enhanced real-time subscriptions for centralized signals with better error handling
+    // Enhanced real-time subscriptions for centralized signals
     const signalsChannel = supabase
       .channel(`centralized-trading-signals-${Date.now()}`)
       .on(
@@ -273,7 +276,7 @@ export const useTradingSignals = () => {
     loading,
     lastUpdate,
     fetchSignals,
-    triggerAutomaticSignalGeneration,
+    triggerAutomaticSignalGeneration: triggerIndividualSignalGeneration,
     triggerRealTimeUpdates
   };
 };

@@ -17,9 +17,11 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const isCronTriggered = body.trigger === 'cron';
     const isTestMode = body.test_mode === true || body.trigger === 'test';
+    const targetPair = body.symbol; // Optional: generate signal for specific pair
     
-    console.log(`🤖 ${isCronTriggered ? 'CRON AUTOMATIC' : 'MANUAL'} AI-powered signal generation starting...`);
+    console.log(`🤖 ${isCronTriggered ? 'CRON AUTOMATIC' : 'MANUAL'} Individual AI signal generation starting...`);
     console.log(`🧪 Test mode: ${isTestMode ? 'ENABLED (Lower thresholds)' : 'DISABLED (Production)'}`);
+    console.log(`🎯 Target pair: ${targetPair || 'Auto-detect opportunity'}`);
     console.log('⏰ Timestamp:', new Date().toISOString());
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -75,12 +77,6 @@ serve(async (req) => {
     }
 
     console.log(`💾 Found ${marketData?.length || 0} market data points`);
-    if (marketData && marketData.length > 0) {
-      console.log('📊 Available market data:');
-      marketData.slice(0, 5).forEach(data => {
-        console.log(`  - ${data.symbol}: ${data.current_price} (${data.last_update})`);
-      });
-    }
 
     if (!marketData || marketData.length === 0) {
       console.log('⚠️ No centralized market data available, triggering market update first...');
@@ -98,38 +94,40 @@ serve(async (req) => {
       }
     }
 
-    // ALL AVAILABLE CURRENCY PAIRS - Expanded from 5 to 14 pairs
+    // ALL AVAILABLE CURRENCY PAIRS
     const allCurrencyPairs = [
-      // Major pairs
       'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD',
-      // Cross pairs
       'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY'
     ];
     
-    console.log(`🌍 EXPANDED ANALYSIS: Now analyzing ${allCurrencyPairs.length} currency pairs`);
+    // Filter pairs that already have active signals to avoid duplicates
+    const existingPairs = new Set(existingSignals?.map(s => s.symbol) || []);
+    const availablePairs = targetPair ? [targetPair] : allCurrencyPairs.filter(pair => !existingPairs.has(pair));
     
-    // Get latest price for each currency pair from centralized market state
+    console.log(`🔍 Available pairs for new signals: ${availablePairs.length}`);
+    console.log(`🚫 Existing pairs with active signals: ${Array.from(existingPairs).join(', ')}`);
+    
+    // Get latest price for available currency pairs
     const latestPrices = new Map();
     
-    for (const pair of allCurrencyPairs) {
+    for (const pair of availablePairs) {
       const pairData = marketData?.find(item => item.symbol === pair);
       if (pairData) {
         latestPrices.set(pair, pairData);
-        console.log(`📊 Found centralized data for ${pair}: ${pairData.current_price} (updated: ${pairData.last_update})`);
-      } else {
-        console.log(`⚠️ No centralized data found for ${pair}`);
+        console.log(`📊 Found centralized data for ${pair}: ${pairData.current_price}`);
       }
     }
 
-    console.log(`🎯 Will generate signals for ${latestPrices.size} pairs with available data (out of ${allCurrencyPairs.length} total pairs)`);
+    console.log(`🎯 Will analyze ${latestPrices.size} pairs for individual signal opportunities`);
 
     if (latestPrices.size === 0) {
-      console.error('❌ No market data available for any currency pairs');
+      console.log('⚠️ No available pairs for new signals (all pairs already have active signals or no market data)');
       return new Response(
         JSON.stringify({ 
-          success: false,
-          message: 'No market data available for signal generation', 
+          success: true,
+          message: 'No new signal opportunities - all pairs either have active signals or lack market data', 
           signals: [],
+          existingSignals: existingSignals?.length || 0,
           availablePairs: [],
           timestamp: new Date().toISOString()
         }),
@@ -137,65 +135,25 @@ serve(async (req) => {
       );
     }
 
-    const signals = [];
     const timestamp = new Date().toISOString();
+    let signalsGenerated = 0;
+    let opportunitiesAnalyzed = 0;
+    const generatedSignals = [];
 
-    // For cron triggers, only clean up very old signals to avoid conflicts
-    if (isCronTriggered) {
-      console.log('🔄 Cron trigger: cleaning up old expired signals...');
-      
-      const { error: deleteError } = await supabase
-        .from('trading_signals')
-        .delete()
-        .eq('is_centralized', true)
-        .is('user_id', null)
-        .eq('status', 'expired')
-        .lt('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString());
+    console.log(`🚀 Starting individual AI analysis for ${availablePairs.length} available pairs...`);
 
-      if (deleteError) {
-        console.error('❌ Error deleting old signals:', deleteError);
-      } else {
-        console.log('✅ Cleaned up old expired signals (7+ days)');
-      }
-    } else {
-      console.log('🔄 Manual trigger: clearing existing active signals...');
-      
-      const { error: deleteError } = await supabase
-        .from('trading_signals')
-        .delete()
-        .eq('is_centralized', true)
-        .is('user_id', null)
-        .eq('status', 'active');
-
-      if (deleteError) {
-        console.error('❌ Error clearing existing signals:', deleteError);
-      } else {
-        console.log('✅ Cleared existing active centralized signals for manual generation');
-      }
-    }
-
-    // Generate AI-powered signals for ALL available currency pairs
-    let successfulSignals = 0;
-    let neutralSignals = 0;
-    let errorCount = 0;
-
-    console.log(`🚀 Starting AI analysis for ${allCurrencyPairs.length} currency pairs...`);
-
-    for (const pair of allCurrencyPairs) {
+    // Analyze pairs individually and generate signals only when opportunities are detected
+    for (const pair of availablePairs) {
       const marketPoint = latestPrices.get(pair);
       if (!marketPoint) {
-        console.log(`⚠️ Skipping ${pair} - no market data available`);
         continue;
       }
 
       try {
+        opportunitiesAnalyzed++;
         const currentPrice = parseFloat(marketPoint.current_price.toString());
-        if (!currentPrice || currentPrice <= 0) {
-          console.log(`❌ Invalid price for ${pair}: ${currentPrice}`);
-          continue;
-        }
-
-        console.log(`🧠 Generating AI analysis for ${pair} at price ${currentPrice}... (${successfulSignals + neutralSignals + errorCount + 1}/${allCurrencyPairs.length})`);
+        
+        console.log(`🧠 Analyzing ${pair} for individual opportunity at price ${currentPrice}...`);
 
         // Get historical price data for context
         const { data: historicalData } = await supabase
@@ -210,8 +168,8 @@ serve(async (req) => {
         const priceChange = priceHistory.length > 1 ? 
           ((currentPrice - priceHistory[priceHistory.length - 1]) / priceHistory[priceHistory.length - 1] * 100) : 0;
 
-        // Enhanced AI prompt with REDUCED CONSERVATISM for testing
-        console.log(`🔮 Calling OpenAI API for ${pair} analysis...`);
+        // AI prompt focused on individual opportunity detection
+        console.log(`🔮 Checking for AI opportunity in ${pair}...`);
         const aiAnalysisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -223,65 +181,55 @@ serve(async (req) => {
             messages: [
               {
                 role: 'system',
-                content: `You are a professional forex trading analyst. ${isTestMode ? 'TESTING MODE: Generate signals more liberally for application testing purposes. Lower your thresholds for signal generation.' : ''} Analyze the provided market data and generate trading signal recommendations for ${pair}.
+                content: `You are a professional forex trading analyst focused on INDIVIDUAL OPPORTUNITY DETECTION. ${isTestMode ? 'TESTING MODE: Be more liberal with signal generation for testing.' : 'PRODUCTION MODE: Only generate signals when you detect genuine trading opportunities.'} 
+
+                IMPORTANT: You should ONLY generate BUY/SELL signals when you detect a GENUINE trading opportunity for ${pair}. Most of the time, you should return NEUTRAL (no opportunity detected).
+
+                ${isTestMode ? 'In testing mode, generate signals about 30% of the time when asked.' : 'In production mode, only generate signals when you have strong conviction about a trading opportunity (roughly 10-15% of the time).'}
                 
                 Respond with a JSON object containing:
                 {
                   "signal": "BUY" or "SELL" or "NEUTRAL",
-                  "confidence": number between ${isTestMode ? '50-85' : '70-90'} (${isTestMode ? 'testing mode - more liberal' : 'production mode'}),
+                  "confidence": number between ${isTestMode ? '60-85' : '75-90'},
+                  "opportunity_strength": "LOW", "MEDIUM", or "HIGH",
                   "entry_price": number (current price adjusted for optimal entry),
                   "stop_loss_pips": number between 15-40,
-                  "take_profit_pips": [number, number, number] (3 levels, progressive),
-                  "analysis": "detailed explanation of the signal reasoning including technical indicators and market context",
-                  "risk_level": "LOW", "MEDIUM", or "HIGH"
+                  "take_profit_pips": [number, number, number] (3 levels),
+                  "analysis": "detailed explanation focusing on why this is a trading opportunity",
+                  "market_setup": "description of the specific market setup detected"
                 }
                 
-                ${isTestMode ? `
-                TESTING MODE INSTRUCTIONS:
-                - Be MORE willing to generate BUY/SELL signals (aim for 60-70% signal rate vs neutral)
-                - Lower your conviction requirements for signal generation
-                - Focus on moderate-confidence opportunities (50-85% confidence range)
-                - Generate signals even for smaller price movements or less clear patterns
-                - This is for testing the application functionality, so err on the side of generating signals
-                ` : `
-                PRODUCTION MODE:
-                - Only generate BUY/SELL signals when you have strong conviction
-                - Use NEUTRAL when market conditions are unclear or conflicting
-                - Be selective with signal generation to maintain high quality
-                `}
+                Only generate BUY/SELL when you detect:
+                - Clear technical patterns (breakouts, reversals, etc.)
+                - Strong momentum or volatility
+                - Significant support/resistance levels being tested
+                - Currency-specific fundamental factors
                 
-                Consider:
-                - Technical patterns and price action for ${pair}
-                - Market momentum and volatility
-                - Support/resistance levels
-                - Currency pair characteristics (major/cross pair behavior)
-                - Current market session timing
-                - Risk management principles`
+                Use NEUTRAL when:
+                - Market is ranging/sideways
+                - No clear technical setup
+                - Mixed or unclear signals
+                - Low volatility with no clear direction`
               },
               {
                 role: 'user',
-                content: `Analyze ${pair} trading data:
+                content: `Analyze ${pair} for individual trading opportunity:
                 Current Price: ${currentPrice}
                 Recent Prices: ${priceHistory.join(', ')}
                 24h Change: ${priceChange.toFixed(2)}%
-                Market Timestamp: ${timestamp}
-                Session: ${new Date().getUTCHours() >= 12 && new Date().getUTCHours() < 20 ? 'US Trading Hours' : 'Outside US Hours'}
+                Market Session: ${new Date().getUTCHours() >= 12 && new Date().getUTCHours() < 20 ? 'Active Trading Hours' : 'Off-Peak Hours'}
                 Pair Type: ${['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD'].includes(pair) ? 'Major Pair' : 'Cross Pair'}
-                Testing Mode: ${isTestMode ? 'YES - Generate signals more liberally' : 'NO - Production standards'}
                 
-                Generate a trading signal with specific entry, stop loss, and take profit levels. ${isTestMode ? 'Since this is testing mode, be more willing to generate actionable signals.' : 'Only issue signals when you have strong conviction.'}`
+                Detect if there's a genuine trading opportunity for ${pair} right now. Only generate a signal if you see a clear setup. ${isTestMode ? 'Testing mode active - be more generous with opportunities.' : 'Production mode - be selective.'}`
               }
             ],
-            max_tokens: 800,
-            temperature: isTestMode ? 0.6 : 0.3 // Higher temperature in test mode for more varied responses
+            max_tokens: 600,
+            temperature: isTestMode ? 0.7 : 0.4
           }),
         });
 
         if (!aiAnalysisResponse.ok) {
-          console.error(`❌ OpenAI API error for ${pair}: ${aiAnalysisResponse.status} ${aiAnalysisResponse.statusText}`);
-          const errorText = await aiAnalysisResponse.text();
-          console.error('OpenAI Error Details:', errorText);
-          errorCount++;
+          console.error(`❌ OpenAI API error for ${pair}: ${aiAnalysisResponse.status}`);
           continue;
         }
 
@@ -290,11 +238,8 @@ serve(async (req) => {
 
         if (!aiContent) {
           console.error(`❌ No AI response content for ${pair}`);
-          errorCount++;
           continue;
         }
-
-        console.log(`🤖 Raw AI response for ${pair}:`, aiContent.substring(0, 200) + '...');
 
         // Parse AI response
         let aiSignal;
@@ -307,40 +252,20 @@ serve(async (req) => {
           }
         } catch (parseError) {
           console.error(`❌ Failed to parse AI response for ${pair}:`, parseError);
-          console.log(`📝 Full AI response for debugging: ${aiContent}`);
-          errorCount++;
           continue;
         }
 
-        // Validate AI signal
-        if (!aiSignal.signal) {
-          console.log(`⚠️ AI response missing signal field for ${pair}`);
-          errorCount++;
-          continue;
-        }
-
-        console.log(`📊 AI Decision for ${pair}: ${aiSignal.signal} (${aiSignal.confidence}% confidence)`);
-        console.log(`📝 Reasoning: ${aiSignal.analysis?.substring(0, 150)}...`);
+        console.log(`📊 AI Decision for ${pair}: ${aiSignal.signal} (${aiSignal.confidence}% confidence, ${aiSignal.opportunity_strength} strength)`);
 
         if (aiSignal.signal === 'NEUTRAL' || !['BUY', 'SELL'].includes(aiSignal.signal)) {
-          console.log(`⚠️ AI recommended ${aiSignal.signal} signal for ${pair}, skipping`);
-          neutralSignals++;
+          console.log(`⚪ No opportunity detected for ${pair} - continuing monitoring`);
           continue;
         }
 
-        // Validate confidence range based on mode
-        const minConfidence = isTestMode ? 50 : 70;
-        const maxConfidence = isTestMode ? 85 : 90;
-        
-        if (aiSignal.confidence < minConfidence || aiSignal.confidence > maxConfidence) {
-          console.log(`⚠️ AI confidence ${aiSignal.confidence}% outside range ${minConfidence}-${maxConfidence}% for ${pair}`);
-          aiSignal.confidence = Math.min(Math.max(aiSignal.confidence, minConfidence), maxConfidence);
-          console.log(`🔧 Adjusted confidence to ${aiSignal.confidence}% for ${pair}`);
-        }
+        console.log(`🎯 OPPORTUNITY DETECTED for ${pair}: ${aiSignal.signal} signal`);
+        console.log(`📝 Setup: ${aiSignal.market_setup}`);
 
-        console.log(`✅ AI generated ${aiSignal.signal} signal for ${pair} with ${aiSignal.confidence}% confidence`);
-
-        // Calculate price levels based on AI recommendations
+        // Generate signal only when opportunity is detected
         const entryPrice = aiSignal.entry_price || currentPrice;
         const stopLossPips = aiSignal.stop_loss_pips || 25;
         const takeProfitPips = aiSignal.take_profit_pips || [20, 35, 50];
@@ -396,111 +321,84 @@ serve(async (req) => {
             parseFloat(takeProfit2.toFixed(pair.includes('JPY') ? 3 : 5)),
             parseFloat(takeProfit3.toFixed(pair.includes('JPY') ? 3 : 5))
           ],
-          confidence: Math.min(Math.max(aiSignal.confidence || (isTestMode ? 60 : 75), minConfidence), maxConfidence),
+          confidence: aiSignal.confidence,
           status: 'active',
           is_centralized: true,
           user_id: null,
-          analysis_text: `${isTestMode ? '[TEST MODE] ' : ''}AI-Generated ${aiSignal.signal} Signal for ${pair}: ${aiSignal.analysis || 'Advanced technical analysis indicates favorable conditions.'}`,
+          analysis_text: `${isTestMode ? '[TEST] ' : ''}AI-Detected ${aiSignal.opportunity_strength} Opportunity: ${aiSignal.analysis}`,
           chart_data: chartData,
           pips: stopLossPips,
           created_at: timestamp
         };
 
-        signals.push(signal);
-        successfulSignals++;
-        console.log(`✅ Generated AI-powered ${aiSignal.signal} signal for ${pair} (${aiSignal.confidence}% confidence) - ${successfulSignals} total signals`);
+        // Insert the individual signal immediately
+        console.log(`💾 Inserting individual AI signal for ${pair}...`);
+        const { data: insertedSignal, error: insertError } = await supabase
+          .from('trading_signals')
+          .insert([signal])
+          .select('*')
+          .single();
 
-        // Add small delay between AI calls to avoid rate limiting
-        if (allCurrencyPairs.indexOf(pair) < allCurrencyPairs.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 200));
+        if (insertError) {
+          console.error(`❌ Error inserting signal for ${pair}:`, insertError);
+          continue;
+        }
+
+        signalsGenerated++;
+        generatedSignals.push(insertedSignal);
+        console.log(`✅ Generated individual AI signal for ${pair} (${aiSignal.confidence}% confidence)`);
+
+        // Add delay between analyses to avoid rate limiting and make it more realistic
+        if (availablePairs.indexOf(pair) < availablePairs.length - 1) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+
+        // For cron triggers, only generate 1-2 signals per run to be realistic
+        if (isCronTriggered && signalsGenerated >= 2) {
+          console.log(`⏰ Cron trigger: Generated ${signalsGenerated} signals, stopping for this cycle`);
+          break;
         }
 
       } catch (error) {
-        console.error(`❌ Error generating AI signal for ${pair}:`, error);
-        errorCount++;
+        console.error(`❌ Error analyzing opportunity for ${pair}:`, error);
       }
     }
 
-    console.log(`📊 ${isTestMode ? 'TEST MODE ' : ''}SIGNAL GENERATION SUMMARY:`);
-    console.log(`  - Total pairs analyzed: ${allCurrencyPairs.length}`);
-    console.log(`  - Pairs with market data: ${latestPrices.size}`);
-    console.log(`  - Successful signals: ${successfulSignals}`);
-    console.log(`  - Neutral signals: ${neutralSignals}`);
-    console.log(`  - Errors: ${errorCount}`);
-    console.log(`  - Signal success rate: ${((successfulSignals / latestPrices.size) * 100).toFixed(1)}%`);
-    console.log(`  - Mode: ${isTestMode ? 'TEST (Lower thresholds)' : 'PRODUCTION (Higher thresholds)'}`);
-
-    if (signals.length === 0) {
-      console.log(`⚠️ No AI signals generated from any of the analyzed pairs ${isTestMode ? '(even in test mode)' : ''}`);
-      return new Response(
-        JSON.stringify({ 
-          success: false,
-          message: `No AI signals generated from ${allCurrencyPairs.length} analyzed pairs - ${neutralSignals} neutral signals, ${errorCount} errors`, 
-          signals: [],
-          marketDataCount: marketData?.length || 0,
-          availablePairs: Array.from(latestPrices.keys()),
-          stats: {
-            totalPairsAnalyzed: allCurrencyPairs.length,
-            pairsWithData: latestPrices.size,
-            successful: successfulSignals,
-            neutral: neutralSignals,
-            errors: errorCount,
-            testMode: isTestMode
-          },
-          timestamp
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Insert new AI-generated signals
-    console.log(`💾 Inserting ${signals.length} new AI-generated centralized signals from ${allCurrencyPairs.length} analyzed pairs...`);
-    const { data: insertedSignals, error: insertError } = await supabase
-      .from('trading_signals')
-      .insert(signals)
-      .select('*');
-
-    if (insertError) {
-      console.error('❌ Error inserting AI signals:', insertError);
-      throw insertError;
-    }
-
-    console.log(`🎉 SUCCESS! Generated ${signals.length} AI-powered centralized signals from ${allCurrencyPairs.length} currency pairs ${isTestMode ? '(TEST MODE)' : ''}`);
-    insertedSignals?.forEach(signal => {
-      console.log(`  - ${signal.symbol} ${signal.type} @ ${signal.price} (${signal.confidence}% confidence)`);
-    });
+    console.log(`📊 INDIVIDUAL SIGNAL GENERATION SUMMARY:`);
+    console.log(`  - Opportunities analyzed: ${opportunitiesAnalyzed}`);
+    console.log(`  - Signals generated: ${signalsGenerated}`);
+    console.log(`  - Detection rate: ${opportunitiesAnalyzed > 0 ? ((signalsGenerated / opportunitiesAnalyzed) * 100).toFixed(1) : 0}%`);
+    console.log(`  - Mode: ${isTestMode ? 'TEST (More opportunities)' : 'PRODUCTION (Selective)'}`);
+    console.log(`  - Total active signals: ${(existingSignals?.length || 0) + signalsGenerated}`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Generated ${signals.length} AI-powered centralized signals from ${allCurrencyPairs.length} analyzed pairs ${isTestMode ? '(TEST MODE)' : ''}`,
-        signals: insertedSignals?.map(s => ({ 
+        message: `Individual signal generation completed - ${signalsGenerated} new opportunities detected from ${opportunitiesAnalyzed} pairs analyzed`,
+        signals: generatedSignals?.map(s => ({ 
           id: s.id, 
           symbol: s.symbol, 
           type: s.type, 
           price: s.price,
           confidence: s.confidence 
         })) || [],
-        marketDataUsed: Array.from(latestPrices.keys()),
         stats: {
-          totalPairsAnalyzed: allCurrencyPairs.length,
-          pairsWithData: latestPrices.size,
-          successful: successfulSignals,
-          neutral: neutralSignals,
-          errors: errorCount,
-          signalSuccessRate: `${((successfulSignals / latestPrices.size) * 100).toFixed(1)}%`,
+          opportunitiesAnalyzed,
+          signalsGenerated,
+          detectionRate: `${opportunitiesAnalyzed > 0 ? ((signalsGenerated / opportunitiesAnalyzed) * 100).toFixed(1) : 0}%`,
+          existingSignals: existingSignals?.length || 0,
+          totalActiveSignals: (existingSignals?.length || 0) + signalsGenerated,
           testMode: isTestMode
         },
         timestamp,
         trigger: isCronTriggered ? 'cron' : 'manual',
-        aiPowered: true,
-        testMode: isTestMode
+        approach: 'individual_opportunity_detection'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('💥 AI signal generation error:', error);
+    console.error('💥 Individual AI signal generation error:', error);
     return new Response(
       JSON.stringify({ 
         success: false,

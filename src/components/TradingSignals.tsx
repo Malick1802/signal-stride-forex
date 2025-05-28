@@ -8,7 +8,7 @@ import SignalCard from './SignalCard';
 import RealTimeStatus from './RealTimeStatus';
 import GlobalRefreshIndicator from './GlobalRefreshIndicator';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Users, Activity, Brain, TestTube, Wrench, Zap, FlaskConical } from 'lucide-react';
+import { RefreshCw, Users, Activity, Brain, TestTube, Wrench, Zap, FlaskConical, Target } from 'lucide-react';
 import { useMarketActivation } from '@/hooks/useMarketActivation';
 import AutomationDashboard from './AutomationDashboard';
 
@@ -21,7 +21,7 @@ const TradingSignals = memo(() => {
   
   const [analysis, setAnalysis] = useState<Record<string, string>>({});
   const [analyzingSignal, setAnalyzingSignal] = useState<string | null>(null);
-  const [refreshingSignals, setRefreshingSignals] = useState(false);
+  const [detectingOpportunities, setDetectingOpportunities] = useState(false);
   const [testingSystem, setTestingSystem] = useState(false);
   const [cleaningCrons, setCleaningCrons] = useState(false);
   const [generatingTestSignals, setGeneratingTestSignals] = useState(false);
@@ -29,7 +29,7 @@ const TradingSignals = memo(() => {
   // Add market activation
   const { activateMarket } = useMarketActivation();
 
-  // Filter out invalid signals and add validation
+  // Filter out invalid signals
   const validSignals = signals.filter(signal => {
     if (!signal || typeof signal !== 'object' || !signal.id || !signal.pair || !signal.type) {
       return false;
@@ -49,7 +49,7 @@ const TradingSignals = memo(() => {
   const handleGenerateTestSignals = async () => {
     setGeneratingTestSignals(true);
     try {
-      console.log('🧪 Generating test signals with reduced confidence requirements...');
+      console.log('🧪 Generating test signals with individual opportunity detection...');
       const { data, error } = await supabase.functions.invoke('generate-signals', {
         body: { 
           trigger: 'test',
@@ -70,10 +70,10 @@ const TradingSignals = memo(() => {
       console.log('✅ Test signal generation result:', data);
       
       const testResults = data.stats || {};
-      let message = `Generated ${data.signals?.length || 0} test signals. Success rate: ${testResults.signalSuccessRate || 'unknown'}`;
+      let message = `Generated ${data.signals?.length || 0} test opportunities from ${testResults.opportunitiesAnalyzed || 0} pairs analyzed`;
       
       toast({
-        title: "🧪 Test Signals Generated",
+        title: "🧪 Test Opportunities Generated",
         description: message,
       });
 
@@ -168,19 +168,19 @@ const TradingSignals = memo(() => {
     }
   };
 
-  const handleRefreshSignals = async () => {
-    setRefreshingSignals(true);
+  const handleDetectOpportunities = async () => {
+    setDetectingOpportunities(true);
     try {
       await triggerAutomaticSignalGeneration();
     } catch (error) {
-      console.error('Error refreshing AI signals:', error);
+      console.error('Error detecting opportunities:', error);
       toast({
-        title: "Refresh Error",
-        description: "Failed to refresh AI-powered signals. Please try again.",
+        title: "Detection Error",
+        description: "Failed to detect new trading opportunities. Please try again.",
         variant: "destructive"
       });
     } finally {
-      setRefreshingSignals(false);
+      setDetectingOpportunities(false);
     }
   };
 
@@ -230,7 +230,7 @@ const TradingSignals = memo(() => {
   if (loading && validSignals.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-white">Loading AI-powered signals...</div>
+        <div className="text-white">Loading individual AI opportunities...</div>
       </div>
     );
   }
@@ -254,6 +254,42 @@ const TradingSignals = memo(() => {
       {/* Real-time Connection Status */}
       <RealTimeStatus />
 
+      {/* Individual Opportunity Detection System */}
+      <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <Target className="h-5 w-5 text-green-400" />
+              <span className="text-white font-medium">Individual Opportunity Detection</span>
+              <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
+                AI-POWERED
+              </span>
+            </div>
+            <Button
+              onClick={handleDetectOpportunities}
+              disabled={detectingOpportunities}
+              className="bg-green-600 hover:bg-green-700 text-white text-sm"
+              size="sm"
+            >
+              {detectingOpportunities ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Detecting...
+                </>
+              ) : (
+                <>
+                  <Target className="h-4 w-4 mr-2" />
+                  Detect Opportunities
+                </>
+              )}
+            </Button>
+          </div>
+          <div className="text-sm text-gray-400">
+            🎯 AI analyzes each pair individually • Only generates signals when genuine opportunities are detected • Adds to existing signals
+          </div>
+        </div>
+      </div>
+
       {/* Enhanced System Debugging Panel */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="flex items-center justify-between">
@@ -276,12 +312,12 @@ const TradingSignals = memo(() => {
               {generatingTestSignals ? (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Generating...
+                  Detecting...
                 </>
               ) : (
                 <>
                   <FlaskConical className="h-4 w-4 mr-2" />
-                  Test Mode Signals
+                  Test Mode Detection
                 </>
               )}
             </Button>
@@ -324,60 +360,24 @@ const TradingSignals = memo(() => {
           </div>
         </div>
         <div className="mt-2 text-xs text-gray-400">
-          🤖 GitHub Actions handles automatic generation • These are backup manual controls • Automation runs every 5 minutes during market hours
+          🤖 GitHub Actions handles automatic detection • These are backup manual controls • Individual opportunities detected every 5 minutes
         </div>
       </div>
 
-      {/* AI-Powered System Status */}
+      {/* AI-Powered Individual Detection Status */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <Brain className="h-5 w-5 text-purple-400" />
-              <span className="text-white font-medium">AI-Powered Trading System</span>
+              <span className="text-white font-medium">AI Individual Opportunity System</span>
               <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-1 rounded">
-                OPENAI GPT-4O-MINI + FASTFOREX
+                INDIVIDUAL DETECTION
               </span>
             </div>
           </div>
           <div className="text-sm text-gray-400">
-            🤖 AI Analysis: Real-time market data • Advanced pattern recognition • Intelligent signal generation • Enhanced debugging
-          </div>
-        </div>
-      </div>
-
-      {/* Centralized Status */}
-      <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <Users className="h-5 w-5 text-blue-400" />
-              <span className="text-white font-medium">Centralized AI Signals</span>
-              <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">
-                LIVE AI ANALYSIS
-              </span>
-            </div>
-            <Button
-              onClick={handleRefreshSignals}
-              disabled={refreshingSignals}
-              className="bg-blue-600 hover:bg-blue-700 text-white text-sm"
-              size="sm"
-            >
-              {refreshingSignals ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <Brain className="h-4 w-4 mr-2" />
-                  Generate AI Signals
-                </>
-              )}
-            </Button>
-          </div>
-          <div className="text-sm text-gray-400">
-            🧠 All users see identical AI-generated signals • Real-time market analysis • Auto-generated every 5 minutes
+            🎯 Each pair analyzed individually • Signals generated only when opportunities detected • No batch generation
           </div>
         </div>
       </div>
@@ -402,16 +402,16 @@ const TradingSignals = memo(() => {
               </select>
             </div>
             <div className="text-sm text-gray-400">
-              AI-powered • Outcome monitoring enabled • Enhanced debugging active
+              Individual opportunity detection • Outcome-based expiration • Real-time monitoring
             </div>
           </div>
         </div>
       )}
 
-      {/* Active AI-Generated Signals Grid */}
+      {/* Active Individual AI Signals Grid */}
       <div>
         <h3 className="text-white text-lg font-semibold mb-4">
-          {selectedPair === 'All' ? 'AI Trading Signals' : `${selectedPair} AI Signals`} ({filteredSignals.length})
+          {selectedPair === 'All' ? 'Individual AI Opportunities' : `${selectedPair} Opportunities`} ({filteredSignals.length})
         </h3>
         
         {filteredSignals.length > 0 ? (
@@ -436,61 +436,44 @@ const TradingSignals = memo(() => {
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
               {selectedPair === 'All' 
-                ? 'No AI-generated signals available at the moment' 
-                : `No AI-generated signals available for ${selectedPair}`}
+                ? 'No individual opportunities detected at the moment' 
+                : `No opportunities detected for ${selectedPair}`}
             </div>
             <div className="text-sm text-gray-500 mb-6">
-              The enhanced AI system analyzes real-time market data and generates intelligent signals automatically
+              The AI system analyzes each currency pair individually and only generates signals when genuine trading opportunities are detected
             </div>
             <div className="space-x-4">
               <Button
+                onClick={handleDetectOpportunities}
+                disabled={detectingOpportunities}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                {detectingOpportunities ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Detecting Opportunities...
+                  </>
+                ) : (
+                  <>
+                    <Target className="h-4 w-4 mr-2" />
+                    Detect New Opportunities
+                  </>
+                )}
+              </Button>
+              <Button
                 onClick={handleGenerateTestSignals}
                 disabled={generatingTestSignals}
-                className="bg-green-600 hover:bg-green-700 text-white"
+                className="bg-orange-600 hover:bg-orange-700 text-white"
               >
                 {generatingTestSignals ? (
                   <>
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Generating Test Signals...
+                    Test Detection...
                   </>
                 ) : (
                   <>
                     <FlaskConical className="h-4 w-4 mr-2" />
-                    Generate Test Signals
-                  </>
-                )}
-              </Button>
-              <Button
-                onClick={handleRefreshSignals}
-                disabled={refreshingSignals}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                {refreshingSignals ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Generating AI Signals...
-                  </>
-                ) : (
-                  <>
-                    <Brain className="h-4 w-4 mr-2" />
-                    Generate AI Signals
-                  </>
-                )}
-              </Button>
-              <Button
-                onClick={handleComprehensiveTest}
-                disabled={testingSystem}
-                className="bg-purple-600 hover:bg-purple-700 text-white"
-              >
-                {testingSystem ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Testing System...
-                  </>
-                ) : (
-                  <>
-                    <Zap className="h-4 w-4 mr-2" />
-                    Debug System
+                    Test Mode Detection
                   </>
                 )}
               </Button>
