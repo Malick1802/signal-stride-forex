@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🧹 Starting cron cleanup...');
+    console.log('🧹 Starting cron cleanup for outcome-based system...');
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -31,15 +31,16 @@ serve(async (req) => {
     const { error: deleteError2 } = await supabase.rpc('cron.unschedule', { job_name: 'generate-signals-every-5min' });
     const { error: deleteError3 } = await supabase.rpc('cron.unschedule', { job_name: 'auto-signal-generation' });
     const { error: deleteError4 } = await supabase.rpc('cron.unschedule', { job_name: 'centralized-signal-generation' });
+    const { error: deleteError5 } = await supabase.rpc('cron.unschedule', { job_name: 'ai-signal-generation-5min' });
 
     console.log('✅ Existing cron jobs cleared');
 
-    // Create a single, clean cron job for signal generation every 5 minutes
-    console.log('📅 Creating new cron job for signal generation every 5 minutes...');
+    // Create signal generation cron (every 5 minutes)
+    console.log('📅 Creating signal generation cron job...');
     
-    const cronQuery = `
+    const signalGenQuery = `
       SELECT cron.schedule(
-        'ai-signal-generation-5min',
+        'outcome-based-signal-generation',
         '*/5 * * * *',
         $$
         SELECT net.http_post(
@@ -51,21 +52,46 @@ serve(async (req) => {
       );
     `;
 
-    const { error: cronError } = await supabase.rpc('sql', { query: cronQuery });
+    const { error: cronError } = await supabase.rpc('sql', { query: signalGenQuery });
 
     if (cronError) {
-      console.error('❌ Error creating cron job:', cronError);
+      console.error('❌ Error creating signal generation cron:', cronError);
       throw cronError;
     }
 
-    console.log('✅ New cron job created successfully: ai-signal-generation-5min');
-    console.log('🔄 Signals will now be generated every 5 minutes automatically');
+    // Create cleanup cron (daily at 2 AM UTC) - only for very old data
+    console.log('📅 Creating daily cleanup cron job...');
+    
+    const cleanupQuery = `
+      SELECT cron.schedule(
+        'outcome-based-cleanup',
+        '0 2 * * *',
+        $$
+        SELECT public.cleanup_old_signals();
+        $$
+      );
+    `;
+
+    const { error: cleanupError } = await supabase.rpc('sql', { query: cleanupQuery });
+
+    if (cleanupError) {
+      console.error('❌ Error creating cleanup cron:', cleanupError);
+      throw cleanupError;
+    }
+
+    console.log('✅ Outcome-based cron jobs created successfully');
+    console.log('🎯 Signal generation: every 5 minutes');
+    console.log('🧹 Cleanup: daily at 2 AM UTC (30+ day old expired signals only)');
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Cron cleanup completed and new signal generation cron job created',
-        cronJob: 'ai-signal-generation-5min (every 5 minutes)',
+        message: 'Outcome-based cron system setup completed',
+        cronJobs: [
+          'outcome-based-signal-generation (every 5 minutes)',
+          'outcome-based-cleanup (daily at 2 AM UTC)'
+        ],
+        note: 'Signals now expire only based on trading outcomes (stop loss/take profit hits)',
         timestamp: new Date().toISOString()
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
