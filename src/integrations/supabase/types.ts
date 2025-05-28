@@ -524,6 +524,7 @@ export type Database = {
           stop_loss: number
           symbol: string
           take_profits: number[] | null
+          targets_hit: number[] | null
           timestamp: string
           type: string
           updated_at: string
@@ -547,6 +548,7 @@ export type Database = {
           stop_loss: number
           symbol: string
           take_profits?: number[] | null
+          targets_hit?: number[] | null
           timestamp?: string
           type: string
           updated_at?: string
@@ -570,6 +572,7 @@ export type Database = {
           stop_loss?: number
           symbol?: string
           take_profits?: number[] | null
+          targets_hit?: number[] | null
           timestamp?: string
           type?: string
           updated_at?: string

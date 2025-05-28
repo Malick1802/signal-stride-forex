@@ -12,6 +12,7 @@ interface SignalToMonitor {
   takeProfits: number[];
   status: string;
   createdAt: string;
+  targetsHit: number[];
 }
 
 export const useSignalMonitoring = () => {
@@ -31,6 +32,7 @@ export const useSignalMonitoring = () => {
       let targetLevel = 0;
       let exitPrice = currentPrice;
       let isSuccessful = false;
+      let newTargetsHit = [...signal.targetsHit];
 
       // Check stop loss hit first
       if (signal.type === 'BUY') {
@@ -39,11 +41,12 @@ export const useSignalMonitoring = () => {
         hitStopLoss = currentPrice >= signal.stopLoss;
       }
 
-      // Check take profit hits (all levels)
-      let highestTargetHit = 0;
+      // Check take profit hits and update targets_hit array
+      let highestTargetHit = Math.max(0, ...signal.targetsHit);
       if (!hitStopLoss && signal.takeProfits.length > 0) {
         for (let i = 0; i < signal.takeProfits.length; i++) {
           const tpPrice = signal.takeProfits[i];
+          const targetNumber = i + 1;
           let tpHit = false;
           
           if (signal.type === 'BUY') {
@@ -52,26 +55,45 @@ export const useSignalMonitoring = () => {
             tpHit = currentPrice <= tpPrice;
           }
           
+          // If target hit and not already recorded, add to array
+          if (tpHit && !newTargetsHit.includes(targetNumber)) {
+            newTargetsHit.push(targetNumber);
+            newTargetsHit.sort(); // Keep array sorted
+            console.log(`🎯 New target ${targetNumber} hit for ${signal.symbol}, updating targets_hit`);
+            
+            // Update the signal's targets_hit array in the database
+            const { error: updateError } = await supabase
+              .from('trading_signals')
+              .update({ 
+                targets_hit: newTargetsHit,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', signal.id);
+
+            if (updateError) {
+              console.error('❌ Error updating targets_hit:', updateError);
+            } else {
+              console.log(`✅ Updated targets_hit for ${signal.symbol}:`, newTargetsHit);
+            }
+          }
+          
           if (tpHit) {
-            highestTargetHit = i + 1;
             hitTarget = true;
-            targetLevel = i + 1;
+            targetLevel = targetNumber;
             exitPrice = tpPrice;
+            highestTargetHit = Math.max(highestTargetHit, targetNumber);
           }
         }
       }
 
-      // Determine if signal should be marked as successful:
-      // 1. All targets hit = SUCCESS
-      // 2. At least one target hit = SUCCESS (even if later SL hit)
-      // 3. Only stop loss hit with no targets = LOSS
-      if (hitTarget) {
+      // Determine if signal should be marked as successful based on permanently hit targets
+      if (newTargetsHit.length > 0) {
         isSuccessful = true;
         // If all targets were hit, mark as complete success
-        if (highestTargetHit === signal.takeProfits.length) {
+        if (newTargetsHit.length === signal.takeProfits.length) {
           console.log(`🎯 All targets hit for ${signal.symbol} - COMPLETE SUCCESS`);
         } else {
-          console.log(`🎯 Target ${targetLevel} hit for ${signal.symbol} - PARTIAL SUCCESS`);
+          console.log(`🎯 ${newTargetsHit.length} targets hit for ${signal.symbol} - PARTIAL SUCCESS`);
         }
       } else if (hitStopLoss) {
         isSuccessful = false;
@@ -79,27 +101,35 @@ export const useSignalMonitoring = () => {
         exitPrice = signal.stopLoss;
       }
 
-      // Process outcome if any condition is met
-      if (hitStopLoss || hitTarget) {
+      // Process outcome if final conditions are met (all targets hit OR stop loss hit)
+      const allTargetsHit = newTargetsHit.length === signal.takeProfits.length;
+      if (hitStopLoss || allTargetsHit) {
         try {
-          console.log(`🔄 Processing outcome for ${signal.symbol}: ${isSuccessful ? 'SUCCESS' : 'LOSS'}`);
+          console.log(`🔄 Processing final outcome for ${signal.symbol}: ${isSuccessful ? 'SUCCESS' : 'LOSS'}`);
           
-          // Calculate P&L in pips
+          // Calculate P&L in pips using the highest hit target or stop loss
+          let finalExitPrice = exitPrice;
+          if (isSuccessful && newTargetsHit.length > 0) {
+            // Use the highest hit target price
+            const highestHitTarget = Math.max(...newTargetsHit);
+            finalExitPrice = signal.takeProfits[highestHitTarget - 1];
+          }
+          
           let pnlPips = 0;
           if (signal.type === 'BUY') {
-            pnlPips = Math.round((exitPrice - signal.entryPrice) * 10000);
+            pnlPips = Math.round((finalExitPrice - signal.entryPrice) * 10000);
           } else {
-            pnlPips = Math.round((signal.entryPrice - exitPrice) * 10000);
+            pnlPips = Math.round((signal.entryPrice - finalExitPrice) * 10000);
           }
 
           // Determine final outcome status
           let finalStatus = '';
-          if (hitTarget && highestTargetHit === signal.takeProfits.length) {
+          if (allTargetsHit) {
             finalStatus = 'All Take Profits Hit';
-          } else if (hitTarget && hitStopLoss) {
-            finalStatus = `Take Profit ${targetLevel} Hit, Then Stop Loss`;
-          } else if (hitTarget) {
-            finalStatus = `Take Profit ${targetLevel} Hit`;
+          } else if (newTargetsHit.length > 0 && hitStopLoss) {
+            finalStatus = `Take Profit ${Math.max(...newTargetsHit)} Hit, Then Stop Loss`;
+          } else if (newTargetsHit.length > 0) {
+            finalStatus = `Take Profit ${Math.max(...newTargetsHit)} Hit`;
           } else {
             finalStatus = 'Stop Loss Hit';
           }
@@ -122,9 +152,9 @@ export const useSignalMonitoring = () => {
             .insert({
               signal_id: signal.id,
               hit_target: isSuccessful,
-              exit_price: exitPrice,
+              exit_price: finalExitPrice,
               exit_timestamp: new Date().toISOString(),
-              target_hit_level: hitTarget ? targetLevel : null,
+              target_hit_level: newTargetsHit.length > 0 ? Math.max(...newTargetsHit) : null,
               pnl_pips: pnlPips,
               notes: finalStatus
             });
@@ -209,7 +239,8 @@ export const useSignalMonitoring = () => {
         stopLoss: parseFloat(signal.stop_loss.toString()),
         takeProfits: signal.take_profits?.map((tp: any) => parseFloat(tp.toString())) || [],
         status: signal.status,
-        createdAt: signal.created_at
+        createdAt: signal.created_at,
+        targetsHit: signal.targets_hit || []
       }));
 
       // Check for outcomes

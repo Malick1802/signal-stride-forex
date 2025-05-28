@@ -23,6 +23,7 @@ interface SignalCardProps {
     timestamp: string;
     analysisText?: string;
     chartData: Array<{ time: number; price: number }>;
+    targetsHit?: number[];
   } | null;
   analysis: Record<string, string>;
   analyzingSignal: string | null;
@@ -116,6 +117,7 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
         takeProfit3={safeSignal.takeProfit3}
         currentPrice={currentPrice}
         signalType={safeSignal.type}
+        targetsHit={signal?.targetsHit || []}
       />
 
       <div className="px-4">

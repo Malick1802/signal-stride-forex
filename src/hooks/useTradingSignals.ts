@@ -17,6 +17,7 @@ interface TradingSignal {
   status: string;
   analysisText?: string;
   chartData: Array<{ time: number; price: number }>;
+  targetsHit: number[];
 }
 
 export const useTradingSignals = () => {
@@ -108,6 +109,9 @@ export const useTradingSignals = () => {
             takeProfits = signal.take_profits.map(tp => parseFloat(tp?.toString() || '0'));
           }
 
+          // Get targets_hit array
+          const targetsHit = signal.targets_hit || [];
+
           return {
             id: signal.id,
             pair: signal.symbol,
@@ -121,7 +125,8 @@ export const useTradingSignals = () => {
             timestamp: signal.created_at || new Date().toISOString(),
             status: signal.status || 'active',
             analysisText: signal.analysis_text || `Individual AI ${signal.type || 'BUY'} signal for ${signal.symbol}`,
-            chartData: chartData
+            chartData: chartData,
+            targetsHit: targetsHit
           };
         } catch (error) {
           console.error(`❌ Error transforming signal for ${signal?.symbol}:`, error);

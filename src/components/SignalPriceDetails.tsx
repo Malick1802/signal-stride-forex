@@ -12,6 +12,7 @@ interface SignalPriceDetailsProps {
   takeProfit3: string;
   currentPrice: number | null;
   signalType: string;
+  targetsHit: number[];
 }
 
 const SignalPriceDetails = ({
@@ -21,11 +22,16 @@ const SignalPriceDetails = ({
   takeProfit2,
   takeProfit3,
   currentPrice,
-  signalType
+  signalType,
+  targetsHit
 }: SignalPriceDetailsProps) => {
   const { toast } = useToast();
 
-  const isTakeProfitHit = (takeProfitPrice: string): boolean => {
+  const isTargetPermanentlyHit = (targetLevel: number): boolean => {
+    return targetsHit.includes(targetLevel);
+  };
+
+  const isTakeProfitCurrentlyHit = (takeProfitPrice: string): boolean => {
     if (!currentPrice || !takeProfitPrice || takeProfitPrice === '0.00000') return false;
     
     try {
@@ -39,6 +45,11 @@ const SignalPriceDetails = ({
     } catch {
       return false;
     }
+  };
+
+  const shouldShowCheckmark = (targetLevel: number, takeProfitPrice: string): boolean => {
+    // Show checkmark if target was permanently hit OR currently being hit
+    return isTargetPermanentlyHit(targetLevel) || isTakeProfitCurrentlyHit(takeProfitPrice);
   };
 
   const copyToClipboard = async (price: string, label: string) => {
@@ -94,8 +105,8 @@ const SignalPriceDetails = ({
           <span className="text-gray-400">Target 1</span>
           <div className="flex items-center space-x-2">
             <span className="text-emerald-400 font-mono">{takeProfit1}</span>
-            {isTakeProfitHit(takeProfit1) && (
-              <Check className="h-4 w-4 text-emerald-400" />
+            {shouldShowCheckmark(1, takeProfit1) && (
+              <Check className={`h-4 w-4 ${isTargetPermanentlyHit(1) ? 'text-emerald-400' : 'text-emerald-300'}`} />
             )}
             <Button
               size="sm"
@@ -111,8 +122,8 @@ const SignalPriceDetails = ({
           <span className="text-gray-400">Target 2</span>
           <div className="flex items-center space-x-2">
             <span className="text-emerald-400 font-mono">{takeProfit2}</span>
-            {isTakeProfitHit(takeProfit2) && (
-              <Check className="h-4 w-4 text-emerald-400" />
+            {shouldShowCheckmark(2, takeProfit2) && (
+              <Check className={`h-4 w-4 ${isTargetPermanentlyHit(2) ? 'text-emerald-400' : 'text-emerald-300'}`} />
             )}
             <Button
               size="sm"
@@ -128,8 +139,8 @@ const SignalPriceDetails = ({
           <span className="text-gray-400">Target 3</span>
           <div className="flex items-center space-x-2">
             <span className="text-emerald-400 font-mono">{takeProfit3}</span>
-            {isTakeProfitHit(takeProfit3) && (
-              <Check className="h-4 w-4 text-emerald-400" />
+            {shouldShowCheckmark(3, takeProfit3) && (
+              <Check className={`h-4 w-4 ${isTargetPermanentlyHit(3) ? 'text-emerald-400' : 'text-emerald-300'}`} />
             )}
             <Button
               size="sm"
