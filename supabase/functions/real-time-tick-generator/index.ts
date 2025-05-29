@@ -15,29 +15,29 @@ const getMarketSession = () => {
   if (utcHour >= 22 || utcHour < 8) {
     return { 
       name: 'Asian', 
-      volatility: 0.3, 
-      trend: 0.1,
+      volatility: 0.4, 
+      trend: 0.15,
       spreadMultiplier: 1.2
     };
   } else if (utcHour >= 8 && utcHour < 16) {
     return { 
       name: 'European', 
-      volatility: 0.7, 
-      trend: 0.25, 
+      volatility: 0.8, 
+      trend: 0.3, 
       spreadMultiplier: 1.0 
     };
   } else if (utcHour >= 13 && utcHour < 17) {
     return { 
       name: 'US-EU-Overlap', 
-      volatility: 1.0, 
-      trend: 0.35, 
+      volatility: 1.2, 
+      trend: 0.4, 
       spreadMultiplier: 0.8
     };
   } else {
     return { 
       name: 'US', 
-      volatility: 0.8, 
-      trend: 0.3, 
+      volatility: 1.0, 
+      trend: 0.35, 
       spreadMultiplier: 0.9 
     };
   }
@@ -55,10 +55,10 @@ const isMarketOpen = () => {
   return !(isFridayEvening || isSaturday || isSundayBeforeOpen);
 };
 
-// Market event simulation (news spikes, etc.)
+// Enhanced market event simulation
 const getMarketEventMultiplier = () => {
-  if (Math.random() < 0.015) { // 1.5% chance of market event
-    return 2.0 + Math.random() * 1.5; // 2x to 3.5x volatility spike
+  if (Math.random() < 0.02) { // 2% chance of market event
+    return 2.5 + Math.random() * 2.0; // 2.5x to 4.5x volatility spike
   }
   return 1;
 };
@@ -69,7 +69,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🎯 Real-time tick generator (2s FastForex interpolation)...');
+    console.log('🎯 Enhanced real-time tick generator (1.5s FastForex interpolation)...');
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -88,17 +88,17 @@ serve(async (req) => {
       const { data: weekendStates, error: weekendError } = await supabase
         .from('centralized_market_state')
         .select('*')
-        .limit(8); // Only a few pairs during weekend
+        .limit(10); // Only a few pairs during weekend
         
       if (!weekendError && weekendStates?.length > 0) {
         const timestamp = new Date().toISOString();
         
         for (const state of weekendStates) {
           const basePrice = parseFloat(state.current_price.toString());
-          const weekendMovement = (Math.random() - 0.5) * basePrice * 0.00002; // Very small movement
+          const weekendMovement = (Math.random() - 0.5) * basePrice * 0.00001; // Very small movement
           const newPrice = parseFloat((basePrice + weekendMovement).toFixed(state.symbol.includes('JPY') ? 3 : 5));
           
-          const spread = newPrice * (state.symbol.includes('JPY') ? 0.00006 : 0.00004); // Wider weekend spreads
+          const spread = newPrice * (state.symbol.includes('JPY') ? 0.00008 : 0.00005); // Wider weekend spreads
           const bid = parseFloat((newPrice - spread/2).toFixed(state.symbol.includes('JPY') ? 3 : 5));
           const ask = parseFloat((newPrice + spread/2).toFixed(state.symbol.includes('JPY') ? 3 : 5));
           
@@ -140,10 +140,10 @@ serve(async (req) => {
       );
     }
 
-    // Market is open - generate realistic ticks from FastForex baseline
+    // Market is open - generate enhanced realistic ticks from FastForex baseline
     const session = getMarketSession();
     const eventMultiplier = getMarketEventMultiplier();
-    console.log(`📊 ${session.name} session (volatility: ${session.volatility}, event: ${eventMultiplier.toFixed(1)}x)`);
+    console.log(`📊 ${session.name} session (volatility: ${session.volatility.toFixed(1)}, event: ${eventMultiplier.toFixed(1)}x)`);
 
     // Get current FastForex-based prices from centralized market state
     const { data: marketStates, error: stateError } = await supabase
@@ -169,7 +169,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`📊 Generating smooth ticks from FastForex baseline for ${marketStates.length} pairs`);
+    console.log(`📊 Generating enhanced ticks from FastForex baseline for ${marketStates.length} pairs`);
 
     const tickUpdates = [];
     const priceHistoryBatch = [];
@@ -181,7 +181,7 @@ serve(async (req) => {
         const isJpyPair = marketState.symbol.includes('JPY');
         
         // Enhanced volatility calculation anchored to FastForex data
-        const baseVolatility = basePrice * 0.0002; // Base volatility for 2s ticks
+        const baseVolatility = basePrice * 0.0003; // Increased base volatility for 1.5s ticks
         const sessionVolatility = baseVolatility * session.volatility * eventMultiplier;
         
         // Advanced trend analysis from recent price history
@@ -193,7 +193,7 @@ serve(async (req) => {
           .select('price, timestamp')
           .eq('symbol', marketState.symbol)
           .order('timestamp', { ascending: false })
-          .limit(15); // Look at more history for better trend analysis
+          .limit(20); // Look at more history for better trend analysis
           
         if (recentHistory && recentHistory.length >= 5) {
           const prices = recentHistory.map(h => parseFloat(h.price.toString())).reverse();
@@ -207,38 +207,38 @@ serve(async (req) => {
           if (prices.length >= 10) {
             const mediumAvg = prices.slice(-10, -6).reduce((a, b) => a + b, 0) / 4;
             const longTrend = recentAvg - mediumAvg;
-            momentumFactor = Math.abs(longTrend) > Math.abs(shortTrend) ? 1.4 : 0.7;
+            momentumFactor = Math.abs(longTrend) > Math.abs(shortTrend) ? 1.6 : 0.8;
           }
           
           // Apply trend bias with session influence
           if (Math.random() < session.trend) {
-            trendBias = (shortTrend > 0 ? 1 : -1) * sessionVolatility * 0.3 * momentumFactor;
+            trendBias = (shortTrend > 0 ? 1 : -1) * sessionVolatility * 0.4 * momentumFactor;
           }
           
-          // Mean reversion for extreme moves (>0.08% total movement)
+          // Mean reversion for extreme moves
           const totalMove = prices[prices.length - 1] - prices[0];
           const movePercent = Math.abs(totalMove / basePrice);
-          if (movePercent > 0.0008) {
-            trendBias *= 0.4; // Strong mean reversion after big moves
+          if (movePercent > 0.001) {
+            trendBias *= 0.3; // Strong mean reversion after big moves
           }
         }
         
-        // Generate realistic tick movement with microstructure noise
+        // Generate realistic tick movement with enhanced microstructure noise
         const randomWalk = (Math.random() - 0.5) * 2 * sessionVolatility;
-        const microNoise = (Math.random() - 0.5) * sessionVolatility * 0.15;
+        const microNoise = (Math.random() - 0.5) * sessionVolatility * 0.2;
         const tickMovement = randomWalk + trendBias + microNoise;
         
         const newPrice = basePrice + tickMovement;
         
         // Calculate dynamic bid/ask spread
         const pipValue = isJpyPair ? 0.01 : 0.0001;
-        const baseSpreadPips = isJpyPair ? 1.2 : 0.8;
-        const volatilitySpread = session.volatility * eventMultiplier * 0.4;
+        const baseSpreadPips = isJpyPair ? 1.5 : 1.0;
+        const volatilitySpread = session.volatility * eventMultiplier * 0.5;
         const spreadPips = (baseSpreadPips + volatilitySpread) * session.spreadMultiplier;
         const spread = spreadPips * pipValue;
         
-        // Order flow simulation for spread asymmetry
-        const orderFlowBias = (Math.random() - 0.5) * 0.25;
+        // Enhanced order flow simulation for spread asymmetry
+        const orderFlowBias = (Math.random() - 0.5) * 0.3;
         const bidSpread = spread * (0.5 + orderFlowBias);
         const askSpread = spread * (0.5 - orderFlowBias);
         
@@ -246,7 +246,7 @@ serve(async (req) => {
         const ask = parseFloat((newPrice + askSpread).toFixed(isJpyPair ? 3 : 5));
         const midPrice = parseFloat(((bid + ask) / 2).toFixed(isJpyPair ? 3 : 5));
 
-        // Prepare tick update
+        // Prepare enhanced tick update
         const tickUpdate = {
           symbol: marketState.symbol,
           current_price: midPrice,
@@ -254,7 +254,7 @@ serve(async (req) => {
           ask,
           last_update: timestamp,
           is_market_open: true,
-          source: `${session.name.toLowerCase()}-tick-live`
+          source: `${session.name.toLowerCase()}-tick-enhanced`
         };
 
         tickUpdates.push(tickUpdate);
@@ -266,13 +266,13 @@ serve(async (req) => {
           bid,
           ask,
           timestamp,
-          source: `${session.name.toLowerCase()}-tick-live`
+          source: `${session.name.toLowerCase()}-tick-enhanced`
         });
 
-        console.log(`📈 ${marketState.symbol}: ${basePrice.toFixed(isJpyPair ? 3 : 5)} → ${midPrice} (${session.name} tick, ${eventMultiplier > 1 ? 'EVENT' : 'normal'})`);
+        console.log(`📈 ${marketState.symbol}: ${basePrice.toFixed(isJpyPair ? 3 : 5)} → ${midPrice} (${session.name} enhanced tick, ${eventMultiplier > 1 ? 'EVENT' : 'normal'})`);
 
       } catch (error) {
-        console.error(`❌ Error generating tick for ${marketState.symbol}:`, error);
+        console.error(`❌ Error generating enhanced tick for ${marketState.symbol}:`, error);
       }
     }
 
@@ -283,9 +283,9 @@ serve(async (req) => {
         .insert(priceHistoryBatch);
 
       if (historyError) {
-        console.error('❌ Error batch inserting tick history:', historyError);
+        console.error('❌ Error batch inserting enhanced tick history:', historyError);
       } else {
-        console.log(`📊 Batch inserted ${priceHistoryBatch.length} tick records`);
+        console.log(`📊 Batch inserted ${priceHistoryBatch.length} enhanced tick records`);
       }
     }
 
@@ -296,18 +296,18 @@ serve(async (req) => {
         .upsert(update, { onConflict: 'symbol' });
         
       if (error) {
-        console.error(`❌ Error updating tick state for ${update.symbol}:`, error);
+        console.error(`❌ Error updating enhanced tick state for ${update.symbol}:`, error);
       }
     }
 
-    // Cleanup old price history (keep last 150 points per pair)
-    const cleanupPromises = marketStates.slice(0, 5).map(async (marketState) => {
+    // Enhanced cleanup old price history (keep last 100 points per pair)
+    const cleanupPromises = marketStates.slice(0, 8).map(async (marketState) => {
       const { data: oldRecords } = await supabase
         .from('live_price_history')
         .select('id')
         .eq('symbol', marketState.symbol)
         .order('timestamp', { ascending: false })
-        .range(150, 300);
+        .range(100, 200);
         
       if (oldRecords && oldRecords.length > 0) {
         const idsToDelete = oldRecords.map(r => r.id);
@@ -320,12 +320,12 @@ serve(async (req) => {
 
     await Promise.allSettled(cleanupPromises);
 
-    console.log(`✅ Generated ${tickUpdates.length} FastForex-based ticks (${session.name} session, ${eventMultiplier > 1 ? 'event spike' : 'normal'})`);
+    console.log(`✅ Generated ${tickUpdates.length} enhanced FastForex-based ticks (${session.name} session, ${eventMultiplier > 1 ? 'event spike' : 'normal'})`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Generated ${tickUpdates.length} FastForex-based ticks`,
+        message: `Generated ${tickUpdates.length} enhanced FastForex-based ticks`,
         session: session.name,
         volatility: session.volatility,
         eventMultiplier: eventMultiplier > 1 ? eventMultiplier : null,
@@ -337,7 +337,7 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('💥 FastForex tick generator error:', error);
+    console.error('💥 Enhanced FastForex tick generator error:', error);
     return new Response(
       JSON.stringify({ 
         error: error.message,

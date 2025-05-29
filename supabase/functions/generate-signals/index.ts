@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -20,10 +21,10 @@ serve(async (req) => {
     const isCronTriggered = body.trigger === 'cron';
     const targetPair = body.symbol; // Optional: generate signal for specific pair
     
-    console.log(`🤖 ${isCronTriggered ? 'CRON AUTOMATIC' : 'MANUAL'} ULTRA-AGGRESSIVE AI signal generation starting...`);
-    console.log(`🎯 Target pair: ${targetPair || 'Auto-detect new opportunities'}`);
+    console.log(`🤖 ${isCronTriggered ? 'CRON AUTOMATIC' : 'MANUAL'} HIGH-CONFIDENCE AI signal generation starting...`);
+    console.log(`🎯 Target pair: ${targetPair || 'Auto-detect high-confidence opportunities'}`);
     console.log('⏰ Timestamp:', new Date().toISOString());
-    console.log(`🧪 MODE: ULTRA-AGGRESSIVE TEST MODE (70-80% generation rate) - MAX ${MAX_ACTIVE_SIGNALS} SIGNALS`);
+    console.log(`📊 MODE: HIGH-CONFIDENCE (80%+ confidence required) - MAX ${MAX_ACTIVE_SIGNALS} SIGNALS`);
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -81,8 +82,8 @@ serve(async (req) => {
             totalActiveSignals: currentSignalCount,
             signalLimit: MAX_ACTIVE_SIGNALS,
             limitReached: true,
-            testMode: true,
-            expectedRate: '70-80%'
+            highConfidenceMode: true,
+            expectedRate: '20-30%'
           },
           timestamp: new Date().toISOString(),
           trigger: isCronTriggered ? 'cron' : 'manual',
@@ -167,8 +168,8 @@ serve(async (req) => {
             totalActiveSignals: currentSignalCount,
             signalLimit: MAX_ACTIVE_SIGNALS,
             limitReached: true,
-            testMode: true,
-            expectedRate: '70-80%'
+            highConfidenceMode: true,
+            expectedRate: '20-30%'
           },
           timestamp: new Date().toISOString(),
           trigger: isCronTriggered ? 'cron' : 'manual',
@@ -189,7 +190,7 @@ serve(async (req) => {
       }
     }
 
-    console.log(`🎯 Will analyze ${latestPrices.size} pairs for NEW ULTRA-AGGRESSIVE signal opportunities (limit: ${maxNewSignals})`);
+    console.log(`🎯 Will analyze ${latestPrices.size} pairs for NEW HIGH-CONFIDENCE signal opportunities (limit: ${maxNewSignals})`);
 
     if (latestPrices.size === 0) {
       console.log('⚠️ No market data available for new signal generation');
@@ -206,8 +207,8 @@ serve(async (req) => {
             totalActiveSignals: currentSignalCount,
             signalLimit: MAX_ACTIVE_SIGNALS,
             limitReached: false,
-            testMode: true,
-            expectedRate: '70-80%'
+            highConfidenceMode: true,
+            expectedRate: '20-30%'
           },
           timestamp: new Date().toISOString(),
           trigger: isCronTriggered ? 'cron' : 'manual',
@@ -222,9 +223,9 @@ serve(async (req) => {
     let opportunitiesAnalyzed = 0;
     const generatedSignals = [];
 
-    console.log(`🚀 Starting ULTRA-AGGRESSIVE AI analysis for ${prioritizedPairs.length} NEW pairs (limit: ${maxNewSignals})...`);
+    console.log(`🚀 Starting HIGH-CONFIDENCE AI analysis for ${prioritizedPairs.length} NEW pairs (limit: ${maxNewSignals})...`);
 
-    // Analyze pairs individually with ULTRA-AGGRESSIVE generation (only for pairs without signals)
+    // Analyze pairs individually with HIGH-CONFIDENCE generation (only for pairs without signals)
     for (const pair of prioritizedPairs) {
       // Stop if we've reached our limit
       if (signalsGenerated >= maxNewSignals) {
@@ -241,7 +242,7 @@ serve(async (req) => {
         opportunitiesAnalyzed++;
         const currentPrice = parseFloat(marketPoint.current_price.toString());
         
-        console.log(`🧠 ULTRA-AGGRESSIVE analysis of ${pair} at price ${currentPrice} (${signalsGenerated + 1}/${maxNewSignals})...`);
+        console.log(`🧠 HIGH-CONFIDENCE analysis of ${pair} at price ${currentPrice} (${signalsGenerated + 1}/${maxNewSignals})...`);
 
         // Get historical price data for context
         const { data: historicalData } = await supabase
@@ -256,8 +257,8 @@ serve(async (req) => {
         const priceChange = priceHistory.length > 1 ? 
           ((currentPrice - priceHistory[priceHistory.length - 1]) / priceHistory[priceHistory.length - 1] * 100) : 0;
 
-        // ULTRA-AGGRESSIVE AI prompt - very liberal signal generation
-        console.log(`🔮 ULTRA-AGGRESSIVE AI opportunity check for ${pair}...`);
+        // HIGH-CONFIDENCE AI prompt - only generate signals with strong conviction
+        console.log(`🔮 HIGH-CONFIDENCE AI opportunity check for ${pair}...`);
         const aiAnalysisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -269,40 +270,40 @@ serve(async (req) => {
             messages: [
               {
                 role: 'system',
-                content: `You are a ultra-aggressive forex trading AI in TEST MODE. ULTRA-AGGRESSIVE MODE: Generate BUY/SELL signals frequently (aim for 70-80% of the time).
+                content: `You are a highly selective, professional forex trading AI. ONLY generate signals when you have HIGH CONFIDENCE (80%+ certainty).
 
-                IMPORTANT: You should FREQUENTLY generate BUY/SELL signals when analyzing ${pair}. This is test mode - be very liberal with signal generation.
+                IMPORTANT: You should be very selective - only generate BUY/SELL signals for ${pair} when there's strong technical or fundamental conviction.
                 
                 Respond with a JSON object containing:
                 {
                   "signal": "BUY" or "SELL" or "NEUTRAL",
-                  "confidence": number between 45-75,
-                  "opportunity_strength": "LOW", "MEDIUM", or "HIGH",
+                  "confidence": number between 80-95,
+                  "opportunity_strength": "HIGH" or "VERY_HIGH",
                   "entry_price": number (current price adjusted for optimal entry),
-                  "stop_loss_pips": number between 15-40,
+                  "stop_loss_pips": number between 20-50,
                   "take_profit_pips": [number, number, number] (3 levels),
-                  "analysis": "detailed explanation of the trading opportunity",
-                  "market_setup": "description of the market setup detected"
+                  "analysis": "detailed explanation of the high-confidence trading opportunity",
+                  "market_setup": "description of the strong market setup detected"
                 }
                 
-                ULTRA-AGGRESSIVE TEST MODE - Generate BUY/SELL signals even for: Minor price movements, Small volatility changes, Weak technical patterns, Mixed signals, Low volume periods.
+                HIGH-CONFIDENCE MODE - Generate BUY/SELL signals ONLY for: Strong technical patterns, Clear trend confirmations, Significant support/resistance levels, Strong momentum signals, Clear market structure breaks.
                 
-                Use NEUTRAL only rarely (less than 30% of the time) when there's absolutely no direction at all.`
+                Use NEUTRAL for most cases (70%+ of the time) when there's insufficient conviction or mixed signals.`
               },
               {
                 role: 'user',
-                content: `Analyze ${pair} for ULTRA-AGGRESSIVE trading opportunity:
+                content: `Analyze ${pair} for HIGH-CONFIDENCE trading opportunity:
                 Current Price: ${currentPrice}
                 Recent Prices: ${priceHistory.join(', ')}
                 24h Change: ${priceChange.toFixed(2)}%
                 Market Session: ${new Date().getUTCHours() >= 12 && new Date().getUTCHours() < 20 ? 'Active Trading Hours' : 'Off-Peak Hours'}
                 Pair Type: ${majorPairs.includes(pair) ? 'Major Pair' : 'Cross Pair'}
                 
-                Generate a NEW signal for ${pair} - be ultra-aggressive and liberal with signal generation for testing purposes.`
+                Only generate a signal if you have HIGH CONFIDENCE (80%+) in the setup for ${pair}.`
               }
             ],
             max_tokens: 600,
-            temperature: 0.8  // Higher temperature for more aggressive generation
+            temperature: 0.3  // Lower temperature for more consistent, conservative analysis
           }),
         });
 
@@ -333,20 +334,26 @@ serve(async (req) => {
           continue;
         }
 
-        console.log(`📊 ULTRA-AGGRESSIVE AI Decision for ${pair}: ${aiSignal.signal} (${aiSignal.confidence}% confidence, ${aiSignal.opportunity_strength} strength)`);
+        console.log(`📊 HIGH-CONFIDENCE AI Decision for ${pair}: ${aiSignal.signal} (${aiSignal.confidence}% confidence, ${aiSignal.opportunity_strength} strength)`);
 
         if (aiSignal.signal === 'NEUTRAL' || !['BUY', 'SELL'].includes(aiSignal.signal)) {
-          console.log(`⚪ No signal generated for ${pair} this round`);
+          console.log(`⚪ No high-confidence signal generated for ${pair} this round`);
           continue;
         }
 
-        console.log(`🎯 NEW ULTRA-AGGRESSIVE SIGNAL GENERATED for ${pair}: ${aiSignal.signal} signal (${signalsGenerated + 1}/${maxNewSignals})`);
+        // Only proceed if confidence is 80% or higher
+        if (aiSignal.confidence < 80) {
+          console.log(`⚠️ Signal confidence too low for ${pair}: ${aiSignal.confidence}% (requires 80%+)`);
+          continue;
+        }
+
+        console.log(`🎯 NEW HIGH-CONFIDENCE SIGNAL GENERATED for ${pair}: ${aiSignal.signal} signal (${signalsGenerated + 1}/${maxNewSignals})`);
         console.log(`📝 Setup: ${aiSignal.market_setup}`);
 
-        // Generate signal with ultra-aggressive settings
+        // Generate signal with high-confidence settings
         const entryPrice = aiSignal.entry_price || currentPrice;
-        const stopLossPips = aiSignal.stop_loss_pips || 25;
-        const takeProfitPips = aiSignal.take_profit_pips || [20, 35, 50];
+        const stopLossPips = aiSignal.stop_loss_pips || 30;
+        const takeProfitPips = aiSignal.take_profit_pips || [25, 45, 65];
 
         // Convert pips to price levels
         const pipValue = pair.includes('JPY') ? 0.01 : 0.0001;
@@ -403,14 +410,14 @@ serve(async (req) => {
           status: 'active',
           is_centralized: true,
           user_id: null,
-          analysis_text: `ULTRA-AGGRESSIVE ${aiSignal.opportunity_strength} Opportunity: ${aiSignal.analysis}`,
+          analysis_text: `HIGH-CONFIDENCE ${aiSignal.opportunity_strength} Opportunity: ${aiSignal.analysis}`,
           chart_data: chartData,
           pips: stopLossPips,
           created_at: timestamp
         };
 
-        // Insert the new ultra-aggressive signal
-        console.log(`💾 Inserting NEW ULTRA-AGGRESSIVE AI signal for ${pair} (${signalsGenerated + 1}/${maxNewSignals})...`);
+        // Insert the new high-confidence signal
+        console.log(`💾 Inserting NEW HIGH-CONFIDENCE AI signal for ${pair} (${signalsGenerated + 1}/${maxNewSignals})...`);
         const { data: insertedSignal, error: insertError } = await supabase
           .from('trading_signals')
           .insert([signal])
@@ -424,11 +431,11 @@ serve(async (req) => {
 
         signalsGenerated++;
         generatedSignals.push(insertedSignal);
-        console.log(`✅ Generated NEW ULTRA-AGGRESSIVE AI signal for ${pair} (${aiSignal.confidence}% confidence) - ${signalsGenerated}/${maxNewSignals}`);
+        console.log(`✅ Generated NEW HIGH-CONFIDENCE AI signal for ${pair} (${aiSignal.confidence}% confidence) - ${signalsGenerated}/${maxNewSignals}`);
 
         // Add minimal delay between analyses
         if (signalsGenerated < maxNewSignals && prioritizedPairs.indexOf(pair) < prioritizedPairs.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 1000));
         }
 
       } catch (error) {
@@ -438,19 +445,19 @@ serve(async (req) => {
 
     const finalActiveSignals = currentSignalCount + signalsGenerated;
 
-    console.log(`📊 SIGNAL LIMIT ENFORCEMENT SUMMARY:`);
+    console.log(`📊 HIGH-CONFIDENCE SIGNAL GENERATION SUMMARY:`);
     console.log(`  - Signal limit: ${MAX_ACTIVE_SIGNALS}`);
     console.log(`  - Starting signals: ${currentSignalCount}`);
     console.log(`  - New opportunities analyzed: ${opportunitiesAnalyzed}`);
-    console.log(`  - New signals generated: ${signalsGenerated}`);
+    console.log(`  - New high-confidence signals generated: ${signalsGenerated}`);
     console.log(`  - Final active signals: ${finalActiveSignals}/${MAX_ACTIVE_SIGNALS}`);
     console.log(`  - Generation rate: ${opportunitiesAnalyzed > 0 ? ((signalsGenerated / opportunitiesAnalyzed) * 100).toFixed(1) : 0}%`);
-    console.log(`  - Mode: ULTRA-AGGRESSIVE TEST MODE (Limited)`);
+    console.log(`  - Mode: HIGH-CONFIDENCE (80%+ required)`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Signal generation completed with limit enforcement - ${signalsGenerated} new signals generated from ${opportunitiesAnalyzed} opportunities analyzed (${finalActiveSignals}/${MAX_ACTIVE_SIGNALS} total)`,
+        message: `HIGH-CONFIDENCE signal generation completed - ${signalsGenerated} new signals generated from ${opportunitiesAnalyzed} opportunities analyzed (${finalActiveSignals}/${MAX_ACTIVE_SIGNALS} total)`,
         signals: generatedSignals?.map(s => ({ 
           id: s.id, 
           symbol: s.symbol, 
@@ -466,18 +473,18 @@ serve(async (req) => {
           totalActiveSignals: finalActiveSignals,
           signalLimit: MAX_ACTIVE_SIGNALS,
           limitReached: finalActiveSignals >= MAX_ACTIVE_SIGNALS,
-          testMode: true,
-          expectedRate: '70-80%'
+          highConfidenceMode: true,
+          expectedRate: '20-30%'
         },
         timestamp,
         trigger: isCronTriggered ? 'cron' : 'manual',
-        approach: 'signal_limit_enforcement'
+        approach: 'high_confidence_signals'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('💥 SIGNAL LIMIT ENFORCEMENT error:', error);
+    console.error('💥 HIGH-CONFIDENCE SIGNAL GENERATION error:', error);
     return new Response(
       JSON.stringify({ 
         success: false,

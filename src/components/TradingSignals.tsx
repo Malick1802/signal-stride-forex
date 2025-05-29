@@ -1,3 +1,4 @@
+
 import React, { useState, memo } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useSignalMonitoring } from '@/hooks/useSignalMonitoring';
@@ -8,7 +9,7 @@ import SignalCard from './SignalCard';
 import RealTimeStatus from './RealTimeStatus';
 import GlobalRefreshIndicator from './GlobalRefreshIndicator';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Users, Activity, Brain, TestTube, Wrench, Zap, FlaskConical, Target } from 'lucide-react';
+import { RefreshCw, Users, Activity, Brain, Shield, Wrench, Zap, FlaskConical, Target } from 'lucide-react';
 import { useMarketActivation } from '@/hooks/useMarketActivation';
 import AutomationDashboard from './AutomationDashboard';
 
@@ -46,7 +47,7 @@ const TradingSignals = memo(() => {
 
   const avgConfidence = validSignals.length > 0 
     ? Math.round(validSignals.reduce((sum, signal) => sum + (signal.confidence || 0), 0) / validSignals.length)
-    : 60; // Lower average for ultra-aggressive mode
+    : 85; // Higher average for high-confidence mode
 
   const handleCleanupCrons = async () => {
     setCleaningCrons(true);
@@ -185,7 +186,7 @@ const TradingSignals = memo(() => {
   if (loading && validSignals.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-white">Loading signals (limit: {MAX_ACTIVE_SIGNALS})...</div>
+        <div className="text-white">Loading high-confidence signals (limit: {MAX_ACTIVE_SIGNALS})...</div>
       </div>
     );
   }
@@ -222,44 +223,44 @@ const TradingSignals = memo(() => {
             </div>
           </div>
           <div className="text-sm text-blue-400">
-            🎯 Maximum {MAX_ACTIVE_SIGNALS} active signals • Prioritizes major pairs • Optimized performance
+            🎯 Maximum {MAX_ACTIVE_SIGNALS} active signals • Prioritizes major pairs • High-confidence only
           </div>
         </div>
       </div>
 
-      {/* ULTRA-AGGRESSIVE Test Mode Notice */}
-      <div className="bg-orange-500/10 backdrop-blur-sm rounded-xl border border-orange-500/20 p-4">
+      {/* HIGH-CONFIDENCE Mode Notice */}
+      <div className="bg-emerald-500/10 backdrop-blur-sm rounded-xl border border-emerald-500/20 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <TestTube className="h-5 w-5 text-orange-400" />
-              <span className="text-white font-medium">ULTRA-AGGRESSIVE TEST MODE</span>
-              <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-1 rounded">
-                70-80% GENERATION RATE
+              <Shield className="h-5 w-5 text-emerald-400" />
+              <span className="text-white font-medium">HIGH-CONFIDENCE MODE</span>
+              <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded">
+                80%+ CONFIDENCE REQUIRED
               </span>
             </div>
           </div>
-          <div className="text-sm text-orange-400">
-            🧪 Test Mode Active: Liberal signal generation • Limited to {MAX_ACTIVE_SIGNALS} signals • Lower confidence thresholds (45-75%)
+          <div className="text-sm text-emerald-400">
+            🛡️ Professional Mode: Only high-conviction signals • Limited to {MAX_ACTIVE_SIGNALS} signals • 80%+ confidence thresholds
           </div>
         </div>
       </div>
 
-      {/* Individual Opportunity Detection System */}
+      {/* High-Confidence Signal Generation System */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <Target className="h-5 w-5 text-green-400" />
-              <span className="text-white font-medium">Signal Generation (Max: {MAX_ACTIVE_SIGNALS})</span>
-              <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
-                AI-POWERED
+              <Shield className="h-5 w-5 text-emerald-400" />
+              <span className="text-white font-medium">High-Confidence Signal Generation (Max: {MAX_ACTIVE_SIGNALS})</span>
+              <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded">
+                PROFESSIONAL
               </span>
             </div>
             <Button
               onClick={handleDetectOpportunities}
               disabled={detectingOpportunities || validSignals.length >= MAX_ACTIVE_SIGNALS}
-              className="bg-green-600 hover:bg-green-700 text-white text-sm"
+              className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm"
               size="sm"
             >
               {detectingOpportunities ? (
@@ -274,14 +275,14 @@ const TradingSignals = memo(() => {
                 </>
               ) : (
                 <>
-                  <Target className="h-4 w-4 mr-2" />
-                  Generate Signals
+                  <Shield className="h-4 w-4 mr-2" />
+                  Generate High-Confidence Signals
                 </>
               )}
             </Button>
           </div>
           <div className="text-sm text-gray-400">
-            🎯 {validSignals.length >= MAX_ACTIVE_SIGNALS ? `Limit reached (${validSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${MAX_ACTIVE_SIGNALS - validSignals.length} slots available`} • Prioritizes major pairs • Liberal thresholds
+            🛡️ {validSignals.length >= MAX_ACTIVE_SIGNALS ? `Limit reached (${validSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${MAX_ACTIVE_SIGNALS - validSignals.length} slots available`} • Professional grade • 80%+ confidence required
           </div>
         </div>
       </div>
@@ -293,8 +294,8 @@ const TradingSignals = memo(() => {
             <div className="flex items-center space-x-2">
               <Wrench className="h-5 w-5 text-yellow-400" />
               <span className="text-white font-medium">System Controls</span>
-              <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-1 rounded">
-                LIMIT: {MAX_ACTIVE_SIGNALS}
+              <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded">
+                HIGH-CONFIDENCE
               </span>
             </div>
           </div>
@@ -337,25 +338,25 @@ const TradingSignals = memo(() => {
             </Button>
           </div>
         </div>
-        <div className="mt-2 text-xs text-orange-400">
-          🎯 SIGNAL LIMIT: {MAX_ACTIVE_SIGNALS} • ULTRA-AGGRESSIVE TEST MODE: Liberal generation • Perfect for automation testing
+        <div className="mt-2 text-xs text-emerald-400">
+          🛡️ HIGH-CONFIDENCE MODE: Professional signals only • 80%+ confidence • Maximum {MAX_ACTIVE_SIGNALS} signals
         </div>
       </div>
 
-      {/* AI-Powered Individual Detection Status */}
+      {/* AI-Powered High-Confidence Detection Status */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <Brain className="h-5 w-5 text-purple-400" />
-              <span className="text-white font-medium">AI System (Limit: {MAX_ACTIVE_SIGNALS})</span>
-              <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-1 rounded">
-                OPTIMIZED
+              <Brain className="h-5 w-5 text-emerald-400" />
+              <span className="text-white font-medium">Professional AI System (Limit: {MAX_ACTIVE_SIGNALS})</span>
+              <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded">
+                HIGH-CONFIDENCE
               </span>
             </div>
           </div>
           <div className="text-sm text-gray-400">
-            🧪 Each pair analyzed with liberal thresholds • Maximum {MAX_ACTIVE_SIGNALS} signals • Major pairs prioritized
+            🛡️ Selective analysis with 80%+ confidence requirement • Maximum {MAX_ACTIVE_SIGNALS} signals • Major pairs prioritized
           </div>
         </div>
       </div>
@@ -369,7 +370,7 @@ const TradingSignals = memo(() => {
               <select
                 value={selectedPair}
                 onChange={(e) => setSelectedPair(e.target.value)}
-                className="bg-white/10 border border-white/20 rounded px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="bg-white/10 border border-white/20 rounded px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
               >
                 <option value="All" className="bg-gray-800 text-white">All Pairs ({validSignals.length}/{MAX_ACTIVE_SIGNALS})</option>
                 {availablePairs.map(pair => (
@@ -380,16 +381,16 @@ const TradingSignals = memo(() => {
               </select>
             </div>
             <div className="text-sm text-gray-400">
-              Limited signals • Maximum {MAX_ACTIVE_SIGNALS} active • Real-time monitoring
+              High-confidence signals • Maximum {MAX_ACTIVE_SIGNALS} active • Professional monitoring
             </div>
           </div>
         </div>
       )}
 
-      {/* Active Limited Signals Grid */}
+      {/* Active High-Confidence Signals Grid */}
       <div>
         <h3 className="text-white text-lg font-semibold mb-4">
-          {selectedPair === 'All' ? `Active Signals (${filteredSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${selectedPair} Signals (${filteredSignals.length})`}
+          {selectedPair === 'All' ? `High-Confidence Signals (${filteredSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${selectedPair} Signals (${filteredSignals.length})`}
         </h3>
         
         {filteredSignals.length > 0 ? (
@@ -414,22 +415,22 @@ const TradingSignals = memo(() => {
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
               {selectedPair === 'All' 
-                ? `No signals generated yet (0/${MAX_ACTIVE_SIGNALS})` 
+                ? `No high-confidence signals generated yet (0/${MAX_ACTIVE_SIGNALS})` 
                 : `No signals for ${selectedPair}`}
             </div>
             <div className="text-sm text-gray-500 mb-6">
-              🎯 Signal limit: {MAX_ACTIVE_SIGNALS} • The AI will generate signals for priority pairs when you click "Generate Signals"
+              🛡️ Signal limit: {MAX_ACTIVE_SIGNALS} • Professional AI generates high-confidence signals (80%+) for priority pairs
             </div>
             <div className="space-x-4">
               <Button
                 onClick={handleDetectOpportunities}
                 disabled={detectingOpportunities || validSignals.length >= MAX_ACTIVE_SIGNALS}
-                className="bg-green-600 hover:bg-green-700 text-white"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white"
               >
                 {detectingOpportunities ? (
                   <>
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Generating Signals...
+                    Generating High-Confidence Signals...
                   </>
                 ) : validSignals.length >= MAX_ACTIVE_SIGNALS ? (
                   <>
@@ -438,8 +439,8 @@ const TradingSignals = memo(() => {
                   </>
                 ) : (
                   <>
-                    <Target className="h-4 w-4 mr-2" />
-                    Generate Signals
+                    <Shield className="h-4 w-4 mr-2" />
+                    Generate High-Confidence Signals
                   </>
                 )}
               </Button>

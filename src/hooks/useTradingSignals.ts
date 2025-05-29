@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -59,7 +58,7 @@ export const useTradingSignals = () => {
       setLastUpdate(new Date().toLocaleTimeString());
       
       if (processedSignals.length > 0) {
-        console.log(`✅ Loaded ${processedSignals.length}/${MAX_ACTIVE_SIGNALS} active centralized signals (SIGNAL LIMIT: ${MAX_ACTIVE_SIGNALS})`);
+        console.log(`✅ Loaded ${processedSignals.length}/${MAX_ACTIVE_SIGNALS} high-confidence centralized signals (SIGNAL LIMIT: ${MAX_ACTIVE_SIGNALS})`);
       }
       
     } catch (error) {
@@ -71,7 +70,7 @@ export const useTradingSignals = () => {
   }, []);
 
   const processSignals = (activeSignals: any[]) => {
-    console.log(`📊 Processing ${activeSignals.length}/${MAX_ACTIVE_SIGNALS} active centralized signals (SIGNAL LIMIT ENFORCED)`);
+    console.log(`📊 Processing ${activeSignals.length}/${MAX_ACTIVE_SIGNALS} high-confidence centralized signals (SIGNAL LIMIT ENFORCED)`);
 
     const transformedSignals = activeSignals
       .map(signal => {
@@ -124,10 +123,10 @@ export const useTradingSignals = () => {
             takeProfit1: takeProfits[0] ? takeProfits[0].toFixed(5) : '0.00000',
             takeProfit2: takeProfits[1] ? takeProfits[1].toFixed(5) : '0.00000',
             takeProfit3: takeProfits[2] ? takeProfits[2].toFixed(5) : '0.00000',
-            confidence: Math.floor(signal.confidence || 60), // Lower confidence in test mode
+            confidence: Math.floor(signal.confidence || 85), // Higher confidence in professional mode
             timestamp: signal.created_at || new Date().toISOString(),
             status: signal.status || 'active',
-            analysisText: signal.analysis_text || `ULTRA-AGGRESSIVE AI ${signal.type || 'BUY'} signal for ${signal.symbol}`,
+            analysisText: signal.analysis_text || `HIGH-CONFIDENCE Professional ${signal.type || 'BUY'} signal for ${signal.symbol}`,
             chartData: chartData,
             targetsHit: targetsHit
           };
@@ -138,13 +137,13 @@ export const useTradingSignals = () => {
       })
       .filter(Boolean) as TradingSignal[];
 
-    console.log(`✅ Successfully processed ${transformedSignals.length}/${MAX_ACTIVE_SIGNALS} active centralized signals (SIGNAL LIMIT: ${MAX_ACTIVE_SIGNALS})`);
+    console.log(`✅ Successfully processed ${transformedSignals.length}/${MAX_ACTIVE_SIGNALS} high-confidence centralized signals (SIGNAL LIMIT: ${MAX_ACTIVE_SIGNALS})`);
     return transformedSignals;
   };
 
   const triggerIndividualSignalGeneration = useCallback(async () => {
     try {
-      console.log(`🚀 Triggering signal generation with ${MAX_ACTIVE_SIGNALS}-signal limit...`);
+      console.log(`🚀 Triggering high-confidence signal generation with ${MAX_ACTIVE_SIGNALS}-signal limit...`);
       
       const { data: signalResult, error: signalError } = await supabase.functions.invoke('generate-signals');
       
@@ -152,13 +151,13 @@ export const useTradingSignals = () => {
         console.error('❌ Signal generation failed:', signalError);
         toast({
           title: "Generation Failed",
-          description: "Failed to detect new trading opportunities",
+          description: "Failed to detect new high-confidence trading opportunities",
           variant: "destructive"
         });
         return;
       }
       
-      console.log('✅ Signal generation completed with limit enforcement');
+      console.log('✅ High-confidence signal generation completed with limit enforcement');
       
       // Refresh the signal list
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -172,15 +171,15 @@ export const useTradingSignals = () => {
       const generationRate = signalResult?.stats?.generationRate || '0%';
       
       toast({
-        title: limitReached ? "Signal Limit Reached" : "Signal Generation Complete",
-        description: `${signalsGenerated} new signals generated (${totalActiveSignals}/${signalLimit} total active)`,
+        title: limitReached ? "Signal Limit Reached" : "High-Confidence Generation Complete",
+        description: `${signalsGenerated} new high-confidence signals generated (${totalActiveSignals}/${signalLimit} total active)`,
       });
       
     } catch (error) {
       console.error('❌ Error in signal generation:', error);
       toast({
         title: "Generation Error",
-        description: "Failed to detect new trading opportunities",
+        description: "Failed to detect new high-confidence trading opportunities",
         variant: "destructive"
       });
     }
@@ -238,7 +237,7 @@ export const useTradingSignals = () => {
           filter: 'is_centralized=eq.true'
         },
         (payload) => {
-          console.log(`📡 Real-time centralized signal change detected (SIGNAL LIMIT: ${MAX_ACTIVE_SIGNALS}):`, payload);
+          console.log(`📡 Real-time centralized signal change detected (HIGH-CONFIDENCE LIMIT: ${MAX_ACTIVE_SIGNALS}):`, payload);
           // Immediate refresh for real-time signal updates
           setTimeout(fetchSignals, 200);
         }
@@ -246,7 +245,7 @@ export const useTradingSignals = () => {
       .subscribe((status) => {
         console.log(`📡 Centralized signals subscription status: ${status}`);
         if (status === 'SUBSCRIBED') {
-          console.log(`✅ Real-time signal updates connected (SIGNAL LIMIT: ${MAX_ACTIVE_SIGNALS})`);
+          console.log(`✅ Real-time signal updates connected (HIGH-CONFIDENCE LIMIT: ${MAX_ACTIVE_SIGNALS})`);
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           console.error('❌ Signal subscription failed, attempting to reconnect...');
           setTimeout(fetchSignals, 2000);
@@ -272,7 +271,7 @@ export const useTradingSignals = () => {
 
     // Automatic refresh every 2 minutes (backup for real-time)
     const updateInterval = setInterval(async () => {
-      console.log(`🔄 Periodic signal refresh (SIGNAL LIMIT: ${MAX_ACTIVE_SIGNALS})...`);
+      console.log(`🔄 Periodic high-confidence signal refresh (SIGNAL LIMIT: ${MAX_ACTIVE_SIGNALS})...`);
       await fetchSignals();
     }, 2 * 60 * 1000);
 
