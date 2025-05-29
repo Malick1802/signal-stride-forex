@@ -20,6 +20,9 @@ interface TradingSignal {
   targetsHit: number[];
 }
 
+// Maximum number of active signals
+const MAX_ACTIVE_SIGNALS = 15;
+
 export const useTradingSignals = () => {
   const [signals, setSignals] = useState<TradingSignal[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,7 +31,7 @@ export const useTradingSignals = () => {
 
   const fetchSignals = useCallback(async () => {
     try {
-      // Fetch only ACTIVE centralized signals
+      // Fetch only ACTIVE centralized signals (limited to 15)
       const { data: centralizedSignals, error } = await supabase
         .from('trading_signals')
         .select('*')
@@ -36,7 +39,7 @@ export const useTradingSignals = () => {
         .eq('is_centralized', true)
         .is('user_id', null)
         .order('created_at', { ascending: false })
-        .limit(50); // Increased limit for ultra-aggressive mode
+        .limit(MAX_ACTIVE_SIGNALS); // Limited to 15 signals
 
       if (error) {
         console.error('❌ Error fetching active centralized signals:', error);
@@ -56,7 +59,7 @@ export const useTradingSignals = () => {
       setLastUpdate(new Date().toLocaleTimeString());
       
       if (processedSignals.length > 0) {
-        console.log(`✅ Loaded ${processedSignals.length} active centralized signals (ULTRA-AGGRESSIVE TEST MODE)`);
+        console.log(`✅ Loaded ${processedSignals.length}/${MAX_ACTIVE_SIGNALS} active centralized signals (SIGNAL LIMIT: ${MAX_ACTIVE_SIGNALS})`);
       }
       
     } catch (error) {
@@ -68,7 +71,7 @@ export const useTradingSignals = () => {
   }, []);
 
   const processSignals = (activeSignals: any[]) => {
-    console.log(`📊 Processing ${activeSignals.length} active centralized signals (ULTRA-AGGRESSIVE MODE)`);
+    console.log(`📊 Processing ${activeSignals.length}/${MAX_ACTIVE_SIGNALS} active centralized signals (SIGNAL LIMIT ENFORCED)`);
 
     const transformedSignals = activeSignals
       .map(signal => {
@@ -135,18 +138,18 @@ export const useTradingSignals = () => {
       })
       .filter(Boolean) as TradingSignal[];
 
-    console.log(`✅ Successfully processed ${transformedSignals.length} active centralized signals (ULTRA-AGGRESSIVE TEST MODE)`);
+    console.log(`✅ Successfully processed ${transformedSignals.length}/${MAX_ACTIVE_SIGNALS} active centralized signals (SIGNAL LIMIT: ${MAX_ACTIVE_SIGNALS})`);
     return transformedSignals;
   };
 
   const triggerIndividualSignalGeneration = useCallback(async () => {
     try {
-      console.log('🚀 Triggering ULTRA-AGGRESSIVE opportunity detection...');
+      console.log(`🚀 Triggering signal generation with ${MAX_ACTIVE_SIGNALS}-signal limit...`);
       
       const { data: signalResult, error: signalError } = await supabase.functions.invoke('generate-signals');
       
       if (signalError) {
-        console.error('❌ ULTRA-AGGRESSIVE signal generation failed:', signalError);
+        console.error('❌ Signal generation failed:', signalError);
         toast({
           title: "Generation Failed",
           description: "Failed to detect new trading opportunities",
@@ -155,7 +158,7 @@ export const useTradingSignals = () => {
         return;
       }
       
-      console.log('✅ ULTRA-AGGRESSIVE opportunity detection completed');
+      console.log('✅ Signal generation completed with limit enforcement');
       
       // Refresh the signal list
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -163,17 +166,20 @@ export const useTradingSignals = () => {
       
       const signalsGenerated = signalResult?.stats?.signalsGenerated || 0;
       const opportunitiesAnalyzed = signalResult?.stats?.opportunitiesAnalyzed || 0;
+      const totalActiveSignals = signalResult?.stats?.totalActiveSignals || 0;
+      const signalLimit = signalResult?.stats?.signalLimit || MAX_ACTIVE_SIGNALS;
+      const limitReached = signalResult?.stats?.limitReached || false;
       const generationRate = signalResult?.stats?.generationRate || '0%';
       
       toast({
-        title: "ULTRA-AGGRESSIVE Detection Complete",
-        description: `${signalsGenerated} new signals generated from ${opportunitiesAnalyzed} pairs (${generationRate} rate)`,
+        title: limitReached ? "Signal Limit Reached" : "Signal Generation Complete",
+        description: `${signalsGenerated} new signals generated (${totalActiveSignals}/${signalLimit} total active)`,
       });
       
     } catch (error) {
-      console.error('❌ Error in ULTRA-AGGRESSIVE signal generation:', error);
+      console.error('❌ Error in signal generation:', error);
       toast({
-        title: "Detection Error",
+        title: "Generation Error",
         description: "Failed to detect new trading opportunities",
         variant: "destructive"
       });
@@ -232,7 +238,7 @@ export const useTradingSignals = () => {
           filter: 'is_centralized=eq.true'
         },
         (payload) => {
-          console.log('📡 Real-time centralized signal change detected (ULTRA-AGGRESSIVE MODE):', payload);
+          console.log(`📡 Real-time centralized signal change detected (SIGNAL LIMIT: ${MAX_ACTIVE_SIGNALS}):`, payload);
           // Immediate refresh for real-time signal updates
           setTimeout(fetchSignals, 200);
         }
@@ -240,7 +246,7 @@ export const useTradingSignals = () => {
       .subscribe((status) => {
         console.log(`📡 Centralized signals subscription status: ${status}`);
         if (status === 'SUBSCRIBED') {
-          console.log('✅ Real-time signal updates connected (ULTRA-AGGRESSIVE MODE)');
+          console.log(`✅ Real-time signal updates connected (SIGNAL LIMIT: ${MAX_ACTIVE_SIGNALS})`);
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           console.error('❌ Signal subscription failed, attempting to reconnect...');
           setTimeout(fetchSignals, 2000);
@@ -266,7 +272,7 @@ export const useTradingSignals = () => {
 
     // Automatic refresh every 2 minutes (backup for real-time)
     const updateInterval = setInterval(async () => {
-      console.log('🔄 Periodic signal refresh (ULTRA-AGGRESSIVE MODE)...');
+      console.log(`🔄 Periodic signal refresh (SIGNAL LIMIT: ${MAX_ACTIVE_SIGNALS})...`);
       await fetchSignals();
     }, 2 * 60 * 1000);
 

@@ -12,6 +12,9 @@ import { RefreshCw, Users, Activity, Brain, TestTube, Wrench, Zap, FlaskConical,
 import { useMarketActivation } from '@/hooks/useMarketActivation';
 import AutomationDashboard from './AutomationDashboard';
 
+// Maximum number of active signals
+const MAX_ACTIVE_SIGNALS = 15;
+
 const TradingSignals = memo(() => {
   const { signals, loading, lastUpdate, triggerAutomaticSignalGeneration } = useTradingSignals();
   const { toast } = useToast();
@@ -182,7 +185,7 @@ const TradingSignals = memo(() => {
   if (loading && validSignals.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-white">Loading ULTRA-AGGRESSIVE AI opportunities...</div>
+        <div className="text-white">Loading signals (limit: {MAX_ACTIVE_SIGNALS})...</div>
       </div>
     );
   }
@@ -206,6 +209,24 @@ const TradingSignals = memo(() => {
       {/* Real-time Connection Status */}
       <RealTimeStatus />
 
+      {/* Signal Limit Notice */}
+      <div className="bg-blue-500/10 backdrop-blur-sm rounded-xl border border-blue-500/20 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <Target className="h-5 w-5 text-blue-400" />
+              <span className="text-white font-medium">SIGNAL LIMIT: {MAX_ACTIVE_SIGNALS}</span>
+              <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">
+                {validSignals.length}/{MAX_ACTIVE_SIGNALS} ACTIVE
+              </span>
+            </div>
+          </div>
+          <div className="text-sm text-blue-400">
+            🎯 Maximum {MAX_ACTIVE_SIGNALS} active signals • Prioritizes major pairs • Optimized performance
+          </div>
+        </div>
+      </div>
+
       {/* ULTRA-AGGRESSIVE Test Mode Notice */}
       <div className="bg-orange-500/10 backdrop-blur-sm rounded-xl border border-orange-500/20 p-4">
         <div className="flex items-center justify-between">
@@ -219,7 +240,7 @@ const TradingSignals = memo(() => {
             </div>
           </div>
           <div className="text-sm text-orange-400">
-            🧪 Test Mode Active: Liberal signal generation (70-80% rate) • Lower confidence thresholds (45-75%) • All signals cleared for testing
+            🧪 Test Mode Active: Liberal signal generation • Limited to {MAX_ACTIVE_SIGNALS} signals • Lower confidence thresholds (45-75%)
           </div>
         </div>
       </div>
@@ -230,14 +251,14 @@ const TradingSignals = memo(() => {
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <Target className="h-5 w-5 text-green-400" />
-              <span className="text-white font-medium">ULTRA-AGGRESSIVE Opportunity Detection</span>
+              <span className="text-white font-medium">Signal Generation (Max: {MAX_ACTIVE_SIGNALS})</span>
               <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
                 AI-POWERED
               </span>
             </div>
             <Button
               onClick={handleDetectOpportunities}
-              disabled={detectingOpportunities}
+              disabled={detectingOpportunities || validSignals.length >= MAX_ACTIVE_SIGNALS}
               className="bg-green-600 hover:bg-green-700 text-white text-sm"
               size="sm"
             >
@@ -246,16 +267,21 @@ const TradingSignals = memo(() => {
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                   Detecting...
                 </>
+              ) : validSignals.length >= MAX_ACTIVE_SIGNALS ? (
+                <>
+                  <Target className="h-4 w-4 mr-2" />
+                  Signal Limit Reached
+                </>
               ) : (
                 <>
                   <Target className="h-4 w-4 mr-2" />
-                  Generate Test Signals
+                  Generate Signals
                 </>
               )}
             </Button>
           </div>
           <div className="text-sm text-gray-400">
-            🧪 ULTRA-AGGRESSIVE mode: Generates signals for most pairs • Liberal thresholds • Perfect for automation testing
+            🎯 {validSignals.length >= MAX_ACTIVE_SIGNALS ? `Limit reached (${validSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${MAX_ACTIVE_SIGNALS - validSignals.length} slots available`} • Prioritizes major pairs • Liberal thresholds
           </div>
         </div>
       </div>
@@ -268,7 +294,7 @@ const TradingSignals = memo(() => {
               <Wrench className="h-5 w-5 text-yellow-400" />
               <span className="text-white font-medium">System Controls</span>
               <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-1 rounded">
-                TEST MODE
+                LIMIT: {MAX_ACTIVE_SIGNALS}
               </span>
             </div>
           </div>
@@ -312,7 +338,7 @@ const TradingSignals = memo(() => {
           </div>
         </div>
         <div className="mt-2 text-xs text-orange-400">
-          🧪 ULTRA-AGGRESSIVE TEST MODE: Liberal signal generation (70-80% rate) • Low confidence thresholds (45-75%) • Perfect for automation testing
+          🎯 SIGNAL LIMIT: {MAX_ACTIVE_SIGNALS} • ULTRA-AGGRESSIVE TEST MODE: Liberal generation • Perfect for automation testing
         </div>
       </div>
 
@@ -322,14 +348,14 @@ const TradingSignals = memo(() => {
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <Brain className="h-5 w-5 text-purple-400" />
-              <span className="text-white font-medium">ULTRA-AGGRESSIVE AI System</span>
+              <span className="text-white font-medium">AI System (Limit: {MAX_ACTIVE_SIGNALS})</span>
               <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-1 rounded">
-                TEST MODE
+                OPTIMIZED
               </span>
             </div>
           </div>
           <div className="text-sm text-gray-400">
-            🧪 Each pair analyzed with liberal thresholds • 70-80% generation rate • Perfect for testing automation
+            🧪 Each pair analyzed with liberal thresholds • Maximum {MAX_ACTIVE_SIGNALS} signals • Major pairs prioritized
           </div>
         </div>
       </div>
@@ -345,7 +371,7 @@ const TradingSignals = memo(() => {
                 onChange={(e) => setSelectedPair(e.target.value)}
                 className="bg-white/10 border border-white/20 rounded px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="All" className="bg-gray-800 text-white">All Pairs ({validSignals.length})</option>
+                <option value="All" className="bg-gray-800 text-white">All Pairs ({validSignals.length}/{MAX_ACTIVE_SIGNALS})</option>
                 {availablePairs.map(pair => (
                   <option key={pair} value={pair} className="bg-gray-800 text-white">
                     {pair} ({validSignals.filter(s => s.pair === pair).length})
@@ -354,16 +380,16 @@ const TradingSignals = memo(() => {
               </select>
             </div>
             <div className="text-sm text-gray-400">
-              ULTRA-AGGRESSIVE test signals • Liberal generation • Real-time monitoring
+              Limited signals • Maximum {MAX_ACTIVE_SIGNALS} active • Real-time monitoring
             </div>
           </div>
         </div>
       )}
 
-      {/* Active ULTRA-AGGRESSIVE AI Signals Grid */}
+      {/* Active Limited Signals Grid */}
       <div>
         <h3 className="text-white text-lg font-semibold mb-4">
-          {selectedPair === 'All' ? 'ULTRA-AGGRESSIVE Test Signals' : `${selectedPair} Test Signals`} ({filteredSignals.length})
+          {selectedPair === 'All' ? `Active Signals (${filteredSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${selectedPair} Signals (${filteredSignals.length})`}
         </h3>
         
         {filteredSignals.length > 0 ? (
@@ -388,27 +414,32 @@ const TradingSignals = memo(() => {
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
               {selectedPair === 'All' 
-                ? 'No test signals generated yet' 
-                : `No test signals for ${selectedPair}`}
+                ? `No signals generated yet (0/${MAX_ACTIVE_SIGNALS})` 
+                : `No signals for ${selectedPair}`}
             </div>
             <div className="text-sm text-gray-500 mb-6">
-              🧪 ULTRA-AGGRESSIVE mode is active - the AI will generate signals for most currency pairs when you click "Generate Test Signals"
+              🎯 Signal limit: {MAX_ACTIVE_SIGNALS} • The AI will generate signals for priority pairs when you click "Generate Signals"
             </div>
             <div className="space-x-4">
               <Button
                 onClick={handleDetectOpportunities}
-                disabled={detectingOpportunities}
+                disabled={detectingOpportunities || validSignals.length >= MAX_ACTIVE_SIGNALS}
                 className="bg-green-600 hover:bg-green-700 text-white"
               >
                 {detectingOpportunities ? (
                   <>
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Generating Test Signals...
+                    Generating Signals...
+                  </>
+                ) : validSignals.length >= MAX_ACTIVE_SIGNALS ? (
+                  <>
+                    <Target className="h-4 w-4 mr-2" />
+                    Signal Limit Reached ({MAX_ACTIVE_SIGNALS})
                   </>
                 ) : (
                   <>
                     <Target className="h-4 w-4 mr-2" />
-                    Generate Test Signals
+                    Generate Signals
                   </>
                 )}
               </Button>
