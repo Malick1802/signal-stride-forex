@@ -1,4 +1,3 @@
-
 import { useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -28,11 +27,8 @@ export const useSignalMonitoring = () => {
       console.log(`📊 Monitoring signal ${signal.id} (${signal.symbol}): Current ${currentPrice}, Entry ${signal.entryPrice}, SL ${signal.stopLoss}`);
 
       let hitStopLoss = false;
-      let hitTarget = false;
-      let targetLevel = 0;
-      let exitPrice = currentPrice;
-      let isSuccessful = false;
       let newTargetsHit = [...signal.targetsHit];
+      let hasNewTargetHit = false;
 
       // Check stop loss hit first
       if (signal.type === 'BUY') {
@@ -42,7 +38,6 @@ export const useSignalMonitoring = () => {
       }
 
       // Check take profit hits and update targets_hit array
-      let highestTargetHit = Math.max(0, ...signal.targetsHit);
       if (!hitStopLoss && signal.takeProfits.length > 0) {
         for (let i = 0; i < signal.takeProfits.length; i++) {
           const tpPrice = signal.takeProfits[i];
@@ -58,61 +53,58 @@ export const useSignalMonitoring = () => {
           // If target hit and not already recorded, add to array
           if (tpHit && !newTargetsHit.includes(targetNumber)) {
             newTargetsHit.push(targetNumber);
-            newTargetsHit.sort(); // Keep array sorted
-            console.log(`🎯 New target ${targetNumber} hit for ${signal.symbol}, updating targets_hit`);
+            newTargetsHit.sort();
+            hasNewTargetHit = true;
+            console.log(`🎯 NEW TARGET ${targetNumber} HIT for ${signal.symbol}! Updating targets_hit array`);
             
-            // Update the signal's targets_hit array in the database
-            const { error: updateError } = await supabase
-              .from('trading_signals')
-              .update({ 
-                targets_hit: newTargetsHit,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', signal.id);
-
-            if (updateError) {
-              console.error('❌ Error updating targets_hit:', updateError);
-            } else {
-              console.log(`✅ Updated targets_hit for ${signal.symbol}:`, newTargetsHit);
-            }
-          }
-          
-          if (tpHit) {
-            hitTarget = true;
-            targetLevel = targetNumber;
-            exitPrice = tpPrice;
-            highestTargetHit = Math.max(highestTargetHit, targetNumber);
+            // Show immediate notification for new target hit
+            toast({
+              title: `🎯 Target ${targetNumber} Hit!`,
+              description: `${signal.symbol} ${signal.type} reached TP${targetNumber} at ${tpPrice.toFixed(5)}`,
+              duration: 6000,
+            });
           }
         }
       }
 
-      // Determine if signal should be marked as successful based on permanently hit targets
-      if (newTargetsHit.length > 0) {
-        isSuccessful = true;
-        // If all targets were hit, mark as complete success
-        if (newTargetsHit.length === signal.takeProfits.length) {
-          console.log(`🎯 All targets hit for ${signal.symbol} - COMPLETE SUCCESS`);
-        } else {
-          console.log(`🎯 ${newTargetsHit.length} targets hit for ${signal.symbol} - PARTIAL SUCCESS`);
+      // Update targets_hit array if new targets were hit
+      if (hasNewTargetHit) {
+        try {
+          const { error: updateError } = await supabase
+            .from('trading_signals')
+            .update({ 
+              targets_hit: newTargetsHit,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', signal.id);
+
+          if (updateError) {
+            console.error('❌ Error updating targets_hit:', updateError);
+          } else {
+            console.log(`✅ Updated targets_hit for ${signal.symbol}:`, newTargetsHit);
+          }
+        } catch (error) {
+          console.error('❌ Error updating signal targets:', error);
         }
-      } else if (hitStopLoss) {
-        isSuccessful = false;
-        console.log(`⛔ Stop loss hit for ${signal.symbol} - LOSS`);
-        exitPrice = signal.stopLoss;
       }
 
-      // Process outcome if final conditions are met (all targets hit OR stop loss hit)
+      // Check if signal should be expired (all targets hit OR stop loss hit)
       const allTargetsHit = newTargetsHit.length === signal.takeProfits.length;
       if (hitStopLoss || allTargetsHit) {
         try {
-          console.log(`🔄 Processing final outcome for ${signal.symbol}: ${isSuccessful ? 'SUCCESS' : 'LOSS'}`);
+          console.log(`🔄 Processing final outcome for ${signal.symbol}: ${allTargetsHit ? 'ALL TARGETS HIT' : 'STOP LOSS HIT'}`);
           
-          // Calculate P&L in pips using the highest hit target or stop loss
-          let finalExitPrice = exitPrice;
-          if (isSuccessful && newTargetsHit.length > 0) {
+          // Calculate final exit price and P&L
+          let finalExitPrice = currentPrice;
+          let isSuccessful = allTargetsHit;
+          
+          if (allTargetsHit) {
             // Use the highest hit target price
             const highestHitTarget = Math.max(...newTargetsHit);
             finalExitPrice = signal.takeProfits[highestHitTarget - 1];
+          } else if (hitStopLoss) {
+            finalExitPrice = signal.stopLoss;
+            isSuccessful = false;
           }
           
           let pnlPips = 0;
@@ -164,7 +156,7 @@ export const useSignalMonitoring = () => {
             continue;
           }
 
-          // Update signal status to expired ONLY after outcome is recorded
+          // Update signal status to expired
           const { error: updateError } = await supabase
             .from('trading_signals')
             .update({ 
@@ -180,8 +172,8 @@ export const useSignalMonitoring = () => {
 
           console.log(`✅ Signal ${signal.id} expired with outcome: ${isSuccessful ? 'SUCCESS' : 'LOSS'} (${pnlPips} pips) - ${finalStatus}`);
           
-          // Show notification
-          const notificationTitle = isSuccessful ? "🎯 Successful Signal!" : "⛔ Signal Stopped Out";
+          // Show final notification
+          const notificationTitle = isSuccessful ? "🎯 Signal Completed Successfully!" : "⛔ Signal Stopped Out";
           const notificationDescription = `${signal.symbol} ${signal.type} ${finalStatus} (${pnlPips >= 0 ? '+' : ''}${pnlPips} pips)`;
           
           toast({

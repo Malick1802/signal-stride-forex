@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Copy, Check } from 'lucide-react';
+import { Copy, Check, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 
@@ -48,8 +48,29 @@ const SignalPriceDetails = ({
   };
 
   const shouldShowCheckmark = (targetLevel: number, takeProfitPrice: string): boolean => {
-    // Show checkmark if target was permanently hit OR currently being hit
     return isTargetPermanentlyHit(targetLevel) || isTakeProfitCurrentlyHit(takeProfitPrice);
+  };
+
+  const getTargetStatus = (targetLevel: number, takeProfitPrice: string) => {
+    const isPermanentlyHit = isTargetPermanentlyHit(targetLevel);
+    const isCurrentlyHit = isTakeProfitCurrentlyHit(takeProfitPrice);
+    
+    if (isPermanentlyHit) {
+      return { 
+        text: "HIT ✓", 
+        color: "text-emerald-400 font-bold", 
+        bgColor: "bg-emerald-500/20",
+        icon: <Check className="h-4 w-4 text-emerald-400" />
+      };
+    } else if (isCurrentlyHit) {
+      return { 
+        text: "HITTING", 
+        color: "text-yellow-400 font-bold animate-pulse", 
+        bgColor: "bg-yellow-500/20",
+        icon: <Target className="h-4 w-4 text-yellow-400 animate-pulse" />
+      };
+    }
+    return null;
   };
 
   const copyToClipboard = async (price: string, label: string) => {
@@ -67,6 +88,12 @@ const SignalPriceDetails = ({
       });
     }
   };
+
+  const takeProfits = [
+    { level: 1, price: takeProfit1, label: "Target 1" },
+    { level: 2, price: takeProfit2, label: "Target 2" },
+    { level: 3, price: takeProfit3, label: "Target 3" }
+  ];
 
   return (
     <div className="p-4 space-y-3">
@@ -101,58 +128,50 @@ const SignalPriceDetails = ({
       </div>
 
       <div className="space-y-2">
-        <div className="flex justify-between items-center">
-          <span className="text-gray-400">Target 1</span>
-          <div className="flex items-center space-x-2">
-            <span className="text-emerald-400 font-mono">{takeProfit1}</span>
-            {shouldShowCheckmark(1, takeProfit1) && (
-              <Check className={`h-4 w-4 ${isTargetPermanentlyHit(1) ? 'text-emerald-400' : 'text-emerald-300'}`} />
-            )}
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => copyToClipboard(takeProfit1, 'Target 1')}
-              className="h-6 w-6 p-0 text-gray-400 hover:text-white"
-            >
-              <Copy className="h-3 w-3" />
-            </Button>
-          </div>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-gray-400">Target 2</span>
-          <div className="flex items-center space-x-2">
-            <span className="text-emerald-400 font-mono">{takeProfit2}</span>
-            {shouldShowCheckmark(2, takeProfit2) && (
-              <Check className={`h-4 w-4 ${isTargetPermanentlyHit(2) ? 'text-emerald-400' : 'text-emerald-300'}`} />
-            )}
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => copyToClipboard(takeProfit2, 'Target 2')}
-              className="h-6 w-6 p-0 text-gray-400 hover:text-white"
-            >
-              <Copy className="h-3 w-3" />
-            </Button>
-          </div>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-gray-400">Target 3</span>
-          <div className="flex items-center space-x-2">
-            <span className="text-emerald-400 font-mono">{takeProfit3}</span>
-            {shouldShowCheckmark(3, takeProfit3) && (
-              <Check className={`h-4 w-4 ${isTargetPermanentlyHit(3) ? 'text-emerald-400' : 'text-emerald-300'}`} />
-            )}
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => copyToClipboard(takeProfit3, 'Target 3')}
-              className="h-6 w-6 p-0 text-gray-400 hover:text-white"
-            >
-              <Copy className="h-3 w-3" />
-            </Button>
-          </div>
-        </div>
+        {takeProfits.map(({ level, price, label }) => {
+          const targetStatus = getTargetStatus(level, price);
+          
+          return (
+            <div key={level} className="flex justify-between items-center">
+              <span className="text-gray-400">{label}</span>
+              <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2">
+                  <span className="text-emerald-400 font-mono">{price}</span>
+                  {targetStatus && (
+                    <div className={`px-2 py-1 rounded-md text-xs ${targetStatus.bgColor} ${targetStatus.color} flex items-center space-x-1`}>
+                      {targetStatus.icon}
+                      <span>{targetStatus.text}</span>
+                    </div>
+                  )}
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => copyToClipboard(price, label)}
+                  className="h-6 w-6 p-0 text-gray-400 hover:text-white"
+                >
+                  <Copy className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+          );
+        })}
       </div>
+
+      {/* Targets Hit Summary */}
+      {targetsHit.length > 0 && (
+        <div className="mt-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+          <div className="flex items-center space-x-2 text-emerald-400">
+            <Target className="h-4 w-4" />
+            <span className="text-sm font-semibold">
+              {targetsHit.length === 1 ? '1 Target Hit' : `${targetsHit.length} Targets Hit`}
+            </span>
+          </div>
+          <div className="text-xs text-emerald-300 mt-1">
+            Target{targetsHit.length > 1 ? 's' : ''}: {targetsHit.join(', ')}
+          </div>
+        </div>
+      )}
     </div>
   );
 };
