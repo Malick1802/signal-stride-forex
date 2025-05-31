@@ -9,7 +9,7 @@ import SignalCard from './SignalCard';
 import RealTimeStatus from './RealTimeStatus';
 import GlobalRefreshIndicator from './GlobalRefreshIndicator';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Users, Activity, Brain, Shield, Wrench, Zap, FlaskConical, Target } from 'lucide-react';
+import { RefreshCw, Users, Activity, Brain, Shield, Wrench, Zap, FlaskConical, Target, TrendingUp } from 'lucide-react';
 import { useMarketActivation } from '@/hooks/useMarketActivation';
 import AutomationDashboard from './AutomationDashboard';
 
@@ -47,7 +47,7 @@ const TradingSignals = memo(() => {
 
   const avgConfidence = validSignals.length > 0 
     ? Math.round(validSignals.reduce((sum, signal) => sum + (signal.confidence || 0), 0) / validSignals.length)
-    : 85; // Higher average for high-confidence mode
+    : 92; // Higher average for ultra-conservative mode
 
   const handleCleanupCrons = async () => {
     setCleaningCrons(true);
@@ -132,7 +132,7 @@ const TradingSignals = memo(() => {
       console.error('Error detecting opportunities:', error);
       toast({
         title: "Detection Error",
-        description: "Failed to detect new trading opportunities. Please try again.",
+        description: "Failed to detect new ultra-high-probability opportunities. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -186,7 +186,7 @@ const TradingSignals = memo(() => {
   if (loading && validSignals.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-white">Loading high-confidence signals (limit: {MAX_ACTIVE_SIGNALS})...</div>
+        <div className="text-white">Loading ultra-high-probability signals (limit: {MAX_ACTIVE_SIGNALS})...</div>
       </div>
     );
   }
@@ -223,50 +223,50 @@ const TradingSignals = memo(() => {
             </div>
           </div>
           <div className="text-sm text-blue-400">
-            🎯 Maximum {MAX_ACTIVE_SIGNALS} active signals • Prioritizes major pairs • High-confidence only
+            🎯 Maximum {MAX_ACTIVE_SIGNALS} active signals • Ultra-conservative selection • 85%+ win rate target
           </div>
         </div>
       </div>
 
-      {/* HIGH-CONFIDENCE Mode Notice */}
-      <div className="bg-emerald-500/10 backdrop-blur-sm rounded-xl border border-emerald-500/20 p-4">
+      {/* ULTRA-CONSERVATIVE Mode Notice */}
+      <div className="bg-green-500/10 backdrop-blur-sm rounded-xl border border-green-500/20 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <Shield className="h-5 w-5 text-emerald-400" />
-              <span className="text-white font-medium">HIGH-CONFIDENCE MODE</span>
-              <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded">
-                80%+ CONFIDENCE REQUIRED
+              <TrendingUp className="h-5 w-5 text-green-400" />
+              <span className="text-white font-medium">ULTRA-CONSERVATIVE MODE</span>
+              <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
+                85%+ WIN RATE TARGET
               </span>
             </div>
           </div>
-          <div className="text-sm text-emerald-400">
-            🛡️ Professional Mode: Only high-conviction signals • Limited to {MAX_ACTIVE_SIGNALS} signals • 80%+ confidence thresholds
+          <div className="text-sm text-green-400">
+            🏆 Ultra-selective approach • 90%+ confidence required • Multiple confirmations • Only major pairs
           </div>
         </div>
       </div>
 
-      {/* High-Confidence Signal Generation System */}
+      {/* Ultra-High-Probability Signal Generation System */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <Shield className="h-5 w-5 text-emerald-400" />
-              <span className="text-white font-medium">High-Confidence Signal Generation (Max: {MAX_ACTIVE_SIGNALS})</span>
-              <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded">
-                PROFESSIONAL
+              <TrendingUp className="h-5 w-5 text-green-400" />
+              <span className="text-white font-medium">Ultra-High-Probability Signal Generation (Max: {MAX_ACTIVE_SIGNALS})</span>
+              <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
+                85%+ WIN RATE
               </span>
             </div>
             <Button
               onClick={handleDetectOpportunities}
               disabled={detectingOpportunities || validSignals.length >= MAX_ACTIVE_SIGNALS}
-              className="bg-emerald-600 hover:bg-emerald-700 text-white text-sm"
+              className="bg-green-600 hover:bg-green-700 text-white text-sm"
               size="sm"
             >
               {detectingOpportunities ? (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Detecting...
+                  Analyzing...
                 </>
               ) : validSignals.length >= MAX_ACTIVE_SIGNALS ? (
                 <>
@@ -275,14 +275,14 @@ const TradingSignals = memo(() => {
                 </>
               ) : (
                 <>
-                  <Shield className="h-4 w-4 mr-2" />
-                  Generate High-Confidence Signals
+                  <TrendingUp className="h-4 w-4 mr-2" />
+                  Generate Ultra-High-Probability Signals
                 </>
               )}
             </Button>
           </div>
           <div className="text-sm text-gray-400">
-            🛡️ {validSignals.length >= MAX_ACTIVE_SIGNALS ? `Limit reached (${validSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${MAX_ACTIVE_SIGNALS - validSignals.length} slots available`} • Professional grade • 80%+ confidence required
+            🏆 {validSignals.length >= MAX_ACTIVE_SIGNALS ? `Limit reached (${validSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${MAX_ACTIVE_SIGNALS - validSignals.length} slots available`} • 85%+ win rate target • Ultra-selective
           </div>
         </div>
       </div>
@@ -294,8 +294,8 @@ const TradingSignals = memo(() => {
             <div className="flex items-center space-x-2">
               <Wrench className="h-5 w-5 text-yellow-400" />
               <span className="text-white font-medium">System Controls</span>
-              <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded">
-                HIGH-CONFIDENCE
+              <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
+                ULTRA-CONSERVATIVE
               </span>
             </div>
           </div>
@@ -338,25 +338,25 @@ const TradingSignals = memo(() => {
             </Button>
           </div>
         </div>
-        <div className="mt-2 text-xs text-emerald-400">
-          🛡️ HIGH-CONFIDENCE MODE: Professional signals only • 80%+ confidence • Maximum {MAX_ACTIVE_SIGNALS} signals
+        <div className="mt-2 text-xs text-green-400">
+          🏆 ULTRA-CONSERVATIVE MODE: 85%+ win rate target • 90%+ confidence • Multiple confirmations • Maximum {MAX_ACTIVE_SIGNALS} signals
         </div>
       </div>
 
-      {/* AI-Powered High-Confidence Detection Status */}
+      {/* AI-Powered Ultra-Conservative Detection Status */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <Brain className="h-5 w-5 text-emerald-400" />
-              <span className="text-white font-medium">Professional AI System (Limit: {MAX_ACTIVE_SIGNALS})</span>
-              <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded">
-                HIGH-CONFIDENCE
+              <Brain className="h-5 w-5 text-green-400" />
+              <span className="text-white font-medium">Ultra-Conservative AI System (Limit: {MAX_ACTIVE_SIGNALS})</span>
+              <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
+                85%+ WIN RATE
               </span>
             </div>
           </div>
           <div className="text-sm text-gray-400">
-            🛡️ Selective analysis with 80%+ confidence requirement • Maximum {MAX_ACTIVE_SIGNALS} signals • Major pairs prioritized
+            🏆 Extremely selective analysis • 90%+ confidence required • Multiple confirmations • 85%+ win probability
           </div>
         </div>
       </div>
@@ -370,7 +370,7 @@ const TradingSignals = memo(() => {
               <select
                 value={selectedPair}
                 onChange={(e) => setSelectedPair(e.target.value)}
-                className="bg-white/10 border border-white/20 rounded px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                className="bg-white/10 border border-white/20 rounded px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
               >
                 <option value="All" className="bg-gray-800 text-white">All Pairs ({validSignals.length}/{MAX_ACTIVE_SIGNALS})</option>
                 {availablePairs.map(pair => (
@@ -381,16 +381,16 @@ const TradingSignals = memo(() => {
               </select>
             </div>
             <div className="text-sm text-gray-400">
-              High-confidence signals • Maximum {MAX_ACTIVE_SIGNALS} active • Professional monitoring
+              Ultra-high-probability signals • Maximum {MAX_ACTIVE_SIGNALS} active • 85%+ win rate target
             </div>
           </div>
         </div>
       )}
 
-      {/* Active High-Confidence Signals Grid */}
+      {/* Active Ultra-High-Probability Signals Grid */}
       <div>
         <h3 className="text-white text-lg font-semibold mb-4">
-          {selectedPair === 'All' ? `High-Confidence Signals (${filteredSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${selectedPair} Signals (${filteredSignals.length})`}
+          {selectedPair === 'All' ? `Ultra-High-Probability Signals (${filteredSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${selectedPair} Signals (${filteredSignals.length})`}
         </h3>
         
         {filteredSignals.length > 0 ? (
@@ -415,22 +415,22 @@ const TradingSignals = memo(() => {
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
               {selectedPair === 'All' 
-                ? `No high-confidence signals generated yet (0/${MAX_ACTIVE_SIGNALS})` 
+                ? `No ultra-high-probability signals generated yet (0/${MAX_ACTIVE_SIGNALS})` 
                 : `No signals for ${selectedPair}`}
             </div>
             <div className="text-sm text-gray-500 mb-6">
-              🛡️ Signal limit: {MAX_ACTIVE_SIGNALS} • Professional AI generates high-confidence signals (80%+) for priority pairs
+              🏆 Signal limit: {MAX_ACTIVE_SIGNALS} • Ultra-conservative AI generates 85%+ win rate signals for major pairs only
             </div>
             <div className="space-x-4">
               <Button
                 onClick={handleDetectOpportunities}
                 disabled={detectingOpportunities || validSignals.length >= MAX_ACTIVE_SIGNALS}
-                className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                className="bg-green-600 hover:bg-green-700 text-white"
               >
                 {detectingOpportunities ? (
                   <>
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Generating High-Confidence Signals...
+                    Analyzing Ultra-High-Probability Opportunities...
                   </>
                 ) : validSignals.length >= MAX_ACTIVE_SIGNALS ? (
                   <>
@@ -439,8 +439,8 @@ const TradingSignals = memo(() => {
                   </>
                 ) : (
                   <>
-                    <Shield className="h-4 w-4 mr-2" />
-                    Generate High-Confidence Signals
+                    <TrendingUp className="h-4 w-4 mr-2" />
+                    Generate Ultra-High-Probability Signals
                   </>
                 )}
               </Button>

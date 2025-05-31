@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -41,13 +42,13 @@ export const useTradingSignals = () => {
         .limit(MAX_ACTIVE_SIGNALS); // Limited to 15 signals
 
       if (error) {
-        console.error('❌ Error fetching active centralized signals:', error);
+        console.error('❌ Error fetching active ultra-high-probability signals:', error);
         setSignals([]);
         return;
       }
 
       if (!centralizedSignals || centralizedSignals.length === 0) {
-        console.log('📭 No active centralized signals found');
+        console.log('📭 No active ultra-high-probability signals found');
         setSignals([]);
         setLastUpdate(new Date().toLocaleTimeString());
         return;
@@ -58,7 +59,7 @@ export const useTradingSignals = () => {
       setLastUpdate(new Date().toLocaleTimeString());
       
       if (processedSignals.length > 0) {
-        console.log(`✅ Loaded ${processedSignals.length}/${MAX_ACTIVE_SIGNALS} high-confidence centralized signals (SIGNAL LIMIT: ${MAX_ACTIVE_SIGNALS})`);
+        console.log(`✅ Loaded ${processedSignals.length}/${MAX_ACTIVE_SIGNALS} ultra-high-probability signals (85%+ WIN RATE TARGET)`);
       }
       
     } catch (error) {
@@ -70,7 +71,7 @@ export const useTradingSignals = () => {
   }, []);
 
   const processSignals = (activeSignals: any[]) => {
-    console.log(`📊 Processing ${activeSignals.length}/${MAX_ACTIVE_SIGNALS} high-confidence centralized signals (SIGNAL LIMIT ENFORCED)`);
+    console.log(`📊 Processing ${activeSignals.length}/${MAX_ACTIVE_SIGNALS} ultra-high-probability signals (85%+ WIN RATE TARGET)`);
 
     const transformedSignals = activeSignals
       .map(signal => {
@@ -123,10 +124,10 @@ export const useTradingSignals = () => {
             takeProfit1: takeProfits[0] ? takeProfits[0].toFixed(5) : '0.00000',
             takeProfit2: takeProfits[1] ? takeProfits[1].toFixed(5) : '0.00000',
             takeProfit3: takeProfits[2] ? takeProfits[2].toFixed(5) : '0.00000',
-            confidence: Math.floor(signal.confidence || 85), // Higher confidence in professional mode
+            confidence: Math.floor(signal.confidence || 92), // Higher confidence in ultra-conservative mode
             timestamp: signal.created_at || new Date().toISOString(),
             status: signal.status || 'active',
-            analysisText: signal.analysis_text || `HIGH-CONFIDENCE Professional ${signal.type || 'BUY'} signal for ${signal.symbol}`,
+            analysisText: signal.analysis_text || `ULTRA-HIGH-PROBABILITY ${signal.type || 'BUY'} signal for ${signal.symbol} (85%+ win rate target)`,
             chartData: chartData,
             targetsHit: targetsHit
           };
@@ -137,27 +138,27 @@ export const useTradingSignals = () => {
       })
       .filter(Boolean) as TradingSignal[];
 
-    console.log(`✅ Successfully processed ${transformedSignals.length}/${MAX_ACTIVE_SIGNALS} high-confidence centralized signals (SIGNAL LIMIT: ${MAX_ACTIVE_SIGNALS})`);
+    console.log(`✅ Successfully processed ${transformedSignals.length}/${MAX_ACTIVE_SIGNALS} ultra-high-probability signals (85%+ WIN RATE TARGET)`);
     return transformedSignals;
   };
 
   const triggerIndividualSignalGeneration = useCallback(async () => {
     try {
-      console.log(`🚀 Triggering high-confidence signal generation with ${MAX_ACTIVE_SIGNALS}-signal limit...`);
+      console.log(`🚀 Triggering ultra-high-probability signal generation with ${MAX_ACTIVE_SIGNALS}-signal limit (85%+ win rate target)...`);
       
       const { data: signalResult, error: signalError } = await supabase.functions.invoke('generate-signals');
       
       if (signalError) {
-        console.error('❌ Signal generation failed:', signalError);
+        console.error('❌ Ultra-high-probability signal generation failed:', signalError);
         toast({
           title: "Generation Failed",
-          description: "Failed to detect new high-confidence trading opportunities",
+          description: "Failed to detect new ultra-high-probability trading opportunities",
           variant: "destructive"
         });
         return;
       }
       
-      console.log('✅ High-confidence signal generation completed with limit enforcement');
+      console.log('✅ Ultra-high-probability signal generation completed with limit enforcement');
       
       // Refresh the signal list
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -171,15 +172,15 @@ export const useTradingSignals = () => {
       const generationRate = signalResult?.stats?.generationRate || '0%';
       
       toast({
-        title: limitReached ? "Signal Limit Reached" : "High-Confidence Generation Complete",
-        description: `${signalsGenerated} new high-confidence signals generated (${totalActiveSignals}/${signalLimit} total active)`,
+        title: limitReached ? "Signal Limit Reached" : "Ultra-High-Probability Generation Complete",
+        description: `${signalsGenerated} new ultra-high-probability signals generated (${totalActiveSignals}/${signalLimit} total active) - 85%+ win rate target`,
       });
       
     } catch (error) {
-      console.error('❌ Error in signal generation:', error);
+      console.error('❌ Error in ultra-high-probability signal generation:', error);
       toast({
         title: "Generation Error",
-        description: "Failed to detect new high-confidence trading opportunities",
+        description: "Failed to detect new ultra-high-probability trading opportunities",
         variant: "destructive"
       });
     }
@@ -225,9 +226,9 @@ export const useTradingSignals = () => {
   useEffect(() => {
     fetchSignals();
     
-    // Enhanced real-time subscriptions for centralized signals
+    // Enhanced real-time subscriptions for ultra-high-probability signals
     const signalsChannel = supabase
-      .channel(`centralized-trading-signals-${Date.now()}`)
+      .channel(`ultra-conservative-trading-signals-${Date.now()}`)
       .on(
         'postgres_changes',
         {
@@ -237,15 +238,15 @@ export const useTradingSignals = () => {
           filter: 'is_centralized=eq.true'
         },
         (payload) => {
-          console.log(`📡 Real-time centralized signal change detected (HIGH-CONFIDENCE LIMIT: ${MAX_ACTIVE_SIGNALS}):`, payload);
+          console.log(`📡 Real-time ultra-high-probability signal change detected (85%+ WIN RATE TARGET):`, payload);
           // Immediate refresh for real-time signal updates
           setTimeout(fetchSignals, 200);
         }
       )
       .subscribe((status) => {
-        console.log(`📡 Centralized signals subscription status: ${status}`);
+        console.log(`📡 Ultra-high-probability signals subscription status: ${status}`);
         if (status === 'SUBSCRIBED') {
-          console.log(`✅ Real-time signal updates connected (HIGH-CONFIDENCE LIMIT: ${MAX_ACTIVE_SIGNALS})`);
+          console.log(`✅ Real-time ultra-high-probability signal updates connected (85%+ WIN RATE TARGET)`);
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           console.error('❌ Signal subscription failed, attempting to reconnect...');
           setTimeout(fetchSignals, 2000);
@@ -263,7 +264,7 @@ export const useTradingSignals = () => {
           table: 'signal_outcomes'
         },
         (payload) => {
-          console.log('📡 Signal outcome detected, refreshing active signals:', payload);
+          console.log('📡 Signal outcome detected, refreshing active ultra-high-probability signals:', payload);
           setTimeout(fetchSignals, 500);
         }
       )
@@ -271,7 +272,7 @@ export const useTradingSignals = () => {
 
     // Automatic refresh every 2 minutes (backup for real-time)
     const updateInterval = setInterval(async () => {
-      console.log(`🔄 Periodic high-confidence signal refresh (SIGNAL LIMIT: ${MAX_ACTIVE_SIGNALS})...`);
+      console.log(`🔄 Periodic ultra-high-probability signal refresh (85%+ WIN RATE TARGET)...`);
       await fetchSignals();
     }, 2 * 60 * 1000);
 
@@ -288,41 +289,6 @@ export const useTradingSignals = () => {
     lastUpdate,
     fetchSignals,
     triggerAutomaticSignalGeneration: triggerIndividualSignalGeneration,
-    triggerRealTimeUpdates: useCallback(async () => {
-      try {
-        console.log('🚀 Triggering comprehensive real-time market update...');
-        
-        const { data: marketResult, error: marketDataError } = await supabase.functions.invoke('fetch-market-data');
-        
-        if (marketDataError) {
-          console.error('❌ Market data update failed:', marketDataError);
-          toast({
-            title: "Update Failed",
-            description: "Failed to fetch baseline market data",
-            variant: "destructive"
-          });
-          return;
-        }
-        
-        console.log('✅ Market data updated');
-        
-        // Refresh signals to show updated current prices
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        await fetchSignals();
-        
-        toast({
-          title: "Real-time Updates Active",
-          description: "Market data refreshed, current prices will update live",
-        });
-        
-      } catch (error) {
-        console.error('❌ Error in real-time updates:', error);
-        toast({
-          title: "Update Error",
-          description: "Failed to activate real-time updates",
-          variant: "destructive"
-        });
-      }
-    }, [fetchSignals, toast])
+    triggerRealTimeUpdates
   };
 };
