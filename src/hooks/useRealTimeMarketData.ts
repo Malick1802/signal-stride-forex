@@ -56,10 +56,15 @@ export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDat
     return !(isFridayEvening || isSaturday || isSundayBeforeOpen);
   }, []);
 
-  // React to global refresh updates
+  // React to global refresh updates ONLY when market is open
   useEffect(() => {
-    if (shouldUseCentralized && lastPriceUpdate > lastGlobalUpdateRef.current && mountedRef.current) {
-      console.log(`🔄 [${pair}] Responding to global refresh update`);
+    const isMarketCurrentlyOpen = checkMarketHours();
+    
+    if (shouldUseCentralized && 
+        lastPriceUpdate > lastGlobalUpdateRef.current && 
+        mountedRef.current && 
+        isMarketCurrentlyOpen) {
+      console.log(`🔄 [${pair}] Responding to global refresh update (market open)`);
       lastGlobalUpdateRef.current = lastPriceUpdate;
       
       // Fetch fresh data in response to global update
@@ -68,8 +73,10 @@ export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDat
           refetch();
         }
       }, 100);
+    } else if (!isMarketCurrentlyOpen) {
+      console.log(`💤 [${pair}] Market closed - ignoring price updates`);
     }
-  }, [lastPriceUpdate, pair, shouldUseCentralized, refetch]);
+  }, [lastPriceUpdate, pair, shouldUseCentralized, refetch, checkMarketHours]);
 
   // Enhanced auto-trigger for initial load
   useEffect(() => {
@@ -99,15 +106,18 @@ export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDat
   }, [marketData]);
 
   const getPriceChange = useCallback(() => {
-    if (shouldUseCentralized && marketData) {
+    const isMarketCurrentlyOpen = checkMarketHours();
+    
+    if (shouldUseCentralized && marketData && isMarketCurrentlyOpen) {
       return {
         change: marketData.change24h,
         percentage: marketData.changePercentage
       };
     }
     
+    // During market closure, return zero change
     return { change: 0, percentage: 0 };
-  }, [shouldUseCentralized, marketData]);
+  }, [shouldUseCentralized, marketData, checkMarketHours]);
 
   const getSparklineData = useCallback(() => {
     if (shouldUseCentralized && marketData) {
@@ -116,21 +126,22 @@ export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDat
     return [];
   }, [shouldUseCentralized, marketData]);
 
-  // Enhanced return for centralized data with global refresh status
+  // Enhanced return for centralized data with market closure handling
   if (shouldUseCentralized) {
     const hasData = marketData && marketData.priceHistory.length > 0;
     const dataAge = lastDataUpdate > 0 ? Date.now() - lastDataUpdate : 0;
     const isDataFresh = dataAge < 300000; // 5 minutes
+    const isMarketCurrentlyOpen = checkMarketHours();
     
     // Use global connection status combined with local status
-    const connectionStatus = (isConnected || globalConnected) && hasData && !isUpdating;
+    const connectionStatus = (isConnected || globalConnected) && hasData && !isUpdating && isMarketCurrentlyOpen;
     
     return {
       priceData: marketData?.priceHistory || [],
       currentPrice: marketData?.currentPrice || null,
-      isMarketOpen: marketData?.isMarketOpen ?? checkMarketHours(),
+      isMarketOpen: isMarketCurrentlyOpen,
       lastUpdateTime: marketData?.lastUpdate || '',
-      dataSource: `${dataSource}${!hasData ? ' - Loading...' : ''}${isUpdating ? ' - Updating...' : ''}${!isDataFresh && hasData ? ' - Stale' : ''}`,
+      dataSource: `${dataSource}${!hasData ? ' - Loading...' : ''}${isUpdating ? ' - Updating...' : ''}${!isDataFresh && hasData ? ' - Stale' : ''}${!isMarketCurrentlyOpen ? ' - Market Closed' : ''}`,
       isConnected: connectionStatus && isDataFresh,
       getPriceChange,
       getSparklineData,

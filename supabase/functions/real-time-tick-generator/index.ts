@@ -82,57 +82,12 @@ serve(async (req) => {
 
     // Check if market is open
     if (!isMarketOpen()) {
-      console.log('💤 Market closed - minimal weekend ticking');
+      console.log('💤 Market closed - NO TICKING during market closure');
       
-      // Generate very small weekend movements
-      const { data: weekendStates, error: weekendError } = await supabase
-        .from('centralized_market_state')
-        .select('*')
-        .limit(10); // Only a few pairs during weekend
-        
-      if (!weekendError && weekendStates?.length > 0) {
-        const timestamp = new Date().toISOString();
-        
-        for (const state of weekendStates) {
-          const basePrice = parseFloat(state.current_price.toString());
-          const weekendMovement = (Math.random() - 0.5) * basePrice * 0.00001; // Very small movement
-          const newPrice = parseFloat((basePrice + weekendMovement).toFixed(state.symbol.includes('JPY') ? 3 : 5));
-          
-          const spread = newPrice * (state.symbol.includes('JPY') ? 0.00008 : 0.00005); // Wider weekend spreads
-          const bid = parseFloat((newPrice - spread/2).toFixed(state.symbol.includes('JPY') ? 3 : 5));
-          const ask = parseFloat((newPrice + spread/2).toFixed(state.symbol.includes('JPY') ? 3 : 5));
-          
-          await supabase
-            .from('centralized_market_state')
-            .update({
-              current_price: newPrice,
-              bid,
-              ask,
-              last_update: timestamp,
-              is_market_open: false,
-              source: 'weekend-tick'
-            })
-            .eq('symbol', state.symbol);
-            
-          // Add to price history
-          await supabase
-            .from('live_price_history')
-            .insert({
-              symbol: state.symbol,
-              price: newPrice,
-              bid,
-              ask,
-              timestamp,
-              source: 'weekend-tick'
-            });
-        }
-        
-        console.log(`📊 Weekend ticking completed for ${weekendStates.length} pairs`);
-      }
-      
+      // During market closure, do absolutely nothing - no price updates at all
       return new Response(
         JSON.stringify({ 
-          message: 'Weekend market ticking completed',
+          message: 'Market closed - no price movements generated',
           isMarketOpen: false,
           timestamp: new Date().toISOString()
         }),
