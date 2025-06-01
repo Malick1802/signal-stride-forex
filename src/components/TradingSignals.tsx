@@ -1,4 +1,3 @@
-
 import React, { useState, memo } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useSignalMonitoring } from '@/hooks/useSignalMonitoring';
@@ -47,7 +46,7 @@ const TradingSignals = memo(() => {
 
   const avgConfidence = validSignals.length > 0 
     ? Math.round(validSignals.reduce((sum, signal) => sum + (signal.confidence || 0), 0) / validSignals.length)
-    : 92; // Higher average for ultra-conservative mode
+    : 80; // Balanced average for new mode
 
   const handleCleanupCrons = async () => {
     setCleaningCrons(true);
@@ -132,7 +131,7 @@ const TradingSignals = memo(() => {
       console.error('Error detecting opportunities:', error);
       toast({
         title: "Detection Error",
-        description: "Failed to detect new ultra-high-probability opportunities. Please try again.",
+        description: "Failed to detect new high-probability opportunities. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -186,7 +185,7 @@ const TradingSignals = memo(() => {
   if (loading && validSignals.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-white">Loading ultra-high-probability signals (analyzing all currency pairs, limit: {MAX_ACTIVE_SIGNALS})...</div>
+        <div className="text-white">Loading high-probability signals (analyzing all currency pairs, limit: {MAX_ACTIVE_SIGNALS})...</div>
       </div>
     );
   }
@@ -223,38 +222,38 @@ const TradingSignals = memo(() => {
             </div>
           </div>
           <div className="text-sm text-blue-400">
-            🎯 Maximum {MAX_ACTIVE_SIGNALS} active signals • All currency pairs • Ultra-conservative selection • 85%+ win rate target
+            🎯 Maximum {MAX_ACTIVE_SIGNALS} active signals • All currency pairs • Balanced selection • 70%+ win rate target
           </div>
         </div>
       </div>
 
-      {/* ULTRA-CONSERVATIVE Mode Notice */}
+      {/* BALANCED Mode Notice */}
       <div className="bg-green-500/10 backdrop-blur-sm rounded-xl border border-green-500/20 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <TrendingUp className="h-5 w-5 text-green-400" />
-              <span className="text-white font-medium">ULTRA-CONSERVATIVE ALL-PAIRS MODE</span>
+              <span className="text-white font-medium">BALANCED ALL-PAIRS MODE</span>
               <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
-                85%+ WIN RATE TARGET
+                70%+ WIN RATE TARGET
               </span>
             </div>
           </div>
           <div className="text-sm text-green-400">
-            🌍 All currency pairs analyzed • Major + Minor + Cross pairs • Ultra-selective approach • 90%+ confidence required
+            🌍 All currency pairs analyzed • Major + Minor + Cross pairs • Balanced approach • 75%+ confidence required
           </div>
         </div>
       </div>
 
-      {/* Ultra-High-Probability Signal Generation System */}
+      {/* High-Probability Signal Generation System */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <TrendingUp className="h-5 w-5 text-green-400" />
-              <span className="text-white font-medium">Ultra-High-Probability All-Pairs Signal Generation (Max: {MAX_ACTIVE_SIGNALS})</span>
+              <span className="text-white font-medium">High-Probability All-Pairs Signal Generation (Max: {MAX_ACTIVE_SIGNALS})</span>
               <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
-                ALL PAIRS • 85%+ WIN RATE
+                ALL PAIRS • 70%+ WIN RATE
               </span>
             </div>
             <Button
@@ -276,13 +275,13 @@ const TradingSignals = memo(() => {
               ) : (
                 <>
                   <TrendingUp className="h-4 w-4 mr-2" />
-                  Generate Ultra-High-Probability Signals
+                  Generate High-Probability Signals
                 </>
               )}
             </Button>
           </div>
           <div className="text-sm text-gray-400">
-            🌍 {validSignals.length >= MAX_ACTIVE_SIGNALS ? `Limit reached (${validSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${MAX_ACTIVE_SIGNALS - validSignals.length} slots available`} • All currency pairs • 85%+ win rate target
+            🌍 {validSignals.length >= MAX_ACTIVE_SIGNALS ? `Limit reached (${validSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${MAX_ACTIVE_SIGNALS - validSignals.length} slots available`} • All currency pairs • 70%+ win rate target
           </div>
         </div>
       </div>
@@ -343,20 +342,20 @@ const TradingSignals = memo(() => {
         </div>
       </div>
 
-      {/* AI-Powered Ultra-Conservative Detection Status */}
+      {/* AI-Powered Balanced Detection Status */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <Brain className="h-5 w-5 text-green-400" />
-              <span className="text-white font-medium">Ultra-Conservative All-Pairs AI System (Limit: {MAX_ACTIVE_SIGNALS})</span>
+              <span className="text-white font-medium">Balanced All-Pairs AI System (Limit: {MAX_ACTIVE_SIGNALS})</span>
               <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
-                ALL PAIRS • 85%+ WIN RATE
+                ALL PAIRS • 70%+ WIN RATE
               </span>
             </div>
           </div>
           <div className="text-sm text-gray-400">
-            🌍 Extremely selective analysis across all currency pairs • 90%+ confidence required • Multiple confirmations • 85%+ win probability
+            🌍 Balanced analysis across all currency pairs • 75%+ confidence required • 2-3 confirmations • 70%+ win probability
           </div>
         </div>
       </div>
@@ -381,16 +380,16 @@ const TradingSignals = memo(() => {
               </select>
             </div>
             <div className="text-sm text-gray-400">
-              🌍 Ultra-high-probability signals across all pairs • Maximum {MAX_ACTIVE_SIGNALS} active • 85%+ win rate target
+              🌍 High-probability signals across all pairs • Maximum {MAX_ACTIVE_SIGNALS} active • 70%+ win rate target
             </div>
           </div>
         </div>
       )}
 
-      {/* Active Ultra-High-Probability Signals Grid */}
+      {/* Active High-Probability Signals Grid */}
       <div>
         <h3 className="text-white text-lg font-semibold mb-4">
-          {selectedPair === 'All' ? `Ultra-High-Probability All-Pairs Signals (${filteredSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${selectedPair} Signals (${filteredSignals.length})`}
+          {selectedPair === 'All' ? `High-Probability All-Pairs Signals (${filteredSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${selectedPair} Signals (${filteredSignals.length})`}
         </h3>
         
         {filteredSignals.length > 0 ? (
@@ -415,11 +414,11 @@ const TradingSignals = memo(() => {
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
               {selectedPair === 'All' 
-                ? `No ultra-high-probability signals generated yet (0/${MAX_ACTIVE_SIGNALS})` 
+                ? `No high-probability signals generated yet (0/${MAX_ACTIVE_SIGNALS})` 
                 : `No signals for ${selectedPair}`}
             </div>
             <div className="text-sm text-gray-500 mb-6">
-              🌍 Signal limit: {MAX_ACTIVE_SIGNALS} • Ultra-conservative AI analyzes ALL currency pairs (Major + Minor + Cross) for 85%+ win rate signals
+              🌍 Signal limit: {MAX_ACTIVE_SIGNALS} • Balanced AI analyzes ALL currency pairs (Major + Minor + Cross) for 70%+ win rate signals
             </div>
             <div className="space-x-4">
               <Button
@@ -430,7 +429,7 @@ const TradingSignals = memo(() => {
                 {detectingOpportunities ? (
                   <>
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Analyzing Ultra-High-Probability Opportunities Across All Pairs...
+                    Analyzing High-Probability Opportunities Across All Pairs...
                   </>
                 ) : validSignals.length >= MAX_ACTIVE_SIGNALS ? (
                   <>
@@ -440,7 +439,7 @@ const TradingSignals = memo(() => {
                 ) : (
                   <>
                     <TrendingUp className="h-4 w-4 mr-2" />
-                    Generate Ultra-High-Probability All-Pairs Signals
+                    Generate High-Probability All-Pairs Signals
                   </>
                 )}
               </Button>
