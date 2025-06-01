@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -42,13 +41,13 @@ export const useTradingSignals = () => {
         .limit(MAX_ACTIVE_SIGNALS); // Limited to 15 signals
 
       if (error) {
-        console.error('❌ Error fetching active ultra-high-probability signals:', error);
+        console.error('❌ Error fetching active ultra-high-probability all-pairs signals:', error);
         setSignals([]);
         return;
       }
 
       if (!centralizedSignals || centralizedSignals.length === 0) {
-        console.log('📭 No active ultra-high-probability signals found');
+        console.log('📭 No active ultra-high-probability all-pairs signals found');
         setSignals([]);
         setLastUpdate(new Date().toLocaleTimeString());
         return;
@@ -59,7 +58,7 @@ export const useTradingSignals = () => {
       setLastUpdate(new Date().toLocaleTimeString());
       
       if (processedSignals.length > 0) {
-        console.log(`✅ Loaded ${processedSignals.length}/${MAX_ACTIVE_SIGNALS} ultra-high-probability signals (85%+ WIN RATE TARGET)`);
+        console.log(`✅ Loaded ${processedSignals.length}/${MAX_ACTIVE_SIGNALS} ultra-high-probability all-pairs signals (85%+ WIN RATE TARGET)`);
       }
       
     } catch (error) {
@@ -71,7 +70,7 @@ export const useTradingSignals = () => {
   }, []);
 
   const processSignals = (activeSignals: any[]) => {
-    console.log(`📊 Processing ${activeSignals.length}/${MAX_ACTIVE_SIGNALS} ultra-high-probability signals (85%+ WIN RATE TARGET)`);
+    console.log(`📊 Processing ${activeSignals.length}/${MAX_ACTIVE_SIGNALS} ultra-high-probability all-pairs signals (85%+ WIN RATE TARGET)`);
 
     const transformedSignals = activeSignals
       .map(signal => {
@@ -127,7 +126,7 @@ export const useTradingSignals = () => {
             confidence: Math.floor(signal.confidence || 92), // Higher confidence in ultra-conservative mode
             timestamp: signal.created_at || new Date().toISOString(),
             status: signal.status || 'active',
-            analysisText: signal.analysis_text || `ULTRA-HIGH-PROBABILITY ${signal.type || 'BUY'} signal for ${signal.symbol} (85%+ win rate target)`,
+            analysisText: signal.analysis_text || `ULTRA-HIGH-PROBABILITY ${signal.type || 'BUY'} signal for ${signal.symbol} (85%+ win rate target across all pairs)`,
             chartData: chartData,
             targetsHit: targetsHit
           };
@@ -138,27 +137,27 @@ export const useTradingSignals = () => {
       })
       .filter(Boolean) as TradingSignal[];
 
-    console.log(`✅ Successfully processed ${transformedSignals.length}/${MAX_ACTIVE_SIGNALS} ultra-high-probability signals (85%+ WIN RATE TARGET)`);
+    console.log(`✅ Successfully processed ${transformedSignals.length}/${MAX_ACTIVE_SIGNALS} ultra-high-probability all-pairs signals (85%+ WIN RATE TARGET)`);
     return transformedSignals;
   };
 
   const triggerIndividualSignalGeneration = useCallback(async () => {
     try {
-      console.log(`🚀 Triggering ultra-high-probability signal generation with ${MAX_ACTIVE_SIGNALS}-signal limit (85%+ win rate target)...`);
+      console.log(`🚀 Triggering ultra-high-probability all-pairs signal generation with ${MAX_ACTIVE_SIGNALS}-signal limit (85%+ win rate target)...`);
       
       const { data: signalResult, error: signalError } = await supabase.functions.invoke('generate-signals');
       
       if (signalError) {
-        console.error('❌ Ultra-high-probability signal generation failed:', signalError);
+        console.error('❌ Ultra-high-probability all-pairs signal generation failed:', signalError);
         toast({
           title: "Generation Failed",
-          description: "Failed to detect new ultra-high-probability trading opportunities",
+          description: "Failed to detect new ultra-high-probability trading opportunities across all pairs",
           variant: "destructive"
         });
         return;
       }
       
-      console.log('✅ Ultra-high-probability signal generation completed with limit enforcement');
+      console.log('✅ Ultra-high-probability all-pairs signal generation completed with limit enforcement');
       
       // Refresh the signal list
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -170,17 +169,18 @@ export const useTradingSignals = () => {
       const signalLimit = signalResult?.stats?.signalLimit || MAX_ACTIVE_SIGNALS;
       const limitReached = signalResult?.stats?.limitReached || false;
       const generationRate = signalResult?.stats?.generationRate || '0%';
+      const totalPairsAvailable = signalResult?.stats?.totalPairsAvailable || 'Unknown';
       
       toast({
-        title: limitReached ? "Signal Limit Reached" : "Ultra-High-Probability Generation Complete",
-        description: `${signalsGenerated} new ultra-high-probability signals generated (${totalActiveSignals}/${signalLimit} total active) - 85%+ win rate target`,
+        title: limitReached ? "Signal Limit Reached" : "Ultra-High-Probability All-Pairs Generation Complete",
+        description: `${signalsGenerated} new ultra-high-probability signals generated across all pairs (${totalActiveSignals}/${signalLimit} total active) - 85%+ win rate target`,
       });
       
     } catch (error) {
-      console.error('❌ Error in ultra-high-probability signal generation:', error);
+      console.error('❌ Error in ultra-high-probability all-pairs signal generation:', error);
       toast({
         title: "Generation Error",
-        description: "Failed to detect new ultra-high-probability trading opportunities",
+        description: "Failed to detect new ultra-high-probability trading opportunities across all pairs",
         variant: "destructive"
       });
     }
@@ -226,9 +226,9 @@ export const useTradingSignals = () => {
   useEffect(() => {
     fetchSignals();
     
-    // Enhanced real-time subscriptions for ultra-high-probability signals
+    // Enhanced real-time subscriptions for ultra-high-probability all-pairs signals
     const signalsChannel = supabase
-      .channel(`ultra-conservative-trading-signals-${Date.now()}`)
+      .channel(`ultra-conservative-all-pairs-trading-signals-${Date.now()}`)
       .on(
         'postgres_changes',
         {
@@ -238,15 +238,15 @@ export const useTradingSignals = () => {
           filter: 'is_centralized=eq.true'
         },
         (payload) => {
-          console.log(`📡 Real-time ultra-high-probability signal change detected (85%+ WIN RATE TARGET):`, payload);
+          console.log(`📡 Real-time ultra-high-probability all-pairs signal change detected (85%+ WIN RATE TARGET):`, payload);
           // Immediate refresh for real-time signal updates
           setTimeout(fetchSignals, 200);
         }
       )
       .subscribe((status) => {
-        console.log(`📡 Ultra-high-probability signals subscription status: ${status}`);
+        console.log(`📡 Ultra-high-probability all-pairs signals subscription status: ${status}`);
         if (status === 'SUBSCRIBED') {
-          console.log(`✅ Real-time ultra-high-probability signal updates connected (85%+ WIN RATE TARGET)`);
+          console.log(`✅ Real-time ultra-high-probability all-pairs signal updates connected (85%+ WIN RATE TARGET)`);
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           console.error('❌ Signal subscription failed, attempting to reconnect...');
           setTimeout(fetchSignals, 2000);
@@ -264,7 +264,7 @@ export const useTradingSignals = () => {
           table: 'signal_outcomes'
         },
         (payload) => {
-          console.log('📡 Signal outcome detected, refreshing active ultra-high-probability signals:', payload);
+          console.log('📡 Signal outcome detected, refreshing active ultra-high-probability all-pairs signals:', payload);
           setTimeout(fetchSignals, 500);
         }
       )
@@ -272,7 +272,7 @@ export const useTradingSignals = () => {
 
     // Automatic refresh every 2 minutes (backup for real-time)
     const updateInterval = setInterval(async () => {
-      console.log(`🔄 Periodic ultra-high-probability signal refresh (85%+ WIN RATE TARGET)...`);
+      console.log(`🔄 Periodic ultra-high-probability all-pairs signal refresh (85%+ WIN RATE TARGET)...`);
       await fetchSignals();
     }, 2 * 60 * 1000);
 

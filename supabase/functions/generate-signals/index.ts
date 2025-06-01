@@ -128,13 +128,18 @@ serve(async (req) => {
       }
     }
 
-    // PRIORITIZED CURRENCY PAIRS - Only major pairs for ultra-conservative approach
-    const majorPairs = [
-      'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD'
+    // ALL AVAILABLE CURRENCY PAIRS - Major, Minor, and Exotic pairs for comprehensive coverage
+    const allCurrencyPairs = [
+      // Major Pairs (highest liquidity)
+      'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD',
+      
+      // Minor Pairs (Cross currencies - no USD)
+      'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY',
+      'GBPNZD', 'AUDNZD', 'CADCHF', 'EURAUD', 'EURNZD', 'GBPCAD', 'NZDCAD',
+      'NZDCHF', 'NZDJPY', 'AUDJPY', 'CHFJPY', 'GBPAUD', 'EURCAD'
     ];
     
-    // ULTRA-CONSERVATIVE: Only analyze major pairs for highest probability
-    const allCurrencyPairs = majorPairs; // Only major pairs
+    console.log(`🌍 EXPANDED PAIR COVERAGE: Analyzing ${allCurrencyPairs.length} currency pairs for ultra-high-probability opportunities`);
     
     // Filter out pairs that already have active signals
     const availablePairs = targetPair 
@@ -217,7 +222,7 @@ serve(async (req) => {
     let opportunitiesAnalyzed = 0;
     const generatedSignals = [];
 
-    console.log(`🚀 Starting ULTRA-CONSERVATIVE AI analysis for ${prioritizedPairs.length} NEW pairs (limit: ${maxNewSignals})...`);
+    console.log(`🚀 Starting ULTRA-CONSERVATIVE AI analysis for ${prioritizedPairs.length} NEW pairs across ALL CATEGORIES (limit: ${maxNewSignals})...`);
 
     // Analyze pairs individually with ULTRA-CONSERVATIVE generation (only for pairs without signals)
     for (const pair of prioritizedPairs) {
@@ -251,8 +256,12 @@ serve(async (req) => {
         const priceChange = priceHistory.length > 1 ? 
           ((currentPrice - priceHistory[priceHistory.length - 1]) / priceHistory[priceHistory.length - 1] * 100) : 0;
 
-        // ULTRA-CONSERVATIVE AI prompt - extremely selective approach
-        console.log(`🔮 ULTRA-CONSERVATIVE AI opportunity check for ${pair}...`);
+        // Determine pair category for AI context
+        const majorPairs = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD'];
+        const pairCategory = majorPairs.includes(pair) ? 'Major' : 'Minor/Cross';
+
+        // ULTRA-CONSERVATIVE AI prompt - extremely selective approach for all pairs
+        console.log(`🔮 ULTRA-CONSERVATIVE AI opportunity check for ${pair} (${pairCategory} pair)...`);
         const aiAnalysisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
           headers: {
@@ -273,7 +282,12 @@ serve(async (req) => {
                 - Clear risk/reward ratio of at least 1:2
                 - No conflicting signals whatsoever
                 - Market structure must be pristine and clear
-                - Must be a major pair during optimal trading hours
+                - Works for ALL pair types: Major, Minor, and Cross pairs
+                
+                PAIR-SPECIFIC CONSIDERATIONS:
+                - Major pairs: Standard analysis with highest liquidity expectations
+                - Minor/Cross pairs: Extra scrutiny for liquidity and volatility patterns
+                - All pairs: Must show clear directional bias with multiple confirmations
                 
                 ULTRA-CONSERVATIVE MODE - ONLY generate BUY/SELL signals when you have EXCEPTIONAL conviction with multiple confirmations. Use NEUTRAL for anything less than perfect setups.
                 
@@ -287,11 +301,12 @@ serve(async (req) => {
                   "setup_quality": "EXCEPTIONAL" or "PERFECT",
                   "confirmations_count": number of technical confirmations (minimum 4 required),
                   "entry_price": number (current price adjusted for optimal entry),
-                  "stop_loss_pips": number between 15-30 (tight stops for high probability),
+                  "stop_loss_pips": number between 15-40 (adjust for pair volatility),
                   "take_profit_pips": [number, number, number] (conservative targets),
                   "analysis": "detailed explanation focusing on why this has 85%+ win probability",
                   "risk_factors": "any risks that could invalidate the setup",
-                  "market_setup": "description of the exceptional setup detected"
+                  "market_setup": "description of the exceptional setup detected",
+                  "pair_category": "Major/Minor/Cross pair specific considerations"
                 }
                 
                 REJECTION CRITERIA (use NEUTRAL):
@@ -301,18 +316,23 @@ serve(async (req) => {
                 - Poor risk/reward ratio
                 - Choppy or unclear market structure
                 - Any fundamental risks
-                - Market closure or low liquidity periods`
+                - Market closure or low liquidity periods
+                - Insufficient volatility or movement potential`
               },
               {
                 role: 'user',
-                content: `Analyze ${pair} for ULTRA-CONSERVATIVE trading opportunity (85%+ win rate requirement):
+                content: `Analyze ${pair} (${pairCategory} pair) for ULTRA-CONSERVATIVE trading opportunity (85%+ win rate requirement):
                 Current Price: ${currentPrice}
                 Recent Prices: ${priceHistory.join(', ')}
                 24h Change: ${priceChange.toFixed(2)}%
                 Market Session: ${new Date().getUTCHours() >= 12 && new Date().getUTCHours() < 20 ? 'Active Trading Hours' : 'Off-Peak Hours'}
-                Pair Type: Major Pair
+                Pair Category: ${pairCategory}
                 
                 ONLY generate a signal if you have EXCEPTIONAL conviction (90%+ confidence) with multiple technical confirmations and 85%+ win probability for ${pair}.
+                
+                Consider ${pairCategory} pair characteristics:
+                - Major pairs: Highest liquidity, tightest spreads, most predictable
+                - Minor/Cross pairs: Moderate liquidity, wider spreads, unique correlation patterns
                 
                 Be EXTREMELY selective - reject anything that doesn't meet ultra-conservative criteria.`
               }
@@ -349,7 +369,7 @@ serve(async (req) => {
           continue;
         }
 
-        console.log(`📊 ULTRA-CONSERVATIVE AI Decision for ${pair}: ${aiSignal.signal} (${aiSignal.confidence}% confidence, ${aiSignal.win_probability}% win probability)`);
+        console.log(`📊 ULTRA-CONSERVATIVE AI Decision for ${pair} (${pairCategory}): ${aiSignal.signal} (${aiSignal.confidence}% confidence, ${aiSignal.win_probability}% win probability)`);
 
         if (aiSignal.signal === 'NEUTRAL' || !['BUY', 'SELL'].includes(aiSignal.signal)) {
           console.log(`⚪ No signal generated for ${pair} - did not meet ultra-conservative criteria`);
@@ -372,15 +392,15 @@ serve(async (req) => {
           continue;
         }
 
-        console.log(`🎯 NEW ULTRA-HIGH-PROBABILITY SIGNAL GENERATED for ${pair}: ${aiSignal.signal} signal (${signalsGenerated + 1}/${maxNewSignals})`);
+        console.log(`🎯 NEW ULTRA-HIGH-PROBABILITY SIGNAL GENERATED for ${pair} (${pairCategory}): ${aiSignal.signal} signal (${signalsGenerated + 1}/${maxNewSignals})`);
         console.log(`📝 Setup: ${aiSignal.market_setup}`);
         console.log(`🎯 Win Probability: ${aiSignal.win_probability}%`);
         console.log(`✅ Confirmations: ${aiSignal.confirmations_count}`);
 
         // Generate signal with ultra-conservative settings
         const entryPrice = aiSignal.entry_price || currentPrice;
-        const stopLossPips = aiSignal.stop_loss_pips || 20; // Tighter stops
-        const takeProfitPips = aiSignal.take_profit_pips || [15, 30, 45]; // More conservative targets
+        const stopLossPips = aiSignal.stop_loss_pips || (pairCategory === 'Major' ? 20 : 30); // Adjust for pair type
+        const takeProfitPips = aiSignal.take_profit_pips || (pairCategory === 'Major' ? [15, 30, 45] : [20, 40, 60]); // Adjust for pair volatility
 
         // Convert pips to price levels
         const pipValue = pair.includes('JPY') ? 0.01 : 0.0001;
@@ -437,14 +457,14 @@ serve(async (req) => {
           status: 'active',
           is_centralized: true,
           user_id: null,
-          analysis_text: `ULTRA-HIGH-PROBABILITY ${aiSignal.setup_quality} Setup (${aiSignal.win_probability}% win probability): ${aiSignal.analysis}`,
+          analysis_text: `ULTRA-HIGH-PROBABILITY ${aiSignal.setup_quality} ${pairCategory} Setup (${aiSignal.win_probability}% win probability): ${aiSignal.analysis}`,
           chart_data: chartData,
           pips: stopLossPips,
           created_at: timestamp
         };
 
         // Insert the new ultra-conservative signal
-        console.log(`💾 Inserting NEW ULTRA-HIGH-PROBABILITY AI signal for ${pair} (${signalsGenerated + 1}/${maxNewSignals})...`);
+        console.log(`💾 Inserting NEW ULTRA-HIGH-PROBABILITY AI signal for ${pair} (${pairCategory}) (${signalsGenerated + 1}/${maxNewSignals})...`);
         const { data: insertedSignal, error: insertError } = await supabase
           .from('trading_signals')
           .insert([signal])
@@ -458,7 +478,7 @@ serve(async (req) => {
 
         signalsGenerated++;
         generatedSignals.push(insertedSignal);
-        console.log(`✅ Generated NEW ULTRA-HIGH-PROBABILITY AI signal for ${pair} (${aiSignal.confidence}% confidence, ${aiSignal.win_probability}% win probability) - ${signalsGenerated}/${maxNewSignals}`);
+        console.log(`✅ Generated NEW ULTRA-HIGH-PROBABILITY AI signal for ${pair} (${pairCategory}) (${aiSignal.confidence}% confidence, ${aiSignal.win_probability}% win probability) - ${signalsGenerated}/${maxNewSignals}`);
 
         // Add minimal delay between analyses
         if (signalsGenerated < maxNewSignals && prioritizedPairs.indexOf(pair) < prioritizedPairs.length - 1) {
@@ -472,19 +492,20 @@ serve(async (req) => {
 
     const finalActiveSignals = currentSignalCount + signalsGenerated;
 
-    console.log(`📊 ULTRA-CONSERVATIVE SIGNAL GENERATION SUMMARY:`);
+    console.log(`📊 ULTRA-CONSERVATIVE SIGNAL GENERATION SUMMARY (ALL PAIRS):`);
     console.log(`  - Signal limit: ${MAX_ACTIVE_SIGNALS}`);
     console.log(`  - Starting signals: ${currentSignalCount}`);
+    console.log(`  - Pairs analyzed: ${allCurrencyPairs.length} total available`);
     console.log(`  - New opportunities analyzed: ${opportunitiesAnalyzed}`);
     console.log(`  - New ultra-high-probability signals generated: ${signalsGenerated}`);
     console.log(`  - Final active signals: ${finalActiveSignals}/${MAX_ACTIVE_SIGNALS}`);
     console.log(`  - Generation rate: ${opportunitiesAnalyzed > 0 ? ((signalsGenerated / opportunitiesAnalyzed) * 100).toFixed(1) : 0}%`);
-    console.log(`  - Mode: ULTRA-CONSERVATIVE (90%+ confidence, 85%+ win probability)`);
+    console.log(`  - Mode: ULTRA-CONSERVATIVE ALL-PAIRS (90%+ confidence, 85%+ win probability)`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `ULTRA-CONSERVATIVE signal generation completed - ${signalsGenerated} new ultra-high-probability signals generated from ${opportunitiesAnalyzed} opportunities analyzed (${finalActiveSignals}/${MAX_ACTIVE_SIGNALS} total)`,
+        message: `ULTRA-CONSERVATIVE all-pairs signal generation completed - ${signalsGenerated} new ultra-high-probability signals generated from ${opportunitiesAnalyzed} opportunities analyzed across ${allCurrencyPairs.length} pairs (${finalActiveSignals}/${MAX_ACTIVE_SIGNALS} total)`,
         signals: generatedSignals?.map(s => ({ 
           id: s.id, 
           symbol: s.symbol, 
@@ -501,17 +522,19 @@ serve(async (req) => {
           signalLimit: MAX_ACTIVE_SIGNALS,
           limitReached: finalActiveSignals >= MAX_ACTIVE_SIGNALS,
           ultraConservativeMode: true,
-          expectedWinRate: '85%+'
+          expectedWinRate: '85%+',
+          totalPairsAvailable: allCurrencyPairs.length,
+          pairCategories: 'Major + Minor + Cross pairs'
         },
         timestamp,
         trigger: isCronTriggered ? 'cron' : 'manual',
-        approach: 'ultra_conservative_signals'
+        approach: 'ultra_conservative_all_pairs'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('💥 ULTRA-CONSERVATIVE SIGNAL GENERATION error:', error);
+    console.error('💥 ULTRA-CONSERVATIVE ALL-PAIRS SIGNAL GENERATION error:', error);
     return new Response(
       JSON.stringify({ 
         success: false,
