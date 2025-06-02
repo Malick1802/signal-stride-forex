@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -13,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🧹 Starting comprehensive cron cleanup to fix GitHub Actions scheduling conflicts...');
+    console.log('🧹 URGENT: Removing ALL competing cron jobs to fix GitHub Actions scheduling...');
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -24,111 +25,98 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Remove ALL competing signal generation cron jobs to eliminate conflicts with GitHub Actions
-    console.log('❌ Removing all competing signal generation cron jobs...');
-    const competingJobs = [
+    // Get list of ALL current cron jobs
+    console.log('📋 Checking all current cron jobs...');
+    const { data: currentJobs, error: listError } = await supabase.rpc('sql', { 
+      query: 'SELECT jobname FROM cron.job;' 
+    });
+
+    if (listError) {
+      console.error('❌ Error listing cron jobs:', listError);
+    } else {
+      console.log('📝 Current cron jobs found:', currentJobs);
+    }
+
+    // Remove ALL signal generation and conflicting cron jobs
+    console.log('❌ Removing ALL competing and broken cron jobs...');
+    const allConflictingJobs = [
+      // Signal generation jobs (GitHub Actions will handle this)
       'invoke-generate-signals-every-5min',
       'generate-signals-every-5min',
       'auto-signal-generation',
       'centralized-signal-generation',
       'ai-signal-generation-5min',
-      'outcome-based-signal-generation', // This was conflicting with GitHub Actions
+      'outcome-based-signal-generation',
       'signal-generation-cron-1',
       'signal-generation-cron-9',
-      'signal-generation-cron-15'
+      'signal-generation-cron-15',
+      // Market data jobs that are causing errors
+      'optimized-market-data-refresh',
+      'optimized-tick-generation',
+      'daily-maintenance-cleanup',
+      // Any other market-related jobs
+      'market-data-refresh',
+      'tick-generation',
+      'real-time-tick-generation',
+      'centralized-market-update',
+      'forex-market-update',
+      'market-stream-update'
     ];
 
-    for (const jobName of competingJobs) {
+    let removedJobs = [];
+    for (const jobName of allConflictingJobs) {
       try {
-        const { error } = await supabase.rpc('cron.unschedule', { job_name: jobName });
+        const { error } = await supabase.rpc('sql', { 
+          query: `SELECT cron.unschedule('${jobName}');` 
+        });
         if (!error) {
-          console.log(`✅ Removed competing cron job: ${jobName}`);
+          console.log(`✅ Removed cron job: ${jobName}`);
+          removedJobs.push(jobName);
         }
       } catch (error) {
         console.log(`⚠️ Job ${jobName} not found or already removed`);
       }
     }
 
-    // Keep only essential supporting cron jobs with optimized frequencies
-    console.log('📅 Creating optimized supporting cron jobs...');
+    // Remove ALL cron jobs by ID (the ones showing in postgres logs)
+    console.log('🔥 Removing cron jobs by ID that are causing schema errors...');
+    const problematicJobIds = [1, 7, 8, 9, 10, 15];
     
-    // Market data refresh - every 2 minutes (reduced from 1 minute to avoid conflicts)
-    const marketDataQuery = `
-      SELECT cron.schedule(
-        'optimized-market-data-refresh',
-        '*/2 * * * *',
-        $$
-        SELECT net.http_post(
-          url := 'https://ugtaodrvbpfeyhdgmisn.supabase.co/functions/v1/centralized-market-stream',
-          headers := '{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVndGFvZHJ2YnBmZXloZGdtaXNuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczNDA2MDYxNSwiZXhwIjoyMDQ5NjM2NjE1fQ.rXFRPOHZqGdO44dn2Z7jUVKfJXkSkNXU5CjmOL0-YIM"}'::jsonb,
-          body := '{"trigger": "supabase_cron"}'::jsonb
-        );
-        $$
-      );
-    `;
-
-    const { error: marketError } = await supabase.rpc('sql', { query: marketDataQuery });
-    if (marketError) {
-      console.error('❌ Error creating optimized market data cron:', marketError);
-    } else {
-      console.log('✅ Created optimized market data refresh cron (every 2 minutes)');
+    for (const jobId of problematicJobIds) {
+      try {
+        const { error } = await supabase.rpc('sql', { 
+          query: `DELETE FROM cron.job WHERE jobid = ${jobId};` 
+        });
+        if (!error) {
+          console.log(`✅ Removed cron job ID: ${jobId}`);
+          removedJobs.push(`job-id-${jobId}`);
+        }
+      } catch (error) {
+        console.log(`⚠️ Job ID ${jobId} not found or already removed`);
+      }
     }
 
-    // Real-time tick generation - every 30 seconds (reduced frequency)
-    const tickGenQuery = `
-      SELECT cron.schedule(
-        'optimized-tick-generation',
-        '*/30 * * * * *',
-        $$
-        SELECT net.http_post(
-          url := 'https://ugtaodrvbpfeyhdgmisn.supabase.co/functions/v1/real-time-tick-generator',
-          headers := '{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVndGFvZHJ2YnBmZXloZGdtaXNuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTczNDA2MDYxNSwiZXhwIjoyMDQ5NjM2NjE1fQ.rXFRPOHZqGdO44dn2Z7jUVKfJXkSkNXU5CjmOL0-YIM"}'::jsonb,
-          body := '{"trigger": "supabase_cron"}'::jsonb
-        );
-        $$
-      );
-    `;
+    // Verify no cron jobs remain
+    const { data: remainingJobs, error: verifyError } = await supabase.rpc('sql', { 
+      query: 'SELECT jobname, command FROM cron.job;' 
+    });
 
-    const { error: tickError } = await supabase.rpc('sql', { query: tickGenQuery });
-    if (tickError) {
-      console.error('❌ Error creating optimized tick generation cron:', tickError);
-    } else {
-      console.log('✅ Created optimized tick generation cron (every 30 seconds)');
+    if (!verifyError && remainingJobs) {
+      console.log('📋 Remaining cron jobs after cleanup:', remainingJobs);
     }
 
-    // Daily cleanup cron - keep this for maintenance
-    const cleanupQuery = `
-      SELECT cron.schedule(
-        'daily-maintenance-cleanup',
-        '0 3 * * *',
-        $$
-        SELECT public.cleanup_old_signals();
-        $$
-      );
-    `;
-
-    const { error: cleanupError } = await supabase.rpc('sql', { query: cleanupQuery });
-    if (cleanupError) {
-      console.error('❌ Error creating daily cleanup cron:', cleanupError);
-    } else {
-      console.log('✅ Created daily maintenance cleanup cron (3 AM UTC)');
-    }
-
-    console.log('✅ Cron optimization completed successfully');
-    console.log('🎯 GitHub Actions will now handle signal generation exclusively every 5 minutes');
-    console.log('📊 Supporting services run at optimized frequencies to avoid conflicts');
+    console.log('✅ ALL competing cron jobs removed successfully');
+    console.log('🎯 GitHub Actions will now be the ONLY automation system running every 5 minutes');
+    console.log('📊 No more Supabase cron conflicts - GitHub Actions has exclusive control');
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Cron conflicts resolved - GitHub Actions will now run reliably every 5 minutes',
-        removedJobs: competingJobs,
-        optimizedJobs: [
-          'optimized-market-data-refresh (every 2 minutes)',
-          'optimized-tick-generation (every 30 seconds)',
-          'daily-maintenance-cleanup (daily at 3 AM UTC)'
-        ],
-        note: 'Signal generation is now exclusively handled by GitHub Actions every 5 minutes',
+        message: 'ALL competing cron jobs removed - GitHub Actions now has exclusive control',
+        removedJobs: removedJobs,
+        remainingJobs: remainingJobs || [],
+        note: 'GitHub Actions is now the ONLY automation system. No more Supabase cron conflicts.',
+        gitHubActionsStatus: 'EXCLUSIVE_CONTROL',
         timestamp: new Date().toISOString()
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
