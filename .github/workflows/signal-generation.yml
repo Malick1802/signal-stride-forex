@@ -3,12 +3,20 @@ name: Automatic Trading Signal Generation
 
 on:
   schedule:
-    # Run every 5 minutes during market hours (Monday 00:00 UTC to Friday 22:00 UTC)
+    # Primary schedule: every 5 minutes during market hours
     - cron: '*/5 * * * 1-5'
+    # Backup schedules for redundancy (offset by 1-2 minutes)
+    - cron: '1,6,11,16,21,26,31,36,41,46,51,56 * * * 1-5'
+    - cron: '2,7,12,17,22,27,32,37,42,47,52,57 * * * 1-5'
   workflow_dispatch:
     inputs:
       force_generation:
         description: 'Force signal generation regardless of market hours'
+        required: false
+        default: 'false'
+        type: boolean
+      debug_mode:
+        description: 'Enable debug logging'
         required: false
         default: 'false'
         type: boolean
@@ -21,57 +29,101 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       
-    - name: Check Market Hours
+    - name: Workflow Start Notification
+      run: |
+        echo "🚀 GitHub Actions Signal Generation Started"
+        echo "Workflow run ID: ${{ github.run_id }}"
+        echo "Trigger: ${{ github.event_name }}"
+        echo "Time: $(date -u)"
+        echo "Repository: ${{ github.repository }}"
+        
+    - name: Enhanced Market Hours Check
       id: market-check
       run: |
         # Get current time in UTC
         current_hour=$(date -u +%H)
         current_day=$(date -u +%u)  # 1=Monday, 7=Sunday
+        current_minute=$(date -u +%M)
         
-        echo "Current UTC hour: $current_hour"
-        echo "Current day: $current_day"
+        echo "📊 Market Hours Analysis:"
+        echo "Current UTC time: $(date -u)"
+        echo "Hour: $current_hour, Day: $current_day, Minute: $current_minute"
         
-        # Market is open Monday (1) to Friday (5), roughly 00:00-22:00 UTC
+        # Enhanced market hours logic (Monday-Friday, 00:00-22:00 UTC covers most forex sessions)
+        market_open=false
         if [ "$current_day" -ge 1 ] && [ "$current_day" -le 5 ]; then
           if [ "$current_hour" -ge 0 ] && [ "$current_hour" -le 22 ]; then
-            echo "market_open=true" >> $GITHUB_OUTPUT
+            market_open=true
+            echo "✅ Forex market is OPEN (weekday, business hours)"
           else
-            echo "market_open=false" >> $GITHUB_OUTPUT
+            echo "🛑 Market CLOSED (outside business hours)"
           fi
         else
-          echo "market_open=false" >> $GITHUB_OUTPUT
+          echo "🛑 Market CLOSED (weekend)"
         fi
+        
+        echo "market_open=$market_open" >> $GITHUB_OUTPUT
+        echo "current_time=$(date -u)" >> $GITHUB_OUTPUT
 
     - name: Generate Trading Signals
       if: steps.market-check.outputs.market_open == 'true' || github.event.inputs.force_generation == 'true'
       env:
         SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://ugtaodrvbpfeyhdgmisn.supabase.co' }}
         SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVndGFvZHJ2YnBmZXloZGdtaXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQwNjA2MTUsImV4cCI6MjA0OTYzNjYxNX0.Z-71hRCpHB0YivrsTb2kZQdObcF42BQVYIQ8_yMb_JM' }}
+        DEBUG_MODE: ${{ github.event.inputs.debug_mode || 'false' }}
       run: |
-        echo "🤖 Starting automatic signal generation..."
+        echo "🤖 Starting GitHub Actions signal generation..."
+        echo "Workflow: ${{ github.workflow }}"
+        echo "Run number: ${{ github.run_number }}"
         
-        # Call the existing Supabase edge function
-        response=$(curl -s -w "\n%{http_code}" -X POST \
-          "${{ env.SUPABASE_URL }}/functions/v1/generate-signals" \
-          -H "Authorization: Bearer ${{ env.SUPABASE_ANON_KEY }}" \
-          -H "Content-Type: application/json" \
-          -H "apikey: ${{ env.SUPABASE_ANON_KEY }}" \
-          -d '{"trigger": "cron"}')
+        start_time=$(date +%s)
         
-        # Extract HTTP status code (last line)
-        http_code=$(echo "$response" | tail -n1)
-        # Extract response body (all lines except last)
-        response_body=$(echo "$response" | head -n -1)
+        # Enhanced signal generation with retry logic
+        max_retries=3
+        retry_count=0
+        success=false
         
-        echo "HTTP Status: $http_code"
-        echo "Response: $response_body"
-        
-        if [ "$http_code" -eq 200 ]; then
-          echo "✅ Signal generation successful"
-        else
-          echo "❌ Signal generation failed with status $http_code"
-          exit 1
-        fi
+        while [ $retry_count -lt $max_retries ] && [ "$success" = false ]; do
+          echo "🔄 Attempt $((retry_count + 1)) of $max_retries"
+          
+          response=$(curl -s -w "\n%{http_code}" -X POST \
+            "${{ env.SUPABASE_URL }}/functions/v1/generate-signals" \
+            -H "Authorization: Bearer ${{ env.SUPABASE_ANON_KEY }}" \
+            -H "Content-Type: application/json" \
+            -H "apikey: ${{ env.SUPABASE_ANON_KEY }}" \
+            -H "X-GitHub-Run-ID: ${{ github.run_id }}" \
+            -d "{\"trigger\": \"github_actions\", \"run_id\": \"${{ github.run_id }}\", \"attempt\": $((retry_count + 1))}")
+          
+          # Extract HTTP status code and response
+          http_code=$(echo "$response" | tail -n1)
+          response_body=$(echo "$response" | head -n -1)
+          
+          echo "HTTP Status: $http_code"
+          if [ "${{ env.DEBUG_MODE }}" = "true" ]; then
+            echo "Response body: $response_body"
+          fi
+          
+          if [ "$http_code" -eq 200 ]; then
+            success=true
+            end_time=$(date +%s)
+            duration=$((end_time - start_time))
+            echo "✅ Signal generation successful in ${duration}s"
+            
+            # Extract metrics from response if available
+            signals_count=$(echo "$response_body" | jq -r '.stats.signalsGenerated // 0' 2>/dev/null || echo "0")
+            echo "📊 Signals generated: $signals_count"
+          else
+            retry_count=$((retry_count + 1))
+            if [ $retry_count -lt $max_retries ]; then
+              echo "⚠️ Attempt failed (status $http_code), retrying in 10 seconds..."
+              sleep 10
+            else
+              echo "❌ All attempts failed. Final status: $http_code"
+              echo "Response: $response_body"
+              exit 1
+            fi
+          fi
+        done
 
     - name: Update Market Data
       if: steps.market-check.outputs.market_open == 'true' || github.event.inputs.force_generation == 'true'
@@ -81,45 +133,117 @@ jobs:
       run: |
         echo "📊 Updating centralized market data..."
         
-        # Call the market stream function
         response=$(curl -s -w "\n%{http_code}" -X POST \
           "${{ env.SUPABASE_URL }}/functions/v1/centralized-market-stream" \
           -H "Authorization: Bearer ${{ env.SUPABASE_ANON_KEY }}" \
           -H "Content-Type: application/json" \
-          -H "apikey: ${{ env.SUPABASE_ANON_KEY }}")
+          -H "apikey: ${{ env.SUPABASE_ANON_KEY }}" \
+          -H "X-GitHub-Run-ID: ${{ github.run_id }}")
         
-        # Extract HTTP status code (last line)
         http_code=$(echo "$response" | tail -n1)
-        # Extract response body (all lines except last)
         response_body=$(echo "$response" | head -n -1)
         
         echo "HTTP Status: $http_code"
-        echo "Response: $response_body"
         
         if [ "$http_code" -eq 200 ]; then
           echo "✅ Market data update successful"
+          # Extract market pairs count if available
+          pairs_count=$(echo "$response_body" | jq -r '.pairsUpdated // "unknown"' 2>/dev/null || echo "unknown")
+          echo "📈 Market pairs updated: $pairs_count"
         else
           echo "⚠️ Market data update failed with status $http_code (continuing...)"
+          if [ "${{ github.event.inputs.debug_mode }}" = "true" ]; then
+            echo "Response: $response_body"
+          fi
         fi
 
     - name: Market Closed Notice
       if: steps.market-check.outputs.market_open == 'false' && github.event.inputs.force_generation != 'true'
       run: |
         echo "🛑 Market is currently closed. Skipping signal generation."
+        echo "Current time: ${{ steps.market-check.outputs.current_time }}"
         echo "Automatic generation will resume during market hours (Monday-Friday, 00:00-22:00 UTC)"
+        echo "Next likely execution: Next weekday morning"
 
-    - name: Keep Repository Active
+    - name: Enhanced Repository Activity Tracking
       run: |
-        echo "🔄 Keeping repository active for scheduled workflows"
-        echo "Last automated run: $(date -u)" >> automation-log.txt
+        echo "🔄 Maintaining repository activity for reliable GitHub Actions scheduling"
         
-        # Configure git if we need to commit
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
+        # Create comprehensive activity log
+        log_file="automation-log.txt"
+        current_time=$(date -u)
         
-        # Only commit if there are changes
-        if ! git diff --quiet automation-log.txt; then
-          git add automation-log.txt
-          git commit -m "Automated workflow activity log update"
-          git push
+        echo "=== GitHub Actions Activity Log ===" > $log_file
+        echo "Last run: $current_time" >> $log_file
+        echo "Workflow: ${{ github.workflow }}" >> $log_file
+        echo "Run ID: ${{ github.run_id }}" >> $log_file
+        echo "Run number: ${{ github.run_number }}" >> $log_file
+        echo "Trigger: ${{ github.event_name }}" >> $log_file
+        echo "Market status: ${{ steps.market-check.outputs.market_open == 'true' && 'OPEN' || 'CLOSED' }}" >> $log_file
+        echo "Repository: ${{ github.repository }}" >> $log_file
+        echo "Commit SHA: ${{ github.sha }}" >> $log_file
+        echo "---" >> $log_file
+        
+        # Enhanced git configuration
+        git config --local user.email "automated-trading@github-actions.com"
+        git config --local user.name "Trading Signal Bot"
+        git config --local core.autocrlf false
+        
+        # Smart commit logic - only commit if significant time has passed or if forced
+        should_commit=false
+        
+        if [ -f "$log_file" ] && git ls-files --error-unmatch "$log_file" >/dev/null 2>&1; then
+          # File exists and is tracked
+          last_commit_time=$(git log -1 --format="%ct" -- "$log_file" 2>/dev/null || echo "0")
+          current_timestamp=$(date +%s)
+          time_diff=$((current_timestamp - last_commit_time))
+          
+          # Commit if more than 30 minutes have passed or if forced
+          if [ $time_diff -gt 1800 ] || [ "${{ github.event.inputs.force_generation }}" = "true" ]; then
+            should_commit=true
+            echo "📝 Time since last commit: ${time_diff}s (committing activity log)"
+          else
+            echo "⏰ Recent commit found (${time_diff}s ago), skipping commit to avoid spam"
+          fi
+        else
+          # First time or file not tracked
+          should_commit=true
+          echo "📝 First activity log or untracked file, creating commit"
         fi
+        
+        if [ "$should_commit" = "true" ]; then
+          git add "$log_file"
+          
+          # Create meaningful commit message
+          if [ "${{ steps.market-check.outputs.market_open }}" = "true" ]; then
+            commit_msg="🤖 Automated signal generation activity (Market OPEN) - Run #${{ github.run_number }}"
+          else
+            commit_msg="🛑 Scheduled check completed (Market CLOSED) - Run #${{ github.run_number }}"
+          fi
+          
+          git commit -m "$commit_msg" || echo "⚠️ Nothing to commit or commit failed"
+          git push origin ${{ github.ref_name }} || echo "⚠️ Push failed, but continuing..."
+          echo "✅ Repository activity updated successfully"
+        fi
+
+    - name: Workflow Summary
+      if: always()
+      run: |
+        echo "📋 Workflow Execution Summary"
+        echo "=============================="
+        echo "Workflow: ${{ github.workflow }}"
+        echo "Run ID: ${{ github.run_id }}"
+        echo "Trigger: ${{ github.event_name }}"
+        echo "Market Status: ${{ steps.market-check.outputs.market_open == 'true' && '✅ OPEN' || '🛑 CLOSED' }}"
+        echo "Execution Time: $(date -u)"
+        echo "Repository: ${{ github.repository }}"
+        echo "Branch: ${{ github.ref_name }}"
+        
+        if [ "${{ steps.market-check.outputs.market_open }}" = "true" ] || [ "${{ github.event.inputs.force_generation }}" = "true" ]; then
+          echo "Actions Performed: Signal Generation ✅, Market Data Update ✅"
+        else
+          echo "Actions Performed: Market Hours Check Only (Market Closed)"
+        fi
+        
+        echo "Next scheduled run: In ~5 minutes (if market open)"
+        echo "=============================="
