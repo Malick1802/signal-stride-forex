@@ -18,6 +18,9 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
     - name: Check Market Hours
       id: market-check
       run: |
@@ -41,15 +44,18 @@ jobs:
 
     - name: Generate Trading Signals
       if: steps.market-check.outputs.market_open == 'true' || github.event.inputs.force_generation == 'true'
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://ugtaodrvbpfeyhdgmisn.supabase.co' }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVndGFvZHJ2YnBmZXloZGdtaXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQwNjA2MTUsImV4cCI6MjA0OTYzNjYxNX0.Z-71hRCpHB0YivrsTb2kZQdObcF42BQVYIQ8_yMb_JM' }}
       run: |
         echo "🤖 Starting automatic signal generation..."
         
         # Call the existing Supabase edge function
         response=$(curl -s -w "\n%{http_code}" -X POST \
-          "https://ugtaodrvbpfeyhdgmisn.supabase.co/functions/v1/generate-signals" \
-          -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVndGFvZHJ2YnBmZXloZGdtaXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQwNjA2MTUsImV4cCI6MjA0OTYzNjYxNX0.Z-71hRCpHB0YivrsTb2kZQdObcF42BQVYIQ8_yMb_JM" \
+          "${{ env.SUPABASE_URL }}/functions/v1/generate-signals" \
+          -H "Authorization: Bearer ${{ env.SUPABASE_ANON_KEY }}" \
           -H "Content-Type: application/json" \
-          -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVndGFvZHJ2YnBmZXloZGdtaXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQwNjA2MTUsImV4cCI6MjA0OTYzNjYxNX0.Z-71hRCpHB0YivrsTb2kZQdObcF42BQVYIQ8_yMb_JM" \
+          -H "apikey: ${{ env.SUPABASE_ANON_KEY }}" \
           -d '{"trigger": "cron"}')
         
         # Extract HTTP status code (last line)
@@ -69,15 +75,18 @@ jobs:
 
     - name: Update Market Data
       if: steps.market-check.outputs.market_open == 'true' || github.event.inputs.force_generation == 'true'
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://ugtaodrvbpfeyhdgmisn.supabase.co' }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVndGFvZHJ2YnBmZXloZGdtaXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQwNjA2MTUsImV4cCI6MjA0OTYzNjYxNX0.Z-71hRCpHB0YivrsTb2kZQdObcF42BQVYIQ8_yMb_JM' }}
       run: |
         echo "📊 Updating centralized market data..."
         
         # Call the market stream function
         response=$(curl -s -w "\n%{http_code}" -X POST \
-          "https://ugtaodrvbpfeyhdgmisn.supabase.co/functions/v1/centralized-market-stream" \
-          -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVndGFvZHJ2YnBmZXloZGdtaXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQwNjA2MTUsImV4cCI6MjA0OTYzNjYxNX0.Z-71hRCpHB0YivrsTb2kZQdObcF42BQVYIQ8_yMb_JM" \
+          "${{ env.SUPABASE_URL }}/functions/v1/centralized-market-stream" \
+          -H "Authorization: Bearer ${{ env.SUPABASE_ANON_KEY }}" \
           -H "Content-Type: application/json" \
-          -H "apikey: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVndGFvZHJ2YnBmZXloZGdtaXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQwNjA2MTUsImV4cCI6MjA0OTYzNjYxNX0.Z-71hRCpHB0YivrsTb2kZQdObcF42BQVYIQ8_yMb_JM")
+          -H "apikey: ${{ env.SUPABASE_ANON_KEY }}")
         
         # Extract HTTP status code (last line)
         http_code=$(echo "$response" | tail -n1)
@@ -98,3 +107,19 @@ jobs:
       run: |
         echo "🛑 Market is currently closed. Skipping signal generation."
         echo "Automatic generation will resume during market hours (Monday-Friday, 00:00-22:00 UTC)"
+
+    - name: Keep Repository Active
+      run: |
+        echo "🔄 Keeping repository active for scheduled workflows"
+        echo "Last automated run: $(date -u)" >> automation-log.txt
+        
+        # Configure git if we need to commit
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        
+        # Only commit if there are changes
+        if ! git diff --quiet automation-log.txt; then
+          git add automation-log.txt
+          git commit -m "Automated workflow activity log update"
+          git push
+        fi
