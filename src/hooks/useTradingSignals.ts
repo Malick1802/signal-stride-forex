@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -31,6 +30,8 @@ export const useTradingSignals = () => {
 
   const fetchSignals = useCallback(async () => {
     try {
+      console.log('🔄 Fetching ultra-conservative signals...');
+      
       // Fetch only ACTIVE centralized signals (limited to 15)
       const { data: centralizedSignals, error } = await supabase
         .from('trading_signals')
@@ -43,20 +44,30 @@ export const useTradingSignals = () => {
 
       if (error) {
         console.error('❌ Error fetching active ultra-conservative signals:', error);
+        toast({
+          title: "Database Error",
+          description: "Failed to fetch trading signals",
+          variant: "destructive"
+        });
         setSignals([]);
+        setLoading(false);
         return;
       }
+
+      console.log(`📊 Raw signals data:`, centralizedSignals);
 
       if (!centralizedSignals || centralizedSignals.length === 0) {
         console.log('📭 No active ultra-conservative signals found');
         setSignals([]);
         setLastUpdate(new Date().toLocaleTimeString());
+        setLoading(false);
         return;
       }
 
       const processedSignals = processSignals(centralizedSignals);
       setSignals(processedSignals);
       setLastUpdate(new Date().toLocaleTimeString());
+      setLoading(false);
       
       if (processedSignals.length > 0) {
         console.log(`✅ Loaded ${processedSignals.length}/${MAX_ACTIVE_SIGNALS} ultra-conservative signals (80%+ WIN RATE TARGET)`);
@@ -65,10 +76,14 @@ export const useTradingSignals = () => {
     } catch (error) {
       console.error('❌ Error in fetchSignals:', error);
       setSignals([]);
-    } finally {
       setLoading(false);
+      toast({
+        title: "Error",
+        description: "Failed to fetch trading signals",
+        variant: "destructive"
+      });
     }
-  }, []);
+  }, [toast]);
 
   const processSignals = (activeSignals: any[]) => {
     console.log(`📊 Processing ${activeSignals.length}/${MAX_ACTIVE_SIGNALS} ultra-conservative signals (80%+ WIN RATE TARGET)`);
@@ -93,7 +108,7 @@ export const useTradingSignals = () => {
           let chartData = [];
           if (signal.chart_data && Array.isArray(signal.chart_data)) {
             chartData = signal.chart_data.map(point => ({
-              time: point.time || 0,
+              time: point.time || Date.now(),
               price: parseFloat(point.price?.toString() || storedEntryPrice.toString())
             }));
             console.log(`📈 Using stored chart data for ${signal.symbol}: ${chartData.length} points`);
@@ -115,7 +130,7 @@ export const useTradingSignals = () => {
           // Get targets_hit array
           const targetsHit = signal.targets_hit || [];
 
-          return {
+          const transformedSignal = {
             id: signal.id,
             pair: signal.symbol,
             type: signal.type || 'BUY',
@@ -131,6 +146,9 @@ export const useTradingSignals = () => {
             chartData: chartData,
             targetsHit: targetsHit
           };
+
+          console.log(`✅ Processed signal for ${signal.symbol}:`, transformedSignal);
+          return transformedSignal;
         } catch (error) {
           console.error(`❌ Error transforming signal for ${signal?.symbol}:`, error);
           return null;
@@ -165,12 +183,9 @@ export const useTradingSignals = () => {
       await fetchSignals();
       
       const signalsGenerated = signalResult?.stats?.signalsGenerated || 0;
-      const opportunitiesAnalyzed = signalResult?.stats?.opportunitiesAnalyzed || 0;
       const totalActiveSignals = signalResult?.stats?.totalActiveSignals || 0;
       const signalLimit = signalResult?.stats?.signalLimit || MAX_ACTIVE_SIGNALS;
       const limitReached = signalResult?.stats?.limitReached || false;
-      const generationRate = signalResult?.stats?.generationRate || '0%';
-      const totalPairsAvailable = signalResult?.stats?.totalPairsAvailable || 'Unknown';
       
       toast({
         title: limitReached ? "Signal Limit Reached" : "Ultra-Conservative Generation Complete",
@@ -225,6 +240,7 @@ export const useTradingSignals = () => {
   }, [fetchSignals, toast]);
 
   useEffect(() => {
+    console.log('🔄 Initializing signal fetching...');
     fetchSignals();
     
     // Enhanced real-time subscriptions for ultra-conservative signals
