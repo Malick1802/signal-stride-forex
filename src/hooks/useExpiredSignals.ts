@@ -72,7 +72,6 @@ export const useExpiredSignals = () => {
           description: "Failed to fetch expired signals",
           variant: "destructive"
         });
-        setLoading(false);
         return;
       }
 

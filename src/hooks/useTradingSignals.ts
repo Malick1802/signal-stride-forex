@@ -31,6 +31,7 @@ export const useTradingSignals = () => {
   const fetchSignals = useCallback(async () => {
     try {
       console.log('🔄 Fetching ultra-conservative signals...');
+      setLoading(true);
       
       // Fetch only ACTIVE centralized signals (limited to 15)
       const { data: centralizedSignals, error } = await supabase
@@ -50,7 +51,6 @@ export const useTradingSignals = () => {
           variant: "destructive"
         });
         setSignals([]);
-        setLoading(false);
         return;
       }
 
@@ -60,14 +60,12 @@ export const useTradingSignals = () => {
         console.log('📭 No active ultra-conservative signals found');
         setSignals([]);
         setLastUpdate(new Date().toLocaleTimeString());
-        setLoading(false);
         return;
       }
 
       const processedSignals = processSignals(centralizedSignals);
       setSignals(processedSignals);
       setLastUpdate(new Date().toLocaleTimeString());
-      setLoading(false);
       
       if (processedSignals.length > 0) {
         console.log(`✅ Loaded ${processedSignals.length}/${MAX_ACTIVE_SIGNALS} ultra-conservative signals (80%+ WIN RATE TARGET)`);
@@ -76,12 +74,13 @@ export const useTradingSignals = () => {
     } catch (error) {
       console.error('❌ Error in fetchSignals:', error);
       setSignals([]);
-      setLoading(false);
       toast({
         title: "Error",
         description: "Failed to fetch trading signals",
         variant: "destructive"
       });
+    } finally {
+      setLoading(false);
     }
   }, [toast]);
 
