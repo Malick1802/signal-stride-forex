@@ -1,3 +1,4 @@
+
 import React, { useState, memo } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useSignalMonitoring } from '@/hooks/useSignalMonitoring';
@@ -46,7 +47,7 @@ const TradingSignals = memo(() => {
 
   const avgConfidence = validSignals.length > 0 
     ? Math.round(validSignals.reduce((sum, signal) => sum + (signal.confidence || 0), 0) / validSignals.length)
-    : 80; // Balanced average for new mode
+    : 80;
 
   const handleCleanupCrons = async () => {
     setCleaningCrons(true);
@@ -222,25 +223,25 @@ const TradingSignals = memo(() => {
             </div>
           </div>
           <div className="text-sm text-blue-400">
-            🎯 Maximum {MAX_ACTIVE_SIGNALS} active signals • All currency pairs • Balanced selection • 70%+ win rate target
+            🎯 Maximum {MAX_ACTIVE_SIGNALS} active signals • All currency pairs • High-probability selection • 70%+ win rate target
           </div>
         </div>
       </div>
 
-      {/* BALANCED Mode Notice */}
+      {/* HIGH-PROBABILITY Mode Notice */}
       <div className="bg-green-500/10 backdrop-blur-sm rounded-xl border border-green-500/20 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <TrendingUp className="h-5 w-5 text-green-400" />
-              <span className="text-white font-medium">BALANCED ALL-PAIRS MODE</span>
+              <span className="text-white font-medium">HIGH-PROBABILITY ALL-PAIRS MODE</span>
               <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
                 70%+ WIN RATE TARGET
               </span>
             </div>
           </div>
           <div className="text-sm text-green-400">
-            🌍 All currency pairs analyzed • Major + Minor + Cross pairs • Balanced approach • 75%+ confidence required
+            🌍 All currency pairs analyzed • Major + Minor + Cross pairs • High-probability approach • 75%+ confidence required
           </div>
         </div>
       </div>
@@ -294,7 +295,7 @@ const TradingSignals = memo(() => {
               <Wrench className="h-5 w-5 text-yellow-400" />
               <span className="text-white font-medium">System Controls</span>
               <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
-                ULTRA-CONSERVATIVE ALL-PAIRS
+                HIGH-PROBABILITY ALL-PAIRS
               </span>
             </div>
           </div>
@@ -338,24 +339,24 @@ const TradingSignals = memo(() => {
           </div>
         </div>
         <div className="mt-2 text-xs text-green-400">
-          🌍 ULTRA-CONSERVATIVE ALL-PAIRS MODE: Major + Minor + Cross pairs • 85%+ win rate target • 90%+ confidence • Maximum {MAX_ACTIVE_SIGNALS} signals
+          🌍 HIGH-PROBABILITY ALL-PAIRS MODE: Major + Minor + Cross pairs • 70%+ win rate target • 75%+ confidence • Maximum {MAX_ACTIVE_SIGNALS} signals
         </div>
       </div>
 
-      {/* AI-Powered Balanced Detection Status */}
+      {/* AI-Powered High-Probability Detection Status */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <Brain className="h-5 w-5 text-green-400" />
-              <span className="text-white font-medium">Balanced All-Pairs AI System (Limit: {MAX_ACTIVE_SIGNALS})</span>
+              <span className="text-white font-medium">High-Probability All-Pairs AI System (Limit: {MAX_ACTIVE_SIGNALS})</span>
               <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
                 ALL PAIRS • 70%+ WIN RATE
               </span>
             </div>
           </div>
           <div className="text-sm text-gray-400">
-            🌍 Balanced analysis across all currency pairs • 75%+ confidence required • 2-3 confirmations • 70%+ win probability
+            🌍 High-probability analysis across all currency pairs • 75%+ confidence required • 2-3 confirmations • 70%+ win probability
           </div>
         </div>
       </div>
@@ -418,7 +419,7 @@ const TradingSignals = memo(() => {
                 : `No signals for ${selectedPair}`}
             </div>
             <div className="text-sm text-gray-500 mb-6">
-              🌍 Signal limit: {MAX_ACTIVE_SIGNALS} • Balanced AI analyzes ALL currency pairs (Major + Minor + Cross) for 70%+ win rate signals
+              🌍 Signal limit: {MAX_ACTIVE_SIGNALS} • High-probability AI analyzes ALL currency pairs (Major + Minor + Cross) for 70%+ win rate signals
             </div>
             <div className="space-x-4">
               <Button

@@ -39,7 +39,7 @@ export const useTradingSignals = () => {
         .eq('is_centralized', true)
         .is('user_id', null)
         .order('created_at', { ascending: false })
-        .limit(MAX_ACTIVE_SIGNALS); // Limited to 15 signals
+        .limit(MAX_ACTIVE_SIGNALS);
 
       if (error) {
         console.error('❌ Error fetching active high-probability all-pairs signals:', error);
@@ -124,7 +124,7 @@ export const useTradingSignals = () => {
             takeProfit1: takeProfits[0] ? takeProfits[0].toFixed(5) : '0.00000',
             takeProfit2: takeProfits[1] ? takeProfits[1].toFixed(5) : '0.00000',
             takeProfit3: takeProfits[2] ? takeProfits[2].toFixed(5) : '0.00000',
-            confidence: Math.floor(signal.confidence || 80), // Balanced confidence for new mode
+            confidence: Math.floor(signal.confidence || 80),
             timestamp: signal.created_at || new Date().toISOString(),
             status: signal.status || 'active',
             analysisText: signal.analysis_text || `HIGH-PROBABILITY ${signal.type || 'BUY'} signal for ${signal.symbol} (70%+ win rate target across all pairs)`,
@@ -229,7 +229,7 @@ export const useTradingSignals = () => {
     
     // Enhanced real-time subscriptions for high-probability all-pairs signals
     const signalsChannel = supabase
-      .channel(`balanced-all-pairs-trading-signals-${Date.now()}`)
+      .channel(`high-probability-all-pairs-trading-signals-${Date.now()}`)
       .on(
         'postgres_changes',
         {
