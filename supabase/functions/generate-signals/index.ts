@@ -8,7 +8,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Maximum number of active signals allowed - ULTRA CONSERVATIVE
+// Maximum number of active signals allowed - HIGH-PROBABILITY CONSERVATIVE
 const MAX_ACTIVE_SIGNALS = 15;
 
 serve(async (req) => {
@@ -21,10 +21,10 @@ serve(async (req) => {
     const isCronTriggered = body.trigger === 'cron';
     const targetPair = body.symbol; // Optional: generate signal for specific pair
     
-    console.log(`🎯 ${isCronTriggered ? 'CRON AUTOMATIC' : 'MANUAL'} ULTRA-CONSERVATIVE signal generation starting...`);
-    console.log(`🎯 Target pair: ${targetPair || 'Auto-detect ULTRA-CONSERVATIVE opportunities'}`);
+    console.log(`🎯 ${isCronTriggered ? 'CRON AUTOMATIC' : 'MANUAL'} HIGH-PROBABILITY CONSERVATIVE signal generation starting...`);
+    console.log(`🎯 Target pair: ${targetPair || 'Auto-detect HIGH-PROBABILITY opportunities'}`);
     console.log('⏰ Timestamp:', new Date().toISOString());
-    console.log(`🛡️ MODE: ULTRA-CONSERVATIVE (90%+ confidence, 80%+ win rate target) - MAX ${MAX_ACTIVE_SIGNALS} SIGNALS`);
+    console.log(`🎯 MODE: HIGH-PROBABILITY CONSERVATIVE (75%+ confidence, 70%+ win rate target) - MAX ${MAX_ACTIVE_SIGNALS} SIGNALS`);
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -82,12 +82,12 @@ serve(async (req) => {
             totalActiveSignals: currentSignalCount,
             signalLimit: MAX_ACTIVE_SIGNALS,
             limitReached: true,
-            ultraConservativeMode: true,
-            expectedWinRate: '80%+'
+            highProbabilityConservativeMode: true,
+            expectedWinRate: '70%+'
           },
           timestamp: new Date().toISOString(),
           trigger: isCronTriggered ? 'cron' : 'manual',
-          approach: 'ultra_conservative_signal_limit_enforcement'
+          approach: 'high_probability_conservative_signal_limit_enforcement'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -95,7 +95,7 @@ serve(async (req) => {
 
     // Calculate how many new signals we can generate
     const maxNewSignals = MAX_ACTIVE_SIGNALS - currentSignalCount;
-    console.log(`✅ Can generate up to ${maxNewSignals} new ULTRA-CONSERVATIVE signals`);
+    console.log(`✅ Can generate up to ${maxNewSignals} new HIGH-PROBABILITY CONSERVATIVE signals`);
 
     // MARKET DATA VALIDATION - Check for fresh data
     console.log('📈 Validating centralized market data freshness...');
@@ -146,23 +146,25 @@ serve(async (req) => {
       }
     }
 
-    // ULTRA CONSERVATIVE PAIR SELECTION - Only major pairs with highest liquidity
-    const ultraConservativePairs = [
-      // Only major pairs for ultra-conservative approach
-      'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD'
+    // HIGH-PROBABILITY CONSERVATIVE PAIR SELECTION - Major pairs + selected minor pairs
+    const highProbabilityPairs = [
+      // Major pairs (highest liquidity)
+      'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD',
+      // High-volume minor pairs for more opportunities
+      'EURGBP', 'EURJPY', 'GBPJPY', 'AUDNZD', 'EURCHF', 'GBPCHF', 'AUDCAD'
     ];
     
-    console.log(`🛡️ ULTRA-CONSERVATIVE: Analyzing only ${ultraConservativePairs.length} major pairs with highest liquidity`);
+    console.log(`🎯 HIGH-PROBABILITY CONSERVATIVE: Analyzing ${highProbabilityPairs.length} pairs (major + high-volume minor pairs)`);
     
     // Filter out pairs that already have active signals
     const availablePairs = targetPair 
       ? (existingPairs.has(targetPair) ? [] : [targetPair])
-      : ultraConservativePairs.filter(pair => !existingPairs.has(pair));
+      : highProbabilityPairs.filter(pair => !existingPairs.has(pair));
     
     // Limit available pairs to the maximum we can generate
     const prioritizedPairs = availablePairs.slice(0, maxNewSignals);
     
-    console.log(`🔍 Available pairs for NEW ULTRA-CONSERVATIVE signals: ${prioritizedPairs.length} (limited to ${maxNewSignals})`);
+    console.log(`🔍 Available pairs for NEW HIGH-PROBABILITY CONSERVATIVE signals: ${prioritizedPairs.length} (limited to ${maxNewSignals})`);
     console.log(`📝 Will analyze: [${prioritizedPairs.join(', ')}]`);
     
     if (prioritizedPairs.length === 0) {
@@ -180,12 +182,12 @@ serve(async (req) => {
             totalActiveSignals: currentSignalCount,
             signalLimit: MAX_ACTIVE_SIGNALS,
             limitReached: true,
-            ultraConservativeMode: true,
-            expectedWinRate: '80%+'
+            highProbabilityConservativeMode: true,
+            expectedWinRate: '70%+'
           },
           timestamp: new Date().toISOString(),
           trigger: isCronTriggered ? 'cron' : 'manual',
-          approach: 'ultra_conservative_signal_limit_enforcement'
+          approach: 'high_probability_conservative_signal_limit_enforcement'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -204,7 +206,7 @@ serve(async (req) => {
       }
     }
 
-    console.log(`🎯 Will analyze ${latestPrices.size} pairs for NEW ULTRA-CONSERVATIVE signal opportunities (limit: ${maxNewSignals})`);
+    console.log(`🎯 Will analyze ${latestPrices.size} pairs for NEW HIGH-PROBABILITY CONSERVATIVE signal opportunities (limit: ${maxNewSignals})`);
 
     if (latestPrices.size === 0) {
       console.log('⚠️ No market data available for new signal generation');
@@ -221,12 +223,12 @@ serve(async (req) => {
             totalActiveSignals: currentSignalCount,
             signalLimit: MAX_ACTIVE_SIGNALS,
             limitReached: false,
-            ultraConservativeMode: true,
-            expectedWinRate: '80%+'
+            highProbabilityConservativeMode: true,
+            expectedWinRate: '70%+'
           },
           timestamp: new Date().toISOString(),
           trigger: isCronTriggered ? 'cron' : 'manual',
-          approach: 'ultra_conservative_signal_limit_enforcement'
+          approach: 'high_probability_conservative_signal_limit_enforcement'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -237,9 +239,9 @@ serve(async (req) => {
     let opportunitiesAnalyzed = 0;
     const generatedSignals = [];
 
-    console.log(`🚀 Starting ULTRA-CONSERVATIVE AI analysis for ${prioritizedPairs.length} NEW major pairs (limit: ${maxNewSignals})...`);
+    console.log(`🚀 Starting HIGH-PROBABILITY CONSERVATIVE AI analysis for ${prioritizedPairs.length} NEW pairs (limit: ${maxNewSignals})...`);
 
-    // Analyze pairs individually with ULTRA-CONSERVATIVE generation (only for pairs without signals)
+    // Analyze pairs individually with HIGH-PROBABILITY CONSERVATIVE generation
     for (const pair of prioritizedPairs) {
       // Stop if we've reached our limit
       if (signalsGenerated >= maxNewSignals) {
@@ -257,7 +259,7 @@ serve(async (req) => {
         opportunitiesAnalyzed++;
         const currentPrice = parseFloat(marketPoint.current_price.toString());
         
-        console.log(`🧠 ULTRA-CONSERVATIVE analysis of ${pair} at price ${currentPrice} (${signalsGenerated + 1}/${maxNewSignals})...`);
+        console.log(`🧠 HIGH-PROBABILITY CONSERVATIVE analysis of ${pair} at price ${currentPrice} (${signalsGenerated + 1}/${maxNewSignals})...`);
 
         // Get extended historical price data for analysis
         const { data: historicalData } = await supabase
@@ -272,8 +274,8 @@ serve(async (req) => {
         const priceChange = priceHistory.length > 1 ? 
           ((currentPrice - priceHistory[priceHistory.length - 1]) / priceHistory[priceHistory.length - 1] * 100) : 0;
 
-        // ULTRA-CONSERVATIVE AI prompt - extremely strict requirements
-        console.log(`🔮 ULTRA-CONSERVATIVE AI opportunity check for ${pair} (major pair)...`);
+        // HIGH-PROBABILITY CONSERVATIVE AI prompt - balanced approach
+        console.log(`🔮 HIGH-PROBABILITY CONSERVATIVE AI opportunity check for ${pair}...`);
         
         const aiAnalysisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
@@ -286,72 +288,71 @@ serve(async (req) => {
             messages: [
               {
                 role: 'system',
-                content: `You are an ULTRA-CONSERVATIVE forex trading AI that RARELY generates signals - only when absolutely certain of high probability outcomes.
+                content: `You are a HIGH-PROBABILITY CONSERVATIVE forex trading AI that generates quality signals with a balanced approach to risk and opportunity.
 
-                ULTRA-CONSERVATIVE REQUIREMENTS FOR SIGNAL GENERATION:
-                - 90%+ confidence minimum (extremely high threshold)
-                - Must have 3+ strong technical confirmations (trend + momentum + pattern/support/resistance)
-                - Strong fundamental bias supporting the direction
-                - Clear risk/reward ratio of at least 1:2
-                - No conflicting signals whatsoever
-                - Market structure must be crystal clear
-                - Only major pairs with highest liquidity
-                - Perfect market timing and conditions
+                HIGH-PROBABILITY CONSERVATIVE REQUIREMENTS FOR SIGNAL GENERATION:
+                - 75%+ confidence minimum (good threshold for quality signals)
+                - Must have 2+ strong technical confirmations (trend + momentum OR pattern/support/resistance)
+                - Directional bias supporting the setup
+                - Good risk/reward ratio of at least 1:1.5
+                - Clear market structure with minimal conflicting signals
+                - Major and high-volume minor pairs
+                - Favorable market timing and conditions
                 
-                ULTRA-CONSERVATIVE MODE - Generate BUY/SELL signals ONLY when you have exceptional conviction with multiple strong confirmations. Use NEUTRAL for 90%+ of analyses as we prioritize quality over quantity.
+                HIGH-PROBABILITY CONSERVATIVE MODE - Generate BUY/SELL signals when you have good conviction with solid confirmations. Use NEUTRAL for uncertain setups. Target 70-75% win rate with 20-30% signal generation rate.
                 
-                TARGET: 80%+ win rate with 10-20% signal generation rate - accept ONLY the highest quality setups.
+                TARGET: 70-75% win rate with 20-30% signal generation rate - focus on good quality setups with reasonable frequency.
                 
                 Respond with a JSON object containing:
                 {
                   "signal": "BUY" or "SELL" or "NEUTRAL",
-                  "confidence": number between 90-95 (90+ required for signal generation),
-                  "win_probability": number between 80-90,
+                  "confidence": number between 75-95 (75+ required for signal generation),
+                  "win_probability": number between 70-85,
                   "setup_quality": "EXCEPTIONAL" or "VERY_GOOD" or "GOOD",
-                  "confirmations_count": number of technical confirmations (3+ required),
+                  "confirmations_count": number of technical confirmations (2+ required),
                   "entry_price": number (current price adjusted for optimal entry),
-                  "stop_loss_pips": number between 20-40 (conservative stops),
-                  "take_profit_pips": [number, number, number] (conservative targets),
-                  "analysis": "detailed explanation focusing on why this has 80%+ win probability",
+                  "stop_loss_pips": number between 20-40 (reasonable stops),
+                  "take_profit_pips": [number, number, number] (balanced targets),
+                  "analysis": "detailed explanation focusing on why this has 70%+ win probability",
                   "risk_factors": "any risks that could invalidate the setup",
-                  "market_setup": "description of the exceptional setup detected",
-                  "fundamental_bias": "strong fundamental support for the direction"
+                  "market_setup": "description of the good setup detected",
+                  "fundamental_bias": "fundamental support for the direction"
                 }
                 
-                SIGNAL CRITERIA (use BUY/SELL only when ALL met):
-                - Clear exceptional directional bias with multiple strong confirmations
-                - Confidence above 90%
-                - At least 3 technical confirmations
-                - Strong risk/reward ratio (1:2 minimum)
-                - Crystal clear market structure
-                - Strong fundamental support
-                - Perfect timing conditions
+                SIGNAL CRITERIA (use BUY/SELL when these are met):
+                - Clear directional bias with solid confirmations
+                - Confidence above 75%
+                - At least 2 technical confirmations
+                - Good risk/reward ratio (1:1.5 minimum)
+                - Clear market structure
+                - Reasonable fundamental support
+                - Good timing conditions
                 
-                NEUTRAL CRITERIA (use NEUTRAL when ANY not met):
-                - Any uncertainty or mixed signals
-                - Confidence below 90%
-                - Less than 3 confirmations
+                NEUTRAL CRITERIA (use NEUTRAL when):
+                - Significant uncertainty or mixed signals
+                - Confidence below 75%
+                - Less than 2 confirmations
                 - Poor risk/reward ratio
                 - Unclear market structure
-                - Conflicting fundamentals
-                - Suboptimal timing`
+                - Strong conflicting fundamentals
+                - Poor timing conditions`
               },
               {
                 role: 'user',
-                content: `Analyze ${pair} (major pair) for ULTRA-CONSERVATIVE trading opportunity (80%+ win rate requirement):
+                content: `Analyze ${pair} for HIGH-PROBABILITY CONSERVATIVE trading opportunity (70%+ win rate requirement):
                 Current Price: ${currentPrice}
                 Recent Prices: ${priceHistory.join(', ')}
                 24h Change: ${priceChange.toFixed(2)}%
                 Market Session: ${new Date().getUTCHours() >= 12 && new Date().getUTCHours() < 20 ? 'Active Trading Hours' : 'Off-Peak Hours'}
                 Data Freshness: ${marketPoint.last_update}
                 
-                Generate a signal ONLY if you have exceptional conviction (90%+ confidence) with multiple strong confirmations and 80%+ win probability for ${pair}.
+                Generate a signal if you have good conviction (75%+ confidence) with solid confirmations and 70%+ win probability for ${pair}.
                 
-                Focus on ultra-conservative setups that meet the strictest criteria for consistent trading success. Reject 90%+ of opportunities to maintain the highest quality standards.`
+                Focus on high-probability setups that meet balanced criteria for consistent trading success while maintaining reasonable opportunity frequency.`
               }
             ],
             max_tokens: 800,
-            temperature: 0.1
+            temperature: 0.2
           }),
         });
 
@@ -383,44 +384,44 @@ serve(async (req) => {
           continue;
         }
 
-        console.log(`📊 ULTRA-CONSERVATIVE AI Decision for ${pair}: ${aiSignal.signal} (${aiSignal.confidence}% confidence, ${aiSignal.win_probability}% win probability)`);
+        console.log(`📊 HIGH-PROBABILITY CONSERVATIVE AI Decision for ${pair}: ${aiSignal.signal} (${aiSignal.confidence}% confidence, ${aiSignal.win_probability}% win probability)`);
         console.log(`🔧 Setup Quality: ${aiSignal.setup_quality}, Confirmations: ${aiSignal.confirmations_count}`);
 
         if (aiSignal.signal === 'NEUTRAL' || !['BUY', 'SELL'].includes(aiSignal.signal)) {
-          console.log(`⚪ No signal generated for ${pair} - did not meet ultra-conservative criteria`);
+          console.log(`⚪ No signal generated for ${pair} - did not meet high-probability conservative criteria`);
           continue;
         }
 
-        // ULTRA-CONSERVATIVE requirements - extremely strict thresholds
-        if (aiSignal.confidence < 90) {
-          console.log(`⚠️ Signal confidence too low for ${pair}: ${aiSignal.confidence}% (requires 90%+)`);
+        // HIGH-PROBABILITY CONSERVATIVE requirements - balanced thresholds
+        if (aiSignal.confidence < 75) {
+          console.log(`⚠️ Signal confidence too low for ${pair}: ${aiSignal.confidence}% (requires 75%+)`);
           continue;
         }
 
-        if (aiSignal.win_probability < 80) {
-          console.log(`⚠️ Win probability too low for ${pair}: ${aiSignal.win_probability}% (requires 80%+)`);
+        if (aiSignal.win_probability < 70) {
+          console.log(`⚠️ Win probability too low for ${pair}: ${aiSignal.win_probability}% (requires 70%+)`);
           continue;
         }
 
-        if (aiSignal.confirmations_count < 3) {
-          console.log(`⚠️ Insufficient confirmations for ${pair}: ${aiSignal.confirmations_count} (requires 3+)`);
+        if (aiSignal.confirmations_count < 2) {
+          console.log(`⚠️ Insufficient confirmations for ${pair}: ${aiSignal.confirmations_count} (requires 2+)`);
           continue;
         }
 
-        if (aiSignal.setup_quality !== 'EXCEPTIONAL' && aiSignal.setup_quality !== 'VERY_GOOD') {
-          console.log(`⚠️ Setup quality not exceptional enough for ${pair}: ${aiSignal.setup_quality}`);
+        if (!['EXCEPTIONAL', 'VERY_GOOD', 'GOOD'].includes(aiSignal.setup_quality)) {
+          console.log(`⚠️ Setup quality not good enough for ${pair}: ${aiSignal.setup_quality}`);
           continue;
         }
 
-        console.log(`🎯 NEW ULTRA-CONSERVATIVE SIGNAL GENERATED for ${pair}: ${aiSignal.signal} signal (${signalsGenerated + 1}/${maxNewSignals})`);
+        console.log(`🎯 NEW HIGH-PROBABILITY CONSERVATIVE SIGNAL GENERATED for ${pair}: ${aiSignal.signal} signal (${signalsGenerated + 1}/${maxNewSignals})`);
         console.log(`📝 Setup: ${aiSignal.market_setup}`);
         console.log(`🎯 Win Probability: ${aiSignal.win_probability}%`);
         console.log(`✅ Confirmations: ${aiSignal.confirmations_count}`);
 
-        // Generate signal with ultra-conservative settings
+        // Generate signal with high-probability conservative settings
         const entryPrice = aiSignal.entry_price || currentPrice;
-        const stopLossPips = aiSignal.stop_loss_pips || 30; // Conservative stops
-        const takeProfitPips = aiSignal.take_profit_pips || [25, 45, 65]; // Conservative targets
+        const stopLossPips = aiSignal.stop_loss_pips || 30; // Reasonable stops
+        const takeProfitPips = aiSignal.take_profit_pips || [20, 35, 50]; // Balanced targets
 
         // Convert pips to price levels
         const pipValue = pair.includes('JPY') ? 0.01 : 0.0001;
@@ -477,14 +478,14 @@ serve(async (req) => {
           status: 'active',
           is_centralized: true,
           user_id: null,
-          analysis_text: `ULTRA-CONSERVATIVE ${aiSignal.setup_quality} Major Pair Setup (${aiSignal.win_probability}% win probability): ${aiSignal.analysis} | Fundamental Bias: ${aiSignal.fundamental_bias || 'Strong directional support'}`,
+          analysis_text: `HIGH-PROBABILITY CONSERVATIVE ${aiSignal.setup_quality} Setup (${aiSignal.win_probability}% win probability): ${aiSignal.analysis} | Fundamental Bias: ${aiSignal.fundamental_bias || 'Directional support'}`,
           chart_data: chartData,
           pips: stopLossPips,
           created_at: timestamp
         };
 
-        // Insert the new ultra-conservative signal
-        console.log(`💾 Inserting NEW ULTRA-CONSERVATIVE AI signal for ${pair} (${signalsGenerated + 1}/${maxNewSignals})...`);
+        // Insert the new high-probability conservative signal
+        console.log(`💾 Inserting NEW HIGH-PROBABILITY CONSERVATIVE AI signal for ${pair} (${signalsGenerated + 1}/${maxNewSignals})...`);
         const { data: insertedSignal, error: insertError } = await supabase
           .from('trading_signals')
           .insert([signal])
@@ -498,7 +499,7 @@ serve(async (req) => {
 
         signalsGenerated++;
         generatedSignals.push(insertedSignal);
-        console.log(`✅ Generated NEW ULTRA-CONSERVATIVE AI signal for ${pair} (${aiSignal.confidence}% confidence, ${aiSignal.win_probability}% win probability) - ${signalsGenerated}/${maxNewSignals}`);
+        console.log(`✅ Generated NEW HIGH-PROBABILITY CONSERVATIVE AI signal for ${pair} (${aiSignal.confidence}% confidence, ${aiSignal.win_probability}% win probability) - ${signalsGenerated}/${maxNewSignals}`);
 
         // Add delay between analyses to avoid rate limiting
         if (signalsGenerated < maxNewSignals && prioritizedPairs.indexOf(pair) < prioritizedPairs.length - 1) {
@@ -514,20 +515,20 @@ serve(async (req) => {
     const finalActiveSignals = currentSignalCount + signalsGenerated;
     const generationRate = opportunitiesAnalyzed > 0 ? ((signalsGenerated / opportunitiesAnalyzed) * 100) : 0;
 
-    console.log(`📊 ULTRA-CONSERVATIVE SIGNAL GENERATION SUMMARY:`);
+    console.log(`📊 HIGH-PROBABILITY CONSERVATIVE SIGNAL GENERATION SUMMARY:`);
     console.log(`  - Signal limit: ${MAX_ACTIVE_SIGNALS}`);
     console.log(`  - Starting signals: ${currentSignalCount}`);
-    console.log(`  - Pairs analyzed: ${ultraConservativePairs.length} major pairs available`);
+    console.log(`  - Pairs analyzed: ${highProbabilityPairs.length} pairs available`);
     console.log(`  - New opportunities analyzed: ${opportunitiesAnalyzed}`);
-    console.log(`  - New ultra-conservative signals generated: ${signalsGenerated}`);
+    console.log(`  - New high-probability conservative signals generated: ${signalsGenerated}`);
     console.log(`  - Final active signals: ${finalActiveSignals}/${MAX_ACTIVE_SIGNALS}`);
-    console.log(`  - Generation rate: ${generationRate.toFixed(1)}% (Target: 10-20%)`);
-    console.log(`  - Mode: ULTRA-CONSERVATIVE (90%+ confidence, 80%+ win probability)`);
+    console.log(`  - Generation rate: ${generationRate.toFixed(1)}% (Target: 20-30%)`);
+    console.log(`  - Mode: HIGH-PROBABILITY CONSERVATIVE (75%+ confidence, 70%+ win probability)`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `ULTRA-CONSERVATIVE signal generation completed - ${signalsGenerated} new ultra-conservative signals generated from ${opportunitiesAnalyzed} opportunities analyzed across ${ultraConservativePairs.length} major pairs (${finalActiveSignals}/${MAX_ACTIVE_SIGNALS} total)`,
+        message: `HIGH-PROBABILITY CONSERVATIVE signal generation completed - ${signalsGenerated} new high-probability signals generated from ${opportunitiesAnalyzed} opportunities analyzed across ${highProbabilityPairs.length} pairs (${finalActiveSignals}/${MAX_ACTIVE_SIGNALS} total)`,
         signals: generatedSignals?.map(s => ({ 
           id: s.id, 
           symbol: s.symbol, 
@@ -543,20 +544,20 @@ serve(async (req) => {
           totalActiveSignals: finalActiveSignals,
           signalLimit: MAX_ACTIVE_SIGNALS,
           limitReached: finalActiveSignals >= MAX_ACTIVE_SIGNALS,
-          ultraConservativeMode: true,
-          expectedWinRate: '80%+',
-          totalPairsAvailable: ultraConservativePairs.length,
-          pairCategories: 'Major pairs only (highest liquidity)'
+          highProbabilityConservativeMode: true,
+          expectedWinRate: '70%+',
+          totalPairsAvailable: highProbabilityPairs.length,
+          pairCategories: 'Major + high-volume minor pairs'
         },
         timestamp,
         trigger: isCronTriggered ? 'cron' : 'manual',
-        approach: 'ultra_conservative_major_pairs_only'
+        approach: 'high_probability_conservative_balanced_pairs'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('💥 ULTRA-CONSERVATIVE SIGNAL GENERATION error:', error);
+    console.error('💥 HIGH-PROBABILITY CONSERVATIVE SIGNAL GENERATION error:', error);
     return new Response(
       JSON.stringify({ 
         success: false,
