@@ -46,6 +46,23 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
+    // FIRST: Ensure we have fresh market data
+    console.log('🔄 Ensuring fresh market data is available...');
+    
+    try {
+      const { data: marketUpdateResult, error: marketUpdateError } = await supabase.functions.invoke('centralized-market-stream');
+      
+      if (marketUpdateError) {
+        console.error('❌ Failed to trigger market data update:', marketUpdateError);
+      } else {
+        console.log('✅ Market data update triggered successfully');
+        // Wait for market data to be processed
+        await new Promise(resolve => setTimeout(resolve, 3000));
+      }
+    } catch (error) {
+      console.error('❌ Error triggering market update:', error);
+    }
+
     // GET EXISTING ACTIVE SIGNALS TO CHECK LIMIT
     console.log(`🔍 Checking existing active signals (limit: ${MAX_ACTIVE_SIGNALS})...`);
     const { data: existingSignals, error: existingError } = await supabase
@@ -97,54 +114,49 @@ serve(async (req) => {
     const maxNewSignals = MAX_ACTIVE_SIGNALS - currentSignalCount;
     console.log(`✅ Can generate up to ${maxNewSignals} new HIGH-PROBABILITY CONSERVATIVE signals`);
 
-    // MARKET DATA VALIDATION - Check for fresh data
-    console.log('📈 Validating centralized market data freshness...');
+    // FETCH FRESH MARKET DATA FROM CENTRALIZED SOURCE
+    console.log('📈 Fetching fresh centralized market data...');
     const { data: marketData, error: marketError } = await supabase
       .from('centralized_market_state')
       .select('*')
-      .order('last_update', { ascending: false })
-      .limit(50);
+      .order('last_update', { ascending: false });
 
     if (marketError) {
       console.error('❌ Error fetching centralized market data:', marketError);
       throw marketError;
     }
 
-    console.log(`💾 Found ${marketData?.length || 0} market data points`);
+    console.log(`💾 Found ${marketData?.length || 0} market data records`);
 
-    // Validate data freshness (within last 10 minutes)
-    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-    const freshData = marketData?.filter(d => new Date(d.last_update) > tenMinutesAgo) || [];
-    
-    console.log(`🕒 Fresh data points (last 10 min): ${freshData.length}/${marketData?.length || 0}`);
+    if (!marketData || marketData.length === 0) {
+      console.error('❌ No market data available for analysis');
+      return new Response(
+        JSON.stringify({ 
+          success: false,
+          error: 'No market data available for signal generation',
+          message: 'Market data is required for AI analysis but none was found',
+          stats: {
+            opportunitiesAnalyzed: 0,
+            signalsGenerated: 0,
+            marketDataRecords: 0,
+            existingSignals: currentSignalCount
+          },
+          timestamp: new Date().toISOString()
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
-    if (freshData.length === 0) {
-      console.log('⚠️ No fresh centralized market data available, triggering market update first...');
-      
-      try {
-        const { error: updateError } = await supabase.functions.invoke('centralized-market-stream');
-        if (updateError) {
-          console.error('❌ Failed to trigger market update:', updateError);
-        } else {
-          console.log('✅ Market data update triggered, waiting for fresh data...');
-          await new Promise(resolve => setTimeout(resolve, 5000));
-          
-          // Retry fetching fresh data
-          const { data: retryData } = await supabase
-            .from('centralized_market_state')
-            .select('*')
-            .gte('last_update', tenMinutesAgo.toISOString())
-            .order('last_update', { ascending: false });
-            
-          if (retryData && retryData.length > 0) {
-            console.log(`✅ Fresh data available after update: ${retryData.length} points`);
-            marketData.push(...retryData);
-          }
-        }
-      } catch (error) {
-        console.error('❌ Failed to trigger market update:', error);
+    // Get latest price for each symbol (most recent record per symbol)
+    const latestPrices = new Map();
+    for (const record of marketData) {
+      if (!latestPrices.has(record.symbol) || 
+          new Date(record.last_update) > new Date(latestPrices.get(record.symbol).last_update)) {
+        latestPrices.set(record.symbol, record);
       }
     }
+
+    console.log(`📊 Latest prices available for ${latestPrices.size} symbols: [${Array.from(latestPrices.keys()).join(', ')}]`);
 
     // HIGH-PROBABILITY CONSERVATIVE PAIR SELECTION - Major pairs + selected minor pairs
     const highProbabilityPairs = [
@@ -156,10 +168,10 @@ serve(async (req) => {
     
     console.log(`🎯 HIGH-PROBABILITY CONSERVATIVE: Analyzing ${highProbabilityPairs.length} pairs (major + high-volume minor pairs)`);
     
-    // Filter out pairs that already have active signals
+    // Filter out pairs that already have active signals and ensure we have market data
     const availablePairs = targetPair 
       ? (existingPairs.has(targetPair) ? [] : [targetPair])
-      : highProbabilityPairs.filter(pair => !existingPairs.has(pair));
+      : highProbabilityPairs.filter(pair => !existingPairs.has(pair) && latestPrices.has(pair));
     
     // Limit available pairs to the maximum we can generate
     const prioritizedPairs = availablePairs.slice(0, maxNewSignals);
@@ -168,11 +180,15 @@ serve(async (req) => {
     console.log(`📝 Will analyze: [${prioritizedPairs.join(', ')}]`);
     
     if (prioritizedPairs.length === 0) {
-      console.log(`✅ Signal limit reached (${currentSignalCount}/${MAX_ACTIVE_SIGNALS}) - no new opportunities available`);
+      const reason = targetPair 
+        ? `Target pair ${targetPair} already has active signal or no market data`
+        : `All eligible pairs already have signals or no market data available`;
+      
+      console.log(`✅ No new opportunities: ${reason}`);
       return new Response(
         JSON.stringify({ 
           success: true,
-          message: `Signal limit reached (${currentSignalCount}/${MAX_ACTIVE_SIGNALS}) - no new opportunities available`, 
+          message: `No new signal opportunities available: ${reason}`, 
           signals: [],
           stats: {
             opportunitiesAnalyzed: 0,
@@ -181,54 +197,15 @@ serve(async (req) => {
             existingSignals: currentSignalCount,
             totalActiveSignals: currentSignalCount,
             signalLimit: MAX_ACTIVE_SIGNALS,
-            limitReached: true,
+            limitReached: currentSignalCount >= MAX_ACTIVE_SIGNALS,
             highProbabilityConservativeMode: true,
-            expectedWinRate: '70%+'
+            expectedWinRate: '70%+',
+            availablePairs: latestPrices.size,
+            eligiblePairs: availablePairs.length
           },
           timestamp: new Date().toISOString(),
           trigger: isCronTriggered ? 'cron' : 'manual',
-          approach: 'high_probability_conservative_signal_limit_enforcement'
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    
-    // Get latest price for available currency pairs (only those without signals)
-    const latestPrices = new Map();
-    
-    for (const pair of prioritizedPairs) {
-      const pairData = marketData?.find(item => item.symbol === pair);
-      if (pairData) {
-        latestPrices.set(pair, pairData);
-        console.log(`📊 Found centralized data for ${pair}: ${pairData.current_price} (updated: ${pairData.last_update})`);
-      } else {
-        console.log(`⚠️ No market data found for ${pair}`);
-      }
-    }
-
-    console.log(`🎯 Will analyze ${latestPrices.size} pairs for NEW HIGH-PROBABILITY CONSERVATIVE signal opportunities (limit: ${maxNewSignals})`);
-
-    if (latestPrices.size === 0) {
-      console.log('⚠️ No market data available for new signal generation');
-      return new Response(
-        JSON.stringify({ 
-          success: true,
-          message: 'No market data available for new signal generation', 
-          signals: [],
-          stats: {
-            opportunitiesAnalyzed: 0,
-            signalsGenerated: 0,
-            generationRate: '0%',
-            existingSignals: currentSignalCount,
-            totalActiveSignals: currentSignalCount,
-            signalLimit: MAX_ACTIVE_SIGNALS,
-            limitReached: false,
-            highProbabilityConservativeMode: true,
-            expectedWinRate: '70%+'
-          },
-          timestamp: new Date().toISOString(),
-          trigger: isCronTriggered ? 'cron' : 'manual',
-          approach: 'high_probability_conservative_signal_limit_enforcement'
+          approach: 'high_probability_conservative_no_opportunities'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -357,7 +334,8 @@ serve(async (req) => {
         });
 
         if (!aiAnalysisResponse.ok) {
-          console.error(`❌ OpenAI API error for ${pair}: ${aiAnalysisResponse.status} - ${await aiAnalysisResponse.text()}`);
+          const errorText = await aiAnalysisResponse.text();
+          console.error(`❌ OpenAI API error for ${pair}: ${aiAnalysisResponse.status} - ${errorText}`);
           continue;
         }
 
@@ -547,11 +525,13 @@ serve(async (req) => {
           highProbabilityConservativeMode: true,
           expectedWinRate: '70%+',
           totalPairsAvailable: highProbabilityPairs.length,
-          pairCategories: 'Major + high-volume minor pairs'
+          pairCategories: 'Major + high-volume minor pairs',
+          marketDataRecords: marketData?.length || 0,
+          availablePairs: latestPrices.size
         },
         timestamp,
         trigger: isCronTriggered ? 'cron' : 'manual',
-        approach: 'high_probability_conservative_balanced_pairs'
+        approach: 'high_probability_conservative_with_market_data_fetch'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -562,7 +542,8 @@ serve(async (req) => {
       JSON.stringify({ 
         success: false,
         error: error.message,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        details: 'Signal generation failed - check function logs for details'
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
