@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -278,7 +279,7 @@ serve(async (req) => {
         else if (currentHour >= 13 && currentHour < 22) tradingSession = 'US';
         else if (currentHour >= 21 || currentHour < 8) tradingSession = 'Asian';
 
-        // ENHANCED BALANCED AI prompt with equal consideration for both directions
+        // ENHANCED BALANCED AI prompt with AI-determined take profit levels
         console.log(`🔮 ENHANCED BALANCED AI analysis for ${pair} (${pairCategory} pair, ${tradingSession} session)...`);
         
         const aiAnalysisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -305,7 +306,7 @@ serve(async (req) => {
                 - 60%+ confidence minimum (practical threshold for real trading)
                 - 65%+ win probability target (realistic expectation)
                 - 2+ technical confirmations (trend analysis + one additional factor)
-                - REALISTIC pip targets based on pair volatility with PROGRESSIVE SPACING
+                - AI-DETERMINED pip targets based on SPECIFIC market conditions analysis
                 - PROPER stop losses (20-60 pips for majors, 30-80 pips for minors)
                 - Account for trading session characteristics
                 
@@ -331,10 +332,28 @@ serve(async (req) => {
                 - BEARISH reversal patterns (shooting star, doji at resistance)
                 - Volume increasing on DOWNWARD moves
 
-                REALISTIC PIP CALCULATIONS WITH PROGRESSIVE TARGETS:
-                - Major pairs (EURUSD, GBPUSD, etc.): 15-50 pips for SL, PROGRESSIVE TPs: 8-15-25-40-60 pips
-                - JPY pairs (USDJPY, EURJPY, etc.): 20-60 pips for SL, PROGRESSIVE TPs: 12-20-35-55-80 pips
-                - Minor/Cross pairs: 25-70 pips for SL, PROGRESSIVE TPs: 15-25-40-65-90 pips
+                AI-DETERMINED TAKE PROFIT STRATEGY:
+                You MUST analyze the specific market conditions for this pair and determine optimal take profit levels based on:
+                - Key resistance/support levels in the direction of the trade
+                - Fibonacci retracement levels
+                - Previous swing highs/lows
+                - Average daily range (ADR) of the pair
+                - Current volatility conditions
+                - Session-specific movement patterns
+                - Technical confluence zones
+
+                TAKE PROFIT CALCULATION REQUIREMENTS:
+                - Determine 5 take profit levels with INCREASING distances from entry
+                - TP1: Close target (typically 30-60% of normal daily range)
+                - TP2: Medium-close target (typically 50-80% of normal daily range)
+                - TP3: Medium target (typically 70-100% of normal daily range)
+                - TP4: Medium-far target (typically 90-120% of normal daily range)
+                - TP5: Far target (typically 110-150% of normal daily range)
+                
+                Base your pip calculations on ACTUAL market analysis:
+                - Major pairs: Analyze current ADR, recent high/low levels, key S/R zones
+                - JPY pairs: Account for higher pip values and typical volatility
+                - Minor/Cross pairs: Consider wider spreads and volatility patterns
                 - Risk/Reward: Minimum 1:1.5, target 1:2 or better for final TP
 
                 DIRECTIONAL ANALYSIS PROCESS:
@@ -349,11 +368,6 @@ serve(async (req) => {
                 - US session: USD pairs react to US economic factors
                 - Asian session: JPY, AUD, NZD pairs more active
                 - Session overlaps often create breakout opportunities
-
-                PAIR-SPECIFIC APPROACH:
-                - Major pairs: Focus on session overlaps and news impact (PROGRESSIVE TPs: 8-15-25-40-60 pips)
-                - Minor/Cross pairs: Look for breakouts and trending moves (PROGRESSIVE TPs: 15-25-40-65-90 pips)
-                - JPY pairs: Account for carry trade flows and session timing (PROGRESSIVE TPs: 12-20-35-55-80 pips)
 
                 ENHANCED MODE - Generate signals when you have reasonable conviction with proper confirmations in EITHER direction. 
                 TARGET: 70%+ win rate with balanced directional analysis - prioritize QUALITY over quantity.
@@ -373,7 +387,8 @@ serve(async (req) => {
                   "resistance_level": number (key resistance price),
                   "entry_price": number (optimal entry vs current price),
                   "stop_loss_pips": number between 15-80 (realistic for pair type),
-                  "take_profit_pips": [number, number, number, number, number] (5 progressive targets with closer spacing),
+                  "take_profit_pips": [number, number, number, number, number] (5 AI-determined targets based on market analysis),
+                  "take_profit_rationale": "explanation of why these specific TP levels were chosen",
                   "risk_reward_ratio": "1:X" format,
                   "session_advantage": "HIGH" or "MEDIUM" or "LOW",
                   "analysis": "detailed explanation focusing on SUCCESS probability and directional choice rationale",
@@ -419,11 +434,18 @@ serve(async (req) => {
                 6. MOMENTUM: Is momentum building in either direction?
                 7. VOLUME/VOLATILITY: Does current volatility (${priceVolatility.toFixed(3)}%) support a move in either direction?
                 
-                Generate a signal with 5 PROGRESSIVE take profit targets that are realistically achievable.
-                For ${pair}, use appropriate progressive pip ranges:
-                ${pairCategory === 'Major' ? '- Stop Loss: 15-50 pips, Take Profits: 8-15-25-40-60 pips' : '- Stop Loss: 25-70 pips, Take Profits: 15-25-40-65-90 pips'}
+                TAKE PROFIT ANALYSIS REQUIRED:
+                Based on your market analysis, determine 5 optimal take profit levels considering:
+                - Key resistance/support levels in trade direction
+                - Fibonacci levels and technical confluence zones
+                - Average daily range and current volatility
+                - Session-specific movement patterns
+                - Previous swing levels and reversal points
                 
-                Remember: Your goal is to find the highest-probability setup regardless of direction with achievable progressive targets.`
+                Generate a signal with 5 AI-DETERMINED take profit targets based on your specific market analysis.
+                Provide detailed rationale for why you chose these specific pip distances.
+                
+                Remember: Your goal is to find the highest-probability setup regardless of direction with market-condition-based targets.`
               }
             ],
             max_tokens: 1200,
@@ -462,6 +484,7 @@ serve(async (req) => {
         console.log(`🔧 Setup: ${aiSignal.setup_quality}, Trend: ${aiSignal.trend_direction}, Structure: ${aiSignal.market_structure}`);
         console.log(`🎯 Bullish Analysis: ${aiSignal.bullish_analysis?.slice(0, 100)}...`);
         console.log(`🎯 Bearish Analysis: ${aiSignal.bearish_analysis?.slice(0, 100)}...`);
+        console.log(`🎯 TP Rationale: ${aiSignal.take_profit_rationale}`);
 
         if (aiSignal.signal === 'NEUTRAL' || !['BUY', 'SELL'].includes(aiSignal.signal)) {
           console.log(`⚪ No signal generated for ${pair} - neither direction met enhanced success criteria`);
@@ -490,16 +513,17 @@ serve(async (req) => {
         console.log(`📊 Risk/Reward: ${aiSignal.risk_reward_ratio}`);
         console.log(`🏗️ Support: ${aiSignal.support_level}, Resistance: ${aiSignal.resistance_level}`);
 
-        // Generate signal with PROGRESSIVE pip calculations for 5 targets
+        // Generate signal with AI-DETERMINED pip calculations for 5 targets
         const entryPrice = aiSignal.entry_price || currentPrice;
         const stopLossPips = Math.max(aiSignal.stop_loss_pips || 30, 15); // Minimum 15 pips
-        const takeProfitPips = aiSignal.take_profit_pips || [15, 25, 40, 60, 85]; // Progressive 5 targets
+        const takeProfitPips = aiSignal.take_profit_pips || [15, 25, 40, 60, 85]; // AI-determined targets
 
-        console.log(`📏 PROGRESSIVE pip calculations for ${pair}:`);
+        console.log(`📏 AI-DETERMINED pip calculations for ${pair}:`);
         console.log(`  - Stop Loss: ${stopLossPips} pips`);
-        console.log(`  - Take Profits (5 progressive): ${takeProfitPips.join(', ')} pips`);
+        console.log(`  - Take Profits (5 AI-determined): ${takeProfitPips.join(', ')} pips`);
+        console.log(`  - TP Rationale: ${aiSignal.take_profit_rationale}`);
 
-        // Calculate using realistic pip functions for 5 targets
+        // Calculate using AI-determined pip functions for 5 targets
         const stopLoss = calculateRealisticStopLoss(entryPrice, pair, aiSignal.signal, stopLossPips);
         const takeProfit1 = calculateRealisticTakeProfit(entryPrice, pair, aiSignal.signal, takeProfitPips[0]);
         const takeProfit2 = calculateRealisticTakeProfit(entryPrice, pair, aiSignal.signal, takeProfitPips[1]);
@@ -544,13 +568,13 @@ serve(async (req) => {
           status: 'active',
           is_centralized: true,
           user_id: null,
-          analysis_text: `ENHANCED BALANCED ${aiSignal.setup_quality} ${pairCategory} Setup (${aiSignal.win_probability}% win probability): ${aiSignal.analysis} | Bullish: ${aiSignal.bullish_analysis?.slice(0, 50)}... | Bearish: ${aiSignal.bearish_analysis?.slice(0, 50)}... | Entry Strategy: ${aiSignal.entry_strategy}`,
+          analysis_text: `ENHANCED BALANCED ${aiSignal.setup_quality} ${pairCategory} Setup (${aiSignal.win_probability}% win probability): ${aiSignal.analysis} | Bullish: ${aiSignal.bullish_analysis?.slice(0, 50)}... | Bearish: ${aiSignal.bearish_analysis?.slice(0, 50)}... | Entry Strategy: ${aiSignal.entry_strategy} | TP Strategy: ${aiSignal.take_profit_rationale}`,
           chart_data: chartData,
-          pips: stopLossPips, // Store REALISTIC pip value
+          pips: stopLossPips, // Store AI-determined pip value
           created_at: timestamp
         };
 
-        console.log(`💾 Inserting NEW HIGH-SUCCESS BALANCED AI signal for ${pair} (${signalsGenerated + 1}/${maxNewSignals}) with ${stopLossPips} pip SL...`);
+        console.log(`💾 Inserting NEW HIGH-SUCCESS BALANCED AI signal for ${pair} (${signalsGenerated + 1}/${maxNewSignals}) with AI-determined ${stopLossPips} pip SL...`);
         const { data: insertedSignal, error: insertError } = await supabase
           .from('trading_signals')
           .insert([signal])
@@ -564,7 +588,7 @@ serve(async (req) => {
 
         signalsGenerated++;
         generatedSignals.push(insertedSignal);
-        console.log(`✅ Generated NEW HIGH-SUCCESS BALANCED AI signal for ${pair}: ${aiSignal.signal} (${aiSignal.confidence}% confidence, ${aiSignal.win_probability}% win probability, ${stopLossPips} pips SL) - ${signalsGenerated}/${maxNewSignals}`);
+        console.log(`✅ Generated NEW HIGH-SUCCESS BALANCED AI signal for ${pair}: ${aiSignal.signal} (${aiSignal.confidence}% confidence, ${aiSignal.win_probability}% win probability, AI-determined ${stopLossPips} pips SL) - ${signalsGenerated}/${maxNewSignals}`);
 
         if (signalsGenerated < maxNewSignals && prioritizedPairs.indexOf(pair) < prioritizedPairs.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 1000));
@@ -587,7 +611,7 @@ serve(async (req) => {
     console.log(`  - New balanced signals generated: ${signalsGenerated}`);
     console.log(`  - Final active signals: ${finalActiveSignals}/${MAX_ACTIVE_SIGNALS}`);
     console.log(`  - Generation rate: ${generationRate.toFixed(1)}% (Target: 50-70%)`);
-    console.log(`  - Mode: ENHANCED BALANCED (60%+ confidence, 65%+ win probability, EQUAL directional analysis)`);
+    console.log(`  - Mode: ENHANCED BALANCED (60%+ confidence, 65%+ win probability, AI-DETERMINED take profits)`);
 
     return new Response(
       JSON.stringify({
@@ -616,7 +640,7 @@ serve(async (req) => {
         },
         timestamp,
         trigger: isCronTriggered ? 'cron' : 'manual',
-        approach: 'enhanced_balanced_realistic_pips'
+        approach: 'enhanced_balanced_ai_determined_take_profits'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
