@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -39,16 +38,16 @@ export const useTradingSignals = () => {
         .eq('is_centralized', true)
         .is('user_id', null)
         .order('created_at', { ascending: false })
-        .limit(MAX_ACTIVE_SIGNALS); // Limited to 15 signals
+        .limit(MAX_ACTIVE_SIGNALS);
 
       if (error) {
-        console.error('❌ Error fetching active high-probability all-pairs signals:', error);
+        console.error('❌ Error fetching active enhanced success-focused signals:', error);
         setSignals([]);
         return;
       }
 
       if (!centralizedSignals || centralizedSignals.length === 0) {
-        console.log('📭 No active high-probability all-pairs signals found');
+        console.log('📭 No active enhanced success-focused signals found');
         setSignals([]);
         setLastUpdate(new Date().toLocaleTimeString());
         return;
@@ -59,7 +58,7 @@ export const useTradingSignals = () => {
       setLastUpdate(new Date().toLocaleTimeString());
       
       if (processedSignals.length > 0) {
-        console.log(`✅ Loaded ${processedSignals.length}/${MAX_ACTIVE_SIGNALS} high-probability all-pairs signals (70%+ WIN RATE TARGET)`);
+        console.log(`✅ Loaded ${processedSignals.length}/${MAX_ACTIVE_SIGNALS} enhanced success-focused signals (TARGET: 70%+ SUCCESS RATE)`);
       }
       
     } catch (error) {
@@ -71,7 +70,7 @@ export const useTradingSignals = () => {
   }, []);
 
   const processSignals = (activeSignals: any[]) => {
-    console.log(`📊 Processing ${activeSignals.length}/${MAX_ACTIVE_SIGNALS} high-probability all-pairs signals (70%+ WIN RATE TARGET)`);
+    console.log(`📊 Processing ${activeSignals.length}/${MAX_ACTIVE_SIGNALS} enhanced success-focused signals (TARGET: 70%+ SUCCESS RATE)`);
 
     const transformedSignals = activeSignals
       .map(signal => {
@@ -81,7 +80,6 @@ export const useTradingSignals = () => {
             return null;
           }
 
-          // Use the stored signal price as the FIXED entry price
           const storedEntryPrice = parseFloat(signal.price?.toString() || '1.0');
           
           if (!storedEntryPrice || isNaN(storedEntryPrice) || storedEntryPrice <= 0) {
@@ -106,13 +104,11 @@ export const useTradingSignals = () => {
             ];
           }
 
-          // Use stored take profits
           let takeProfits = [];
           if (signal.take_profits && Array.isArray(signal.take_profits)) {
             takeProfits = signal.take_profits.map(tp => parseFloat(tp?.toString() || '0'));
           }
 
-          // Get targets_hit array
           const targetsHit = signal.targets_hit || [];
 
           return {
@@ -124,10 +120,10 @@ export const useTradingSignals = () => {
             takeProfit1: takeProfits[0] ? takeProfits[0].toFixed(5) : '0.00000',
             takeProfit2: takeProfits[1] ? takeProfits[1].toFixed(5) : '0.00000',
             takeProfit3: takeProfits[2] ? takeProfits[2].toFixed(5) : '0.00000',
-            confidence: Math.floor(signal.confidence || 80), // Balanced confidence for new mode
+            confidence: Math.floor(signal.confidence || 75), // Enhanced confidence display
             timestamp: signal.created_at || new Date().toISOString(),
             status: signal.status || 'active',
-            analysisText: signal.analysis_text || `HIGH-PROBABILITY ${signal.type || 'BUY'} signal for ${signal.symbol} (70%+ win rate target across all pairs)`,
+            analysisText: signal.analysis_text || `ENHANCED SUCCESS-FOCUSED ${signal.type || 'BUY'} signal for ${signal.symbol} (TARGET: 70%+ success rate with improved risk management)`,
             chartData: chartData,
             targetsHit: targetsHit
           };
@@ -138,29 +134,28 @@ export const useTradingSignals = () => {
       })
       .filter(Boolean) as TradingSignal[];
 
-    console.log(`✅ Successfully processed ${transformedSignals.length}/${MAX_ACTIVE_SIGNALS} high-probability all-pairs signals (70%+ WIN RATE TARGET)`);
+    console.log(`✅ Successfully processed ${transformedSignals.length}/${MAX_ACTIVE_SIGNALS} enhanced success-focused signals (TARGET: 70%+ SUCCESS RATE)`);
     return transformedSignals;
   };
 
   const triggerIndividualSignalGeneration = useCallback(async () => {
     try {
-      console.log(`🚀 Triggering high-probability all-pairs signal generation with ${MAX_ACTIVE_SIGNALS}-signal limit (70%+ win rate target)...`);
+      console.log(`🚀 Triggering enhanced success-focused signal generation with ${MAX_ACTIVE_SIGNALS}-signal limit (TARGET: 70%+ success rate)...`);
       
       const { data: signalResult, error: signalError } = await supabase.functions.invoke('generate-signals');
       
       if (signalError) {
-        console.error('❌ High-probability all-pairs signal generation failed:', signalError);
+        console.error('❌ Enhanced success-focused signal generation failed:', signalError);
         toast({
           title: "Generation Failed",
-          description: "Failed to detect new high-probability trading opportunities across all pairs",
+          description: "Failed to detect new enhanced success-focused trading opportunities",
           variant: "destructive"
         });
         return;
       }
       
-      console.log('✅ High-probability all-pairs signal generation completed with limit enforcement');
+      console.log('✅ Enhanced success-focused signal generation completed with improved success targeting');
       
-      // Refresh the signal list
       await new Promise(resolve => setTimeout(resolve, 1000));
       await fetchSignals();
       
@@ -170,18 +165,17 @@ export const useTradingSignals = () => {
       const signalLimit = signalResult?.stats?.signalLimit || MAX_ACTIVE_SIGNALS;
       const limitReached = signalResult?.stats?.limitReached || false;
       const generationRate = signalResult?.stats?.generationRate || '0%';
-      const totalPairsAvailable = signalResult?.stats?.totalPairsAvailable || 'Unknown';
       
       toast({
-        title: limitReached ? "Signal Limit Reached" : "High-Probability All-Pairs Generation Complete",
-        description: `${signalsGenerated} new high-probability signals generated across all pairs (${totalActiveSignals}/${signalLimit} total active) - 70%+ win rate target`,
+        title: limitReached ? "Signal Limit Reached" : "Enhanced Success-Focused Generation Complete",
+        description: `${signalsGenerated} new enhanced success signals generated (${totalActiveSignals}/${signalLimit} total active) - TARGET: 70%+ success rate`,
       });
       
     } catch (error) {
-      console.error('❌ Error in high-probability all-pairs signal generation:', error);
+      console.error('❌ Error in enhanced success-focused signal generation:', error);
       toast({
         title: "Generation Error",
-        description: "Failed to detect new high-probability trading opportunities across all pairs",
+        description: "Failed to detect new enhanced success-focused trading opportunities",
         variant: "destructive"
       });
     }

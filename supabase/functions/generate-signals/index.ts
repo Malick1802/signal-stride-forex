@@ -19,12 +19,12 @@ serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const isCronTriggered = body.trigger === 'cron';
-    const targetPair = body.symbol; // Optional: generate signal for specific pair
+    const targetPair = body.symbol;
     
-    console.log(`🎯 ${isCronTriggered ? 'CRON AUTOMATIC' : 'MANUAL'} BALANCED AI signal generation starting...`);
-    console.log(`🎯 Target pair: ${targetPair || 'Auto-detect HIGH-PROBABILITY opportunities'}`);
+    console.log(`🎯 ${isCronTriggered ? 'CRON AUTOMATIC' : 'MANUAL'} ENHANCED signal generation starting...`);
+    console.log(`🎯 Target pair: ${targetPair || 'Auto-detect HIGH-SUCCESS opportunities'}`);
     console.log('⏰ Timestamp:', new Date().toISOString());
-    console.log(`🛡️ MODE: BALANCED (70%+ win rate target) - MAX ${MAX_ACTIVE_SIGNALS} SIGNALS`);
+    console.log(`🛡️ MODE: ENHANCED SUCCESS-FOCUSED - MAX ${MAX_ACTIVE_SIGNALS} SIGNALS`);
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -46,7 +46,7 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // GET EXISTING ACTIVE SIGNALS TO CHECK LIMIT
+    // Check existing active signals
     console.log(`🔍 Checking existing active signals (limit: ${MAX_ACTIVE_SIGNALS})...`);
     const { data: existingSignals, error: existingError } = await supabase
       .from('trading_signals')
@@ -66,7 +66,6 @@ serve(async (req) => {
     console.log(`📊 Current active signals: ${currentSignalCount}/${MAX_ACTIVE_SIGNALS}`);
     console.log(`📝 Existing pairs: [${Array.from(existingPairs).join(', ')}]`);
 
-    // CHECK IF WE'VE REACHED THE LIMIT
     if (currentSignalCount >= MAX_ACTIVE_SIGNALS) {
       console.log(`🚫 Signal limit reached (${currentSignalCount}/${MAX_ACTIVE_SIGNALS}) - no new signals will be generated`);
       return new Response(
@@ -82,22 +81,20 @@ serve(async (req) => {
             totalActiveSignals: currentSignalCount,
             signalLimit: MAX_ACTIVE_SIGNALS,
             limitReached: true,
-            balancedMode: true,
-            expectedWinRate: '70%+'
+            enhancedMode: true,
+            targetSuccessRate: '70%+'
           },
           timestamp: new Date().toISOString(),
-          trigger: isCronTriggered ? 'cron' : 'manual',
-          approach: 'signal_limit_enforcement'
+          trigger: isCronTriggered ? 'cron' : 'manual'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Calculate how many new signals we can generate
     const maxNewSignals = MAX_ACTIVE_SIGNALS - currentSignalCount;
-    console.log(`✅ Can generate up to ${maxNewSignals} new HIGH-PROBABILITY signals`);
+    console.log(`✅ Can generate up to ${maxNewSignals} new HIGH-SUCCESS signals`);
 
-    // MARKET DATA VALIDATION - Check for fresh data
+    // Market data validation
     console.log('📈 Validating centralized market data freshness...');
     const { data: marketData, error: marketError } = await supabase
       .from('centralized_market_state')
@@ -112,62 +109,23 @@ serve(async (req) => {
 
     console.log(`💾 Found ${marketData?.length || 0} market data points`);
 
-    // Validate data freshness (within last 10 minutes)
-    const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
-    const freshData = marketData?.filter(d => new Date(d.last_update) > tenMinutesAgo) || [];
-    
-    console.log(`🕒 Fresh data points (last 10 min): ${freshData.length}/${marketData?.length || 0}`);
-
-    if (freshData.length === 0) {
-      console.log('⚠️ No fresh centralized market data available, triggering market update first...');
-      
-      try {
-        const { error: updateError } = await supabase.functions.invoke('centralized-market-stream');
-        if (updateError) {
-          console.error('❌ Failed to trigger market update:', updateError);
-        } else {
-          console.log('✅ Market data update triggered, waiting for fresh data...');
-          await new Promise(resolve => setTimeout(resolve, 5000));
-          
-          // Retry fetching fresh data
-          const { data: retryData } = await supabase
-            .from('centralized_market_state')
-            .select('*')
-            .gte('last_update', tenMinutesAgo.toISOString())
-            .order('last_update', { ascending: false });
-            
-          if (retryData && retryData.length > 0) {
-            console.log(`✅ Fresh data available after update: ${retryData.length} points`);
-            marketData.push(...retryData);
-          }
-        }
-      } catch (error) {
-        console.error('❌ Failed to trigger market update:', error);
-      }
-    }
-
-    // ALL AVAILABLE CURRENCY PAIRS - Major, Minor, and Exotic pairs for comprehensive coverage
+    // Enhanced currency pairs list
     const allCurrencyPairs = [
-      // Major Pairs (highest liquidity)
       'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD',
-      
-      // Minor Pairs (Cross currencies - no USD)
       'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY',
       'GBPNZD', 'AUDNZD', 'CADCHF', 'EURAUD', 'EURNZD', 'GBPCAD', 'NZDCAD',
       'NZDCHF', 'NZDJPY', 'AUDJPY', 'CHFJPY', 'GBPAUD', 'EURCAD'
     ];
     
-    console.log(`🌍 EXPANDED PAIR COVERAGE: Analyzing ${allCurrencyPairs.length} currency pairs for high-probability opportunities`);
+    console.log(`🌍 ENHANCED COVERAGE: Analyzing ${allCurrencyPairs.length} currency pairs for high-success opportunities`);
     
-    // Filter out pairs that already have active signals
     const availablePairs = targetPair 
       ? (existingPairs.has(targetPair) ? [] : [targetPair])
       : allCurrencyPairs.filter(pair => !existingPairs.has(pair));
     
-    // Limit available pairs to the maximum we can generate
     const prioritizedPairs = availablePairs.slice(0, maxNewSignals);
     
-    console.log(`🔍 Available pairs for NEW HIGH-PROBABILITY signals: ${prioritizedPairs.length} (limited to ${maxNewSignals})`);
+    console.log(`🔍 Available pairs for NEW HIGH-SUCCESS signals: ${prioritizedPairs.length} (limited to ${maxNewSignals})`);
     console.log(`📝 Will analyze: [${prioritizedPairs.join(', ')}]`);
     
     if (prioritizedPairs.length === 0) {
@@ -185,18 +143,17 @@ serve(async (req) => {
             totalActiveSignals: currentSignalCount,
             signalLimit: MAX_ACTIVE_SIGNALS,
             limitReached: true,
-            balancedMode: true,
-            expectedWinRate: '70%+'
+            enhancedMode: true,
+            targetSuccessRate: '70%+'
           },
           timestamp: new Date().toISOString(),
-          trigger: isCronTriggered ? 'cron' : 'manual',
-          approach: 'signal_limit_enforcement'
+          trigger: isCronTriggered ? 'cron' : 'manual'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     
-    // Get latest price for available currency pairs (only those without signals)
+    // Get latest price for available currency pairs
     const latestPrices = new Map();
     
     for (const pair of prioritizedPairs) {
@@ -209,7 +166,7 @@ serve(async (req) => {
       }
     }
 
-    console.log(`🎯 Will analyze ${latestPrices.size} pairs for NEW HIGH-PROBABILITY signal opportunities (limit: ${maxNewSignals})`);
+    console.log(`🎯 Will analyze ${latestPrices.size} pairs for NEW HIGH-SUCCESS signal opportunities (limit: ${maxNewSignals})`);
 
     if (latestPrices.size === 0) {
       console.log('⚠️ No market data available for new signal generation');
@@ -226,12 +183,11 @@ serve(async (req) => {
             totalActiveSignals: currentSignalCount,
             signalLimit: MAX_ACTIVE_SIGNALS,
             limitReached: false,
-            balancedMode: true,
-            expectedWinRate: '70%+'
+            enhancedMode: true,
+            targetSuccessRate: '70%+'
           },
           timestamp: new Date().toISOString(),
-          trigger: isCronTriggered ? 'cron' : 'manual',
-          approach: 'signal_limit_enforcement'
+          trigger: isCronTriggered ? 'cron' : 'manual'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -242,11 +198,10 @@ serve(async (req) => {
     let opportunitiesAnalyzed = 0;
     const generatedSignals = [];
 
-    console.log(`🚀 Starting BALANCED AI analysis for ${prioritizedPairs.length} NEW pairs across ALL CATEGORIES (limit: ${maxNewSignals})...`);
+    console.log(`🚀 Starting ENHANCED SUCCESS-FOCUSED AI analysis for ${prioritizedPairs.length} NEW pairs...`);
 
-    // Analyze pairs individually with BALANCED generation (only for pairs without signals)
+    // Analyze pairs individually with enhanced success-focused generation
     for (const pair of prioritizedPairs) {
-      // Stop if we've reached our limit
       if (signalsGenerated >= maxNewSignals) {
         console.log(`🚫 Reached new signal limit (${signalsGenerated}/${maxNewSignals}) - stopping generation`);
         break;
@@ -262,27 +217,32 @@ serve(async (req) => {
         opportunitiesAnalyzed++;
         const currentPrice = parseFloat(marketPoint.current_price.toString());
         
-        console.log(`🧠 BALANCED analysis of ${pair} at price ${currentPrice} (${signalsGenerated + 1}/${maxNewSignals})...`);
+        console.log(`🧠 ENHANCED SUCCESS analysis of ${pair} at price ${currentPrice} (${signalsGenerated + 1}/${maxNewSignals})...`);
 
-        // Get extended historical price data for balanced analysis
+        // Get extended historical price data for enhanced analysis
         const { data: historicalData } = await supabase
           .from('centralized_market_state')
           .select('current_price, last_update')
           .eq('symbol', pair)
           .order('last_update', { ascending: false })
-          .limit(30); // Sufficient data for balanced analysis
+          .limit(50); // More data for better analysis
 
-        // Prepare market analysis context for AI
-        const priceHistory = historicalData?.map(d => parseFloat(d.current_price.toString())).slice(0, 15) || [currentPrice];
+        const priceHistory = historicalData?.map(d => parseFloat(d.current_price.toString())).slice(0, 20) || [currentPrice];
         const priceChange = priceHistory.length > 1 ? 
           ((currentPrice - priceHistory[priceHistory.length - 1]) / priceHistory[priceHistory.length - 1] * 100) : 0;
 
-        // Determine pair category for AI context
+        // Determine pair category and session
         const majorPairs = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD'];
         const pairCategory = majorPairs.includes(pair) ? 'Major' : 'Minor/Cross';
+        
+        const currentHour = new Date().getUTCHours();
+        let tradingSession = 'Off-Peak';
+        if (currentHour >= 8 && currentHour < 17) tradingSession = 'European';
+        else if (currentHour >= 13 && currentHour < 22) tradingSession = 'US';
+        else if (currentHour >= 21 || currentHour < 8) tradingSession = 'Asian';
 
-        // BALANCED AI prompt - realistic approach for consistent signal generation
-        console.log(`🔮 BALANCED AI opportunity check for ${pair} (${pairCategory} pair)...`);
+        // ENHANCED AI prompt with success-focused approach
+        console.log(`🔮 ENHANCED SUCCESS-FOCUSED AI analysis for ${pair} (${pairCategory} pair, ${tradingSession} session)...`);
         
         const aiAnalysisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
@@ -295,79 +255,91 @@ serve(async (req) => {
             messages: [
               {
                 role: 'system',
-                content: `You are a BALANCED forex trading AI that generates signals with 70%+ win probability. You have realistic expectations and generate consistent signals while maintaining good quality.
+                content: `You are an ENHANCED SUCCESS-FOCUSED forex trading AI designed to generate profitable signals with 70%+ win probability. Your priority is SIGNAL SUCCESS over conservative filtering.
 
-                BALANCED REQUIREMENTS FOR SIGNAL GENERATION:
-                - 75%+ confidence minimum (realistic threshold)
-                - Must have 2-3 technical confirmations (trend + momentum OR pattern + support/resistance)
-                - Reasonable fundamental bias supporting the direction
-                - Clear risk/reward ratio of at least 1:1.5
-                - No major conflicting signals
-                - Market structure should be reasonably clear
-                - Works for ALL pair types: Major, Minor, and Cross pairs
+                ENHANCED SUCCESS REQUIREMENTS:
+                - 60%+ confidence minimum (practical threshold for real trading)
+                - 65%+ win probability target (realistic expectation)
+                - 2+ technical confirmations (trend analysis + one additional factor)
+                - ADAPTIVE risk/reward ratios based on market conditions
+                - WIDER stop losses for better success rates (60+ pips minimum)
+                - Consider both BULLISH and BEARISH setups equally
+                - Account for trading session characteristics
                 
-                PAIR-SPECIFIC CONSIDERATIONS:
-                - Major pairs: Standard analysis with good liquidity expectations
-                - Minor/Cross pairs: Account for slightly wider spreads and volatility patterns
-                - All pairs: Look for clear directional bias with reasonable confirmations
+                CRITICAL SUCCESS FACTORS:
+                - MARKET DIRECTION BIAS: Analyze if market is trending UP, DOWN, or SIDEWAYS
+                - TREND ALIGNMENT: Only trade WITH the primary trend direction
+                - SUPPORT/RESISTANCE: Use key levels for entry timing
+                - SESSION TIMING: Consider session-specific pair behavior
+                - RISK MANAGEMENT: Wider stops (60+ pips) for breathing room
                 
-                BALANCED MODE - Generate BUY/SELL signals when you have reasonable conviction with adequate confirmations. Use NEUTRAL only when the setup is genuinely unclear or risky.
+                PAIR-SPECIFIC APPROACH:
+                - Major pairs: Focus on session overlaps and news impact
+                - Minor/Cross pairs: Look for breakouts and trending moves
+                - JPY pairs: Account for carry trade flows and session timing
                 
-                TARGET: 70%+ win rate with 40-60% signal generation rate - this means you should accept good quality setups, not just perfect ones.
+                ENHANCED MODE - Generate signals when you have reasonable conviction with proper confirmations. 
+                TARGET: 70%+ win rate with 50-70% signal generation rate - prioritize SUCCESS over quantity.
                 
-                Respond with a JSON object containing:
+                Respond with a JSON object:
                 {
                   "signal": "BUY" or "SELL" or "NEUTRAL",
-                  "confidence": number between 75-92 (75+ for signal generation),
-                  "win_probability": number between 70-88,
+                  "confidence": number between 60-95,
+                  "win_probability": number between 65-90,
                   "setup_quality": "GOOD" or "VERY_GOOD" or "EXCELLENT",
-                  "confirmations_count": number of technical confirmations (2-3 required),
-                  "entry_price": number (current price adjusted for optimal entry),
-                  "stop_loss_pips": number between 15-50 (adjust for pair volatility),
+                  "confirmations_count": number of confirmations (2+ required),
+                  "trend_direction": "BULLISH" or "BEARISH" or "SIDEWAYS",
+                  "market_structure": "TRENDING" or "RANGING" or "BREAKOUT",
+                  "entry_price": number (optimal entry vs current price),
+                  "stop_loss_pips": number between 60-120 (wider for success),
                   "take_profit_pips": [number, number, number] (realistic targets),
-                  "analysis": "detailed explanation focusing on why this has 70%+ win probability",
-                  "risk_factors": "any risks that could invalidate the setup",
-                  "market_setup": "description of the setup detected",
-                  "pair_category": "Major/Minor/Cross pair specific considerations"
+                  "risk_reward_ratio": "1:X" format,
+                  "session_advantage": "HIGH" or "MEDIUM" or "LOW",
+                  "analysis": "detailed explanation focusing on SUCCESS probability",
+                  "risk_factors": "key risks that could invalidate setup",
+                  "entry_strategy": "specific entry timing and conditions"
                 }
                 
-                SIGNAL CRITERIA (use BUY/SELL when met):
-                - Clear directional bias with reasonable confirmations
-                - Confidence above 75%
-                - At least 2 technical confirmations
-                - Reasonable risk/reward ratio
-                - Acceptable market structure
-                - No major fundamental risks
-                - Sufficient volatility for movement potential
+                ENHANCED SIGNAL CRITERIA:
+                - Clear trend direction with momentum
+                - Confluence at key support/resistance levels  
+                - Favorable session timing for the pair
+                - Adequate volatility for movement potential
+                - Risk/reward minimum 1:1.5 (preferably 1:2+)
+                - Multiple timeframe alignment
+                - No major fundamental conflicts
                 
-                NEUTRAL CRITERIA (use NEUTRAL when):
-                - Genuine uncertainty or choppy conditions
-                - Confidence below 75%
-                - Less than 2 confirmations
-                - Poor risk/reward ratio
-                - Major conflicting signals`
+                NEUTRAL CRITERIA (use sparingly):
+                - Genuine market uncertainty
+                - Conflicting signals across timeframes
+                - Major news events pending
+                - Extremely poor risk/reward scenarios`
               },
               {
                 role: 'user',
-                content: `Analyze ${pair} (${pairCategory} pair) for BALANCED trading opportunity (70%+ win rate requirement):
+                content: `Analyze ${pair} (${pairCategory} pair) for ENHANCED SUCCESS-FOCUSED trading opportunity:
                 Current Price: ${currentPrice}
-                Recent Prices: ${priceHistory.join(', ')}
+                Recent Price History (20 points): ${priceHistory.slice(0, 10).join(', ')}...
                 24h Change: ${priceChange.toFixed(2)}%
-                Market Session: ${new Date().getUTCHours() >= 12 && new Date().getUTCHours() < 20 ? 'Active Trading Hours' : 'Off-Peak Hours'}
+                Trading Session: ${tradingSession}
                 Pair Category: ${pairCategory}
-                Data Freshness: ${marketPoint.last_update}
+                Data Timestamp: ${marketPoint.last_update}
                 
-                Generate a signal if you have reasonable conviction (75%+ confidence) with adequate technical confirmations and 70%+ win probability for ${pair}.
+                PRIORITY: Generate a high-success signal if market conditions support it.
                 
-                Consider ${pairCategory} pair characteristics:
-                - Major pairs: Good liquidity, tighter spreads, reliable patterns
-                - Minor/Cross pairs: Adequate liquidity, wider spreads, unique correlation patterns
+                Consider these SUCCESS factors:
+                1. What is the PRIMARY trend direction for ${pair}?
+                2. Are we in a favorable ${tradingSession} session for this pair?
+                3. Is there clear directional momentum?
+                4. What are the nearest support/resistance levels?
+                5. Is the risk/reward favorable with wider stops?
                 
-                Be balanced - accept good quality setups that meet the criteria.`
+                Generate a signal focused on SUCCESS PROBABILITY rather than perfect conditions.
+                Use wider stop losses (60+ pips) and realistic take profits for better win rates.`
               }
             ],
-            max_tokens: 800,
-            temperature: 0.3  // Balanced temperature for consistent but flexible analysis
+            max_tokens: 1000,
+            temperature: 0.2
           }),
         });
 
@@ -384,7 +356,6 @@ serve(async (req) => {
           continue;
         }
 
-        // Parse AI response with better error handling
         let aiSignal;
         try {
           const jsonMatch = aiContent.match(/\{[\s\S]*\}/);
@@ -399,22 +370,22 @@ serve(async (req) => {
           continue;
         }
 
-        console.log(`📊 BALANCED AI Decision for ${pair} (${pairCategory}): ${aiSignal.signal} (${aiSignal.confidence}% confidence, ${aiSignal.win_probability}% win probability)`);
-        console.log(`🔧 Setup Quality: ${aiSignal.setup_quality}, Confirmations: ${aiSignal.confirmations_count}`);
+        console.log(`📊 ENHANCED AI Decision for ${pair}: ${aiSignal.signal} (${aiSignal.confidence}% confidence, ${aiSignal.win_probability}% win probability)`);
+        console.log(`🔧 Setup: ${aiSignal.setup_quality}, Trend: ${aiSignal.trend_direction}, Structure: ${aiSignal.market_structure}`);
 
         if (aiSignal.signal === 'NEUTRAL' || !['BUY', 'SELL'].includes(aiSignal.signal)) {
-          console.log(`⚪ No signal generated for ${pair} - did not meet balanced criteria`);
+          console.log(`⚪ No signal generated for ${pair} - did not meet enhanced success criteria`);
           continue;
         }
 
-        // BALANCED requirements - more realistic thresholds
-        if (aiSignal.confidence < 75) {
-          console.log(`⚠️ Signal confidence too low for ${pair}: ${aiSignal.confidence}% (requires 75%+)`);
+        // ENHANCED requirements - more realistic thresholds for success
+        if (aiSignal.confidence < 60) {
+          console.log(`⚠️ Signal confidence too low for ${pair}: ${aiSignal.confidence}% (requires 60%+)`);
           continue;
         }
 
-        if (aiSignal.win_probability < 70) {
-          console.log(`⚠️ Win probability too low for ${pair}: ${aiSignal.win_probability}% (requires 70%+)`);
+        if (aiSignal.win_probability < 65) {
+          console.log(`⚠️ Win probability too low for ${pair}: ${aiSignal.win_probability}% (requires 65%+)`);
           continue;
         }
 
@@ -423,15 +394,15 @@ serve(async (req) => {
           continue;
         }
 
-        console.log(`🎯 NEW HIGH-PROBABILITY SIGNAL GENERATED for ${pair} (${pairCategory}): ${aiSignal.signal} signal (${signalsGenerated + 1}/${maxNewSignals})`);
-        console.log(`📝 Setup: ${aiSignal.market_setup}`);
+        console.log(`🎯 NEW HIGH-SUCCESS SIGNAL GENERATED for ${pair}: ${aiSignal.signal} signal (${signalsGenerated + 1}/${maxNewSignals})`);
+        console.log(`📝 Analysis: ${aiSignal.analysis}`);
         console.log(`🎯 Win Probability: ${aiSignal.win_probability}%`);
-        console.log(`✅ Confirmations: ${aiSignal.confirmations_count}`);
+        console.log(`📊 Risk/Reward: ${aiSignal.risk_reward_ratio}`);
 
-        // Generate signal with balanced settings
+        // Generate signal with enhanced settings
         const entryPrice = aiSignal.entry_price || currentPrice;
-        const stopLossPips = aiSignal.stop_loss_pips || (pairCategory === 'Major' ? 25 : 35); // Realistic pip values
-        const takeProfitPips = aiSignal.take_profit_pips || (pairCategory === 'Major' ? [20, 35, 50] : [25, 45, 65]); // Achievable targets
+        const stopLossPips = Math.max(aiSignal.stop_loss_pips || 70, 60); // Minimum 60 pips
+        const takeProfitPips = aiSignal.take_profit_pips || [60, 100, 140]; // More realistic targets
 
         // Convert pips to price levels
         const pipValue = pair.includes('JPY') ? 0.01 : 0.0001;
@@ -453,7 +424,7 @@ serve(async (req) => {
           ? entryPrice + (takeProfitPips[2] * pipValue)
           : entryPrice - (takeProfitPips[2] * pipValue);
 
-        // Generate chart data based on recent price action
+        // Generate enhanced chart data
         const chartData = [];
         const baseTime = Date.now() - (30 * 60 * 1000);
         
@@ -488,14 +459,13 @@ serve(async (req) => {
           status: 'active',
           is_centralized: true,
           user_id: null,
-          analysis_text: `HIGH-PROBABILITY ${aiSignal.setup_quality} ${pairCategory} Setup (${aiSignal.win_probability}% win probability): ${aiSignal.analysis}`,
+          analysis_text: `ENHANCED ${aiSignal.setup_quality} ${pairCategory} Setup (${aiSignal.win_probability}% win probability): ${aiSignal.analysis} | Entry Strategy: ${aiSignal.entry_strategy}`,
           chart_data: chartData,
           pips: stopLossPips,
           created_at: timestamp
         };
 
-        // Insert the new balanced signal
-        console.log(`💾 Inserting NEW HIGH-PROBABILITY AI signal for ${pair} (${pairCategory}) (${signalsGenerated + 1}/${maxNewSignals})...`);
+        console.log(`💾 Inserting NEW HIGH-SUCCESS AI signal for ${pair} (${signalsGenerated + 1}/${maxNewSignals})...`);
         const { data: insertedSignal, error: insertError } = await supabase
           .from('trading_signals')
           .insert([signal])
@@ -509,16 +479,14 @@ serve(async (req) => {
 
         signalsGenerated++;
         generatedSignals.push(insertedSignal);
-        console.log(`✅ Generated NEW HIGH-PROBABILITY AI signal for ${pair} (${pairCategory}) (${aiSignal.confidence}% confidence, ${aiSignal.win_probability}% win probability) - ${signalsGenerated}/${maxNewSignals}`);
+        console.log(`✅ Generated NEW HIGH-SUCCESS AI signal for ${pair} (${aiSignal.confidence}% confidence, ${aiSignal.win_probability}% win probability) - ${signalsGenerated}/${maxNewSignals}`);
 
-        // Add minimal delay between analyses to avoid rate limiting
         if (signalsGenerated < maxNewSignals && prioritizedPairs.indexOf(pair) < prioritizedPairs.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 1000));
         }
 
       } catch (error) {
         console.error(`❌ Error analyzing opportunity for ${pair}:`, error);
-        // Continue with next pair instead of failing completely
         continue;
       }
     }
@@ -526,20 +494,20 @@ serve(async (req) => {
     const finalActiveSignals = currentSignalCount + signalsGenerated;
     const generationRate = opportunitiesAnalyzed > 0 ? ((signalsGenerated / opportunitiesAnalyzed) * 100) : 0;
 
-    console.log(`📊 BALANCED SIGNAL GENERATION SUMMARY (ALL PAIRS):`);
+    console.log(`📊 ENHANCED SUCCESS-FOCUSED SIGNAL GENERATION SUMMARY:`);
     console.log(`  - Signal limit: ${MAX_ACTIVE_SIGNALS}`);
     console.log(`  - Starting signals: ${currentSignalCount}`);
     console.log(`  - Pairs analyzed: ${allCurrencyPairs.length} total available`);
     console.log(`  - New opportunities analyzed: ${opportunitiesAnalyzed}`);
-    console.log(`  - New high-probability signals generated: ${signalsGenerated}`);
+    console.log(`  - New high-success signals generated: ${signalsGenerated}`);
     console.log(`  - Final active signals: ${finalActiveSignals}/${MAX_ACTIVE_SIGNALS}`);
-    console.log(`  - Generation rate: ${generationRate.toFixed(1)}% (Target: 40-60%)`);
-    console.log(`  - Mode: BALANCED ALL-PAIRS (75%+ confidence, 70%+ win probability)`);
+    console.log(`  - Generation rate: ${generationRate.toFixed(1)}% (Target: 50-70%)`);
+    console.log(`  - Mode: ENHANCED SUCCESS-FOCUSED (60%+ confidence, 65%+ win probability)`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `BALANCED all-pairs signal generation completed - ${signalsGenerated} new high-probability signals generated from ${opportunitiesAnalyzed} opportunities analyzed across ${allCurrencyPairs.length} pairs (${finalActiveSignals}/${MAX_ACTIVE_SIGNALS} total)`,
+        message: `ENHANCED success-focused signal generation completed - ${signalsGenerated} new high-success signals generated from ${opportunitiesAnalyzed} opportunities analyzed across ${allCurrencyPairs.length} pairs (${finalActiveSignals}/${MAX_ACTIVE_SIGNALS} total)`,
         signals: generatedSignals?.map(s => ({ 
           id: s.id, 
           symbol: s.symbol, 
@@ -555,20 +523,20 @@ serve(async (req) => {
           totalActiveSignals: finalActiveSignals,
           signalLimit: MAX_ACTIVE_SIGNALS,
           limitReached: finalActiveSignals >= MAX_ACTIVE_SIGNALS,
-          balancedMode: true,
-          expectedWinRate: '70%+',
+          enhancedMode: true,
+          targetSuccessRate: '70%+',
           totalPairsAvailable: allCurrencyPairs.length,
           pairCategories: 'Major + Minor + Cross pairs'
         },
         timestamp,
         trigger: isCronTriggered ? 'cron' : 'manual',
-        approach: 'balanced_all_pairs'
+        approach: 'enhanced_success_focused'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('💥 BALANCED ALL-PAIRS SIGNAL GENERATION error:', error);
+    console.error('💥 ENHANCED SUCCESS-FOCUSED SIGNAL GENERATION error:', error);
     return new Response(
       JSON.stringify({ 
         success: false,

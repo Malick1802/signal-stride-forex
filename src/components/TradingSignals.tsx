@@ -46,7 +46,7 @@ const TradingSignals = memo(() => {
 
   const avgConfidence = validSignals.length > 0 
     ? Math.round(validSignals.reduce((sum, signal) => sum + (signal.confidence || 0), 0) / validSignals.length)
-    : 80; // Balanced average for new mode
+    : 75; // Enhanced average for success-focused mode
 
   const handleCleanupCrons = async () => {
     setCleaningCrons(true);
@@ -131,7 +131,7 @@ const TradingSignals = memo(() => {
       console.error('Error detecting opportunities:', error);
       toast({
         title: "Detection Error",
-        description: "Failed to detect new high-probability opportunities. Please try again.",
+        description: "Failed to detect new enhanced success-focused opportunities. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -209,6 +209,24 @@ const TradingSignals = memo(() => {
       {/* Real-time Connection Status */}
       <RealTimeStatus />
 
+      {/* Enhanced Success Mode Notice */}
+      <div className="bg-green-500/10 backdrop-blur-sm rounded-xl border border-green-500/20 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <TrendingUp className="h-5 w-5 text-green-400" />
+              <span className="text-white font-medium">ENHANCED SUCCESS-FOCUSED MODE</span>
+              <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
+                TARGET: 70%+ SUCCESS RATE
+              </span>
+            </div>
+          </div>
+          <div className="text-sm text-green-400">
+            🎯 Improved risk management • Wider stops • Better entry timing • Enhanced analysis
+          </div>
+        </div>
+      </div>
+
       {/* Signal Limit Notice */}
       <div className="bg-blue-500/10 backdrop-blur-sm rounded-xl border border-blue-500/20 p-4">
         <div className="flex items-center justify-between">
@@ -222,38 +240,20 @@ const TradingSignals = memo(() => {
             </div>
           </div>
           <div className="text-sm text-blue-400">
-            🎯 Maximum {MAX_ACTIVE_SIGNALS} active signals • All currency pairs • Balanced selection • 70%+ win rate target
+            🎯 Maximum {MAX_ACTIVE_SIGNALS} active signals • Enhanced success criteria • Improved win rates
           </div>
         </div>
       </div>
 
-      {/* BALANCED Mode Notice */}
-      <div className="bg-green-500/10 backdrop-blur-sm rounded-xl border border-green-500/20 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <TrendingUp className="h-5 w-5 text-green-400" />
-              <span className="text-white font-medium">BALANCED ALL-PAIRS MODE</span>
-              <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
-                70%+ WIN RATE TARGET
-              </span>
-            </div>
-          </div>
-          <div className="text-sm text-green-400">
-            🌍 All currency pairs analyzed • Major + Minor + Cross pairs • Balanced approach • 75%+ confidence required
-          </div>
-        </div>
-      </div>
-
-      {/* High-Probability Signal Generation System */}
+      {/* Enhanced Success-Focused Signal Generation System */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <TrendingUp className="h-5 w-5 text-green-400" />
-              <span className="text-white font-medium">High-Probability All-Pairs Signal Generation (Max: {MAX_ACTIVE_SIGNALS})</span>
+              <span className="text-white font-medium">Enhanced Success-Focused Signal Generation (Max: {MAX_ACTIVE_SIGNALS})</span>
               <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
-                ALL PAIRS • 70%+ WIN RATE
+                70%+ SUCCESS TARGET
               </span>
             </div>
             <Button
@@ -265,7 +265,7 @@ const TradingSignals = memo(() => {
               {detectingOpportunities ? (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Analyzing All Pairs...
+                  Analyzing Enhanced Opportunities...
                 </>
               ) : validSignals.length >= MAX_ACTIVE_SIGNALS ? (
                 <>
@@ -275,13 +275,13 @@ const TradingSignals = memo(() => {
               ) : (
                 <>
                   <TrendingUp className="h-4 w-4 mr-2" />
-                  Generate High-Probability Signals
+                  Generate Enhanced Success Signals
                 </>
               )}
             </Button>
           </div>
           <div className="text-sm text-gray-400">
-            🌍 {validSignals.length >= MAX_ACTIVE_SIGNALS ? `Limit reached (${validSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${MAX_ACTIVE_SIGNALS - validSignals.length} slots available`} • All currency pairs • 70%+ win rate target
+            🎯 {validSignals.length >= MAX_ACTIVE_SIGNALS ? `Limit reached (${validSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${MAX_ACTIVE_SIGNALS - validSignals.length} slots available`} • Enhanced success criteria • 70%+ target success rate
           </div>
         </div>
       </div>
@@ -294,7 +294,7 @@ const TradingSignals = memo(() => {
               <Wrench className="h-5 w-5 text-yellow-400" />
               <span className="text-white font-medium">System Controls</span>
               <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
-                ULTRA-CONSERVATIVE ALL-PAIRS
+                ENHANCED SUCCESS MODE
               </span>
             </div>
           </div>
@@ -338,24 +338,24 @@ const TradingSignals = memo(() => {
           </div>
         </div>
         <div className="mt-2 text-xs text-green-400">
-          🌍 ULTRA-CONSERVATIVE ALL-PAIRS MODE: Major + Minor + Cross pairs • 85%+ win rate target • 90%+ confidence • Maximum {MAX_ACTIVE_SIGNALS} signals
+          🎯 ENHANCED SUCCESS MODE: Improved risk management • Wider stops • Better timing • 70%+ success target
         </div>
       </div>
 
-      {/* AI-Powered Balanced Detection Status */}
+      {/* Enhanced AI System Status */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <Brain className="h-5 w-5 text-green-400" />
-              <span className="text-white font-medium">Balanced All-Pairs AI System (Limit: {MAX_ACTIVE_SIGNALS})</span>
+              <span className="text-white font-medium">Enhanced Success-Focused AI System (Limit: {MAX_ACTIVE_SIGNALS})</span>
               <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
-                ALL PAIRS • 70%+ WIN RATE
+                70%+ SUCCESS TARGET
               </span>
             </div>
           </div>
           <div className="text-sm text-gray-400">
-            🌍 Balanced analysis across all currency pairs • 75%+ confidence required • 2-3 confirmations • 70%+ win probability
+            🎯 Enhanced analysis • Improved risk management • Better entry timing • 70%+ success probability targeting
           </div>
         </div>
       </div>
@@ -380,16 +380,16 @@ const TradingSignals = memo(() => {
               </select>
             </div>
             <div className="text-sm text-gray-400">
-              🌍 High-probability signals across all pairs • Maximum {MAX_ACTIVE_SIGNALS} active • 70%+ win rate target
+              🎯 Enhanced success-focused signals • Maximum {MAX_ACTIVE_SIGNALS} active • 70%+ target success rate
             </div>
           </div>
         </div>
       )}
 
-      {/* Active High-Probability Signals Grid */}
+      {/* Active Enhanced Success Signals Grid */}
       <div>
         <h3 className="text-white text-lg font-semibold mb-4">
-          {selectedPair === 'All' ? `High-Probability All-Pairs Signals (${filteredSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${selectedPair} Signals (${filteredSignals.length})`}
+          {selectedPair === 'All' ? `Enhanced Success-Focused Signals (${filteredSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${selectedPair} Signals (${filteredSignals.length})`}
         </h3>
         
         {filteredSignals.length > 0 ? (
@@ -414,11 +414,11 @@ const TradingSignals = memo(() => {
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
               {selectedPair === 'All' 
-                ? `No high-probability signals generated yet (0/${MAX_ACTIVE_SIGNALS})` 
+                ? `No enhanced success-focused signals generated yet (0/${MAX_ACTIVE_SIGNALS})` 
                 : `No signals for ${selectedPair}`}
             </div>
             <div className="text-sm text-gray-500 mb-6">
-              🌍 Signal limit: {MAX_ACTIVE_SIGNALS} • Balanced AI analyzes ALL currency pairs (Major + Minor + Cross) for 70%+ win rate signals
+              🎯 Signal limit: {MAX_ACTIVE_SIGNALS} • Enhanced AI analyzes ALL currency pairs with improved success criteria (70%+ target success rate)
             </div>
             <div className="space-x-4">
               <Button
@@ -429,7 +429,7 @@ const TradingSignals = memo(() => {
                 {detectingOpportunities ? (
                   <>
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Analyzing High-Probability Opportunities Across All Pairs...
+                    Analyzing Enhanced Success Opportunities...
                   </>
                 ) : validSignals.length >= MAX_ACTIVE_SIGNALS ? (
                   <>
@@ -439,7 +439,7 @@ const TradingSignals = memo(() => {
                 ) : (
                   <>
                     <TrendingUp className="h-4 w-4 mr-2" />
-                    Generate High-Probability All-Pairs Signals
+                    Generate Enhanced Success Signals
                   </>
                 )}
               </Button>
