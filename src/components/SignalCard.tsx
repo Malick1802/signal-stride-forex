@@ -119,6 +119,7 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
         currentPrice={currentPrice}
         signalType={safeSignal.type}
         targetsHit={signal?.targetsHit || []}
+        pair={safeSignal.pair}
       />
 
       <div className="px-4">

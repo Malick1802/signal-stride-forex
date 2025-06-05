@@ -3,6 +3,7 @@ import React from 'react';
 import { Copy, Check, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { calculateStopLossPips, calculateTakeProfitPips } from '@/utils/pipCalculator';
 
 interface SignalPriceDetailsProps {
   entryPrice: string;
@@ -13,6 +14,7 @@ interface SignalPriceDetailsProps {
   currentPrice: number | null;
   signalType: string;
   targetsHit: number[];
+  pair: string;
 }
 
 const SignalPriceDetails = ({
@@ -23,7 +25,8 @@ const SignalPriceDetails = ({
   takeProfit3,
   currentPrice,
   signalType,
-  targetsHit
+  targetsHit,
+  pair
 }: SignalPriceDetailsProps) => {
   const { toast } = useToast();
 
@@ -89,10 +92,29 @@ const SignalPriceDetails = ({
     }
   };
 
+  // Calculate pip distances from entry price
+  const entryPriceFloat = parseFloat(entryPrice);
+  const stopLossPips = calculateStopLossPips(entryPriceFloat, parseFloat(stopLoss), pair);
+  
   const takeProfits = [
-    { level: 1, price: takeProfit1, label: "Target 1" },
-    { level: 2, price: takeProfit2, label: "Target 2" },
-    { level: 3, price: takeProfit3, label: "Target 3" }
+    { 
+      level: 1, 
+      price: takeProfit1, 
+      label: "Target 1",
+      pips: calculateTakeProfitPips(entryPriceFloat, parseFloat(takeProfit1), pair)
+    },
+    { 
+      level: 2, 
+      price: takeProfit2, 
+      label: "Target 2",
+      pips: calculateTakeProfitPips(entryPriceFloat, parseFloat(takeProfit2), pair)
+    },
+    { 
+      level: 3, 
+      price: takeProfit3, 
+      label: "Target 3",
+      pips: calculateTakeProfitPips(entryPriceFloat, parseFloat(takeProfit3), pair)
+    }
   ];
 
   return (
@@ -115,7 +137,9 @@ const SignalPriceDetails = ({
       <div className="flex justify-between items-center">
         <span className="text-gray-400">Stop Loss</span>
         <div className="flex items-center space-x-2">
-          <span className="text-red-400 font-mono">{stopLoss}</span>
+          <span className="text-red-400 font-mono">
+            {stopLoss} <span className="text-gray-500 text-xs">({stopLossPips} pips)</span>
+          </span>
           <Button
             size="sm"
             variant="ghost"
@@ -128,7 +152,7 @@ const SignalPriceDetails = ({
       </div>
 
       <div className="space-y-2">
-        {takeProfits.map(({ level, price, label }) => {
+        {takeProfits.map(({ level, price, label, pips }) => {
           const targetStatus = getTargetStatus(level, price);
           
           return (
@@ -136,7 +160,9 @@ const SignalPriceDetails = ({
               <span className="text-gray-400">{label}</span>
               <div className="flex items-center space-x-2">
                 <div className="flex items-center space-x-2">
-                  <span className="text-emerald-400 font-mono">{price}</span>
+                  <span className="text-emerald-400 font-mono">
+                    {price} <span className="text-gray-500 text-xs">({pips} pips)</span>
+                  </span>
                   {targetStatus && (
                     <div className={`px-2 py-1 rounded-md text-xs ${targetStatus.bgColor} ${targetStatus.color} flex items-center space-x-1`}>
                       {targetStatus.icon}
