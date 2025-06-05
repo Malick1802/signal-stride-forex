@@ -81,8 +81,8 @@ const SignalDebuggingDashboard = () => {
 
       // Process debug information
       const debugData: SignalDebugInfo[] = signals?.map(signal => {
-        const hasOutcome = signal.signal_outcomes && signal.signal_outcomes.length > 0;
-        const outcome = hasOutcome ? signal.signal_outcomes[0] : null;
+        const hasOutcome = signal.signal_outcomes && signal.signal_outcomes.id;
+        const outcome = hasOutcome ? signal.signal_outcomes : null;
         
         const createdAt = new Date(signal.created_at);
         const now = new Date();
