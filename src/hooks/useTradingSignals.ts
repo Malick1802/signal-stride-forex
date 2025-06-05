@@ -20,7 +20,7 @@ interface TradingSignal {
 }
 
 // Maximum number of active signals
-const MAX_ACTIVE_SIGNALS = 15;
+const MAX_ACTIVE_SIGNALS = 20;
 
 export const useTradingSignals = () => {
   const [signals, setSignals] = useState<TradingSignal[]>([]);
