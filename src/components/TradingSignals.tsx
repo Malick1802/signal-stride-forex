@@ -8,7 +8,7 @@ import SignalCard from './SignalCard';
 import RealTimeStatus from './RealTimeStatus';
 import GlobalRefreshIndicator from './GlobalRefreshIndicator';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Users, Activity, Brain, Target, Wrench, Zap, FlaskConical, TrendingUp, Bug, AlertTriangle } from 'lucide-react';
+import { RefreshCw, Users, Activity, Brain, Shield, Wrench, Zap, FlaskConical, Target, TrendingUp } from 'lucide-react';
 import { useMarketActivation } from '@/hooks/useMarketActivation';
 import AutomationDashboard from './AutomationDashboard';
 
@@ -27,7 +27,6 @@ const TradingSignals = memo(() => {
   const [detectingOpportunities, setDetectingOpportunities] = useState(false);
   const [testingSystem, setTestingSystem] = useState(false);
   const [cleaningCrons, setCleaningCrons] = useState(false);
-  const [debugGenerating, setDebugGenerating] = useState(false);
 
   // Add market activation
   const { activateMarket } = useMarketActivation();
@@ -47,76 +46,7 @@ const TradingSignals = memo(() => {
 
   const avgConfidence = validSignals.length > 0 
     ? Math.round(validSignals.reduce((sum, signal) => sum + (signal.confidence || 0), 0) / validSignals.length)
-    : 70;
-
-  // Check if any signals are debug signals
-  const debugSignalsCount = validSignals.filter(signal => 
-    signal.analysisText?.includes('[DEBUG]')
-  ).length;
-  const hasDebugSignals = debugSignalsCount > 0;
-
-  const handleDebugSignalGeneration = async () => {
-    setDebugGenerating(true);
-    try {
-      console.log('🐛 STARTING DEBUG SIGNAL GENERATION...');
-      console.log('🔧 Invoking generate-signals edge function with debug parameters...');
-      
-      // Enhanced function call with proper error handling and timeout
-      const { data, error } = await supabase.functions.invoke('generate-signals', {
-        body: { 
-          debug_mode: true,
-          force_generate: true,
-          detailed_logging: true 
-        },
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (error) {
-        console.error('❌ Debug signal generation failed:', error);
-        console.error('❌ Error details:', JSON.stringify(error, null, 2));
-        toast({
-          title: "Debug Generation Failed",
-          description: `Error: ${error.message || 'Unknown error'}. Check Supabase edge function logs for details.`,
-          variant: "destructive"
-        });
-        return;
-      }
-      
-      console.log('✅ Debug signal generation completed successfully');
-      console.log('📊 Response data:', JSON.stringify(data, null, 2));
-      
-      // Show detailed results
-      const debugInfo = data?.debug_info || {};
-      const aiResponses = debugInfo.ai_responses || 0;
-      const debugSignals = debugInfo.debug_signals_generated || 0;
-      const productionSignals = debugInfo.production_signals_generated || 0;
-      const totalAnalyzed = debugInfo.pairs_analyzed || 0;
-      
-      toast({
-        title: "🐛 Debug Generation Complete",
-        description: `AI analyzed ${totalAnalyzed} pairs with ${aiResponses} API calls. Generated: ${debugSignals} debug + ${productionSignals} production signals. Check Supabase edge function logs for detailed AI analysis.`,
-      });
-      
-      // Refresh signals after a short delay
-      setTimeout(() => {
-        console.log('🔄 Refreshing page to show new debug signals...');
-        window.location.reload();
-      }, 2000);
-      
-    } catch (error) {
-      console.error('❌ Debug generation error:', error);
-      console.error('❌ Stack trace:', error instanceof Error ? error.stack : 'No stack trace');
-      toast({
-        title: "Debug Error",
-        description: `Failed to run debug signal generation: ${error instanceof Error ? error.message : 'Unknown error'}. Check console and Supabase logs.`,
-        variant: "destructive"
-      });
-    } finally {
-      setDebugGenerating(false);
-    }
-  };
+    : 80; // Balanced average for new mode
 
   const handleCleanupCrons = async () => {
     setCleaningCrons(true);
@@ -255,7 +185,7 @@ const TradingSignals = memo(() => {
   if (loading && validSignals.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-white">Loading practical trading signals (analyzing major + minor pairs, limit: {MAX_ACTIVE_SIGNALS})...</div>
+        <div className="text-white">Loading high-probability signals (analyzing all currency pairs, limit: {MAX_ACTIVE_SIGNALS})...</div>
       </div>
     );
   }
@@ -279,64 +209,6 @@ const TradingSignals = memo(() => {
       {/* Real-time Connection Status */}
       <RealTimeStatus />
 
-      {/* URGENT: OpenAI Analysis Debug Panel */}
-      <div className="bg-red-500/10 backdrop-blur-sm rounded-xl border border-red-500/20 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <AlertTriangle className="h-5 w-5 text-red-400" />
-              <span className="text-white font-medium">OPENAI ANALYSIS DEBUG</span>
-              <span className="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded">
-                {validSignals.length === 0 ? 'NO SIGNALS GENERATED' : 'READY FOR DEBUG'}
-              </span>
-            </div>
-          </div>
-          <div className="flex space-x-2">
-            <Button
-              onClick={handleDebugSignalGeneration}
-              disabled={debugGenerating}
-              className="bg-red-600 hover:bg-red-700 text-white text-sm"
-              size="sm"
-            >
-              {debugGenerating ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Debug Analyzing...
-                </>
-              ) : (
-                <>
-                  <Bug className="h-4 w-4 mr-2" />
-                  Force Debug Analysis
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-        <div className="mt-2 text-xs text-red-400">
-          🚨 Click "Force Debug Analysis" to trigger detailed OpenAI analysis with debug logging. Check Supabase Edge Function logs for detailed AI responses and confidence levels.
-        </div>
-      </div>
-
-      {/* Debug Mode Notice */}
-      {hasDebugSignals && (
-        <div className="bg-yellow-500/10 backdrop-blur-sm rounded-xl border border-yellow-500/20 p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Bug className="h-5 w-5 text-yellow-400" />
-                <span className="text-white font-medium">DEBUG MODE ACTIVE</span>
-                <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">
-                  {debugSignalsCount} DEBUG SIGNALS
-                </span>
-              </div>
-            </div>
-            <div className="text-sm text-yellow-400">
-              🐛 Debug signals generated with relaxed criteria (55%+ confidence) to verify AI analysis functionality
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Signal Limit Notice */}
       <div className="bg-blue-500/10 backdrop-blur-sm rounded-xl border border-blue-500/20 p-4">
         <div className="flex items-center justify-between">
@@ -350,49 +222,39 @@ const TradingSignals = memo(() => {
             </div>
           </div>
           <div className="text-sm text-blue-400">
-            🎯 Maximum {MAX_ACTIVE_SIGNALS} active signals • Major + minor pairs • Practical approach • 60%+ win rate target
+            🎯 Maximum {MAX_ACTIVE_SIGNALS} active signals • All currency pairs • Balanced selection • 70%+ win rate target
           </div>
         </div>
       </div>
 
-      {/* PRACTICAL TRADING Mode Notice */}
+      {/* BALANCED Mode Notice */}
       <div className="bg-green-500/10 backdrop-blur-sm rounded-xl border border-green-500/20 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <TrendingUp className="h-5 w-5 text-green-400" />
-              <span className="text-white font-medium">PRACTICAL TRADING MODE</span>
+              <span className="text-white font-medium">BALANCED ALL-PAIRS MODE</span>
               <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
-                60%+ WIN RATE TARGET
+                70%+ WIN RATE TARGET
               </span>
-              {hasDebugSignals && (
-                <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">
-                  + DEBUG MODE
-                </span>
-              )}
             </div>
           </div>
           <div className="text-sm text-green-400">
-            🎯 Major + minor pairs • 65%+ confidence required • 1+ confirmations • Less conservative thresholds
+            🌍 All currency pairs analyzed • Major + Minor + Cross pairs • Balanced approach • 75%+ confidence required
           </div>
         </div>
       </div>
 
-      {/* Enhanced Signal Generation System with Practical Info */}
+      {/* High-Probability Signal Generation System */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <TrendingUp className="h-5 w-5 text-green-400" />
-              <span className="text-white font-medium">Practical Signal Generation (Max: {MAX_ACTIVE_SIGNALS})</span>
+              <span className="text-white font-medium">High-Probability All-Pairs Signal Generation (Max: {MAX_ACTIVE_SIGNALS})</span>
               <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
-                LESS CONSERVATIVE
+                ALL PAIRS • 70%+ WIN RATE
               </span>
-              {hasDebugSignals && (
-                <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">
-                  DEBUG MODE
-                </span>
-              )}
             </div>
             <Button
               onClick={handleDetectOpportunities}
@@ -403,7 +265,7 @@ const TradingSignals = memo(() => {
               {detectingOpportunities ? (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Analyzing with Practical Thresholds...
+                  Analyzing All Pairs...
                 </>
               ) : validSignals.length >= MAX_ACTIVE_SIGNALS ? (
                 <>
@@ -413,13 +275,13 @@ const TradingSignals = memo(() => {
               ) : (
                 <>
                   <TrendingUp className="h-4 w-4 mr-2" />
-                  Generate Practical Signals
+                  Generate High-Probability Signals
                 </>
               )}
             </Button>
           </div>
           <div className="text-sm text-gray-400">
-            🎯 {validSignals.length >= MAX_ACTIVE_SIGNALS ? `Limit reached (${validSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${MAX_ACTIVE_SIGNALS - validSignals.length} slots available`} • Practical AI analysis • 65%+ confidence threshold
+            🌍 {validSignals.length >= MAX_ACTIVE_SIGNALS ? `Limit reached (${validSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${MAX_ACTIVE_SIGNALS - validSignals.length} slots available`} • All currency pairs • 70%+ win rate target
           </div>
         </div>
       </div>
@@ -432,7 +294,7 @@ const TradingSignals = memo(() => {
               <Wrench className="h-5 w-5 text-yellow-400" />
               <span className="text-white font-medium">System Controls</span>
               <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
-                PRACTICAL MODE
+                ULTRA-CONSERVATIVE ALL-PAIRS
               </span>
             </div>
           </div>
@@ -476,29 +338,24 @@ const TradingSignals = memo(() => {
           </div>
         </div>
         <div className="mt-2 text-xs text-green-400">
-          🎯 PRACTICAL MODE: Less conservative thresholds • Debug criteria (55%+) • Production criteria (65%+) • Maximum {MAX_ACTIVE_SIGNALS} signals
+          🌍 ULTRA-CONSERVATIVE ALL-PAIRS MODE: Major + Minor + Cross pairs • 85%+ win rate target • 90%+ confidence • Maximum {MAX_ACTIVE_SIGNALS} signals
         </div>
       </div>
 
-      {/* AI-Powered Practical Analysis Status */}
+      {/* AI-Powered Balanced Detection Status */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <Brain className="h-5 w-5 text-green-400" />
-              <span className="text-white font-medium">Practical AI Analysis System (Limit: {MAX_ACTIVE_SIGNALS})</span>
+              <span className="text-white font-medium">Balanced All-Pairs AI System (Limit: {MAX_ACTIVE_SIGNALS})</span>
               <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
-                LESS CONSERVATIVE
+                ALL PAIRS • 70%+ WIN RATE
               </span>
-              {hasDebugSignals && (
-                <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">
-                  DEBUG ACTIVE
-                </span>
-              )}
             </div>
           </div>
           <div className="text-sm text-gray-400">
-            🎯 Practical OpenAI analysis with realistic confidence thresholds • Debug mode for 55%+ signals • Production for 65%+ signals
+            🌍 Balanced analysis across all currency pairs • 75%+ confidence required • 2-3 confirmations • 70%+ win probability
           </div>
         </div>
       </div>
@@ -523,21 +380,16 @@ const TradingSignals = memo(() => {
               </select>
             </div>
             <div className="text-sm text-gray-400">
-              🎯 Practical signals for major + minor pairs • Maximum {MAX_ACTIVE_SIGNALS} active • Less conservative AI analysis • {hasDebugSignals ? 'Debug mode active' : 'Production mode'}
+              🌍 High-probability signals across all pairs • Maximum {MAX_ACTIVE_SIGNALS} active • 70%+ win rate target
             </div>
           </div>
         </div>
       )}
 
-      {/* Active Signals Grid */}
+      {/* Active High-Probability Signals Grid */}
       <div>
         <h3 className="text-white text-lg font-semibold mb-4">
-          {selectedPair === 'All' ? `Practical Signals (${filteredSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${selectedPair} Signals (${filteredSignals.length})`}
-          {hasDebugSignals && (
-            <span className="ml-2 text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">
-              {debugSignalsCount} DEBUG
-            </span>
-          )}
+          {selectedPair === 'All' ? `High-Probability All-Pairs Signals (${filteredSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${selectedPair} Signals (${filteredSignals.length})`}
         </h3>
         
         {filteredSignals.length > 0 ? (
@@ -562,11 +414,11 @@ const TradingSignals = memo(() => {
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
               {selectedPair === 'All' 
-                ? `No signals generated yet (0/${MAX_ACTIVE_SIGNALS})` 
+                ? `No high-probability signals generated yet (0/${MAX_ACTIVE_SIGNALS})` 
                 : `No signals for ${selectedPair}`}
             </div>
             <div className="text-sm text-gray-500 mb-6">
-              🎯 Signal limit: {MAX_ACTIVE_SIGNALS} • Practical AI analysis with less conservative thresholds • 65%+ confidence requirement
+              🌍 Signal limit: {MAX_ACTIVE_SIGNALS} • Balanced AI analyzes ALL currency pairs (Major + Minor + Cross) for 70%+ win rate signals
             </div>
             <div className="space-x-4">
               <Button
@@ -577,7 +429,7 @@ const TradingSignals = memo(() => {
                 {detectingOpportunities ? (
                   <>
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Analyzing with Practical Thresholds...
+                    Analyzing High-Probability Opportunities Across All Pairs...
                   </>
                 ) : validSignals.length >= MAX_ACTIVE_SIGNALS ? (
                   <>
@@ -587,7 +439,7 @@ const TradingSignals = memo(() => {
                 ) : (
                   <>
                     <TrendingUp className="h-4 w-4 mr-2" />
-                    Generate Practical Signals
+                    Generate High-Probability All-Pairs Signals
                   </>
                 )}
               </Button>

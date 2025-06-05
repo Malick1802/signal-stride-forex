@@ -73,25 +73,8 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
   // Enhanced connection status
   const connectionStatus = isConnected && centralizedChartData.length > 0;
 
-  // Check if this is a debug mode signal
-  const isDebugSignal = safeSignal.analysisText?.includes('[DEBUG]');
-
   return (
-    <div className={`bg-white/5 backdrop-blur-sm rounded-xl border overflow-hidden ${
-      isDebugSignal ? 'border-yellow-500/30 bg-yellow-500/5' : 'border-white/10'
-    }`}>
-      {/* Debug Mode Indicator */}
-      {isDebugSignal && (
-        <div className="bg-yellow-500/20 border-b border-yellow-500/30 px-4 py-2">
-          <div className="flex items-center space-x-2">
-            <span className="text-yellow-400 text-xs font-medium">🐛 DEBUG MODE</span>
-            <span className="text-yellow-300 text-xs">
-              Generated with relaxed criteria for analysis verification
-            </span>
-          </div>
-        </div>
-      )}
-
+    <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 overflow-hidden">
       <SignalHeader
         pair={safeSignal.pair}
         type={safeSignal.type}

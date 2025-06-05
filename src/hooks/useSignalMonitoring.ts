@@ -1,4 +1,3 @@
-
 import { useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -30,28 +29,25 @@ export const useSignalMonitoring = () => {
       let hitStopLoss = false;
       let newTargetsHit = [...signal.targetsHit];
       let hasNewTargetHit = false;
-      let shouldExpireSignal = false;
 
-      // Check stop loss hit with proper tolerance (1 pip = 0.0001 for most pairs)
-      const slTolerance = 0.0001;
+      // Check stop loss hit first
       if (signal.type === 'BUY') {
-        hitStopLoss = currentPrice <= (signal.stopLoss + slTolerance);
+        hitStopLoss = currentPrice <= signal.stopLoss;
       } else {
-        hitStopLoss = currentPrice >= (signal.stopLoss - slTolerance);
+        hitStopLoss = currentPrice >= signal.stopLoss;
       }
 
-      // Check take profit hits with proper tolerance
+      // Check take profit hits and update targets_hit array
       if (!hitStopLoss && signal.takeProfits.length > 0) {
         for (let i = 0; i < signal.takeProfits.length; i++) {
           const tpPrice = signal.takeProfits[i];
           const targetNumber = i + 1;
           let tpHit = false;
           
-          const tpTolerance = 0.0001;
           if (signal.type === 'BUY') {
-            tpHit = currentPrice >= (tpPrice - tpTolerance);
+            tpHit = currentPrice >= tpPrice;
           } else {
-            tpHit = currentPrice <= (tpPrice + tpTolerance);
+            tpHit = currentPrice <= tpPrice;
           }
           
           // If target hit and not already recorded, add to array
@@ -59,7 +55,7 @@ export const useSignalMonitoring = () => {
             newTargetsHit.push(targetNumber);
             newTargetsHit.sort();
             hasNewTargetHit = true;
-            console.log(`🎯 NEW TARGET ${targetNumber} HIT for ${signal.symbol}! Price: ${currentPrice}, TP: ${tpPrice}`);
+            console.log(`🎯 NEW TARGET ${targetNumber} HIT for ${signal.symbol}! Updating targets_hit array`);
             
             // Show immediate notification for new target hit
             toast({
@@ -92,28 +88,11 @@ export const useSignalMonitoring = () => {
         }
       }
 
-      // Determine if signal should expire
-      const allTargetsHit = newTargetsHit.length === signal.takeProfits.length && signal.takeProfits.length > 0;
-      
-      // ONLY expire if:
-      // 1. Stop loss is definitively hit, OR
-      // 2. ALL take profit targets are hit
-      shouldExpireSignal = hitStopLoss || allTargetsHit;
-
-      // Additional check for very old signals (older than 7 days) - force expire
-      const signalAge = Date.now() - new Date(signal.createdAt).getTime();
-      const maxAge = 7 * 24 * 60 * 60 * 1000; // 7 days
-      const isVeryOld = signalAge > maxAge;
-
-      if (isVeryOld && !shouldExpireSignal) {
-        console.log(`⏰ Signal ${signal.id} is very old (${Math.floor(signalAge / (24 * 60 * 60 * 1000))} days), force expiring`);
-        shouldExpireSignal = true;
-        hitStopLoss = true; // Treat as stop loss for very old signals
-      }
-
-      if (shouldExpireSignal) {
+      // Check if signal should be expired (all targets hit OR stop loss hit)
+      const allTargetsHit = newTargetsHit.length === signal.takeProfits.length;
+      if (hitStopLoss || allTargetsHit) {
         try {
-          console.log(`🔄 Processing final outcome for ${signal.symbol}: ${allTargetsHit ? 'ALL TARGETS HIT' : hitStopLoss ? 'STOP LOSS HIT' : 'FORCE EXPIRED'}`);
+          console.log(`🔄 Processing final outcome for ${signal.symbol}: ${allTargetsHit ? 'ALL TARGETS HIT' : 'STOP LOSS HIT'}`);
           
           // Calculate final exit price and P&L
           let finalExitPrice = currentPrice;
@@ -123,8 +102,7 @@ export const useSignalMonitoring = () => {
             // Use the highest hit target price
             const highestHitTarget = Math.max(...newTargetsHit);
             finalExitPrice = signal.takeProfits[highestHitTarget - 1];
-            isSuccessful = true;
-          } else if (hitStopLoss || isVeryOld) {
+          } else if (hitStopLoss) {
             finalExitPrice = signal.stopLoss;
             isSuccessful = false;
           }
@@ -140,12 +118,10 @@ export const useSignalMonitoring = () => {
           let finalStatus = '';
           if (allTargetsHit) {
             finalStatus = 'All Take Profits Hit';
-          } else if (newTargetsHit.length > 0 && (hitStopLoss || isVeryOld)) {
+          } else if (newTargetsHit.length > 0 && hitStopLoss) {
             finalStatus = `Take Profit ${Math.max(...newTargetsHit)} Hit, Then Stop Loss`;
           } else if (newTargetsHit.length > 0) {
             finalStatus = `Take Profit ${Math.max(...newTargetsHit)} Hit`;
-          } else if (isVeryOld) {
-            finalStatus = 'Signal Expired (Time Limit)';
           } else {
             finalStatus = 'Stop Loss Hit';
           }
@@ -197,7 +173,7 @@ export const useSignalMonitoring = () => {
           console.log(`✅ Signal ${signal.id} expired with outcome: ${isSuccessful ? 'SUCCESS' : 'LOSS'} (${pnlPips} pips) - ${finalStatus}`);
           
           // Show final notification
-          const notificationTitle = isSuccessful ? "🎯 Signal Completed Successfully!" : isVeryOld ? "⏰ Signal Expired (Time Limit)" : "⛔ Signal Stopped Out";
+          const notificationTitle = isSuccessful ? "🎯 Signal Completed Successfully!" : "⛔ Signal Stopped Out";
           const notificationDescription = `${signal.symbol} ${signal.type} ${finalStatus} (${pnlPips >= 0 ? '+' : ''}${pnlPips} pips)`;
           
           toast({
@@ -209,15 +185,13 @@ export const useSignalMonitoring = () => {
         } catch (error) {
           console.error('❌ Error processing signal outcome:', error);
         }
-      } else {
-        console.log(`⏳ Signal ${signal.id} (${signal.symbol}) remains active - no exit conditions met`);
       }
     }
   }, [toast]);
 
   const monitorActiveSignals = useCallback(async () => {
     try {
-      // Get active signals only
+      // Get active signals only (no time-based filtering)
       const { data: activeSignals, error: signalsError } = await supabase
         .from('trading_signals')
         .select('*')
@@ -225,13 +199,10 @@ export const useSignalMonitoring = () => {
         .eq('is_centralized', true);
 
       if (signalsError || !activeSignals?.length) {
-        if (signalsError) {
-          console.error('❌ Error fetching active signals:', signalsError);
-        }
         return;
       }
 
-      console.log(`🔍 Monitoring ${activeSignals.length} active signals for precise outcome detection...`);
+      console.log(`🔍 Monitoring ${activeSignals.length} active signals for outcomes...`);
 
       // Get current market prices
       const symbols = [...new Set(activeSignals.map(s => s.symbol))];
@@ -264,7 +235,7 @@ export const useSignalMonitoring = () => {
         targetsHit: signal.targets_hit || []
       }));
 
-      // Check for outcomes with precise logic
+      // Check for outcomes
       await checkSignalOutcomes(signalsToMonitor, currentPrices);
 
     } catch (error) {
@@ -276,12 +247,12 @@ export const useSignalMonitoring = () => {
     // Initial monitoring check
     monitorActiveSignals();
 
-    // Monitor every 30 seconds for accurate outcome detection
-    const monitorInterval = setInterval(monitorActiveSignals, 30000);
+    // Monitor every 15 seconds for more responsive outcome detection
+    const monitorInterval = setInterval(monitorActiveSignals, 15000);
 
     // Subscribe to real-time price updates for immediate checking
     const priceChannel = supabase
-      .channel('precise-outcome-monitoring')
+      .channel('outcome-monitoring')
       .on(
         'postgres_changes',
         {
@@ -291,14 +262,14 @@ export const useSignalMonitoring = () => {
         },
         () => {
           // Check for outcomes immediately after price updates
-          setTimeout(monitorActiveSignals, 2000);
+          setTimeout(monitorActiveSignals, 1000);
         }
       )
       .subscribe();
 
     // Subscribe to signal updates to refresh monitoring
     const signalChannel = supabase
-      .channel('signal-updates-monitoring')
+      .channel('signal-updates')
       .on(
         'postgres_changes',
         {
@@ -307,8 +278,8 @@ export const useSignalMonitoring = () => {
           table: 'trading_signals'
         },
         (payload) => {
-          console.log('📡 Signal update detected for monitoring:', payload);
-          setTimeout(monitorActiveSignals, 3000);
+          console.log('📡 Signal update detected:', payload);
+          setTimeout(monitorActiveSignals, 2000);
         }
       )
       .subscribe();
