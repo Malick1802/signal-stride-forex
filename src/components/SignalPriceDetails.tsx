@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { Copy, Check, Target } from 'lucide-react';
+import { Copy, CircleCheck, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { calculateStopLossPips, calculateTakeProfitPips } from '@/utils/pipCalculator';
@@ -63,7 +62,7 @@ const SignalPriceDetails = ({
         text: "HIT ✓", 
         color: "text-emerald-400 font-bold", 
         bgColor: "bg-emerald-500/20",
-        icon: <Check className="h-4 w-4 text-emerald-400" />
+        icon: <CircleCheck className="h-5 w-5 text-emerald-500 fill-emerald-500" />
       };
     } else if (isCurrentlyHit) {
       return { 
