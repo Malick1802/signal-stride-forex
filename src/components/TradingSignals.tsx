@@ -1,14 +1,16 @@
 import React, { useState, memo } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
-import { useSignalMonitoring } from '@/hooks/useSignalMonitoring';
+import { useEnhancedSignalMonitoring } from '@/hooks/useEnhancedSignalMonitoring';
+import { useSignalOutcomeTracker } from '@/hooks/useSignalOutcomeTracker';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import SignalStats from './SignalStats';
 import SignalCard from './SignalCard';
 import RealTimeStatus from './RealTimeStatus';
 import GlobalRefreshIndicator from './GlobalRefreshIndicator';
+import SignalDebuggingDashboard from './SignalDebuggingDashboard';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Users, Activity, Brain, Shield, Wrench, Zap, FlaskConical, Target, TrendingUp, Clock } from 'lucide-react';
+import { RefreshCw, Users, Activity, Brain, Shield, Wrench, Zap, FlaskConical, Target, TrendingUp, Clock, Bug } from 'lucide-react';
 import { useMarketActivation } from '@/hooks/useMarketActivation';
 import AutomationDashboard from './AutomationDashboard';
 
@@ -19,14 +21,16 @@ const TradingSignals = memo(() => {
   const { signals, loading, lastUpdate, triggerAutomaticSignalGeneration } = useTradingSignals();
   const { toast } = useToast();
   
-  // Add enhanced signal monitoring (market-based only)
-  useSignalMonitoring();
+  // Add enhanced monitoring systems
+  useEnhancedSignalMonitoring();
+  useSignalOutcomeTracker();
   
   const [analysis, setAnalysis] = useState<Record<string, string>>({});
   const [analyzingSignal, setAnalyzingSignal] = useState<string | null>(null);
   const [detectingOpportunities, setDetectingOpportunities] = useState(false);
   const [testingSystem, setTestingSystem] = useState(false);
   const [cleaningCrons, setCleaningCrons] = useState(false);
+  const [showDebugDashboard, setShowDebugDashboard] = useState(false);
 
   // Add market activation
   const { activateMarket } = useMarketActivation();
@@ -209,6 +213,41 @@ const TradingSignals = memo(() => {
       {/* Real-time Connection Status */}
       <RealTimeStatus />
 
+      {/* Enhanced Monitoring Status */}
+      <div className="bg-purple-500/10 backdrop-blur-sm rounded-xl border border-purple-500/20 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <Brain className="h-5 w-5 text-purple-400" />
+              <span className="text-white font-medium">ENHANCED SIGNAL MONITORING</span>
+              <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-1 rounded">
+                ACTIVE
+              </span>
+            </div>
+          </div>
+          <div className="flex items-center space-x-4">
+            <div className="text-sm text-purple-400">
+              🧠 5-second intervals • Real-time triggers • Outcome validation
+            </div>
+            <Button
+              onClick={() => setShowDebugDashboard(!showDebugDashboard)}
+              className="bg-purple-600 hover:bg-purple-700 text-white text-sm"
+              size="sm"
+            >
+              <Bug className="h-4 w-4 mr-2" />
+              {showDebugDashboard ? 'Hide' : 'Show'} Debug Dashboard
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      {/* Debug Dashboard */}
+      {showDebugDashboard && (
+        <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-6">
+          <SignalDebuggingDashboard />
+        </div>
+      )}
+
       {/* Market-Based Expiration Notice */}
       <div className="bg-green-500/10 backdrop-blur-sm rounded-xl border border-green-500/20 p-4">
         <div className="flex items-center justify-between">
@@ -217,12 +256,12 @@ const TradingSignals = memo(() => {
               <Target className="h-5 w-5 text-green-400" />
               <span className="text-white font-medium">MARKET-BASED SIGNAL EXPIRATION</span>
               <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
-                TIME-BASED EXPIRATION ELIMINATED
+                ENHANCED MONITORING
               </span>
             </div>
           </div>
           <div className="text-sm text-green-400">
-            🎯 Signals expire only when they hit stop loss or take profit • 72h emergency timeout only
+            🎯 Enhanced validation • Mandatory outcomes • 5-second monitoring
           </div>
         </div>
       </div>
@@ -309,7 +348,7 @@ const TradingSignals = memo(() => {
               <TrendingUp className="h-5 w-5 text-green-400" />
               <span className="text-white font-medium">Enhanced Success-Focused Signal Generation (Max: {MAX_ACTIVE_SIGNALS})</span>
               <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
-                MARKET-BASED EXPIRATION
+                ENHANCED MONITORING
               </span>
             </div>
             <Button
@@ -337,7 +376,7 @@ const TradingSignals = memo(() => {
             </Button>
           </div>
           <div className="text-sm text-gray-400">
-            🎯 {validSignals.length >= MAX_ACTIVE_SIGNALS ? `Limit reached (${validSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${MAX_ACTIVE_SIGNALS - validSignals.length} slots available`} • Market-based expiration • Natural lifecycle
+            🧠 {validSignals.length >= MAX_ACTIVE_SIGNALS ? `Limit reached (${validSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${MAX_ACTIVE_SIGNALS - validSignals.length} slots available`} • Enhanced monitoring • Validated outcomes
           </div>
         </div>
       </div>
