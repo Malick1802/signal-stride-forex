@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🧹 URGENT: Removing ALL competing cron jobs to fix GitHub Actions scheduling...');
+    console.log('🧹 ENHANCED: Removing ALL competing cron jobs and implementing proper signal management...');
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -37,8 +37,8 @@ serve(async (req) => {
       console.log('📝 Current cron jobs found:', currentJobs);
     }
 
-    // Remove ALL signal generation and conflicting cron jobs
-    console.log('❌ Removing ALL competing and broken cron jobs...');
+    // Remove ALL time-based signal expiration and conflicting cron jobs
+    console.log('❌ Removing ALL competing and time-based signal expiration cron jobs...');
     const allConflictingJobs = [
       // Signal generation jobs (GitHub Actions will handle this)
       'invoke-generate-signals-every-5min',
@@ -54,6 +54,11 @@ serve(async (req) => {
       'optimized-market-data-refresh',
       'optimized-tick-generation',
       'daily-maintenance-cleanup',
+      // Any time-based signal expiration jobs
+      'signal-expiration-hourly',
+      'batch-signal-expiration',
+      'automatic-signal-cleanup',
+      'signal-timeout-check',
       // Any other market-related jobs
       'market-data-refresh',
       'tick-generation',
@@ -79,7 +84,7 @@ serve(async (req) => {
     }
 
     // Remove ALL cron jobs by ID (the ones showing in postgres logs)
-    console.log('🔥 Removing cron jobs by ID that are causing schema errors...');
+    console.log('🔥 Removing cron jobs by ID that are causing time-based expiration...');
     const problematicJobIds = [1, 7, 8, 9, 10, 15];
     
     for (const jobId of problematicJobIds) {
@@ -88,7 +93,7 @@ serve(async (req) => {
           query: `DELETE FROM cron.job WHERE jobid = ${jobId};` 
         });
         if (!error) {
-          console.log(`✅ Removed cron job ID: ${jobId}`);
+          console.log(`✅ Removed time-based expiration cron job ID: ${jobId}`);
           removedJobs.push(`job-id-${jobId}`);
         }
       } catch (error) {
@@ -96,7 +101,55 @@ serve(async (req) => {
       }
     }
 
-    // Verify no cron jobs remain
+    // Clean up only VERY old signals (72+ hours) as emergency safety net
+    console.log('🛡️ Running emergency cleanup for truly abandoned signals (72+ hours old)...');
+    
+    try {
+      const { data: oldSignals, error: oldSignalsError } = await supabase
+        .from('trading_signals')
+        .select('id, symbol, created_at, status')
+        .eq('status', 'active')
+        .lt('created_at', new Date(Date.now() - 72 * 60 * 60 * 1000).toISOString());
+
+      if (oldSignalsError) {
+        console.error('❌ Error fetching old signals:', oldSignalsError);
+      } else if (oldSignals && oldSignals.length > 0) {
+        console.log(`⚠️ Found ${oldSignals.length} signals older than 72 hours - emergency cleanup needed`);
+        
+        // Create emergency outcomes for these signals
+        for (const signal of oldSignals) {
+          const { error: outcomeError } = await supabase
+            .from('signal_outcomes')
+            .insert({
+              signal_id: signal.id,
+              hit_target: false,
+              exit_price: 0,
+              exit_timestamp: new Date().toISOString(),
+              target_hit_level: null,
+              pnl_pips: 0,
+              notes: 'Emergency timeout - signal abandoned after 72 hours'
+            });
+
+          if (!outcomeError) {
+            await supabase
+              .from('trading_signals')
+              .update({ 
+                status: 'expired',
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', signal.id);
+
+            console.log(`🛡️ Emergency expired signal ${signal.symbol} (${signal.id}) - 72+ hours old`);
+          }
+        }
+      } else {
+        console.log('✅ No signals requiring emergency cleanup');
+      }
+    } catch (error) {
+      console.error('❌ Error in emergency cleanup:', error);
+    }
+
+    // Verify no problematic cron jobs remain
     const { data: remainingJobs, error: verifyError } = await supabase.rpc('sql', { 
       query: 'SELECT jobname, command FROM cron.job;' 
     });
@@ -105,25 +158,27 @@ serve(async (req) => {
       console.log('📋 Remaining cron jobs after cleanup:', remainingJobs);
     }
 
-    console.log('✅ ALL competing cron jobs removed successfully');
-    console.log('🎯 GitHub Actions will now be the ONLY automation system running every 5 minutes');
-    console.log('📊 No more Supabase cron conflicts - GitHub Actions has exclusive control');
+    console.log('✅ Time-based signal expiration ELIMINATED - market monitoring now has exclusive control');
+    console.log('🎯 Signals will only expire when they hit stop loss or take profit levels');
+    console.log('🛡️ Emergency safety net: 72-hour timeout for abandoned signals only');
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'ALL competing cron jobs removed - GitHub Actions now has exclusive control',
+        message: 'Time-based signal expiration eliminated - market monitoring now controls signal lifecycle',
         removedJobs: removedJobs,
         remainingJobs: remainingJobs || [],
-        note: 'GitHub Actions is now the ONLY automation system. No more Supabase cron conflicts.',
-        gitHubActionsStatus: 'EXCLUSIVE_CONTROL',
+        emergencyTimeoutHours: 72,
+        note: 'Signals will now expire naturally based on market conditions, not arbitrary time limits',
+        marketMonitoringStatus: 'EXCLUSIVE_CONTROL',
+        timeBasedExpirationStatus: 'ELIMINATED',
         timestamp: new Date().toISOString()
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('💥 Cron cleanup error:', error);
+    console.error('💥 Enhanced cleanup error:', error);
     return new Response(
       JSON.stringify({ 
         error: error.message,

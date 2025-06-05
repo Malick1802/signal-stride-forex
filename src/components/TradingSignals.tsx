@@ -8,7 +8,7 @@ import SignalCard from './SignalCard';
 import RealTimeStatus from './RealTimeStatus';
 import GlobalRefreshIndicator from './GlobalRefreshIndicator';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Users, Activity, Brain, Shield, Wrench, Zap, FlaskConical, Target, TrendingUp } from 'lucide-react';
+import { RefreshCw, Users, Activity, Brain, Shield, Wrench, Zap, FlaskConical, Target, TrendingUp, Clock } from 'lucide-react';
 import { useMarketActivation } from '@/hooks/useMarketActivation';
 import AutomationDashboard from './AutomationDashboard';
 
@@ -19,7 +19,7 @@ const TradingSignals = memo(() => {
   const { signals, loading, lastUpdate, triggerAutomaticSignalGeneration } = useTradingSignals();
   const { toast } = useToast();
   
-  // Add signal monitoring
+  // Add enhanced signal monitoring (market-based only)
   useSignalMonitoring();
   
   const [analysis, setAnalysis] = useState<Record<string, string>>({});
@@ -46,34 +46,34 @@ const TradingSignals = memo(() => {
 
   const avgConfidence = validSignals.length > 0 
     ? Math.round(validSignals.reduce((sum, signal) => sum + (signal.confidence || 0), 0) / validSignals.length)
-    : 75; // Enhanced average for success-focused mode
+    : 75;
 
   const handleCleanupCrons = async () => {
     setCleaningCrons(true);
     try {
-      console.log('🧹 Cleaning up cron jobs...');
+      console.log('🧹 Eliminating time-based signal expiration...');
       const { data, error } = await supabase.functions.invoke('cleanup-crons');
       
       if (error) {
-        console.error('❌ Cron cleanup error:', error);
+        console.error('❌ Enhanced cleanup error:', error);
         toast({
           title: "Cleanup Error",
-          description: "Failed to cleanup cron jobs. Check logs for details.",
+          description: "Failed to eliminate time-based expiration. Check logs for details.",
           variant: "destructive"
         });
         return;
       }
 
-      console.log('✅ Cron cleanup result:', data);
+      console.log('✅ Enhanced cleanup result:', data);
       toast({
-        title: "✅ Cron Jobs Cleaned",
-        description: "All cron jobs cleaned up and new signal generation cron created (every 5 minutes)",
+        title: "✅ Time-Based Expiration Eliminated",
+        description: "Signals will now expire naturally based on market conditions only (72h emergency timeout)",
       });
     } catch (error) {
-      console.error('❌ Error cleaning crons:', error);
+      console.error('❌ Error eliminating time-based expiration:', error);
       toast({
         title: "Cleanup Error",
-        description: "Failed to cleanup cron jobs. Please try again.",
+        description: "Failed to eliminate time-based expiration. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -185,7 +185,7 @@ const TradingSignals = memo(() => {
   if (loading && validSignals.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-white">Loading high-probability signals (analyzing all currency pairs, limit: {MAX_ACTIVE_SIGNALS})...</div>
+        <div className="text-white">Loading market-based signals (analyzing all currency pairs, limit: {MAX_ACTIVE_SIGNALS})...</div>
       </div>
     );
   }
@@ -209,39 +209,95 @@ const TradingSignals = memo(() => {
       {/* Real-time Connection Status */}
       <RealTimeStatus />
 
-      {/* Enhanced Success Mode Notice */}
+      {/* Market-Based Expiration Notice */}
       <div className="bg-green-500/10 backdrop-blur-sm rounded-xl border border-green-500/20 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <TrendingUp className="h-5 w-5 text-green-400" />
-              <span className="text-white font-medium">ENHANCED SUCCESS-FOCUSED MODE</span>
+              <Target className="h-5 w-5 text-green-400" />
+              <span className="text-white font-medium">MARKET-BASED SIGNAL EXPIRATION</span>
               <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
-                TARGET: 70%+ SUCCESS RATE
+                TIME-BASED EXPIRATION ELIMINATED
               </span>
             </div>
           </div>
           <div className="text-sm text-green-400">
-            🎯 Improved risk management • Wider stops • Better entry timing • Enhanced analysis
+            🎯 Signals expire only when they hit stop loss or take profit • 72h emergency timeout only
           </div>
         </div>
       </div>
 
-      {/* Signal Limit Notice */}
+      {/* Enhanced Success Mode Notice */}
       <div className="bg-blue-500/10 backdrop-blur-sm rounded-xl border border-blue-500/20 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <Target className="h-5 w-5 text-blue-400" />
-              <span className="text-white font-medium">SIGNAL LIMIT: {MAX_ACTIVE_SIGNALS}</span>
+              <TrendingUp className="h-5 w-5 text-blue-400" />
+              <span className="text-white font-medium">ENHANCED SUCCESS-FOCUSED MODE</span>
               <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">
-                {validSignals.length}/{MAX_ACTIVE_SIGNALS} ACTIVE
+                TARGET: 70%+ SUCCESS RATE
               </span>
             </div>
           </div>
           <div className="text-sm text-blue-400">
-            🎯 Maximum {MAX_ACTIVE_SIGNALS} active signals • Enhanced success criteria • Improved win rates
+            🎯 Market-driven outcomes • Natural signal lifecycle • No artificial time limits
           </div>
+        </div>
+      </div>
+
+      {/* Enhanced System Controls */}
+      <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <Shield className="h-5 w-5 text-yellow-400" />
+              <span className="text-white font-medium">Enhanced System Controls</span>
+              <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">
+                MARKET-BASED MONITORING
+              </span>
+            </div>
+          </div>
+          <div className="flex space-x-2">
+            <Button
+              onClick={handleCleanupCrons}
+              disabled={cleaningCrons}
+              className="bg-yellow-600 hover:bg-yellow-700 text-white text-sm"
+              size="sm"
+            >
+              {cleaningCrons ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Eliminating Time-Based Expiration...
+                </>
+              ) : (
+                <>
+                  <Clock className="h-4 w-4 mr-2" />
+                  Eliminate Time-Based Expiration
+                </>
+              )}
+            </Button>
+            <Button
+              onClick={handleComprehensiveTest}
+              disabled={testingSystem}
+              className="bg-purple-600 hover:bg-purple-700 text-white text-sm"
+              size="sm"
+            >
+              {testingSystem ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Testing...
+                </>
+              ) : (
+                <>
+                  <Zap className="h-4 w-4 mr-2" />
+                  Comprehensive Test
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+        <div className="mt-2 text-xs text-yellow-400">
+          🛡️ MARKET-BASED EXPIRATION: Signals expire naturally based on market conditions • 72h emergency safety net only
         </div>
       </div>
 
@@ -253,7 +309,7 @@ const TradingSignals = memo(() => {
               <TrendingUp className="h-5 w-5 text-green-400" />
               <span className="text-white font-medium">Enhanced Success-Focused Signal Generation (Max: {MAX_ACTIVE_SIGNALS})</span>
               <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
-                70%+ SUCCESS TARGET
+                MARKET-BASED EXPIRATION
               </span>
             </div>
             <Button
@@ -281,81 +337,7 @@ const TradingSignals = memo(() => {
             </Button>
           </div>
           <div className="text-sm text-gray-400">
-            🎯 {validSignals.length >= MAX_ACTIVE_SIGNALS ? `Limit reached (${validSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${MAX_ACTIVE_SIGNALS - validSignals.length} slots available`} • Enhanced success criteria • 70%+ target success rate
-          </div>
-        </div>
-      </div>
-
-      {/* System Debugging Panel */}
-      <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <Wrench className="h-5 w-5 text-yellow-400" />
-              <span className="text-white font-medium">System Controls</span>
-              <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
-                ENHANCED SUCCESS MODE
-              </span>
-            </div>
-          </div>
-          <div className="flex space-x-2">
-            <Button
-              onClick={handleCleanupCrons}
-              disabled={cleaningCrons}
-              className="bg-yellow-600 hover:bg-yellow-700 text-white text-sm"
-              size="sm"
-            >
-              {cleaningCrons ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Cleaning...
-                </>
-              ) : (
-                <>
-                  <Wrench className="h-4 w-4 mr-2" />
-                  Fix Cron Jobs
-                </>
-              )}
-            </Button>
-            <Button
-              onClick={handleComprehensiveTest}
-              disabled={testingSystem}
-              className="bg-purple-600 hover:bg-purple-700 text-white text-sm"
-              size="sm"
-            >
-              {testingSystem ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Testing...
-                </>
-              ) : (
-                <>
-                  <Zap className="h-4 w-4 mr-2" />
-                  Comprehensive Test
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-        <div className="mt-2 text-xs text-green-400">
-          🎯 ENHANCED SUCCESS MODE: Improved risk management • Wider stops • Better timing • 70%+ success target
-        </div>
-      </div>
-
-      {/* Enhanced AI System Status */}
-      <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <Brain className="h-5 w-5 text-green-400" />
-              <span className="text-white font-medium">Enhanced Success-Focused AI System (Limit: {MAX_ACTIVE_SIGNALS})</span>
-              <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
-                70%+ SUCCESS TARGET
-              </span>
-            </div>
-          </div>
-          <div className="text-sm text-gray-400">
-            🎯 Enhanced analysis • Improved risk management • Better entry timing • 70%+ success probability targeting
+            🎯 {validSignals.length >= MAX_ACTIVE_SIGNALS ? `Limit reached (${validSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${MAX_ACTIVE_SIGNALS - validSignals.length} slots available`} • Market-based expiration • Natural lifecycle
           </div>
         </div>
       </div>
@@ -380,7 +362,7 @@ const TradingSignals = memo(() => {
               </select>
             </div>
             <div className="text-sm text-gray-400">
-              🎯 Enhanced success-focused signals • Maximum {MAX_ACTIVE_SIGNALS} active • 70%+ target success rate
+              🎯 Market-based signals • Natural expiration • 72h emergency timeout only
             </div>
           </div>
         </div>
@@ -389,7 +371,7 @@ const TradingSignals = memo(() => {
       {/* Active Enhanced Success Signals Grid */}
       <div>
         <h3 className="text-white text-lg font-semibold mb-4">
-          {selectedPair === 'All' ? `Enhanced Success-Focused Signals (${filteredSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${selectedPair} Signals (${filteredSignals.length})`}
+          {selectedPair === 'All' ? `Market-Based Signals (${filteredSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${selectedPair} Signals (${filteredSignals.length})`}
         </h3>
         
         {filteredSignals.length > 0 ? (
@@ -414,11 +396,11 @@ const TradingSignals = memo(() => {
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
               {selectedPair === 'All' 
-                ? `No enhanced success-focused signals generated yet (0/${MAX_ACTIVE_SIGNALS})` 
+                ? `No market-based signals generated yet (0/${MAX_ACTIVE_SIGNALS})` 
                 : `No signals for ${selectedPair}`}
             </div>
             <div className="text-sm text-gray-500 mb-6">
-              🎯 Signal limit: {MAX_ACTIVE_SIGNALS} • Enhanced AI analyzes ALL currency pairs with improved success criteria (70%+ target success rate)
+              🎯 Signal limit: {MAX_ACTIVE_SIGNALS} • Market-based expiration • Natural lifecycle based on price action
             </div>
             <div className="space-x-4">
               <Button
@@ -429,7 +411,7 @@ const TradingSignals = memo(() => {
                 {detectingOpportunities ? (
                   <>
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Analyzing Enhanced Success Opportunities...
+                    Analyzing Market-Based Opportunities...
                   </>
                 ) : validSignals.length >= MAX_ACTIVE_SIGNALS ? (
                   <>
@@ -439,7 +421,7 @@ const TradingSignals = memo(() => {
                 ) : (
                   <>
                     <TrendingUp className="h-4 w-4 mr-2" />
-                    Generate Enhanced Success Signals
+                    Generate Market-Based Signals
                   </>
                 )}
               </Button>
