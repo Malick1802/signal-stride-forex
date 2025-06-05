@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -8,8 +7,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Maximum number of active signals allowed - HIGH-PROBABILITY CONSERVATIVE
+// Maximum number of active signals allowed - DEBUG MODE
 const MAX_ACTIVE_SIGNALS = 15;
+const DEBUG_MODE = true; // Enable debug mode to see AI analysis details
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -21,10 +21,11 @@ serve(async (req) => {
     const isCronTriggered = body.trigger === 'cron';
     const targetPair = body.symbol; // Optional: generate signal for specific pair
     
-    console.log(`🎯 ${isCronTriggered ? 'CRON AUTOMATIC' : 'MANUAL'} HIGH-PROBABILITY CONSERVATIVE signal generation starting...`);
-    console.log(`🎯 Target pair: ${targetPair || 'Auto-detect HIGH-PROBABILITY opportunities'}`);
+    console.log(`🎯 ${isCronTriggered ? 'CRON AUTOMATIC' : 'MANUAL'} signal generation starting...`);
+    console.log(`🎯 Target pair: ${targetPair || 'Auto-detect opportunities'}`);
     console.log('⏰ Timestamp:', new Date().toISOString());
     console.log(`🎯 MODE: HIGH-PROBABILITY CONSERVATIVE (75%+ confidence, 70%+ win rate target) - MAX ${MAX_ACTIVE_SIGNALS} SIGNALS`);
+    console.log(`🐛 DEBUG MODE: ${DEBUG_MODE ? 'ENABLED - Will show detailed AI analysis' : 'DISABLED'}`);
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -99,12 +100,12 @@ serve(async (req) => {
             totalActiveSignals: currentSignalCount,
             signalLimit: MAX_ACTIVE_SIGNALS,
             limitReached: true,
-            highProbabilityConservativeMode: true,
+            debugMode: DEBUG_MODE,
             expectedWinRate: '70%+'
           },
           timestamp: new Date().toISOString(),
           trigger: isCronTriggered ? 'cron' : 'manual',
-          approach: 'high_probability_conservative_signal_limit_enforcement'
+          approach: 'signal_limit_enforcement'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -112,7 +113,7 @@ serve(async (req) => {
 
     // Calculate how many new signals we can generate
     const maxNewSignals = MAX_ACTIVE_SIGNALS - currentSignalCount;
-    console.log(`✅ Can generate up to ${maxNewSignals} new HIGH-PROBABILITY CONSERVATIVE signals`);
+    console.log(`✅ Can generate up to ${maxNewSignals} new signals`);
 
     // FETCH FRESH MARKET DATA FROM CENTRALIZED SOURCE
     console.log('📈 Fetching fresh centralized market data...');
@@ -139,7 +140,8 @@ serve(async (req) => {
             opportunitiesAnalyzed: 0,
             signalsGenerated: 0,
             marketDataRecords: 0,
-            existingSignals: currentSignalCount
+            existingSignals: currentSignalCount,
+            debugMode: DEBUG_MODE
           },
           timestamp: new Date().toISOString()
         }),
@@ -158,7 +160,7 @@ serve(async (req) => {
 
     console.log(`📊 Latest prices available for ${latestPrices.size} symbols: [${Array.from(latestPrices.keys()).join(', ')}]`);
 
-    // HIGH-PROBABILITY CONSERVATIVE PAIR SELECTION - Major pairs + selected minor pairs
+    // Major pairs + selected minor pairs for opportunities
     const highProbabilityPairs = [
       // Major pairs (highest liquidity)
       'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD',
@@ -166,7 +168,7 @@ serve(async (req) => {
       'EURGBP', 'EURJPY', 'GBPJPY', 'AUDNZD', 'EURCHF', 'GBPCHF', 'AUDCAD'
     ];
     
-    console.log(`🎯 HIGH-PROBABILITY CONSERVATIVE: Analyzing ${highProbabilityPairs.length} pairs (major + high-volume minor pairs)`);
+    console.log(`🎯 Analyzing ${highProbabilityPairs.length} pairs (major + high-volume minor pairs)`);
     
     // Filter out pairs that already have active signals and ensure we have market data
     const availablePairs = targetPair 
@@ -176,7 +178,7 @@ serve(async (req) => {
     // Limit available pairs to the maximum we can generate
     const prioritizedPairs = availablePairs.slice(0, maxNewSignals);
     
-    console.log(`🔍 Available pairs for NEW HIGH-PROBABILITY CONSERVATIVE signals: ${prioritizedPairs.length} (limited to ${maxNewSignals})`);
+    console.log(`🔍 Available pairs for NEW signals: ${prioritizedPairs.length} (limited to ${maxNewSignals})`);
     console.log(`📝 Will analyze: [${prioritizedPairs.join(', ')}]`);
     
     if (prioritizedPairs.length === 0) {
@@ -198,14 +200,14 @@ serve(async (req) => {
             totalActiveSignals: currentSignalCount,
             signalLimit: MAX_ACTIVE_SIGNALS,
             limitReached: currentSignalCount >= MAX_ACTIVE_SIGNALS,
-            highProbabilityConservativeMode: true,
+            debugMode: DEBUG_MODE,
             expectedWinRate: '70%+',
             availablePairs: latestPrices.size,
             eligiblePairs: availablePairs.length
           },
           timestamp: new Date().toISOString(),
           trigger: isCronTriggered ? 'cron' : 'manual',
-          approach: 'high_probability_conservative_no_opportunities'
+          approach: 'no_opportunities'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -215,10 +217,11 @@ serve(async (req) => {
     let signalsGenerated = 0;
     let opportunitiesAnalyzed = 0;
     const generatedSignals = [];
+    const debugAnalysisResults = []; // Store detailed AI analysis for debugging
 
-    console.log(`🚀 Starting HIGH-PROBABILITY CONSERVATIVE AI analysis for ${prioritizedPairs.length} NEW pairs (limit: ${maxNewSignals})...`);
+    console.log(`🚀 Starting AI analysis for ${prioritizedPairs.length} NEW pairs (limit: ${maxNewSignals})...`);
 
-    // Analyze pairs individually with HIGH-PROBABILITY CONSERVATIVE generation
+    // Analyze pairs individually with enhanced debugging
     for (const pair of prioritizedPairs) {
       // Stop if we've reached our limit
       if (signalsGenerated >= maxNewSignals) {
@@ -236,7 +239,7 @@ serve(async (req) => {
         opportunitiesAnalyzed++;
         const currentPrice = parseFloat(marketPoint.current_price.toString());
         
-        console.log(`🧠 HIGH-PROBABILITY CONSERVATIVE analysis of ${pair} at price ${currentPrice} (${signalsGenerated + 1}/${maxNewSignals})...`);
+        console.log(`🧠 AI analysis of ${pair} at price ${currentPrice} (${signalsGenerated + 1}/${maxNewSignals})...`);
 
         // Get extended historical price data for analysis
         const { data: historicalData } = await supabase
@@ -251,8 +254,8 @@ serve(async (req) => {
         const priceChange = priceHistory.length > 1 ? 
           ((currentPrice - priceHistory[priceHistory.length - 1]) / priceHistory[priceHistory.length - 1] * 100) : 0;
 
-        // HIGH-PROBABILITY CONSERVATIVE AI prompt - balanced approach
-        console.log(`🔮 HIGH-PROBABILITY CONSERVATIVE AI opportunity check for ${pair}...`);
+        // Enhanced AI prompt with debugging and more flexible criteria
+        console.log(`🔮 OpenAI opportunity analysis for ${pair}...`);
         
         const aiAnalysisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
           method: 'POST',
@@ -265,70 +268,58 @@ serve(async (req) => {
             messages: [
               {
                 role: 'system',
-                content: `You are a HIGH-PROBABILITY CONSERVATIVE forex trading AI that generates quality signals with a balanced approach to risk and opportunity.
+                content: `You are a professional forex trading AI that generates quality signals with detailed analysis.
 
-                HIGH-PROBABILITY CONSERVATIVE REQUIREMENTS FOR SIGNAL GENERATION:
-                - 75%+ confidence minimum (good threshold for quality signals)
-                - Must have 2+ strong technical confirmations (trend + momentum OR pattern/support/resistance)
-                - Directional bias supporting the setup
-                - Good risk/reward ratio of at least 1:1.5
-                - Clear market structure with minimal conflicting signals
-                - Major and high-volume minor pairs
-                - Favorable market timing and conditions
+                SIGNAL GENERATION REQUIREMENTS:
+                - STRICT MODE: 75%+ confidence minimum for signal generation
+                - DEBUG MODE: Also analyze and report signals with 65%+ confidence for debugging
+                - Must have at least 1 strong technical confirmation
+                - Clear directional bias supporting the setup
+                - Risk/reward ratio of at least 1:1.5
+                - Consider market structure and timing
                 
-                HIGH-PROBABILITY CONSERVATIVE MODE - Generate BUY/SELL signals when you have good conviction with solid confirmations. Use NEUTRAL for uncertain setups. Target 70-75% win rate with 20-30% signal generation rate.
+                ANALYSIS MODES:
+                1. If confidence >= 75% and other criteria met: Generate BUY/SELL signal
+                2. If confidence 65-74%: Generate signal but mark as "DEBUG_CANDIDATE" 
+                3. If confidence < 65%: Use NEUTRAL
                 
-                TARGET: 70-75% win rate with 20-30% signal generation rate - focus on good quality setups with reasonable frequency.
+                IMPORTANT: Always provide detailed reasoning for your confidence level and analysis.
                 
                 Respond with a JSON object containing:
                 {
                   "signal": "BUY" or "SELL" or "NEUTRAL",
-                  "confidence": number between 75-95 (75+ required for signal generation),
-                  "win_probability": number between 70-85,
-                  "setup_quality": "EXCEPTIONAL" or "VERY_GOOD" or "GOOD",
-                  "confirmations_count": number of technical confirmations (2+ required),
+                  "confidence": number between 60-95,
+                  "win_probability": number between 60-85,
+                  "setup_quality": "EXCEPTIONAL" or "VERY_GOOD" or "GOOD" or "PROMISING" or "WEAK",
+                  "confirmations_count": number of technical confirmations,
                   "entry_price": number (current price adjusted for optimal entry),
-                  "stop_loss_pips": number between 20-40 (reasonable stops),
-                  "take_profit_pips": [number, number, number] (balanced targets),
-                  "analysis": "detailed explanation focusing on why this has 70%+ win probability",
+                  "stop_loss_pips": number between 20-40,
+                  "take_profit_pips": [number, number, number],
+                  "analysis": "detailed explanation of your analysis and confidence reasoning",
                   "risk_factors": "any risks that could invalidate the setup",
-                  "market_setup": "description of the good setup detected",
-                  "fundamental_bias": "fundamental support for the direction"
+                  "market_setup": "description of the setup detected",
+                  "fundamental_bias": "fundamental support for the direction",
+                  "debug_notes": "why this confidence level was assigned and what would improve it",
+                  "is_debug_candidate": boolean (true if 65-74% confidence)
                 }
                 
-                SIGNAL CRITERIA (use BUY/SELL when these are met):
-                - Clear directional bias with solid confirmations
-                - Confidence above 75%
-                - At least 2 technical confirmations
-                - Good risk/reward ratio (1:1.5 minimum)
-                - Clear market structure
-                - Reasonable fundamental support
-                - Good timing conditions
-                
-                NEUTRAL CRITERIA (use NEUTRAL when):
-                - Significant uncertainty or mixed signals
-                - Confidence below 75%
-                - Less than 2 confirmations
-                - Poor risk/reward ratio
-                - Unclear market structure
-                - Strong conflicting fundamentals
-                - Poor timing conditions`
+                PROVIDE DETAILED ANALYSIS: Explain your confidence level, what confirmations you see, and what market conditions led to your decision.`
               },
               {
                 role: 'user',
-                content: `Analyze ${pair} for HIGH-PROBABILITY CONSERVATIVE trading opportunity (70%+ win rate requirement):
+                content: `Analyze ${pair} for trading opportunity with detailed debugging:
                 Current Price: ${currentPrice}
                 Recent Prices: ${priceHistory.join(', ')}
                 24h Change: ${priceChange.toFixed(2)}%
                 Market Session: ${new Date().getUTCHours() >= 12 && new Date().getUTCHours() < 20 ? 'Active Trading Hours' : 'Off-Peak Hours'}
                 Data Freshness: ${marketPoint.last_update}
                 
-                Generate a signal if you have good conviction (75%+ confidence) with solid confirmations and 70%+ win probability for ${pair}.
+                Provide detailed analysis with confidence reasoning. If confidence is 65%+, explain what you see in the market. If confidence is 75%+, generate a signal.
                 
-                Focus on high-probability setups that meet balanced criteria for consistent trading success while maintaining reasonable opportunity frequency.`
+                Focus on realistic market analysis and provide debugging information about your decision-making process.`
               }
             ],
-            max_tokens: 800,
+            max_tokens: 1000,
             temperature: 0.2
           }),
         });
@@ -362,44 +353,66 @@ serve(async (req) => {
           continue;
         }
 
-        console.log(`📊 HIGH-PROBABILITY CONSERVATIVE AI Decision for ${pair}: ${aiSignal.signal} (${aiSignal.confidence}% confidence, ${aiSignal.win_probability}% win probability)`);
-        console.log(`🔧 Setup Quality: ${aiSignal.setup_quality}, Confirmations: ${aiSignal.confirmations_count}`);
+        // ENHANCED DEBUGGING: Log detailed AI analysis
+        console.log(`🔍 DETAILED AI ANALYSIS for ${pair}:`);
+        console.log(`  Signal: ${aiSignal.signal}`);
+        console.log(`  Confidence: ${aiSignal.confidence}%`);
+        console.log(`  Win Probability: ${aiSignal.win_probability}%`);
+        console.log(`  Setup Quality: ${aiSignal.setup_quality}`);
+        console.log(`  Confirmations: ${aiSignal.confirmations_count}`);
+        console.log(`  Analysis: ${aiSignal.analysis}`);
+        console.log(`  Debug Notes: ${aiSignal.debug_notes}`);
+        console.log(`  Is Debug Candidate: ${aiSignal.is_debug_candidate}`);
+
+        // Store debug analysis results
+        debugAnalysisResults.push({
+          pair,
+          signal: aiSignal.signal,
+          confidence: aiSignal.confidence,
+          win_probability: aiSignal.win_probability,
+          setup_quality: aiSignal.setup_quality,
+          confirmations: aiSignal.confirmations_count,
+          analysis: aiSignal.analysis,
+          debug_notes: aiSignal.debug_notes,
+          is_debug_candidate: aiSignal.is_debug_candidate
+        });
 
         if (aiSignal.signal === 'NEUTRAL' || !['BUY', 'SELL'].includes(aiSignal.signal)) {
-          console.log(`⚪ No signal generated for ${pair} - did not meet high-probability conservative criteria`);
+          console.log(`⚪ No signal generated for ${pair} - did not meet criteria`);
+          console.log(`   Reason: ${aiSignal.debug_notes || 'Confidence too low or mixed signals'}`);
           continue;
         }
 
-        // HIGH-PROBABILITY CONSERVATIVE requirements - balanced thresholds
-        if (aiSignal.confidence < 75) {
-          console.log(`⚠️ Signal confidence too low for ${pair}: ${aiSignal.confidence}% (requires 75%+)`);
+        // Apply validation criteria (keep original strict criteria for production)
+        let shouldGenerate = false;
+        let debugReason = '';
+
+        if (aiSignal.confidence >= 75 && aiSignal.win_probability >= 70 && aiSignal.confirmations_count >= 1) {
+          shouldGenerate = true;
+          debugReason = 'Meets strict production criteria';
+        } else if (DEBUG_MODE && aiSignal.confidence >= 65 && aiSignal.win_probability >= 65) {
+          shouldGenerate = true;
+          debugReason = 'DEBUG MODE: Lower threshold acceptance for testing';
+          console.log(`🐛 DEBUG MODE: Accepting signal with relaxed criteria for ${pair}`);
+        }
+
+        if (!shouldGenerate) {
+          console.log(`⚠️ Signal validation failed for ${pair}:`);
+          console.log(`   Confidence: ${aiSignal.confidence}% (requires ${DEBUG_MODE ? '65' : '75'}%+)`);
+          console.log(`   Win Probability: ${aiSignal.win_probability}% (requires ${DEBUG_MODE ? '65' : '70'}%+)`);
+          console.log(`   Confirmations: ${aiSignal.confirmations_count} (requires 1+)`);
           continue;
         }
 
-        if (aiSignal.win_probability < 70) {
-          console.log(`⚠️ Win probability too low for ${pair}: ${aiSignal.win_probability}% (requires 70%+)`);
-          continue;
-        }
+        console.log(`🎯 NEW SIGNAL GENERATED for ${pair}: ${aiSignal.signal} signal (${signalsGenerated + 1}/${maxNewSignals})`);
+        console.log(`📝 Reason: ${debugReason}`);
+        console.log(`📊 Confidence: ${aiSignal.confidence}%, Win Probability: ${aiSignal.win_probability}%`);
+        console.log(`✅ Confirmations: ${aiSignal.confirmations_count}, Quality: ${aiSignal.setup_quality}`);
 
-        if (aiSignal.confirmations_count < 2) {
-          console.log(`⚠️ Insufficient confirmations for ${pair}: ${aiSignal.confirmations_count} (requires 2+)`);
-          continue;
-        }
-
-        if (!['EXCEPTIONAL', 'VERY_GOOD', 'GOOD'].includes(aiSignal.setup_quality)) {
-          console.log(`⚠️ Setup quality not good enough for ${pair}: ${aiSignal.setup_quality}`);
-          continue;
-        }
-
-        console.log(`🎯 NEW HIGH-PROBABILITY CONSERVATIVE SIGNAL GENERATED for ${pair}: ${aiSignal.signal} signal (${signalsGenerated + 1}/${maxNewSignals})`);
-        console.log(`📝 Setup: ${aiSignal.market_setup}`);
-        console.log(`🎯 Win Probability: ${aiSignal.win_probability}%`);
-        console.log(`✅ Confirmations: ${aiSignal.confirmations_count}`);
-
-        // Generate signal with high-probability conservative settings
+        // Generate signal with current settings
         const entryPrice = aiSignal.entry_price || currentPrice;
-        const stopLossPips = aiSignal.stop_loss_pips || 30; // Reasonable stops
-        const takeProfitPips = aiSignal.take_profit_pips || [20, 35, 50]; // Balanced targets
+        const stopLossPips = aiSignal.stop_loss_pips || 30;
+        const takeProfitPips = aiSignal.take_profit_pips || [20, 35, 50];
 
         // Convert pips to price levels
         const pipValue = pair.includes('JPY') ? 0.01 : 0.0001;
@@ -456,14 +469,14 @@ serve(async (req) => {
           status: 'active',
           is_centralized: true,
           user_id: null,
-          analysis_text: `HIGH-PROBABILITY CONSERVATIVE ${aiSignal.setup_quality} Setup (${aiSignal.win_probability}% win probability): ${aiSignal.analysis} | Fundamental Bias: ${aiSignal.fundamental_bias || 'Directional support'}`,
+          analysis_text: `${DEBUG_MODE ? '[DEBUG] ' : ''}${aiSignal.setup_quality} Setup (${aiSignal.win_probability}% win probability): ${aiSignal.analysis} | Debug: ${debugReason}`,
           chart_data: chartData,
           pips: stopLossPips,
           created_at: timestamp
         };
 
-        // Insert the new high-probability conservative signal
-        console.log(`💾 Inserting NEW HIGH-PROBABILITY CONSERVATIVE AI signal for ${pair} (${signalsGenerated + 1}/${maxNewSignals})...`);
+        // Insert the new signal
+        console.log(`💾 Inserting NEW AI signal for ${pair} (${signalsGenerated + 1}/${maxNewSignals})...`);
         const { data: insertedSignal, error: insertError } = await supabase
           .from('trading_signals')
           .insert([signal])
@@ -477,7 +490,7 @@ serve(async (req) => {
 
         signalsGenerated++;
         generatedSignals.push(insertedSignal);
-        console.log(`✅ Generated NEW HIGH-PROBABILITY CONSERVATIVE AI signal for ${pair} (${aiSignal.confidence}% confidence, ${aiSignal.win_probability}% win probability) - ${signalsGenerated}/${maxNewSignals}`);
+        console.log(`✅ Generated NEW AI signal for ${pair} (${aiSignal.confidence}% confidence, ${aiSignal.win_probability}% win probability) - ${signalsGenerated}/${maxNewSignals}`);
 
         // Add delay between analyses to avoid rate limiting
         if (signalsGenerated < maxNewSignals && prioritizedPairs.indexOf(pair) < prioritizedPairs.length - 1) {
@@ -493,20 +506,30 @@ serve(async (req) => {
     const finalActiveSignals = currentSignalCount + signalsGenerated;
     const generationRate = opportunitiesAnalyzed > 0 ? ((signalsGenerated / opportunitiesAnalyzed) * 100) : 0;
 
-    console.log(`📊 HIGH-PROBABILITY CONSERVATIVE SIGNAL GENERATION SUMMARY:`);
+    console.log(`📊 SIGNAL GENERATION SUMMARY:`);
     console.log(`  - Signal limit: ${MAX_ACTIVE_SIGNALS}`);
     console.log(`  - Starting signals: ${currentSignalCount}`);
     console.log(`  - Pairs analyzed: ${highProbabilityPairs.length} pairs available`);
     console.log(`  - New opportunities analyzed: ${opportunitiesAnalyzed}`);
-    console.log(`  - New high-probability conservative signals generated: ${signalsGenerated}`);
+    console.log(`  - New signals generated: ${signalsGenerated}`);
     console.log(`  - Final active signals: ${finalActiveSignals}/${MAX_ACTIVE_SIGNALS}`);
-    console.log(`  - Generation rate: ${generationRate.toFixed(1)}% (Target: 20-30%)`);
-    console.log(`  - Mode: HIGH-PROBABILITY CONSERVATIVE (75%+ confidence, 70%+ win probability)`);
+    console.log(`  - Generation rate: ${generationRate.toFixed(1)}%`);
+    console.log(`  - Debug mode: ${DEBUG_MODE ? 'ENABLED' : 'DISABLED'}`);
+
+    // Log debug analysis summary
+    if (DEBUG_MODE && debugAnalysisResults.length > 0) {
+      console.log(`🐛 DEBUG ANALYSIS SUMMARY:`);
+      debugAnalysisResults.forEach(result => {
+        console.log(`  ${result.pair}: ${result.signal} (${result.confidence}% conf, ${result.win_probability}% win) - ${result.setup_quality}`);
+        console.log(`    Analysis: ${result.analysis.substring(0, 100)}...`);
+        console.log(`    Debug: ${result.debug_notes.substring(0, 100)}...`);
+      });
+    }
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `HIGH-PROBABILITY CONSERVATIVE signal generation completed - ${signalsGenerated} new high-probability signals generated from ${opportunitiesAnalyzed} opportunities analyzed across ${highProbabilityPairs.length} pairs (${finalActiveSignals}/${MAX_ACTIVE_SIGNALS} total)`,
+        message: `Signal generation completed - ${signalsGenerated} new signals generated from ${opportunitiesAnalyzed} opportunities analyzed across ${highProbabilityPairs.length} pairs (${finalActiveSignals}/${MAX_ACTIVE_SIGNALS} total)`,
         signals: generatedSignals?.map(s => ({ 
           id: s.id, 
           symbol: s.symbol, 
@@ -522,28 +545,30 @@ serve(async (req) => {
           totalActiveSignals: finalActiveSignals,
           signalLimit: MAX_ACTIVE_SIGNALS,
           limitReached: finalActiveSignals >= MAX_ACTIVE_SIGNALS,
-          highProbabilityConservativeMode: true,
+          debugMode: DEBUG_MODE,
           expectedWinRate: '70%+',
           totalPairsAvailable: highProbabilityPairs.length,
           pairCategories: 'Major + high-volume minor pairs',
           marketDataRecords: marketData?.length || 0,
           availablePairs: latestPrices.size
         },
+        debugAnalysis: DEBUG_MODE ? debugAnalysisResults : undefined,
         timestamp,
         trigger: isCronTriggered ? 'cron' : 'manual',
-        approach: 'high_probability_conservative_with_market_data_fetch'
+        approach: 'enhanced_debugging_with_ai_analysis_logging'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('💥 HIGH-PROBABILITY CONSERVATIVE SIGNAL GENERATION error:', error);
+    console.error('💥 SIGNAL GENERATION error:', error);
     return new Response(
       JSON.stringify({ 
         success: false,
         error: error.message,
         timestamp: new Date().toISOString(),
-        details: 'Signal generation failed - check function logs for details'
+        details: 'Signal generation failed - check function logs for details',
+        debugMode: DEBUG_MODE
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
