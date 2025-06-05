@@ -8,7 +8,7 @@ import SignalCard from './SignalCard';
 import RealTimeStatus from './RealTimeStatus';
 import GlobalRefreshIndicator from './GlobalRefreshIndicator';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Users, Activity, Brain, Target, Wrench, Zap, FlaskConical, TrendingUp, Bug } from 'lucide-react';
+import { RefreshCw, Users, Activity, Brain, Target, Wrench, Zap, FlaskConical, TrendingUp, Bug, AlertTriangle } from 'lucide-react';
 import { useMarketActivation } from '@/hooks/useMarketActivation';
 import AutomationDashboard from './AutomationDashboard';
 
@@ -27,6 +27,7 @@ const TradingSignals = memo(() => {
   const [detectingOpportunities, setDetectingOpportunities] = useState(false);
   const [testingSystem, setTestingSystem] = useState(false);
   const [cleaningCrons, setCleaningCrons] = useState(false);
+  const [debugGenerating, setDebugGenerating] = useState(false);
 
   // Add market activation
   const { activateMarket } = useMarketActivation();
@@ -53,6 +54,59 @@ const TradingSignals = memo(() => {
     signal.analysisText?.includes('[DEBUG]')
   ).length;
   const hasDebugSignals = debugSignalsCount > 0;
+
+  const handleDebugSignalGeneration = async () => {
+    setDebugGenerating(true);
+    try {
+      console.log('🐛 FORCING DEBUG SIGNAL GENERATION WITH DETAILED LOGGING...');
+      
+      const { data, error } = await supabase.functions.invoke('generate-signals', {
+        body: { 
+          debug_mode: true,
+          force_generate: true,
+          detailed_logging: true 
+        }
+      });
+      
+      if (error) {
+        console.error('❌ Debug signal generation failed:', error);
+        toast({
+          title: "Debug Generation Failed",
+          description: "Check console logs for detailed error information",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      console.log('✅ Debug signal generation completed:', data);
+      
+      // Show detailed results
+      const debugInfo = data?.debug_info || {};
+      const aiResponses = debugInfo.ai_responses || 0;
+      const debugSignals = debugInfo.debug_signals_generated || 0;
+      const productionSignals = debugInfo.production_signals_generated || 0;
+      
+      toast({
+        title: "🐛 Debug Generation Complete",
+        description: `AI analyzed ${aiResponses} pairs. Generated: ${debugSignals} debug + ${productionSignals} production signals. Check console for detailed analysis.`,
+      });
+      
+      // Refresh signals after generation
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
+      
+    } catch (error) {
+      console.error('❌ Debug generation error:', error);
+      toast({
+        title: "Debug Error",
+        description: "Failed to run debug signal generation. Check console logs.",
+        variant: "destructive"
+      });
+    } finally {
+      setDebugGenerating(false);
+    }
+  };
 
   const handleCleanupCrons = async () => {
     setCleaningCrons(true);
@@ -214,6 +268,44 @@ const TradingSignals = memo(() => {
 
       {/* Real-time Connection Status */}
       <RealTimeStatus />
+
+      {/* URGENT: OpenAI Analysis Debug Panel */}
+      <div className="bg-red-500/10 backdrop-blur-sm rounded-xl border border-red-500/20 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <AlertTriangle className="h-5 w-5 text-red-400" />
+              <span className="text-white font-medium">OPENAI ANALYSIS DEBUG</span>
+              <span className="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded">
+                NO SIGNALS GENERATED
+              </span>
+            </div>
+          </div>
+          <div className="flex space-x-2">
+            <Button
+              onClick={handleDebugSignalGeneration}
+              disabled={debugGenerating}
+              className="bg-red-600 hover:bg-red-700 text-white text-sm"
+              size="sm"
+            >
+              {debugGenerating ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Debug Analyzing...
+                </>
+              ) : (
+                <>
+                  <Bug className="h-4 w-4 mr-2" />
+                  Force Debug Analysis
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+        <div className="mt-2 text-xs text-red-400">
+          🚨 OpenAI analysis running but no signals generated. Click "Force Debug Analysis" to see detailed AI responses and confidence levels in console logs.
+        </div>
+      </div>
 
       {/* Debug Mode Notice */}
       {hasDebugSignals && (
