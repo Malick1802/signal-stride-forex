@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Copy, CircleCheck, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,6 +11,8 @@ interface SignalPriceDetailsProps {
   takeProfit1: string;
   takeProfit2: string;
   takeProfit3: string;
+  takeProfit4: string;
+  takeProfit5: string;
   currentPrice: number | null;
   signalType: string;
   targetsHit: number[];
@@ -22,6 +25,8 @@ const SignalPriceDetails = ({
   takeProfit1,
   takeProfit2,
   takeProfit3,
+  takeProfit4,
+  takeProfit5,
   currentPrice,
   signalType,
   targetsHit,
@@ -113,6 +118,18 @@ const SignalPriceDetails = ({
       price: takeProfit3, 
       label: "Target 3",
       pips: calculateTakeProfitPips(entryPriceFloat, parseFloat(takeProfit3), pair)
+    },
+    { 
+      level: 4, 
+      price: takeProfit4, 
+      label: "Target 4",
+      pips: calculateTakeProfitPips(entryPriceFloat, parseFloat(takeProfit4), pair)
+    },
+    { 
+      level: 5, 
+      price: takeProfit5, 
+      label: "Target 5",
+      pips: calculateTakeProfitPips(entryPriceFloat, parseFloat(takeProfit5), pair)
     }
   ];
 

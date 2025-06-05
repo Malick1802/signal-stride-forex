@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -306,7 +305,7 @@ serve(async (req) => {
                 - 60%+ confidence minimum (practical threshold for real trading)
                 - 65%+ win probability target (realistic expectation)
                 - 2+ technical confirmations (trend analysis + one additional factor)
-                - REALISTIC pip targets based on pair volatility
+                - REALISTIC pip targets based on pair volatility with PROGRESSIVE SPACING
                 - PROPER stop losses (20-60 pips for majors, 30-80 pips for minors)
                 - Account for trading session characteristics
                 
@@ -332,11 +331,11 @@ serve(async (req) => {
                 - BEARISH reversal patterns (shooting star, doji at resistance)
                 - Volume increasing on DOWNWARD moves
 
-                REALISTIC PIP CALCULATIONS:
-                - Major pairs (EURUSD, GBPUSD, etc.): 15-50 pips for SL, 20-80 pips for TP
-                - JPY pairs (USDJPY, EURJPY, etc.): 20-60 pips for SL, 30-100 pips for TP
-                - Minor/Cross pairs: 25-70 pips for SL, 35-120 pips for TP
-                - Risk/Reward: Minimum 1:1.5, target 1:2 or better
+                REALISTIC PIP CALCULATIONS WITH PROGRESSIVE TARGETS:
+                - Major pairs (EURUSD, GBPUSD, etc.): 15-50 pips for SL, PROGRESSIVE TPs: 8-15-25-40-60 pips
+                - JPY pairs (USDJPY, EURJPY, etc.): 20-60 pips for SL, PROGRESSIVE TPs: 12-20-35-55-80 pips
+                - Minor/Cross pairs: 25-70 pips for SL, PROGRESSIVE TPs: 15-25-40-65-90 pips
+                - Risk/Reward: Minimum 1:1.5, target 1:2 or better for final TP
 
                 DIRECTIONAL ANALYSIS PROCESS:
                 1. First analyze the BULLISH case: What supports a BUY signal?
@@ -352,9 +351,9 @@ serve(async (req) => {
                 - Session overlaps often create breakout opportunities
 
                 PAIR-SPECIFIC APPROACH:
-                - Major pairs: Focus on session overlaps and news impact (20-50 pip targets)
-                - Minor/Cross pairs: Look for breakouts and trending moves (30-80 pip targets)
-                - JPY pairs: Account for carry trade flows and session timing (25-70 pip targets)
+                - Major pairs: Focus on session overlaps and news impact (PROGRESSIVE TPs: 8-15-25-40-60 pips)
+                - Minor/Cross pairs: Look for breakouts and trending moves (PROGRESSIVE TPs: 15-25-40-65-90 pips)
+                - JPY pairs: Account for carry trade flows and session timing (PROGRESSIVE TPs: 12-20-35-55-80 pips)
 
                 ENHANCED MODE - Generate signals when you have reasonable conviction with proper confirmations in EITHER direction. 
                 TARGET: 70%+ win rate with balanced directional analysis - prioritize QUALITY over quantity.
@@ -374,7 +373,7 @@ serve(async (req) => {
                   "resistance_level": number (key resistance price),
                   "entry_price": number (optimal entry vs current price),
                   "stop_loss_pips": number between 15-80 (realistic for pair type),
-                  "take_profit_pips": [number, number, number] (realistic progressive targets),
+                  "take_profit_pips": [number, number, number, number, number] (5 progressive targets with closer spacing),
                   "risk_reward_ratio": "1:X" format,
                   "session_advantage": "HIGH" or "MEDIUM" or "LOW",
                   "analysis": "detailed explanation focusing on SUCCESS probability and directional choice rationale",
@@ -420,11 +419,11 @@ serve(async (req) => {
                 6. MOMENTUM: Is momentum building in either direction?
                 7. VOLUME/VOLATILITY: Does current volatility (${priceVolatility.toFixed(3)}%) support a move in either direction?
                 
-                Generate a signal based on the STRONGEST evidence for either direction.
-                For ${pair}, use appropriate pip ranges:
-                ${pairCategory === 'Major' ? '- Stop Loss: 15-50 pips, Take Profit: 20-80 pips' : '- Stop Loss: 25-70 pips, Take Profit: 35-120 pips'}
+                Generate a signal with 5 PROGRESSIVE take profit targets that are realistically achievable.
+                For ${pair}, use appropriate progressive pip ranges:
+                ${pairCategory === 'Major' ? '- Stop Loss: 15-50 pips, Take Profits: 8-15-25-40-60 pips' : '- Stop Loss: 25-70 pips, Take Profits: 15-25-40-65-90 pips'}
                 
-                Remember: Your goal is to find the highest-probability setup regardless of direction.`
+                Remember: Your goal is to find the highest-probability setup regardless of direction with achievable progressive targets.`
               }
             ],
             max_tokens: 1200,
@@ -491,20 +490,22 @@ serve(async (req) => {
         console.log(`📊 Risk/Reward: ${aiSignal.risk_reward_ratio}`);
         console.log(`🏗️ Support: ${aiSignal.support_level}, Resistance: ${aiSignal.resistance_level}`);
 
-        // Generate signal with REALISTIC pip calculations
+        // Generate signal with PROGRESSIVE pip calculations for 5 targets
         const entryPrice = aiSignal.entry_price || currentPrice;
         const stopLossPips = Math.max(aiSignal.stop_loss_pips || 30, 15); // Minimum 15 pips
-        const takeProfitPips = aiSignal.take_profit_pips || [30, 50, 80]; // Realistic targets
+        const takeProfitPips = aiSignal.take_profit_pips || [15, 25, 40, 60, 85]; // Progressive 5 targets
 
-        console.log(`📏 REALISTIC pip calculations for ${pair}:`);
+        console.log(`📏 PROGRESSIVE pip calculations for ${pair}:`);
         console.log(`  - Stop Loss: ${stopLossPips} pips`);
-        console.log(`  - Take Profits: ${takeProfitPips.join(', ')} pips`);
+        console.log(`  - Take Profits (5 progressive): ${takeProfitPips.join(', ')} pips`);
 
-        // Calculate using realistic pip functions
+        // Calculate using realistic pip functions for 5 targets
         const stopLoss = calculateRealisticStopLoss(entryPrice, pair, aiSignal.signal, stopLossPips);
         const takeProfit1 = calculateRealisticTakeProfit(entryPrice, pair, aiSignal.signal, takeProfitPips[0]);
         const takeProfit2 = calculateRealisticTakeProfit(entryPrice, pair, aiSignal.signal, takeProfitPips[1]);
         const takeProfit3 = calculateRealisticTakeProfit(entryPrice, pair, aiSignal.signal, takeProfitPips[2]);
+        const takeProfit4 = calculateRealisticTakeProfit(entryPrice, pair, aiSignal.signal, takeProfitPips[3]);
+        const takeProfit5 = calculateRealisticTakeProfit(entryPrice, pair, aiSignal.signal, takeProfitPips[4]);
 
         // Generate enhanced chart data
         const chartData = [];
@@ -535,7 +536,9 @@ serve(async (req) => {
           take_profits: [
             parseFloat(takeProfit1.toFixed(isJPYPair(pair) ? 3 : 5)),
             parseFloat(takeProfit2.toFixed(isJPYPair(pair) ? 3 : 5)),
-            parseFloat(takeProfit3.toFixed(isJPYPair(pair) ? 3 : 5))
+            parseFloat(takeProfit3.toFixed(isJPYPair(pair) ? 3 : 5)),
+            parseFloat(takeProfit4.toFixed(isJPYPair(pair) ? 3 : 5)),
+            parseFloat(takeProfit5.toFixed(isJPYPair(pair) ? 3 : 5))
           ],
           confidence: aiSignal.confidence,
           status: 'active',

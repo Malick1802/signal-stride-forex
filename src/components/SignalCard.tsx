@@ -19,6 +19,8 @@ interface SignalCardProps {
     takeProfit1: string;
     takeProfit2: string;
     takeProfit3: string;
+    takeProfit4?: string;
+    takeProfit5?: string;
     confidence: number;
     timestamp: string;
     analysisText?: string;
@@ -116,6 +118,8 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
         takeProfit1={safeSignal.takeProfit1}
         takeProfit2={safeSignal.takeProfit2}
         takeProfit3={safeSignal.takeProfit3}
+        takeProfit4={signal?.takeProfit4 || '0.00000'}
+        takeProfit5={signal?.takeProfit5 || '0.00000'}
         currentPrice={currentPrice}
         signalType={safeSignal.type}
         targetsHit={signal?.targetsHit || []}

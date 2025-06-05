@@ -11,6 +11,8 @@ interface TradingSignal {
   takeProfit1: string;
   takeProfit2: string;
   takeProfit3: string;
+  takeProfit4: string;
+  takeProfit5: string;
   confidence: number;
   timestamp: string;
   status: string;
@@ -120,6 +122,8 @@ export const useTradingSignals = () => {
             takeProfit1: takeProfits[0] ? takeProfits[0].toFixed(5) : '0.00000',
             takeProfit2: takeProfits[1] ? takeProfits[1].toFixed(5) : '0.00000',
             takeProfit3: takeProfits[2] ? takeProfits[2].toFixed(5) : '0.00000',
+            takeProfit4: takeProfits[3] ? takeProfits[3].toFixed(5) : '0.00000',
+            takeProfit5: takeProfits[4] ? takeProfits[4].toFixed(5) : '0.00000',
             confidence: Math.floor(signal.confidence || 75), // Enhanced confidence display
             timestamp: signal.created_at || new Date().toISOString(),
             status: signal.status || 'active',
