@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -7,7 +8,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Maximum number of active signals allowed - DEBUG MODE
+// Maximum number of active signals allowed - LESS CONSERVATIVE MODE
 const MAX_ACTIVE_SIGNALS = 15;
 const DEBUG_MODE = true; // Enable debug mode to see AI analysis details
 
@@ -24,7 +25,7 @@ serve(async (req) => {
     console.log(`🎯 ${isCronTriggered ? 'CRON AUTOMATIC' : 'MANUAL'} signal generation starting...`);
     console.log(`🎯 Target pair: ${targetPair || 'Auto-detect opportunities'}`);
     console.log('⏰ Timestamp:', new Date().toISOString());
-    console.log(`🎯 MODE: HIGH-PROBABILITY CONSERVATIVE (75%+ confidence, 70%+ win rate target) - MAX ${MAX_ACTIVE_SIGNALS} SIGNALS`);
+    console.log(`🎯 MODE: LESS CONSERVATIVE (65%+ confidence, 60%+ win rate target) - MAX ${MAX_ACTIVE_SIGNALS} SIGNALS`);
     console.log(`🐛 DEBUG MODE: ${DEBUG_MODE ? 'ENABLED - Will show detailed AI analysis' : 'DISABLED'}`);
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -101,7 +102,7 @@ serve(async (req) => {
             signalLimit: MAX_ACTIVE_SIGNALS,
             limitReached: true,
             debugMode: DEBUG_MODE,
-            expectedWinRate: '70%+'
+            expectedWinRate: '60%+'
           },
           timestamp: new Date().toISOString(),
           trigger: isCronTriggered ? 'cron' : 'manual',
@@ -161,19 +162,19 @@ serve(async (req) => {
     console.log(`📊 Latest prices available for ${latestPrices.size} symbols: [${Array.from(latestPrices.keys()).join(', ')}]`);
 
     // Major pairs + selected minor pairs for opportunities
-    const highProbabilityPairs = [
+    const tradingPairs = [
       // Major pairs (highest liquidity)
       'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD',
       // High-volume minor pairs for more opportunities
       'EURGBP', 'EURJPY', 'GBPJPY', 'AUDNZD', 'EURCHF', 'GBPCHF', 'AUDCAD'
     ];
     
-    console.log(`🎯 Analyzing ${highProbabilityPairs.length} pairs (major + high-volume minor pairs)`);
+    console.log(`🎯 Analyzing ${tradingPairs.length} pairs (major + high-volume minor pairs)`);
     
     // Filter out pairs that already have active signals and ensure we have market data
     const availablePairs = targetPair 
       ? (existingPairs.has(targetPair) ? [] : [targetPair])
-      : highProbabilityPairs.filter(pair => !existingPairs.has(pair) && latestPrices.has(pair));
+      : tradingPairs.filter(pair => !existingPairs.has(pair) && latestPrices.has(pair));
     
     // Limit available pairs to the maximum we can generate
     const prioritizedPairs = availablePairs.slice(0, maxNewSignals);
@@ -201,7 +202,7 @@ serve(async (req) => {
             signalLimit: MAX_ACTIVE_SIGNALS,
             limitReached: currentSignalCount >= MAX_ACTIVE_SIGNALS,
             debugMode: DEBUG_MODE,
-            expectedWinRate: '70%+',
+            expectedWinRate: '60%+',
             availablePairs: latestPrices.size,
             eligiblePairs: availablePairs.length
           },
@@ -254,7 +255,7 @@ serve(async (req) => {
         const priceChange = priceHistory.length > 1 ? 
           ((currentPrice - priceHistory[priceHistory.length - 1]) / priceHistory[priceHistory.length - 1] * 100) : 0;
 
-        // Enhanced AI prompt with debugging and more flexible criteria
+        // UPDATED AI prompt with LESS CONSERVATIVE criteria
         console.log(`🔮 OpenAI opportunity analysis for ${pair}...`);
         
         const aiAnalysisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -268,55 +269,55 @@ serve(async (req) => {
             messages: [
               {
                 role: 'system',
-                content: `You are a professional forex trading AI that generates quality signals with detailed analysis.
+                content: `You are a professional forex trading AI that generates quality signals with practical analysis.
 
-                SIGNAL GENERATION REQUIREMENTS:
-                - STRICT MODE: 75%+ confidence minimum for signal generation
-                - DEBUG MODE: Also analyze and report signals with 65%+ confidence for debugging
-                - Must have at least 1 strong technical confirmation
+                UPDATED SIGNAL GENERATION REQUIREMENTS (LESS CONSERVATIVE):
+                - STANDARD MODE: 65%+ confidence minimum for signal generation (lowered from 75%)
+                - DEBUG MODE: Also analyze and report signals with 55%+ confidence for testing (lowered from 65%)
+                - Must have at least 1 technical confirmation (reasonable standard)
                 - Clear directional bias supporting the setup
-                - Risk/reward ratio of at least 1:1.5
-                - Consider market structure and timing
+                - Risk/reward ratio of at least 1:1.2 (slightly reduced from 1:1.5)
+                - Consider practical market structure and timing
                 
-                ANALYSIS MODES:
-                1. If confidence >= 75% and other criteria met: Generate BUY/SELL signal
-                2. If confidence 65-74%: Generate signal but mark as "DEBUG_CANDIDATE" 
-                3. If confidence < 65%: Use NEUTRAL
+                ANALYSIS MODES (UPDATED THRESHOLDS):
+                1. If confidence >= 65% and other criteria met: Generate BUY/SELL signal
+                2. If confidence 55-64%: Generate signal but mark as "DEBUG_CANDIDATE" 
+                3. If confidence < 55%: Use NEUTRAL
                 
-                IMPORTANT: Always provide detailed reasoning for your confidence level and analysis.
+                IMPORTANT: Provide practical analysis for real market conditions. These thresholds are more realistic for actual forex trading.
                 
                 Respond with a JSON object containing:
                 {
                   "signal": "BUY" or "SELL" or "NEUTRAL",
-                  "confidence": number between 60-95,
-                  "win_probability": number between 60-85,
-                  "setup_quality": "EXCEPTIONAL" or "VERY_GOOD" or "GOOD" or "PROMISING" or "WEAK",
+                  "confidence": number between 55-90,
+                  "win_probability": number between 55-80,
+                  "setup_quality": "EXCEPTIONAL" or "VERY_GOOD" or "GOOD" or "PROMISING" or "ACCEPTABLE",
                   "confirmations_count": number of technical confirmations,
                   "entry_price": number (current price adjusted for optimal entry),
                   "stop_loss_pips": number between 20-40,
                   "take_profit_pips": [number, number, number],
-                  "analysis": "detailed explanation of your analysis and confidence reasoning",
+                  "analysis": "practical explanation of your analysis and confidence reasoning",
                   "risk_factors": "any risks that could invalidate the setup",
                   "market_setup": "description of the setup detected",
                   "fundamental_bias": "fundamental support for the direction",
-                  "debug_notes": "why this confidence level was assigned and what would improve it",
-                  "is_debug_candidate": boolean (true if 65-74% confidence)
+                  "debug_notes": "why this confidence level was assigned and practical market considerations",
+                  "is_debug_candidate": boolean (true if 55-64% confidence)
                 }
                 
-                PROVIDE DETAILED ANALYSIS: Explain your confidence level, what confirmations you see, and what market conditions led to your decision.`
+                PROVIDE PRACTICAL ANALYSIS: Focus on realistic market conditions, practical confidence levels, and actionable trading setups.`
               },
               {
                 role: 'user',
-                content: `Analyze ${pair} for trading opportunity with detailed debugging:
+                content: `Analyze ${pair} for trading opportunity with practical thresholds:
                 Current Price: ${currentPrice}
                 Recent Prices: ${priceHistory.join(', ')}
                 24h Change: ${priceChange.toFixed(2)}%
                 Market Session: ${new Date().getUTCHours() >= 12 && new Date().getUTCHours() < 20 ? 'Active Trading Hours' : 'Off-Peak Hours'}
                 Data Freshness: ${marketPoint.last_update}
                 
-                Provide detailed analysis with confidence reasoning. If confidence is 65%+, explain what you see in the market. If confidence is 75%+, generate a signal.
+                Provide practical analysis with realistic confidence reasoning. If confidence is 55%+, explain what you see in the market. If confidence is 65%+, generate a signal.
                 
-                Focus on realistic market analysis and provide debugging information about your decision-making process.`
+                Focus on practical market analysis suitable for real trading conditions with less conservative thresholds.`
               }
             ],
             max_tokens: 1000,
@@ -383,23 +384,23 @@ serve(async (req) => {
           continue;
         }
 
-        // Apply validation criteria (keep original strict criteria for production)
+        // Apply UPDATED LESS CONSERVATIVE validation criteria
         let shouldGenerate = false;
         let debugReason = '';
 
-        if (aiSignal.confidence >= 75 && aiSignal.win_probability >= 70 && aiSignal.confirmations_count >= 1) {
+        if (aiSignal.confidence >= 65 && aiSignal.win_probability >= 60 && aiSignal.confirmations_count >= 1) {
           shouldGenerate = true;
-          debugReason = 'Meets strict production criteria';
-        } else if (DEBUG_MODE && aiSignal.confidence >= 65 && aiSignal.win_probability >= 65) {
+          debugReason = 'Meets standard production criteria (less conservative)';
+        } else if (DEBUG_MODE && aiSignal.confidence >= 55 && aiSignal.win_probability >= 55) {
           shouldGenerate = true;
-          debugReason = 'DEBUG MODE: Lower threshold acceptance for testing';
-          console.log(`🐛 DEBUG MODE: Accepting signal with relaxed criteria for ${pair}`);
+          debugReason = 'DEBUG MODE: Lower threshold acceptance for practical testing';
+          console.log(`🐛 DEBUG MODE: Accepting signal with practical criteria for ${pair}`);
         }
 
         if (!shouldGenerate) {
           console.log(`⚠️ Signal validation failed for ${pair}:`);
-          console.log(`   Confidence: ${aiSignal.confidence}% (requires ${DEBUG_MODE ? '65' : '75'}%+)`);
-          console.log(`   Win Probability: ${aiSignal.win_probability}% (requires ${DEBUG_MODE ? '65' : '70'}%+)`);
+          console.log(`   Confidence: ${aiSignal.confidence}% (requires ${DEBUG_MODE ? '55' : '65'}%+)`);
+          console.log(`   Win Probability: ${aiSignal.win_probability}% (requires ${DEBUG_MODE ? '55' : '60'}%+)`);
           console.log(`   Confirmations: ${aiSignal.confirmations_count} (requires 1+)`);
           continue;
         }
@@ -469,7 +470,7 @@ serve(async (req) => {
           status: 'active',
           is_centralized: true,
           user_id: null,
-          analysis_text: `${DEBUG_MODE ? '[DEBUG] ' : ''}${aiSignal.setup_quality} Setup (${aiSignal.win_probability}% win probability): ${aiSignal.analysis} | Debug: ${debugReason}`,
+          analysis_text: `${DEBUG_MODE ? '[DEBUG] ' : ''}${aiSignal.setup_quality} Setup (${aiSignal.win_probability}% win probability): ${aiSignal.analysis} | Strategy: ${debugReason}`,
           chart_data: chartData,
           pips: stopLossPips,
           created_at: timestamp
@@ -509,11 +510,12 @@ serve(async (req) => {
     console.log(`📊 SIGNAL GENERATION SUMMARY:`);
     console.log(`  - Signal limit: ${MAX_ACTIVE_SIGNALS}`);
     console.log(`  - Starting signals: ${currentSignalCount}`);
-    console.log(`  - Pairs analyzed: ${highProbabilityPairs.length} pairs available`);
+    console.log(`  - Pairs analyzed: ${tradingPairs.length} pairs available`);
     console.log(`  - New opportunities analyzed: ${opportunitiesAnalyzed}`);
     console.log(`  - New signals generated: ${signalsGenerated}`);
     console.log(`  - Final active signals: ${finalActiveSignals}/${MAX_ACTIVE_SIGNALS}`);
     console.log(`  - Generation rate: ${generationRate.toFixed(1)}%`);
+    console.log(`  - Mode: LESS CONSERVATIVE (65%+ confidence, 60%+ win rate)`);
     console.log(`  - Debug mode: ${DEBUG_MODE ? 'ENABLED' : 'DISABLED'}`);
 
     // Log debug analysis summary
@@ -529,7 +531,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Signal generation completed - ${signalsGenerated} new signals generated from ${opportunitiesAnalyzed} opportunities analyzed across ${highProbabilityPairs.length} pairs (${finalActiveSignals}/${MAX_ACTIVE_SIGNALS} total)`,
+        message: `Signal generation completed - ${signalsGenerated} new signals generated from ${opportunitiesAnalyzed} opportunities analyzed across ${tradingPairs.length} pairs (${finalActiveSignals}/${MAX_ACTIVE_SIGNALS} total)`,
         signals: generatedSignals?.map(s => ({ 
           id: s.id, 
           symbol: s.symbol, 
@@ -546,16 +548,17 @@ serve(async (req) => {
           signalLimit: MAX_ACTIVE_SIGNALS,
           limitReached: finalActiveSignals >= MAX_ACTIVE_SIGNALS,
           debugMode: DEBUG_MODE,
-          expectedWinRate: '70%+',
-          totalPairsAvailable: highProbabilityPairs.length,
+          expectedWinRate: '60%+',
+          totalPairsAvailable: tradingPairs.length,
           pairCategories: 'Major + high-volume minor pairs',
           marketDataRecords: marketData?.length || 0,
-          availablePairs: latestPrices.size
+          availablePairs: latestPrices.size,
+          mode: 'LESS_CONSERVATIVE'
         },
         debugAnalysis: DEBUG_MODE ? debugAnalysisResults : undefined,
         timestamp,
         trigger: isCronTriggered ? 'cron' : 'manual',
-        approach: 'enhanced_debugging_with_ai_analysis_logging'
+        approach: 'less_conservative_thresholds_with_practical_analysis'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -568,7 +571,8 @@ serve(async (req) => {
         error: error.message,
         timestamp: new Date().toISOString(),
         details: 'Signal generation failed - check function logs for details',
-        debugMode: DEBUG_MODE
+        debugMode: DEBUG_MODE,
+        mode: 'LESS_CONSERVATIVE'
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

@@ -30,7 +30,7 @@ export const useTradingSignals = () => {
 
   const fetchSignals = useCallback(async () => {
     try {
-      console.log('🔄 Fetching high-probability conservative signals...');
+      console.log('🔄 Fetching practical trading signals...');
       setLoading(true);
       
       // Fetch only ACTIVE centralized signals (limited to 15)
@@ -44,7 +44,7 @@ export const useTradingSignals = () => {
         .limit(MAX_ACTIVE_SIGNALS);
 
       if (error) {
-        console.error('❌ Error fetching active high-probability conservative signals:', error);
+        console.error('❌ Error fetching active trading signals:', error);
         toast({
           title: "Database Error",
           description: "Failed to fetch trading signals",
@@ -57,7 +57,7 @@ export const useTradingSignals = () => {
       console.log(`📊 Raw signals data:`, centralizedSignals);
 
       if (!centralizedSignals || centralizedSignals.length === 0) {
-        console.log('📭 No active high-probability conservative signals found');
+        console.log('📭 No active trading signals found');
         setSignals([]);
         setLastUpdate(new Date().toLocaleTimeString());
         return;
@@ -68,7 +68,7 @@ export const useTradingSignals = () => {
       setLastUpdate(new Date().toLocaleTimeString());
       
       if (processedSignals.length > 0) {
-        console.log(`✅ Loaded ${processedSignals.length}/${MAX_ACTIVE_SIGNALS} high-probability conservative signals (70%+ WIN RATE TARGET)`);
+        console.log(`✅ Loaded ${processedSignals.length}/${MAX_ACTIVE_SIGNALS} practical trading signals (60%+ WIN RATE TARGET)`);
       }
       
     } catch (error) {
@@ -85,7 +85,7 @@ export const useTradingSignals = () => {
   }, [toast]);
 
   const processSignals = (activeSignals: any[]) => {
-    console.log(`📊 Processing ${activeSignals.length}/${MAX_ACTIVE_SIGNALS} high-probability conservative signals (70%+ WIN RATE TARGET)`);
+    console.log(`📊 Processing ${activeSignals.length}/${MAX_ACTIVE_SIGNALS} practical trading signals (60%+ WIN RATE TARGET)`);
 
     const transformedSignals = activeSignals
       .map(signal => {
@@ -138,10 +138,10 @@ export const useTradingSignals = () => {
             takeProfit1: takeProfits[0] ? takeProfits[0].toFixed(5) : '0.00000',
             takeProfit2: takeProfits[1] ? takeProfits[1].toFixed(5) : '0.00000',
             takeProfit3: takeProfits[2] ? takeProfits[2].toFixed(5) : '0.00000',
-            confidence: Math.floor(signal.confidence || 80),
+            confidence: Math.floor(signal.confidence || 70),
             timestamp: signal.created_at || new Date().toISOString(),
             status: signal.status || 'active',
-            analysisText: signal.analysis_text || `HIGH-PROBABILITY CONSERVATIVE ${signal.type || 'BUY'} signal for ${signal.symbol} (70%+ win rate target, ${signal.confidence || 80}%+ confidence)`,
+            analysisText: signal.analysis_text || `PRACTICAL ${signal.type || 'BUY'} signal for ${signal.symbol} (60%+ win rate target, ${signal.confidence || 70}%+ confidence)`,
             chartData: chartData,
             targetsHit: targetsHit
           };
@@ -155,27 +155,27 @@ export const useTradingSignals = () => {
       })
       .filter(Boolean) as TradingSignal[];
 
-    console.log(`✅ Successfully processed ${transformedSignals.length}/${MAX_ACTIVE_SIGNALS} high-probability conservative signals (70%+ WIN RATE TARGET)`);
+    console.log(`✅ Successfully processed ${transformedSignals.length}/${MAX_ACTIVE_SIGNALS} practical trading signals (60%+ WIN RATE TARGET)`);
     return transformedSignals;
   };
 
   const triggerIndividualSignalGeneration = useCallback(async () => {
     try {
-      console.log(`🚀 Triggering high-probability conservative signal generation with ${MAX_ACTIVE_SIGNALS}-signal limit (70%+ win rate target)...`);
+      console.log(`🚀 Triggering practical signal generation with ${MAX_ACTIVE_SIGNALS}-signal limit (60%+ win rate target)...`);
       
       const { data: signalResult, error: signalError } = await supabase.functions.invoke('generate-signals');
       
       if (signalError) {
-        console.error('❌ High-probability conservative signal generation failed:', signalError);
+        console.error('❌ Practical signal generation failed:', signalError);
         toast({
           title: "Generation Failed",
-          description: "Failed to detect new high-probability trading opportunities",
+          description: "Failed to detect new practical trading opportunities",
           variant: "destructive"
         });
         return;
       }
       
-      console.log('✅ High-probability conservative signal generation completed with limit enforcement');
+      console.log('✅ Practical signal generation completed with limit enforcement');
       
       // Refresh the signal list
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -187,15 +187,15 @@ export const useTradingSignals = () => {
       const limitReached = signalResult?.stats?.limitReached || false;
       
       toast({
-        title: limitReached ? "Signal Limit Reached" : "High-Probability Generation Complete",
-        description: `${signalsGenerated} new high-probability conservative signals generated (${totalActiveSignals}/${signalLimit} total active) - 70%+ win rate target`,
+        title: limitReached ? "Signal Limit Reached" : "Practical Generation Complete",
+        description: `${signalsGenerated} new practical trading signals generated (${totalActiveSignals}/${signalLimit} total active) - 60%+ win rate target`,
       });
       
     } catch (error) {
-      console.error('❌ Error in high-probability conservative signal generation:', error);
+      console.error('❌ Error in practical signal generation:', error);
       toast({
         title: "Generation Error",
-        description: "Failed to detect new high-probability trading opportunities",
+        description: "Failed to detect new practical trading opportunities",
         variant: "destructive"
       });
     }

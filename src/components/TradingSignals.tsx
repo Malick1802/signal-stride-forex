@@ -47,7 +47,7 @@ const TradingSignals = memo(() => {
 
   const avgConfidence = validSignals.length > 0 
     ? Math.round(validSignals.reduce((sum, signal) => sum + (signal.confidence || 0), 0) / validSignals.length)
-    : 80;
+    : 70;
 
   // Check if any signals are debug signals
   const debugSignalsCount = validSignals.filter(signal => 
@@ -255,7 +255,7 @@ const TradingSignals = memo(() => {
   if (loading && validSignals.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-white">Loading high-probability conservative signals (analyzing major + minor pairs, limit: {MAX_ACTIVE_SIGNALS})...</div>
+        <div className="text-white">Loading practical trading signals (analyzing major + minor pairs, limit: {MAX_ACTIVE_SIGNALS})...</div>
       </div>
     );
   }
@@ -331,7 +331,7 @@ const TradingSignals = memo(() => {
               </div>
             </div>
             <div className="text-sm text-yellow-400">
-              🐛 Debug signals generated with relaxed criteria (65%+ confidence) to verify AI analysis functionality
+              🐛 Debug signals generated with relaxed criteria (55%+ confidence) to verify AI analysis functionality
             </div>
           </div>
         </div>
@@ -350,20 +350,20 @@ const TradingSignals = memo(() => {
             </div>
           </div>
           <div className="text-sm text-blue-400">
-            🎯 Maximum {MAX_ACTIVE_SIGNALS} active signals • Major + minor pairs • High-probability conservative • 70%+ win rate target
+            🎯 Maximum {MAX_ACTIVE_SIGNALS} active signals • Major + minor pairs • Practical approach • 60%+ win rate target
           </div>
         </div>
       </div>
 
-      {/* HIGH-PROBABILITY CONSERVATIVE Mode Notice */}
+      {/* PRACTICAL TRADING Mode Notice */}
       <div className="bg-green-500/10 backdrop-blur-sm rounded-xl border border-green-500/20 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <TrendingUp className="h-5 w-5 text-green-400" />
-              <span className="text-white font-medium">HIGH-PROBABILITY CONSERVATIVE MODE</span>
+              <span className="text-white font-medium">PRACTICAL TRADING MODE</span>
               <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
-                70%+ WIN RATE TARGET
+                60%+ WIN RATE TARGET
               </span>
               {hasDebugSignals && (
                 <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">
@@ -373,20 +373,20 @@ const TradingSignals = memo(() => {
             </div>
           </div>
           <div className="text-sm text-green-400">
-            🎯 Major + minor pairs • 75%+ confidence required • 1+ confirmations • Enhanced logging enabled
+            🎯 Major + minor pairs • 65%+ confidence required • 1+ confirmations • Less conservative thresholds
           </div>
         </div>
       </div>
 
-      {/* Enhanced Signal Generation System with Debug Info */}
+      {/* Enhanced Signal Generation System with Practical Info */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <TrendingUp className="h-5 w-5 text-green-400" />
-              <span className="text-white font-medium">Enhanced Signal Generation (Max: {MAX_ACTIVE_SIGNALS})</span>
+              <span className="text-white font-medium">Practical Signal Generation (Max: {MAX_ACTIVE_SIGNALS})</span>
               <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
-                DETAILED LOGGING
+                LESS CONSERVATIVE
               </span>
               {hasDebugSignals && (
                 <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">
@@ -403,7 +403,7 @@ const TradingSignals = memo(() => {
               {detectingOpportunities ? (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Analyzing with Enhanced Logging...
+                  Analyzing with Practical Thresholds...
                 </>
               ) : validSignals.length >= MAX_ACTIVE_SIGNALS ? (
                 <>
@@ -413,13 +413,13 @@ const TradingSignals = memo(() => {
               ) : (
                 <>
                   <TrendingUp className="h-4 w-4 mr-2" />
-                  Generate Signals (Enhanced Debug)
+                  Generate Practical Signals
                 </>
               )}
             </Button>
           </div>
           <div className="text-sm text-gray-400">
-            🎯 {validSignals.length >= MAX_ACTIVE_SIGNALS ? `Limit reached (${validSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${MAX_ACTIVE_SIGNALS - validSignals.length} slots available`} • Enhanced AI analysis logging • Debug mode enabled
+            🎯 {validSignals.length >= MAX_ACTIVE_SIGNALS ? `Limit reached (${validSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${MAX_ACTIVE_SIGNALS - validSignals.length} slots available`} • Practical AI analysis • 65%+ confidence threshold
           </div>
         </div>
       </div>
@@ -432,7 +432,7 @@ const TradingSignals = memo(() => {
               <Wrench className="h-5 w-5 text-yellow-400" />
               <span className="text-white font-medium">System Controls</span>
               <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
-                ENHANCED DEBUGGING
+                PRACTICAL MODE
               </span>
             </div>
           </div>
@@ -476,19 +476,19 @@ const TradingSignals = memo(() => {
           </div>
         </div>
         <div className="mt-2 text-xs text-green-400">
-          🎯 ENHANCED DEBUG MODE: Detailed AI analysis logging • Relaxed debug criteria (65%+) • Production criteria (75%+) • Maximum {MAX_ACTIVE_SIGNALS} signals
+          🎯 PRACTICAL MODE: Less conservative thresholds • Debug criteria (55%+) • Production criteria (65%+) • Maximum {MAX_ACTIVE_SIGNALS} signals
         </div>
       </div>
 
-      {/* AI-Powered Debug Analysis Status */}
+      {/* AI-Powered Practical Analysis Status */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <Brain className="h-5 w-5 text-green-400" />
-              <span className="text-white font-medium">Enhanced AI Analysis System (Limit: {MAX_ACTIVE_SIGNALS})</span>
+              <span className="text-white font-medium">Practical AI Analysis System (Limit: {MAX_ACTIVE_SIGNALS})</span>
               <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
-                DETAILED LOGGING
+                LESS CONSERVATIVE
               </span>
               {hasDebugSignals && (
                 <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">
@@ -498,7 +498,7 @@ const TradingSignals = memo(() => {
             </div>
           </div>
           <div className="text-sm text-gray-400">
-            🎯 Enhanced OpenAI analysis with detailed confidence reasoning • Debug mode for 65%+ signals • Production for 75%+ signals
+            🎯 Practical OpenAI analysis with realistic confidence thresholds • Debug mode for 55%+ signals • Production for 65%+ signals
           </div>
         </div>
       </div>
@@ -523,7 +523,7 @@ const TradingSignals = memo(() => {
               </select>
             </div>
             <div className="text-sm text-gray-400">
-              🎯 Enhanced signals for major + minor pairs • Maximum {MAX_ACTIVE_SIGNALS} active • Detailed AI analysis • {hasDebugSignals ? 'Debug mode active' : 'Production mode'}
+              🎯 Practical signals for major + minor pairs • Maximum {MAX_ACTIVE_SIGNALS} active • Less conservative AI analysis • {hasDebugSignals ? 'Debug mode active' : 'Production mode'}
             </div>
           </div>
         </div>
@@ -532,7 +532,7 @@ const TradingSignals = memo(() => {
       {/* Active Signals Grid */}
       <div>
         <h3 className="text-white text-lg font-semibold mb-4">
-          {selectedPair === 'All' ? `Enhanced Signals (${filteredSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${selectedPair} Signals (${filteredSignals.length})`}
+          {selectedPair === 'All' ? `Practical Signals (${filteredSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${selectedPair} Signals (${filteredSignals.length})`}
           {hasDebugSignals && (
             <span className="ml-2 text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">
               {debugSignalsCount} DEBUG
@@ -566,7 +566,7 @@ const TradingSignals = memo(() => {
                 : `No signals for ${selectedPair}`}
             </div>
             <div className="text-sm text-gray-500 mb-6">
-              🎯 Signal limit: {MAX_ACTIVE_SIGNALS} • Enhanced AI analysis with detailed logging • Debug mode enabled for testing
+              🎯 Signal limit: {MAX_ACTIVE_SIGNALS} • Practical AI analysis with less conservative thresholds • 65%+ confidence requirement
             </div>
             <div className="space-x-4">
               <Button
@@ -577,7 +577,7 @@ const TradingSignals = memo(() => {
                 {detectingOpportunities ? (
                   <>
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Analyzing with Enhanced Debug Logging...
+                    Analyzing with Practical Thresholds...
                   </>
                 ) : validSignals.length >= MAX_ACTIVE_SIGNALS ? (
                   <>
@@ -587,7 +587,7 @@ const TradingSignals = memo(() => {
                 ) : (
                   <>
                     <TrendingUp className="h-4 w-4 mr-2" />
-                    Generate Enhanced Debug Signals
+                    Generate Practical Signals
                   </>
                 )}
               </Button>
