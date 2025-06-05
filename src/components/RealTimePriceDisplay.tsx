@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { TrendingUp, TrendingDown, Wifi, WifiOff, Loader2 } from 'lucide-react';
+import { calculateSignalPerformance } from '@/utils/pipCalculator';
 
 interface RealTimePriceDisplayProps {
   currentPrice: number | null;
@@ -12,6 +13,7 @@ interface RealTimePriceDisplayProps {
   isMarketOpen: boolean;
   entryPrice?: number;
   signalType?: string;
+  pair?: string;
 }
 
 const RealTimePriceDisplay = ({
@@ -23,43 +25,22 @@ const RealTimePriceDisplay = ({
   isConnected,
   isMarketOpen,
   entryPrice,
-  signalType
+  signalType,
+  pair = 'EURUSD'
 }: RealTimePriceDisplayProps) => {
   const formatPrice = (price: number) => {
     return price.toFixed(5);
   };
 
-  // Calculate signal performance if we have entry price and signal type
-  const calculateSignalPerformance = () => {
-    if (!entryPrice || !currentPrice || !signalType) {
-      return { pips: 0, percentage: 0, isProfit: false };
-    }
+  // Calculate signal performance using the proper pip calculator
+  const signalPerformance = entryPrice && currentPrice && signalType && pair ? 
+    calculateSignalPerformance(entryPrice, currentPrice, signalType as 'BUY' | 'SELL', pair) : 
+    { pips: 0, percentage: 0, isProfit: false };
 
-    let pips = 0;
-    let isProfit = false;
-
-    if (signalType === 'BUY') {
-      pips = (currentPrice - entryPrice) * 10000;
-      isProfit = currentPrice > entryPrice;
-    } else {
-      pips = (entryPrice - currentPrice) * 10000;
-      isProfit = entryPrice > currentPrice;
-    }
-
-    const percentageChange = entryPrice > 0 ? Math.abs((currentPrice - entryPrice) / entryPrice) * 100 : 0;
-    
-    return {
-      pips: Math.round(pips),
-      percentage: isProfit ? percentageChange : -percentageChange,
-      isProfit
-    };
-  };
-
-  const signalPerformance = calculateSignalPerformance();
   const showSignalPerformance = entryPrice && currentPrice && signalType;
 
   // Use signal performance if available, otherwise use market change
-  const displayChange = showSignalPerformance ? signalPerformance.pips / 10000 : change;
+  const displayChange = showSignalPerformance ? signalPerformance.pips / (pair.includes('JPY') ? 100 : 10000) : change;
   const displayPercentage = showSignalPerformance ? signalPerformance.percentage : percentage;
   const isPositive = showSignalPerformance ? signalPerformance.isProfit : change >= 0;
 

@@ -98,6 +98,7 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
         isMarketOpen={isMarketOpen}
         entryPrice={signalEntryPrice}
         signalType={safeSignal.type}
+        pair={safeSignal.pair}
       />
 
       <RealTimeChart

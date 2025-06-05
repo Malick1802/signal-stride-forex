@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { TrendingUp, TrendingDown, Shield } from 'lucide-react';
+import { calculateSignalPerformance } from '@/utils/pipCalculator';
 
 interface SignalHeaderProps {
   pair: string;
@@ -31,33 +32,11 @@ const SignalHeader = ({
     return price.toFixed(5);
   };
 
-  // Calculate signal performance if entry price is available
-  const calculateSignalPerformance = () => {
-    if (!entryPrice || !currentPrice) {
-      return { pips: 0, percentage: 0, isProfit: false };
-    }
+  // Calculate signal performance using the proper pip calculator
+  const signalPerformance = entryPrice && currentPrice ? 
+    calculateSignalPerformance(entryPrice, currentPrice, type as 'BUY' | 'SELL', pair) : 
+    { pips: 0, percentage: 0, isProfit: false };
 
-    let pips = 0;
-    let isProfit = false;
-
-    if (type === 'BUY') {
-      pips = (currentPrice - entryPrice) * 10000;
-      isProfit = currentPrice > entryPrice;
-    } else {
-      pips = (entryPrice - currentPrice) * 10000;
-      isProfit = entryPrice > currentPrice;
-    }
-
-    const percentageChange = entryPrice > 0 ? Math.abs((currentPrice - entryPrice) / entryPrice) * 100 : 0;
-    
-    return {
-      pips: Math.round(pips),
-      percentage: isProfit ? percentageChange : -percentageChange,
-      isProfit
-    };
-  };
-
-  const signalPerformance = calculateSignalPerformance();
   const showSignalPerformance = entryPrice && currentPrice;
 
   return (

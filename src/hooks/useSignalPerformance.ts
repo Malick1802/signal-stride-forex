@@ -1,10 +1,12 @@
 
 import { useMemo } from 'react';
+import { calculateSignalPerformance } from '@/utils/pipCalculator';
 
 interface UseSignalPerformanceProps {
   entryPrice: number;
   currentPrice: number | null;
   signalType: 'BUY' | 'SELL';
+  symbol: string;
 }
 
 interface SignalPerformance {
@@ -17,39 +19,10 @@ interface SignalPerformance {
 export const useSignalPerformance = ({ 
   entryPrice, 
   currentPrice, 
-  signalType 
+  signalType,
+  symbol 
 }: UseSignalPerformanceProps): SignalPerformance => {
   return useMemo(() => {
-    if (!currentPrice || !entryPrice) {
-      return {
-        pips: 0,
-        percentage: 0,
-        isProfit: false,
-        profitLoss: 0
-      };
-    }
-
-    let pips = 0;
-    let isProfit = false;
-    let profitLoss = 0;
-
-    if (signalType === 'BUY') {
-      profitLoss = currentPrice - entryPrice;
-      pips = profitLoss * 10000;
-      isProfit = currentPrice > entryPrice;
-    } else {
-      profitLoss = entryPrice - currentPrice;
-      pips = profitLoss * 10000;
-      isProfit = entryPrice > currentPrice;
-    }
-
-    const percentage = entryPrice > 0 ? Math.abs(profitLoss / entryPrice) * 100 : 0;
-    
-    return {
-      pips: Math.round(pips),
-      percentage: isProfit ? percentage : -percentage,
-      isProfit,
-      profitLoss
-    };
-  }, [entryPrice, currentPrice, signalType]);
+    return calculateSignalPerformance(entryPrice, currentPrice, signalType, symbol);
+  }, [entryPrice, currentPrice, signalType, symbol]);
 };

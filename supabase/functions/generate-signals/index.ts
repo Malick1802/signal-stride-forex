@@ -11,6 +11,33 @@ const corsHeaders = {
 // Maximum number of active signals allowed
 const MAX_ACTIVE_SIGNALS = 15;
 
+// Pip calculation utilities for the edge function
+const isJPYPair = (symbol: string): boolean => {
+  return symbol.includes('JPY');
+};
+
+const getPipValue = (symbol: string): number => {
+  return isJPYPair(symbol) ? 0.01 : 0.0001;
+};
+
+const calculateRealisticStopLoss = (entryPrice: number, symbol: string, signalType: string, pipDistance: number): number => {
+  const pipValue = getPipValue(symbol);
+  const stopLossDistance = pipDistance * pipValue;
+  
+  return signalType === 'BUY' 
+    ? entryPrice - stopLossDistance 
+    : entryPrice + stopLossDistance;
+};
+
+const calculateRealisticTakeProfit = (entryPrice: number, symbol: string, signalType: string, pipDistance: number): number => {
+  const pipValue = getPipValue(symbol);
+  const takeProfitDistance = pipDistance * pipValue;
+  
+  return signalType === 'BUY' 
+    ? entryPrice + takeProfitDistance 
+    : entryPrice - takeProfitDistance;
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -241,7 +268,7 @@ serve(async (req) => {
         else if (currentHour >= 13 && currentHour < 22) tradingSession = 'US';
         else if (currentHour >= 21 || currentHour < 8) tradingSession = 'Asian';
 
-        // ENHANCED AI prompt with success-focused approach
+        // ENHANCED AI prompt with success-focused approach and realistic pip targets
         console.log(`🔮 ENHANCED SUCCESS-FOCUSED AI analysis for ${pair} (${pairCategory} pair, ${tradingSession} session)...`);
         
         const aiAnalysisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -261,22 +288,28 @@ serve(async (req) => {
                 - 60%+ confidence minimum (practical threshold for real trading)
                 - 65%+ win probability target (realistic expectation)
                 - 2+ technical confirmations (trend analysis + one additional factor)
-                - ADAPTIVE risk/reward ratios based on market conditions
-                - WIDER stop losses for better success rates (60+ pips minimum)
+                - REALISTIC pip targets based on pair volatility
+                - PROPER stop losses (20-60 pips for majors, 30-80 pips for minors)
                 - Consider both BULLISH and BEARISH setups equally
                 - Account for trading session characteristics
+                
+                REALISTIC PIP CALCULATIONS:
+                - Major pairs (EURUSD, GBPUSD, etc.): 15-50 pips for SL, 20-80 pips for TP
+                - JPY pairs (USDJPY, EURJPY, etc.): 20-60 pips for SL, 30-100 pips for TP
+                - Minor/Cross pairs: 25-70 pips for SL, 35-120 pips for TP
+                - Risk/Reward: Minimum 1:1.5, target 1:2 or better
                 
                 CRITICAL SUCCESS FACTORS:
                 - MARKET DIRECTION BIAS: Analyze if market is trending UP, DOWN, or SIDEWAYS
                 - TREND ALIGNMENT: Only trade WITH the primary trend direction
                 - SUPPORT/RESISTANCE: Use key levels for entry timing
                 - SESSION TIMING: Consider session-specific pair behavior
-                - RISK MANAGEMENT: Wider stops (60+ pips) for breathing room
+                - VOLATILITY: Adjust pip targets based on recent price movement
                 
                 PAIR-SPECIFIC APPROACH:
-                - Major pairs: Focus on session overlaps and news impact
-                - Minor/Cross pairs: Look for breakouts and trending moves
-                - JPY pairs: Account for carry trade flows and session timing
+                - Major pairs: Focus on session overlaps and news impact (20-50 pip targets)
+                - Minor/Cross pairs: Look for breakouts and trending moves (30-80 pip targets)
+                - JPY pairs: Account for carry trade flows and session timing (25-70 pip targets)
                 
                 ENHANCED MODE - Generate signals when you have reasonable conviction with proper confirmations. 
                 TARGET: 70%+ win rate with 50-70% signal generation rate - prioritize SUCCESS over quantity.
@@ -291,8 +324,8 @@ serve(async (req) => {
                   "trend_direction": "BULLISH" or "BEARISH" or "SIDEWAYS",
                   "market_structure": "TRENDING" or "RANGING" or "BREAKOUT",
                   "entry_price": number (optimal entry vs current price),
-                  "stop_loss_pips": number between 60-120 (wider for success),
-                  "take_profit_pips": [number, number, number] (realistic targets),
+                  "stop_loss_pips": number between 15-80 (realistic for pair type),
+                  "take_profit_pips": [number, number, number] (realistic progressive targets),
                   "risk_reward_ratio": "1:X" format,
                   "session_advantage": "HIGH" or "MEDIUM" or "LOW",
                   "analysis": "detailed explanation focusing on SUCCESS probability",
@@ -332,10 +365,11 @@ serve(async (req) => {
                 2. Are we in a favorable ${tradingSession} session for this pair?
                 3. Is there clear directional momentum?
                 4. What are the nearest support/resistance levels?
-                5. Is the risk/reward favorable with wider stops?
+                5. What are REALISTIC pip targets for ${pair} (${pairCategory} pair)?
                 
-                Generate a signal focused on SUCCESS PROBABILITY rather than perfect conditions.
-                Use wider stop losses (60+ pips) and realistic take profits for better win rates.`
+                Generate a signal focused on SUCCESS PROBABILITY with REALISTIC pip targets.
+                For ${pair}, use appropriate pip ranges:
+                ${pairCategory === 'Major' ? '- Stop Loss: 15-50 pips, Take Profit: 20-80 pips' : '- Stop Loss: 25-70 pips, Take Profit: 35-120 pips'}`
               }
             ],
             max_tokens: 1000,
@@ -399,30 +433,20 @@ serve(async (req) => {
         console.log(`🎯 Win Probability: ${aiSignal.win_probability}%`);
         console.log(`📊 Risk/Reward: ${aiSignal.risk_reward_ratio}`);
 
-        // Generate signal with enhanced settings
+        // Generate signal with REALISTIC pip calculations
         const entryPrice = aiSignal.entry_price || currentPrice;
-        const stopLossPips = Math.max(aiSignal.stop_loss_pips || 70, 60); // Minimum 60 pips
-        const takeProfitPips = aiSignal.take_profit_pips || [60, 100, 140]; // More realistic targets
+        const stopLossPips = Math.max(aiSignal.stop_loss_pips || 30, 15); // Minimum 15 pips
+        const takeProfitPips = aiSignal.take_profit_pips || [30, 50, 80]; // Realistic targets
 
-        // Convert pips to price levels
-        const pipValue = pair.includes('JPY') ? 0.01 : 0.0001;
-        const stopLossDistance = stopLossPips * pipValue;
-        
-        const stopLoss = aiSignal.signal === 'BUY' 
-          ? entryPrice - stopLossDistance 
-          : entryPrice + stopLossDistance;
-          
-        const takeProfit1 = aiSignal.signal === 'BUY' 
-          ? entryPrice + (takeProfitPips[0] * pipValue)
-          : entryPrice - (takeProfitPips[0] * pipValue);
-          
-        const takeProfit2 = aiSignal.signal === 'BUY' 
-          ? entryPrice + (takeProfitPips[1] * pipValue)
-          : entryPrice - (takeProfitPips[1] * pipValue);
-          
-        const takeProfit3 = aiSignal.signal === 'BUY' 
-          ? entryPrice + (takeProfitPips[2] * pipValue)
-          : entryPrice - (takeProfitPips[2] * pipValue);
+        console.log(`📏 REALISTIC pip calculations for ${pair}:`);
+        console.log(`  - Stop Loss: ${stopLossPips} pips`);
+        console.log(`  - Take Profits: ${takeProfitPips.join(', ')} pips`);
+
+        // Calculate using realistic pip functions
+        const stopLoss = calculateRealisticStopLoss(entryPrice, pair, aiSignal.signal, stopLossPips);
+        const takeProfit1 = calculateRealisticTakeProfit(entryPrice, pair, aiSignal.signal, takeProfitPips[0]);
+        const takeProfit2 = calculateRealisticTakeProfit(entryPrice, pair, aiSignal.signal, takeProfitPips[1]);
+        const takeProfit3 = calculateRealisticTakeProfit(entryPrice, pair, aiSignal.signal, takeProfitPips[2]);
 
         // Generate enhanced chart data
         const chartData = [];
@@ -436,24 +460,24 @@ serve(async (req) => {
           
           chartData.push({
             time: timePoint,
-            price: parseFloat(chartPrice.toFixed(pair.includes('JPY') ? 3 : 5))
+            price: parseFloat(chartPrice.toFixed(isJPYPair(pair) ? 3 : 5))
           });
         }
 
         chartData.push({
           time: Date.now(),
-          price: parseFloat(entryPrice.toFixed(pair.includes('JPY') ? 3 : 5))
+          price: parseFloat(entryPrice.toFixed(isJPYPair(pair) ? 3 : 5))
         });
 
         const signal = {
           symbol: pair,
           type: aiSignal.signal,
-          price: parseFloat(entryPrice.toFixed(pair.includes('JPY') ? 3 : 5)),
-          stop_loss: parseFloat(stopLoss.toFixed(pair.includes('JPY') ? 3 : 5)),
+          price: parseFloat(entryPrice.toFixed(isJPYPair(pair) ? 3 : 5)),
+          stop_loss: parseFloat(stopLoss.toFixed(isJPYPair(pair) ? 3 : 5)),
           take_profits: [
-            parseFloat(takeProfit1.toFixed(pair.includes('JPY') ? 3 : 5)),
-            parseFloat(takeProfit2.toFixed(pair.includes('JPY') ? 3 : 5)),
-            parseFloat(takeProfit3.toFixed(pair.includes('JPY') ? 3 : 5))
+            parseFloat(takeProfit1.toFixed(isJPYPair(pair) ? 3 : 5)),
+            parseFloat(takeProfit2.toFixed(isJPYPair(pair) ? 3 : 5)),
+            parseFloat(takeProfit3.toFixed(isJPYPair(pair) ? 3 : 5))
           ],
           confidence: aiSignal.confidence,
           status: 'active',
@@ -461,11 +485,11 @@ serve(async (req) => {
           user_id: null,
           analysis_text: `ENHANCED ${aiSignal.setup_quality} ${pairCategory} Setup (${aiSignal.win_probability}% win probability): ${aiSignal.analysis} | Entry Strategy: ${aiSignal.entry_strategy}`,
           chart_data: chartData,
-          pips: stopLossPips,
+          pips: stopLossPips, // Store REALISTIC pip value
           created_at: timestamp
         };
 
-        console.log(`💾 Inserting NEW HIGH-SUCCESS AI signal for ${pair} (${signalsGenerated + 1}/${maxNewSignals})...`);
+        console.log(`💾 Inserting NEW HIGH-SUCCESS AI signal for ${pair} (${signalsGenerated + 1}/${maxNewSignals}) with ${stopLossPips} pip SL...`);
         const { data: insertedSignal, error: insertError } = await supabase
           .from('trading_signals')
           .insert([signal])
@@ -479,7 +503,7 @@ serve(async (req) => {
 
         signalsGenerated++;
         generatedSignals.push(insertedSignal);
-        console.log(`✅ Generated NEW HIGH-SUCCESS AI signal for ${pair} (${aiSignal.confidence}% confidence, ${aiSignal.win_probability}% win probability) - ${signalsGenerated}/${maxNewSignals}`);
+        console.log(`✅ Generated NEW HIGH-SUCCESS AI signal for ${pair} (${aiSignal.confidence}% confidence, ${aiSignal.win_probability}% win probability, ${stopLossPips} pips SL) - ${signalsGenerated}/${maxNewSignals}`);
 
         if (signalsGenerated < maxNewSignals && prioritizedPairs.indexOf(pair) < prioritizedPairs.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 1000));
@@ -502,7 +526,7 @@ serve(async (req) => {
     console.log(`  - New high-success signals generated: ${signalsGenerated}`);
     console.log(`  - Final active signals: ${finalActiveSignals}/${MAX_ACTIVE_SIGNALS}`);
     console.log(`  - Generation rate: ${generationRate.toFixed(1)}% (Target: 50-70%)`);
-    console.log(`  - Mode: ENHANCED SUCCESS-FOCUSED (60%+ confidence, 65%+ win probability)`);
+    console.log(`  - Mode: ENHANCED SUCCESS-FOCUSED (60%+ confidence, 65%+ win probability, REALISTIC pips)`);
 
     return new Response(
       JSON.stringify({
@@ -530,7 +554,7 @@ serve(async (req) => {
         },
         timestamp,
         trigger: isCronTriggered ? 'cron' : 'manual',
-        approach: 'enhanced_success_focused'
+        approach: 'enhanced_success_focused_realistic_pips'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
