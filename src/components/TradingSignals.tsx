@@ -58,49 +58,59 @@ const TradingSignals = memo(() => {
   const handleDebugSignalGeneration = async () => {
     setDebugGenerating(true);
     try {
-      console.log('🐛 FORCING DEBUG SIGNAL GENERATION WITH DETAILED LOGGING...');
+      console.log('🐛 STARTING DEBUG SIGNAL GENERATION...');
+      console.log('🔧 Invoking generate-signals edge function with debug parameters...');
       
+      // Enhanced function call with proper error handling and timeout
       const { data, error } = await supabase.functions.invoke('generate-signals', {
         body: { 
           debug_mode: true,
           force_generate: true,
           detailed_logging: true 
+        },
+        headers: {
+          'Content-Type': 'application/json'
         }
       });
       
       if (error) {
         console.error('❌ Debug signal generation failed:', error);
+        console.error('❌ Error details:', JSON.stringify(error, null, 2));
         toast({
           title: "Debug Generation Failed",
-          description: "Check console logs for detailed error information",
+          description: `Error: ${error.message || 'Unknown error'}. Check Supabase edge function logs for details.`,
           variant: "destructive"
         });
         return;
       }
       
-      console.log('✅ Debug signal generation completed:', data);
+      console.log('✅ Debug signal generation completed successfully');
+      console.log('📊 Response data:', JSON.stringify(data, null, 2));
       
       // Show detailed results
       const debugInfo = data?.debug_info || {};
       const aiResponses = debugInfo.ai_responses || 0;
       const debugSignals = debugInfo.debug_signals_generated || 0;
       const productionSignals = debugInfo.production_signals_generated || 0;
+      const totalAnalyzed = debugInfo.pairs_analyzed || 0;
       
       toast({
         title: "🐛 Debug Generation Complete",
-        description: `AI analyzed ${aiResponses} pairs. Generated: ${debugSignals} debug + ${productionSignals} production signals. Check console for detailed analysis.`,
+        description: `AI analyzed ${totalAnalyzed} pairs with ${aiResponses} API calls. Generated: ${debugSignals} debug + ${productionSignals} production signals. Check Supabase edge function logs for detailed AI analysis.`,
       });
       
-      // Refresh signals after generation
+      // Refresh signals after a short delay
       setTimeout(() => {
+        console.log('🔄 Refreshing page to show new debug signals...');
         window.location.reload();
       }, 2000);
       
     } catch (error) {
       console.error('❌ Debug generation error:', error);
+      console.error('❌ Stack trace:', error instanceof Error ? error.stack : 'No stack trace');
       toast({
         title: "Debug Error",
-        description: "Failed to run debug signal generation. Check console logs.",
+        description: `Failed to run debug signal generation: ${error instanceof Error ? error.message : 'Unknown error'}. Check console and Supabase logs.`,
         variant: "destructive"
       });
     } finally {
@@ -277,7 +287,7 @@ const TradingSignals = memo(() => {
               <AlertTriangle className="h-5 w-5 text-red-400" />
               <span className="text-white font-medium">OPENAI ANALYSIS DEBUG</span>
               <span className="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded">
-                NO SIGNALS GENERATED
+                {validSignals.length === 0 ? 'NO SIGNALS GENERATED' : 'READY FOR DEBUG'}
               </span>
             </div>
           </div>
@@ -303,7 +313,7 @@ const TradingSignals = memo(() => {
           </div>
         </div>
         <div className="mt-2 text-xs text-red-400">
-          🚨 OpenAI analysis running but no signals generated. Click "Force Debug Analysis" to see detailed AI responses and confidence levels in console logs.
+          🚨 Click "Force Debug Analysis" to trigger detailed OpenAI analysis with debug logging. Check Supabase Edge Function logs for detailed AI responses and confidence levels.
         </div>
       </div>
 
