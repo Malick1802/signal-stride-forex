@@ -1,5 +1,5 @@
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -13,27 +13,161 @@ interface EnhancedSignalData {
   status: string;
   createdAt: string;
   targetsHit: number[];
+  trailingStopActive?: boolean;
+  currentTrailingStop?: number;
 }
 
 export const useEnhancedSignalMonitoring = () => {
   const { toast } = useToast();
+  const [stopLossConfirmations, setStopLossConfirmations] = useState<Record<string, {
+    count: number, 
+    firstDetectedAt: number,
+    lastPrice: number
+  }>>({});
+  
+  // Time threshold for stop loss confirmation (in milliseconds)
+  const STOP_LOSS_CONFIRMATION_THRESHOLD = 30000; // 30 seconds
+  const STOP_LOSS_CONFIRMATION_COUNT = 3; // Need 3 confirmations
+  
+  // Factor for trailing stop - how much of the distance to first TP to use
+  const TRAILING_STOP_FACTOR = 0.5;
 
-  const validateStopLossHit = useCallback((signal: EnhancedSignalData, currentPrice: number): boolean => {
-    if (!currentPrice || currentPrice <= 0) return false;
-
-    const stopLossHit = signal.type === 'BUY' 
-      ? currentPrice <= signal.stopLoss
-      : currentPrice >= signal.stopLoss;
-
-    if (stopLossHit) {
-      console.log(`🎯 STOP LOSS VALIDATION: ${signal.symbol} ${signal.type} - Current: ${currentPrice}, SL: ${signal.stopLoss}, Entry: ${signal.entryPrice}`);
-      console.log(`🔍 SL LOGIC: ${signal.type === 'BUY' ? `${currentPrice} <= ${signal.stopLoss}` : `${currentPrice} >= ${signal.stopLoss}`} = ${stopLossHit}`);
+  // Clear stale confirmations older than 2 minutes
+  const clearStaleConfirmations = useCallback(() => {
+    const now = Date.now();
+    const updatedConfirmations = { ...stopLossConfirmations };
+    let hasChanges = false;
+    
+    Object.keys(updatedConfirmations).forEach(signalId => {
+      if (now - updatedConfirmations[signalId].firstDetectedAt > 120000) {
+        delete updatedConfirmations[signalId];
+        hasChanges = true;
+        console.log(`🧹 Clearing stale SL confirmation for ${signalId} (older than 2 minutes)`);
+      }
+    });
+    
+    if (hasChanges) {
+      setStopLossConfirmations(updatedConfirmations);
     }
+  }, [stopLossConfirmations]);
 
-    return stopLossHit;
+  // Calculate and activate trailing stop once TP1 is hit
+  const calculateTrailingStop = useCallback((
+    signal: EnhancedSignalData, 
+    currentPrice: number
+  ): number | null => {
+    // Only activate trailing stop if at least TP1 is hit
+    if (!signal.targetsHit || signal.targetsHit.length === 0) {
+      return null;
+    }
+    
+    // Get first take profit level
+    const tp1 = signal.takeProfits[0];
+    
+    // Calculate the trailing stop based on the entry and TP1 distance
+    const tpDistance = Math.abs(tp1 - signal.entryPrice);
+    const trailingDistance = tpDistance * TRAILING_STOP_FACTOR;
+    
+    // Calculate trailing stop position based on signal type
+    if (signal.type === 'BUY') {
+      // For buy signals, trailing stop follows price up
+      const calculatedStop = currentPrice - trailingDistance;
+      
+      // Only return if it's higher than current stop loss (moved up)
+      return calculatedStop > signal.stopLoss ? calculatedStop : null;
+    } else {
+      // For sell signals, trailing stop follows price down
+      const calculatedStop = currentPrice + trailingDistance;
+      
+      // Only return if it's lower than current stop loss (moved down)
+      return calculatedStop < signal.stopLoss ? calculatedStop : null;
+    }
   }, []);
 
-  const validateTakeProfitHits = useCallback((signal: EnhancedSignalData, currentPrice: number): number[] => {
+  // Enhanced stop loss validation with confirmation and volatility consideration
+  const validateStopLossHit = useCallback((
+    signal: EnhancedSignalData, 
+    currentPrice: number
+  ): boolean => {
+    if (!currentPrice || currentPrice <= 0) return false;
+
+    // Calculate whether price crossed the stop loss level
+    const stopLossCrossed = signal.type === 'BUY' 
+      ? currentPrice <= signal.stopLoss
+      : currentPrice >= signal.stopLoss;
+      
+    if (!stopLossCrossed) {
+      // If the stop loss isn't crossed, remove any existing confirmation
+      if (stopLossConfirmations[signal.id]) {
+        setStopLossConfirmations(prevState => {
+          const newState = { ...prevState };
+          delete newState[signal.id];
+          return newState;
+        });
+      }
+      return false;
+    }
+    
+    const now = Date.now();
+    
+    // Check if we're already tracking this signal
+    if (stopLossConfirmations[signal.id]) {
+      const confirmation = stopLossConfirmations[signal.id];
+      const newCount = confirmation.count + 1;
+      
+      // Update confirmation with new count and price
+      setStopLossConfirmations(prevState => ({
+        ...prevState,
+        [signal.id]: {
+          count: newCount,
+          firstDetectedAt: confirmation.firstDetectedAt,
+          lastPrice: currentPrice
+        }
+      }));
+      
+      // Check if we have enough confirmations AND enough time has passed
+      const timeElapsed = now - confirmation.firstDetectedAt;
+      const isTimeThresholdMet = timeElapsed >= STOP_LOSS_CONFIRMATION_THRESHOLD;
+      const isCountThresholdMet = newCount >= STOP_LOSS_CONFIRMATION_COUNT;
+      
+      if (isCountThresholdMet && isTimeThresholdMet) {
+        console.log(`✅ ENHANCED SL CONFIRMED: ${signal.symbol} ${signal.type} - Current: ${currentPrice}, SL: ${signal.stopLoss}`);
+        console.log(`🔍 SL CONFIRMATION: ${newCount} confirmations over ${Math.round(timeElapsed / 1000)}s`);
+        
+        // Clear the confirmation since we're going to process it
+        setStopLossConfirmations(prevState => {
+          const newState = { ...prevState };
+          delete newState[signal.id];
+          return newState;
+        });
+        
+        return true;
+      }
+      
+      return false;
+    } else {
+      // Start tracking this confirmation
+      console.log(`⚠️ POTENTIAL SL: ${signal.symbol} ${signal.type} - Current: ${currentPrice}, SL: ${signal.stopLoss}`);
+      console.log(`🔍 Starting SL confirmation for ${signal.id} (${signal.symbol})`);
+      
+      setStopLossConfirmations(prevState => ({
+        ...prevState,
+        [signal.id]: {
+          count: 1,
+          firstDetectedAt: now,
+          lastPrice: currentPrice
+        }
+      }));
+      
+      return false;
+    }
+  }, [stopLossConfirmations]);
+
+  // Take profit validation logic with priority over stop loss
+  const validateTakeProfitHits = useCallback((
+    signal: EnhancedSignalData, 
+    currentPrice: number
+  ): number[] => {
     if (!currentPrice || currentPrice <= 0) return signal.targetsHit;
 
     let newTargetsHit = [...signal.targetsHit];
@@ -206,10 +340,20 @@ export const useEnhancedSignalMonitoring = () => {
         currentPrices[data.symbol] = parseFloat(data.current_price.toString());
       });
 
+      // Clear stale stop loss confirmations
+      clearStaleConfirmations();
+
       // Process each signal with enhanced validation
       for (const signal of activeSignals) {
         const currentPrice = currentPrices[signal.symbol];
         if (!currentPrice) continue;
+
+        // Parse take profits array and ensure it's valid
+        const takeProfits = signal.take_profits?.map((tp: any) => parseFloat(tp.toString())) || [];
+        if (takeProfits.length === 0) {
+          console.warn(`⚠️ Signal ${signal.id} has no take profits defined, skipping`);
+          continue;
+        }
 
         const enhancedSignal: EnhancedSignalData = {
           id: signal.id,
@@ -217,21 +361,21 @@ export const useEnhancedSignalMonitoring = () => {
           type: signal.type as 'BUY' | 'SELL',
           entryPrice: parseFloat(signal.price.toString()),
           stopLoss: parseFloat(signal.stop_loss.toString()),
-          takeProfits: signal.take_profits?.map((tp: any) => parseFloat(tp.toString())) || [],
+          takeProfits: takeProfits,
           status: signal.status,
           createdAt: signal.created_at,
-          targetsHit: signal.targets_hit || []
+          targetsHit: signal.targets_hit || [],
+          trailingStopActive: signal.targets_hit?.length > 0 || false,
+          currentTrailingStop: signal.trailing_stop ? parseFloat(signal.trailing_stop.toString()) : undefined
         };
 
         console.log(`📊 ENHANCED VALIDATION: ${signal.symbol} - Current: ${currentPrice}, Entry: ${enhancedSignal.entryPrice}, SL: ${enhancedSignal.stopLoss}`);
 
-        // Validate stop loss with enhanced logic
-        const stopLossHit = validateStopLossHit(enhancedSignal, currentPrice);
-
-        // Validate take profit hits with enhanced logic
+        // IMPORTANT: Check take profits BEFORE stop loss to prioritize profits
+        // This is a key change to improve profitability
         const newTargetsHit = validateTakeProfitHits(enhancedSignal, currentPrice);
 
-        // Update targets if new ones were hit
+        // If we hit any new targets, update them first
         if (newTargetsHit.length !== enhancedSignal.targetsHit.length) {
           await supabase
             .from('trading_signals')
@@ -242,16 +386,53 @@ export const useEnhancedSignalMonitoring = () => {
             .eq('id', signal.id);
 
           console.log(`✅ ENHANCED: Updated targets for ${signal.symbol}:`, newTargetsHit);
+          
+          // Update our signal object for further processing
+          enhancedSignal.targetsHit = newTargetsHit;
+          enhancedSignal.trailingStopActive = newTargetsHit.length > 0;
         }
 
+        // After hitting TP1, activate trailing stop if applicable
+        if (enhancedSignal.trailingStopActive) {
+          const newTrailingStop = calculateTrailingStop(enhancedSignal, currentPrice);
+          
+          if (newTrailingStop !== null) {
+            // Only update if we have a valid new trailing stop level
+            const currentStop = enhancedSignal.currentTrailingStop || enhancedSignal.stopLoss;
+            
+            if ((enhancedSignal.type === 'BUY' && newTrailingStop > currentStop) ||
+                (enhancedSignal.type === 'SELL' && newTrailingStop < currentStop)) {
+              
+              console.log(`🔄 TRAILING STOP: ${signal.symbol} ${signal.type} - Moving stop loss from ${enhancedSignal.stopLoss} to ${newTrailingStop}`);
+              
+              // Update trailing stop in database
+              await supabase
+                .from('trading_signals')
+                .update({ 
+                  stop_loss: newTrailingStop,
+                  trailing_stop: newTrailingStop,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', signal.id);
+              
+              // Update our local signal object with new stop loss
+              enhancedSignal.stopLoss = newTrailingStop;
+              enhancedSignal.currentTrailingStop = newTrailingStop;
+            }
+          }
+        }
+
+        // NOW check for stop loss hit with enhanced validation
+        const stopLossHit = validateStopLossHit(enhancedSignal, currentPrice);
+
         // Process outcome if signal should expire
-        await processSignalOutcome(enhancedSignal, currentPrice, stopLossHit, newTargetsHit);
+        await processSignalOutcome(enhancedSignal, currentPrice, stopLossHit, enhancedSignal.targetsHit);
       }
 
     } catch (error) {
       console.error('❌ ENHANCED MONITORING ERROR:', error);
     }
-  }, [validateStopLossHit, validateTakeProfitHits, processSignalOutcome]);
+  }, [validateStopLossHit, validateTakeProfitHits, processSignalOutcome, calculateTrailingStop, clearStaleConfirmations]);
 
   useEffect(() => {
     // Initial monitoring
@@ -276,7 +457,7 @@ export const useEnhancedSignalMonitoring = () => {
       )
       .subscribe();
 
-    console.log('🔄 ENHANCED monitoring system activated - 5-second intervals with real-time triggers');
+    console.log('🔄 ENHANCED monitoring system activated with trailing stops and improved validation');
 
     return () => {
       clearInterval(monitorInterval);

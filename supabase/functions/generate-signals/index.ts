@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -20,7 +19,12 @@ const getPipValue = (symbol: string): number => {
   return isJPYPair(symbol) ? 0.01 : 0.0001;
 };
 
+// Improved stop loss calculation with minimum 45-50 pip distance and technical levels
 const calculateRealisticStopLoss = (entryPrice: number, symbol: string, signalType: string, pipDistance: number): number => {
+  // Ensure minimum distance of 45 pips for non-JPY pairs, 50 for JPY pairs
+  let minimumPips = isJPYPair(symbol) ? 50 : 45;
+  pipDistance = Math.max(pipDistance, minimumPips);
+  
   const pipValue = getPipValue(symbol);
   const stopLossDistance = pipDistance * pipValue;
   
@@ -29,6 +33,7 @@ const calculateRealisticStopLoss = (entryPrice: number, symbol: string, signalTy
     : entryPrice + stopLossDistance;
 };
 
+// Improved take profit calculation with focus on risk-reward ratio
 const calculateRealisticTakeProfit = (entryPrice: number, symbol: string, signalType: string, pipDistance: number): number => {
   const pipValue = getPipValue(symbol);
   const takeProfitDistance = pipDistance * pipValue;
@@ -227,7 +232,7 @@ serve(async (req) => {
 
     console.log(`🚀 Starting ENHANCED BALANCED AI analysis for ${prioritizedPairs.length} NEW pairs...`);
 
-    // Analyze pairs individually with enhanced balanced generation
+    // Analyze pairs individually with improved volatility-aware risk management
     for (const pair of prioritizedPairs) {
       if (signalsGenerated >= maxNewSignals) {
         console.log(`🚫 Reached new signal limit (${signalsGenerated}/${maxNewSignals}) - stopping generation`);
@@ -246,19 +251,19 @@ serve(async (req) => {
         
         console.log(`🧠 ENHANCED BALANCED analysis of ${pair} at price ${currentPrice} (${signalsGenerated + 1}/${maxNewSignals})...`);
 
-        // Get extended historical price data for enhanced analysis
+        // Get extended historical price data for enhanced analysis & volatility calculation
         const { data: historicalData } = await supabase
           .from('centralized_market_state')
           .select('current_price, last_update')
           .eq('symbol', pair)
           .order('last_update', { ascending: false })
-          .limit(50); // More data for better analysis
+          .limit(100); // More data for better analysis
 
-        const priceHistory = historicalData?.map(d => parseFloat(d.current_price.toString())).slice(0, 20) || [currentPrice];
+        const priceHistory = historicalData?.map(d => parseFloat(d.current_price.toString())).slice(0, 50) || [currentPrice];
         const priceChange = priceHistory.length > 1 ? 
           ((currentPrice - priceHistory[priceHistory.length - 1]) / priceHistory[priceHistory.length - 1] * 100) : 0;
 
-        // Calculate price volatility and trend
+        // Calculate price volatility for dynamic stop loss sizing
         const priceChanges = priceHistory.slice(0, -1).map((price, i) => {
           if (i < priceHistory.length - 1) {
             return (price - priceHistory[i + 1]) / priceHistory[i + 1] * 100;
@@ -268,6 +273,14 @@ serve(async (req) => {
 
         const avgPriceChange = priceChanges.reduce((sum, change) => sum + change, 0) / Math.max(priceChanges.length, 1);
         const priceVolatility = Math.sqrt(priceChanges.reduce((sum, change) => sum + Math.pow(change - avgPriceChange, 2), 0) / Math.max(priceChanges.length, 1));
+
+        // ENHANCED: Calculate dynamic stop loss based on volatility
+        // Higher volatility = wider stop loss to avoid premature stops
+        const baseStopPips = isJPYPair(pair) ? 55 : 50; // Increased minimum SL distance
+        const volatilityFactor = Math.min(Math.max(priceVolatility * 10, 1), 1.5); // Scale factor between 1-1.5x
+        const dynamicStopPips = Math.round(baseStopPips * volatilityFactor);
+        
+        console.log(`📊 VOLATILITY ANALYSIS for ${pair}: ${priceVolatility.toFixed(4)}% → ${dynamicStopPips} pip SL (${volatilityFactor.toFixed(2)}x factor)`);
 
         // Determine pair category and session
         const majorPairs = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD'];
@@ -279,7 +292,7 @@ serve(async (req) => {
         else if (currentHour >= 13 && currentHour < 22) tradingSession = 'US';
         else if (currentHour >= 21 || currentHour < 8) tradingSession = 'Asian';
 
-        // ENHANCED BALANCED AI prompt with AI-determined take profit levels
+        // IMPROVED AI prompt with volatility-aware risk management
         console.log(`🔮 ENHANCED BALANCED AI analysis for ${pair} (${pairCategory} pair, ${tradingSession} session)...`);
         
         const aiAnalysisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -302,14 +315,13 @@ serve(async (req) => {
                 - Give equal weight to upward momentum potential and downward pressure
                 - Identify trend continuation AND reversal opportunities equally
 
-                ENHANCED SUCCESS REQUIREMENTS:
-                - 60%+ confidence minimum (practical threshold for real trading)
-                - 65%+ win probability target (realistic expectation)
-                - 2+ technical confirmations (trend analysis + one additional factor)
-                - AI-DETERMINED pip targets based on SPECIFIC market conditions analysis
-                - PROPER stop losses (20-60 pips for majors, 30-80 pips for minors)
-                - Account for trading session characteristics
-                
+                ENHANCED RISK MANAGEMENT WITH IMPROVED STOP LOSS PLACEMENT:
+                - MINIMUM stop loss = 45-50 pips for majors, 50-60 pips for minors, scaled by volatility
+                - Place stop loss at TECHNICAL LEVELS (swing points, S/R levels) rather than fixed distances
+                - Account for current volatility when setting stop distance
+                - Target a minimum risk:reward ratio of 1:1.5 for first target
+                - First target should be minimum 70-80 pips to improve risk:reward ratio
+
                 BALANCED ANALYTICAL FRAMEWORK:
 
                 FOR BUY SIGNALS - Look for:
@@ -344,11 +356,11 @@ serve(async (req) => {
 
                 TAKE PROFIT CALCULATION REQUIREMENTS:
                 - Determine 5 take profit levels with INCREASING distances from entry
-                - TP1: Close target (typically 30-60% of normal daily range)
-                - TP2: Medium-close target (typically 50-80% of normal daily range)
-                - TP3: Medium target (typically 70-100% of normal daily range)
-                - TP4: Medium-far target (typically 90-120% of normal daily range)
-                - TP5: Far target (typically 110-150% of normal daily range)
+                - TP1: Close target (typically 70-90 pips = higher than previous 30-60 pip range)
+                - TP2: Medium-close target (typically 90-120 pips)
+                - TP3: Medium target (typically 120-150 pips)
+                - TP4: Medium-far target (typically 150-180 pips)
+                - TP5: Far target (typically 180-220 pips)
                 
                 Base your pip calculations on ACTUAL market analysis:
                 - Major pairs: Analyze current ADR, recent high/low levels, key S/R zones
@@ -386,7 +398,7 @@ serve(async (req) => {
                   "support_level": number (key support price),
                   "resistance_level": number (key resistance price),
                   "entry_price": number (optimal entry vs current price),
-                  "stop_loss_pips": number between 15-80 (realistic for pair type),
+                  "stop_loss_pips": number between 45-90 (volatility-adjusted),
                   "take_profit_pips": [number, number, number, number, number] (5 AI-determined targets based on market analysis),
                   "take_profit_rationale": "explanation of why these specific TP levels were chosen",
                   "risk_reward_ratio": "1:X" format,
@@ -394,30 +406,16 @@ serve(async (req) => {
                   "analysis": "detailed explanation focusing on SUCCESS probability and directional choice rationale",
                   "risk_factors": "key risks that could invalidate setup",
                   "entry_strategy": "specific entry timing and conditions"
-                }
-                
-                ENHANCED BALANCED SIGNAL CRITERIA:
-                - Clear directional bias with momentum in EITHER direction
-                - Confluence at key support (BUY) OR resistance (SELL) levels  
-                - Favorable session timing for the pair and direction
-                - Adequate volatility for movement potential in chosen direction
-                - Risk/reward minimum 1:1.5 (preferably 1:2+)
-                - Multiple timeframe alignment for chosen direction
-                - No major fundamental conflicts
-                
-                NEUTRAL CRITERIA (use when genuinely appropriate):
-                - Genuine market uncertainty with equal bullish/bearish evidence
-                - Conflicting signals across timeframes
-                - Major news events pending that could move price either way
-                - Extremely poor risk/reward scenarios in both directions`
+                }`
               },
               {
                 role: 'user',
                 content: `Analyze ${pair} (${pairCategory} pair) for ENHANCED BALANCED trading opportunity:
                 Current Price: ${currentPrice}
-                Recent Price History (20 points): ${priceHistory.slice(0, 10).join(', ')}...
+                Recent Price History (50 points): ${priceHistory.slice(0, 10).join(', ')}...
                 24h Change: ${priceChange.toFixed(2)}%
                 Price Volatility: ${priceVolatility.toFixed(3)}%
+                Volatility-adjusted stop loss recommendation: ${dynamicStopPips} pips
                 Average Price Change: ${avgPriceChange.toFixed(3)}%
                 Trading Session: ${tradingSession}
                 Pair Category: ${pairCategory}
@@ -434,6 +432,12 @@ serve(async (req) => {
                 6. MOMENTUM: Is momentum building in either direction?
                 7. VOLUME/VOLATILITY: Does current volatility (${priceVolatility.toFixed(3)}%) support a move in either direction?
                 
+                RISK MANAGEMENT IMPROVEMENTS:
+                - Use at least ${dynamicStopPips} pips stop loss distance (volatility-adjusted minimum)
+                - Place stops at key technical levels (swing points, support/resistance)
+                - Ensure first target is at least 70-80 pips (previously 30-60 which was too close)
+                - Ensure risk:reward ratio is at least 1:1.5 for first target
+                
                 TAKE PROFIT ANALYSIS REQUIRED:
                 Based on your market analysis, determine 5 optimal take profit levels considering:
                 - Key resistance/support levels in trade direction
@@ -445,7 +449,7 @@ serve(async (req) => {
                 Generate a signal with 5 AI-DETERMINED take profit targets based on your specific market analysis.
                 Provide detailed rationale for why you chose these specific pip distances.
                 
-                Remember: Your goal is to find the highest-probability setup regardless of direction with market-condition-based targets.`
+                Remember: Your goal is to find the highest-probability setup regardless of direction with market-condition-based targets and improved stop loss placement.`
               }
             ],
             max_tokens: 1200,
@@ -491,7 +495,7 @@ serve(async (req) => {
           continue;
         }
 
-        // ENHANCED requirements - more realistic thresholds for success
+        // ENHANCED requirements with focus on improved risk-reward
         if (aiSignal.confidence < 60) {
           console.log(`⚠️ Signal confidence too low for ${pair}: ${aiSignal.confidence}% (requires 60%+)`);
           continue;
@@ -507,23 +511,49 @@ serve(async (req) => {
           continue;
         }
 
+        // IMPROVED risk-reward check - force risk-reward minimum
+        const riskRewardRatio = parseFloat(aiSignal.risk_reward_ratio.split(':')[1]) || 0;
+        if (riskRewardRatio < 1.5) {
+          console.log(`⚠️ Risk-reward ratio too low for ${pair}: ${aiSignal.risk_reward_ratio} (requires minimum 1:1.5)`);
+          continue;
+        }
+
+        // Ensure minimum stop loss distance is maintained
+        const minimumStopPips = isJPYPair(pair) ? 50 : 45;
+        if (aiSignal.stop_loss_pips < minimumStopPips) {
+          console.log(`⚠️ Stop loss too tight: ${aiSignal.stop_loss_pips} pips (minimum ${minimumStopPips} pips)`);
+          aiSignal.stop_loss_pips = dynamicStopPips;
+          console.log(`🔄 Adjusted stop loss to ${dynamicStopPips} pips (volatility-adjusted)`);
+        }
+
+        // Ensure minimum TP1 distance is maintained
+        const minimumTP1Pips = 70;
+        if (aiSignal.take_profit_pips && aiSignal.take_profit_pips[0] < minimumTP1Pips) {
+          console.log(`⚠️ TP1 too close: ${aiSignal.take_profit_pips[0]} pips (minimum ${minimumTP1Pips} pips)`);
+          const tpScaleFactor = minimumTP1Pips / Math.max(aiSignal.take_profit_pips[0], 1);
+          
+          // Scale all TPs proportionally
+          aiSignal.take_profit_pips = aiSignal.take_profit_pips.map(tp => Math.round(tp * tpScaleFactor));
+          console.log(`🔄 Adjusted take profits to: ${aiSignal.take_profit_pips.join(', ')} pips`);
+        }
+
         console.log(`🎯 NEW HIGH-SUCCESS BALANCED SIGNAL GENERATED for ${pair}: ${aiSignal.signal} signal (${signalsGenerated + 1}/${maxNewSignals})`);
         console.log(`📝 Analysis: ${aiSignal.analysis}`);
         console.log(`🎯 Win Probability: ${aiSignal.win_probability}%`);
         console.log(`📊 Risk/Reward: ${aiSignal.risk_reward_ratio}`);
         console.log(`🏗️ Support: ${aiSignal.support_level}, Resistance: ${aiSignal.resistance_level}`);
 
-        // Generate signal with AI-DETERMINED pip calculations for 5 targets
+        // Generate signal with improved risk management
         const entryPrice = aiSignal.entry_price || currentPrice;
-        const stopLossPips = Math.max(aiSignal.stop_loss_pips || 30, 15); // Minimum 15 pips
-        const takeProfitPips = aiSignal.take_profit_pips || [15, 25, 40, 60, 85]; // AI-determined targets
+        const stopLossPips = Math.max(aiSignal.stop_loss_pips || dynamicStopPips, minimumStopPips);
+        const takeProfitPips = aiSignal.take_profit_pips || [70, 100, 130, 160, 190]; // Improved defaults
 
-        console.log(`📏 AI-DETERMINED pip calculations for ${pair}:`);
-        console.log(`  - Stop Loss: ${stopLossPips} pips`);
+        console.log(`📏 IMPROVED RISK MANAGEMENT for ${pair}:`);
+        console.log(`  - Stop Loss: ${stopLossPips} pips (volatility-adjusted)`);
         console.log(`  - Take Profits (5 AI-determined): ${takeProfitPips.join(', ')} pips`);
         console.log(`  - TP Rationale: ${aiSignal.take_profit_rationale}`);
 
-        // Calculate using AI-determined pip functions for 5 targets
+        // Calculate using volatility-adjusted pip functions for 5 targets
         const stopLoss = calculateRealisticStopLoss(entryPrice, pair, aiSignal.signal, stopLossPips);
         const takeProfit1 = calculateRealisticTakeProfit(entryPrice, pair, aiSignal.signal, takeProfitPips[0]);
         const takeProfit2 = calculateRealisticTakeProfit(entryPrice, pair, aiSignal.signal, takeProfitPips[1]);
@@ -567,14 +597,21 @@ serve(async (req) => {
           confidence: aiSignal.confidence,
           status: 'active',
           is_centralized: true,
+          trailing_stop: null, // Will be activated when TP1 is hit
           user_id: null,
           analysis_text: `ENHANCED BALANCED ${aiSignal.setup_quality} ${pairCategory} Setup (${aiSignal.win_probability}% win probability): ${aiSignal.analysis} | Bullish: ${aiSignal.bullish_analysis?.slice(0, 50)}... | Bearish: ${aiSignal.bearish_analysis?.slice(0, 50)}... | Entry Strategy: ${aiSignal.entry_strategy} | TP Strategy: ${aiSignal.take_profit_rationale}`,
           chart_data: chartData,
-          pips: stopLossPips, // Store AI-determined pip value
-          created_at: timestamp
+          pips: stopLossPips, // Store volatility-adjusted pip value
+          created_at: timestamp,
+          market_conditions: [
+            `Volatility: ${priceVolatility.toFixed(3)}%`,
+            `Session: ${tradingSession}`,
+            `Setup: ${aiSignal.setup_quality}`,
+            `Market Structure: ${aiSignal.market_structure}`
+          ]
         };
 
-        console.log(`💾 Inserting NEW HIGH-SUCCESS BALANCED AI signal for ${pair} (${signalsGenerated + 1}/${maxNewSignals}) with AI-determined ${stopLossPips} pip SL...`);
+        console.log(`💾 Inserting NEW HIGH-SUCCESS BALANCED AI signal for ${pair} (${signalsGenerated + 1}/${maxNewSignals}) with volatility-adjusted ${stopLossPips} pip SL...`);
         const { data: insertedSignal, error: insertError } = await supabase
           .from('trading_signals')
           .insert([signal])
@@ -588,7 +625,7 @@ serve(async (req) => {
 
         signalsGenerated++;
         generatedSignals.push(insertedSignal);
-        console.log(`✅ Generated NEW HIGH-SUCCESS BALANCED AI signal for ${pair}: ${aiSignal.signal} (${aiSignal.confidence}% confidence, ${aiSignal.win_probability}% win probability, AI-determined ${stopLossPips} pips SL) - ${signalsGenerated}/${maxNewSignals}`);
+        console.log(`✅ Generated NEW HIGH-SUCCESS BALANCED AI signal for ${pair}: ${aiSignal.signal} (${aiSignal.confidence}% confidence, ${aiSignal.win_probability}% win probability, volatility-adjusted ${stopLossPips} pips SL) - ${signalsGenerated}/${maxNewSignals}`);
 
         if (signalsGenerated < maxNewSignals && prioritizedPairs.indexOf(pair) < prioritizedPairs.length - 1) {
           await new Promise(resolve => setTimeout(resolve, 1000));
