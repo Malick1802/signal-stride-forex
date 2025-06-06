@@ -342,7 +342,10 @@ const SignalOptimizationDashboard = () => {
                               {signal.type}
                             </Badge>
                             {signal.outcome && (
-                              <Badge variant={signal.outcome.success ? "success" : "destructive"}>
+                              <Badge 
+                                variant={signal.outcome.success ? "default" : "destructive"}
+                                className={signal.outcome.success ? "bg-emerald-500 text-white hover:bg-emerald-600" : ""}
+                              >
                                 {signal.outcome.success ? `TP${signal.outcome.targetHit} Hit` : 'SL Hit'}
                               </Badge>
                             )}

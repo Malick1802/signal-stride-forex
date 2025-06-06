@@ -366,7 +366,8 @@ export const useEnhancedSignalMonitoring = () => {
           createdAt: signal.created_at,
           targetsHit: signal.targets_hit || [],
           trailingStopActive: signal.targets_hit?.length > 0 || false,
-          currentTrailingStop: signal.trailing_stop ? parseFloat(signal.trailing_stop.toString()) : undefined
+          // Safely handle the missing trailing_stop column for now
+          currentTrailingStop: undefined
         };
 
         console.log(`📊 ENHANCED VALIDATION: ${signal.symbol} - Current: ${currentPrice}, Entry: ${enhancedSignal.entryPrice}, SL: ${enhancedSignal.stopLoss}`);
@@ -405,12 +406,11 @@ export const useEnhancedSignalMonitoring = () => {
               
               console.log(`🔄 TRAILING STOP: ${signal.symbol} ${signal.type} - Moving stop loss from ${enhancedSignal.stopLoss} to ${newTrailingStop}`);
               
-              // Update trailing stop in database
+              // Update stop loss in database (we'll add trailing_stop column later)
               await supabase
                 .from('trading_signals')
                 .update({ 
                   stop_loss: newTrailingStop,
-                  trailing_stop: newTrailingStop,
                   updated_at: new Date().toISOString()
                 })
                 .eq('id', signal.id);

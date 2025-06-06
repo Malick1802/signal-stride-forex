@@ -58,7 +58,7 @@ const SignalOptimizationMetrics = ({
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
-              <Badge variant="success" className="bg-green-500">
+              <Badge variant="default" className="bg-emerald-500 text-white hover:bg-emerald-600">
                 {takeProfitHits} TP
               </Badge>
               <span>/</span>
