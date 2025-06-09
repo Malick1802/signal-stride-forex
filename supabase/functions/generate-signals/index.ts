@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -47,13 +46,13 @@ const calculateRealisticTakeProfit = (entryPrice: number, symbol: string, signal
     : entryPrice - takeProfitDistance;
 };
 
-// OPTIMIZED: Streamlined AI analysis with reduced prompt size
+// OPTIMIZED: Streamlined AI analysis with reduced prompt size and 15-pip first TP
 const analyzeWithAI = async (pair: string, marketData: any, openAIApiKey: string, priceHistory: number[], volatilityInfo: any): Promise<any> => {
   const currentPrice = parseFloat(marketData.current_price.toString());
   const priceChange = priceHistory.length > 1 ? 
     ((currentPrice - priceHistory[priceHistory.length - 1]) / priceHistory[priceHistory.length - 1] * 100) : 0;
 
-  // OPTIMIZED: Reduced prompt size while maintaining analysis quality
+  // OPTIMIZED: Reduced prompt size while maintaining analysis quality with new 15-pip first TP requirement
   const aiAnalysisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -72,7 +71,7 @@ CRITICAL: Every signal MUST have proper AI analysis - no signals without thoroug
 RISK MANAGEMENT:
 - Minimum stop loss: 45-50 pips (scaled by volatility)
 - Target risk:reward ratio of 1:1.5 minimum
-- First TP minimum 70-80 pips
+- First TP MUST be 15 pips (changed from 70-80 pips for higher hit rate)
 
 ANALYSIS REQUIREMENTS:
 - Equal weight to BUY and SELL opportunities
@@ -87,7 +86,7 @@ Respond with JSON:
   "win_probability": 65-90,
   "confirmations_count": 2+,
   "stop_loss_pips": 45-90,
-  "take_profit_pips": [70, 100, 130, 160, 190],
+  "take_profit_pips": [15, 30, 50, 75, 100],
   "risk_reward_ratio": "1:X",
   "analysis": "detailed reasoning for direction choice",
   "setup_quality": "GOOD" or "VERY_GOOD" or "EXCELLENT"
@@ -101,7 +100,7 @@ Change: ${priceChange.toFixed(2)}%
 Volatility: ${volatilityInfo.volatility.toFixed(3)}%
 History: ${priceHistory.slice(0, 5).join(', ')}
 
-Provide signal with mandatory AI analysis for 70%+ win probability.`
+Provide signal with mandatory AI analysis for 70%+ win probability. First TP must be 15 pips.`
         }
       ],
       max_tokens: 600, // Reduced from 1200
@@ -197,10 +196,10 @@ const processPairsConcurrently = async (pairs: string[], latestPrices: Map<any, 
           return null;
         }
 
-        // Generate signal data
+        // Generate signal data with new 15-pip first TP
         const entryPrice = currentPrice;
         const stopLossPips = Math.max(aiSignal.stop_loss_pips || dynamicStopPips, isJPYPair(pair) ? 50 : 45);
-        const takeProfitPips = aiSignal.take_profit_pips || [70, 100, 130, 160, 190];
+        const takeProfitPips = aiSignal.take_profit_pips || [15, 30, 50, 75, 100]; // Updated default with 15-pip first TP
 
         const stopLoss = calculateRealisticStopLoss(entryPrice, pair, aiSignal.signal, stopLossPips);
         const takeProfit1 = calculateRealisticTakeProfit(entryPrice, pair, aiSignal.signal, takeProfitPips[0]);
@@ -252,7 +251,7 @@ const processPairsConcurrently = async (pairs: string[], latestPrices: Map<any, 
           created_at: new Date().toISOString()
         };
 
-        console.log(`✅ Generated AI signal for ${pair}: ${aiSignal.signal} (${aiSignal.confidence}% confidence)`);
+        console.log(`✅ Generated AI signal for ${pair}: ${aiSignal.signal} (${aiSignal.confidence}% confidence, 15-pip first TP)`);
         return signal;
 
       } catch (error) {
@@ -295,7 +294,7 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const isCronTriggered = body.trigger === 'cron';
     
-    console.log(`🎯 OPTIMIZED signal generation starting (MAX: ${MAX_NEW_SIGNALS_PER_RUN} new signals)...`);
+    console.log(`🎯 OPTIMIZED signal generation starting (MAX: ${MAX_NEW_SIGNALS_PER_RUN} new signals, 15-pip first TP)...`);
     console.log(`🛡️ Enhanced timeout protection: ${FUNCTION_TIMEOUT_MS/1000}s limit`);
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -337,7 +336,8 @@ serve(async (req) => {
             totalActiveSignals: currentSignalCount,
             signalLimit: MAX_ACTIVE_SIGNALS,
             limitReached: true,
-            executionTime: `${Date.now() - startTime}ms`
+            executionTime: `${Date.now() - startTime}ms`,
+            firstTakeProfitPips: 15
           }
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -345,7 +345,7 @@ serve(async (req) => {
     }
 
     const maxNewSignals = Math.min(MAX_NEW_SIGNALS_PER_RUN, MAX_ACTIVE_SIGNALS - currentSignalCount);
-    console.log(`✅ Can generate up to ${maxNewSignals} new AI-analyzed signals`);
+    console.log(`✅ Can generate up to ${maxNewSignals} new AI-analyzed signals (15-pip first TP)`);
 
     // Market data validation
     const { data: marketData, error: marketError } = await supabase
@@ -366,7 +366,7 @@ serve(async (req) => {
     const availablePairs = prioritizedPairs.filter(pair => !existingPairs.has(pair));
     const pairsToAnalyze = availablePairs.slice(0, maxNewSignals * 2); // Analyze 2x pairs to account for rejections
     
-    console.log(`🔍 Will analyze ${pairsToAnalyze.length} prioritized pairs for ${maxNewSignals} slots`);
+    console.log(`🔍 Will analyze ${pairsToAnalyze.length} prioritized pairs for ${maxNewSignals} slots (15-pip first TP)`);
     
     // Get latest prices
     const latestPrices = new Map();
@@ -389,7 +389,8 @@ serve(async (req) => {
             opportunitiesAnalyzed: 0,
             signalsGenerated: 0,
             totalActiveSignals: currentSignalCount,
-            executionTime: `${Date.now() - startTime}ms`
+            executionTime: `${Date.now() - startTime}ms`,
+            firstTakeProfitPips: 15
           }
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -397,7 +398,7 @@ serve(async (req) => {
     }
 
     // OPTIMIZED: Concurrent processing with timeout protection
-    console.log(`🚀 Starting optimized concurrent AI analysis (${CONCURRENT_ANALYSIS_LIMIT} parallel)...`);
+    console.log(`🚀 Starting optimized concurrent AI analysis (${CONCURRENT_ANALYSIS_LIMIT} parallel, 15-pip first TP)...`);
     
     const processingPromise = processPairsConcurrently(
       Array.from(latestPrices.keys()), 
@@ -415,7 +416,7 @@ serve(async (req) => {
 
     for (const signal of signalsToInsert) {
       try {
-        console.log(`💾 Inserting AI signal for ${signal.symbol}...`);
+        console.log(`💾 Inserting AI signal for ${signal.symbol} (15-pip first TP)...`);
         const { data: insertedSignal, error: insertError } = await supabase
           .from('trading_signals')
           .insert([signal])
@@ -429,7 +430,7 @@ serve(async (req) => {
 
         signalsGenerated++;
         generatedSignals.push(insertedSignal);
-        console.log(`✅ Inserted signal ${signalsGenerated}/${maxNewSignals}: ${signal.symbol} ${signal.type}`);
+        console.log(`✅ Inserted signal ${signalsGenerated}/${maxNewSignals}: ${signal.symbol} ${signal.type} (15-pip first TP)`);
 
       } catch (error) {
         console.error(`❌ Error inserting signal for ${signal.symbol}:`, error);
@@ -439,16 +440,17 @@ serve(async (req) => {
     const finalActiveSignals = currentSignalCount + signalsGenerated;
     const executionTime = Date.now() - startTime;
 
-    console.log(`📊 OPTIMIZED GENERATION COMPLETE:`);
+    console.log(`📊 OPTIMIZED GENERATION COMPLETE (15-pip first TP):`);
     console.log(`  - Execution time: ${executionTime}ms (limit: ${FUNCTION_TIMEOUT_MS}ms)`);
     console.log(`  - New AI signals: ${signalsGenerated}/${maxNewSignals}`);
     console.log(`  - Total active: ${finalActiveSignals}/${MAX_ACTIVE_SIGNALS}`);
     console.log(`  - Pairs analyzed: ${latestPrices.size}`);
+    console.log(`  - First Take Profit: 15 pips (improved hit rate)`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Optimized generation: ${signalsGenerated} AI-analyzed signals in ${executionTime}ms`,
+        message: `Optimized generation: ${signalsGenerated} AI-analyzed signals in ${executionTime}ms (15-pip first TP)`,
         signals: generatedSignals?.map(s => ({ 
           id: s.id, 
           symbol: s.symbol, 
@@ -466,7 +468,8 @@ serve(async (req) => {
           executionTime: `${executionTime}ms`,
           timeoutProtection: `${FUNCTION_TIMEOUT_MS/1000}s`,
           enhancedMode: true,
-          aiAnalysisRequired: true
+          aiAnalysisRequired: true,
+          firstTakeProfitPips: 15
         },
         timestamp: new Date().toISOString(),
         trigger: isCronTriggered ? 'cron' : 'manual'
