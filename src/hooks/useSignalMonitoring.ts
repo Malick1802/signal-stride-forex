@@ -1,5 +1,5 @@
 
-import { useEffect, useCallback, useState } from 'react';
+import { useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -17,61 +17,6 @@ interface SignalToMonitor {
 
 export const useSignalMonitoring = () => {
   const { toast } = useToast();
-  const [marketStatus, setMarketStatus] = useState<Record<string, boolean>>({});
-  const [lastPriceAlerts, setLastPriceAlerts] = useState<Record<string, number>>({});
-
-  // Check market session status for major pairs
-  const checkMarketStatus = useCallback((symbol: string): boolean => {
-    const now = new Date();
-    const hour = now.getUTCHours();
-    
-    // Major forex market sessions (UTC):
-    // Sydney: 21:00-06:00, Tokyo: 00:00-09:00, London: 08:00-17:00, New York: 13:00-22:00
-    const isMarketOpen = (hour >= 0 && hour <= 22) || hour === 23; // Most sessions overlap
-    
-    const wasOpen = marketStatus[symbol];
-    if (wasOpen !== undefined && wasOpen !== isMarketOpen) {
-      // Market status changed
-      toast({
-        title: isMarketOpen ? "🟢 Market Opened" : "🔴 Market Closed",
-        description: `${symbol} trading session ${isMarketOpen ? 'started' : 'ended'}`,
-        duration: 6000,
-      });
-    }
-    
-    setMarketStatus(prev => ({ ...prev, [symbol]: isMarketOpen }));
-    return isMarketOpen;
-  }, [marketStatus, toast]);
-
-  // Check for significant price movements
-  const checkSignificantMovement = useCallback((signal: SignalToMonitor, currentPrice: number) => {
-    const lastAlertPrice = lastPriceAlerts[signal.id];
-    if (!lastAlertPrice) {
-      setLastPriceAlerts(prev => ({ ...prev, [signal.id]: currentPrice }));
-      return;
-    }
-    
-    const pipMultiplier = signal.symbol.includes('JPY') ? 100 : 10000;
-    const movementPips = Math.abs(Math.round((currentPrice - lastAlertPrice) * pipMultiplier));
-    
-    // Alert on significant movements (15+ pips)
-    if (movementPips >= 15) {
-      const direction = currentPrice > lastAlertPrice ? 'up' : 'down';
-      const favorability = (signal.type === 'BUY' && direction === 'up') || 
-                          (signal.type === 'SELL' && direction === 'down') ? 'favorable' : 'unfavorable';
-      
-      const emoji = favorability === 'favorable' ? '📈' : '📉';
-      const colorClass = favorability === 'favorable' ? 'emerald' : 'orange';
-      
-      toast({
-        title: `${emoji} Significant Price Movement`,
-        description: `${signal.symbol} moved ${movementPips} pips ${direction} (${favorability} for your ${signal.type} signal)`,
-        duration: 8000,
-      });
-      
-      setLastPriceAlerts(prev => ({ ...prev, [signal.id]: currentPrice }));
-    }
-  }, [lastPriceAlerts, toast]);
 
   const checkSignalOutcomes = useCallback(async (signals: SignalToMonitor[], currentPrices: Record<string, number>) => {
     for (const signal of signals) {
@@ -80,19 +25,13 @@ export const useSignalMonitoring = () => {
       const currentPrice = currentPrices[signal.symbol];
       if (!currentPrice) continue;
 
-      // Check market status
-      const isMarketOpen = checkMarketStatus(signal.symbol);
-      
-      // Check for significant price movements
-      checkSignificantMovement(signal, currentPrice);
-
-      console.log(`📊 OUTCOME MONITORING ${signal.symbol}: Current ${currentPrice}, Entry ${signal.entryPrice}, SL ${signal.stopLoss}`);
+      console.log(`📊 PURE OUTCOME-BASED MONITORING signal ${signal.id} (${signal.symbol}): Current ${currentPrice}, Entry ${signal.entryPrice}, SL ${signal.stopLoss}`);
 
       let hitStopLoss = false;
       let newTargetsHit = [...signal.targetsHit];
       let hasNewTargetHit = false;
 
-      // Check stop loss hit first
+      // Check stop loss hit first (ONLY outcome-based expiration)
       if (signal.type === 'BUY') {
         hitStopLoss = currentPrice <= signal.stopLoss;
       } else {
@@ -117,47 +56,14 @@ export const useSignalMonitoring = () => {
             newTargetsHit.push(targetNumber);
             newTargetsHit.sort();
             hasNewTargetHit = true;
+            console.log(`🎯 NEW TARGET ${targetNumber} HIT for ${signal.symbol}! Pure outcome-based detection`);
             
-            // Calculate pip gain
-            const pipMultiplier = signal.symbol.includes('JPY') ? 100 : 10000;
-            let pipGain = 0;
-            
-            if (signal.type === 'BUY') {
-              pipGain = Math.round((tpPrice - signal.entryPrice) * pipMultiplier);
-            } else {
-              pipGain = Math.round((signal.entryPrice - tpPrice) * pipMultiplier);
-            }
-            
-            console.log(`🎯 TARGET ${targetNumber} HIT for ${signal.symbol}! Market-based detection (+${pipGain} pips)`);
-            
-            // Enhanced target hit notification with context
-            const progress = `${newTargetsHit.length}/${signal.takeProfits.length}`;
+            // Show immediate notification for new target hit
             toast({
               title: `🎯 Target ${targetNumber} Hit!`,
-              description: `${signal.symbol} ${signal.type} reached TP${targetNumber} (+${pipGain} pips) - Progress: ${progress}`,
-              duration: 8000,
+              description: `${signal.symbol} ${signal.type} reached TP${targetNumber} at ${tpPrice.toFixed(5)} (Pure outcome-based)`,
+              duration: 6000,
             });
-            
-            // Special notifications for milestones
-            if (targetNumber === 1) {
-              setTimeout(() => {
-                toast({
-                  title: `🔓 First Target Secured!`,
-                  description: `${signal.symbol} ${signal.type} - Risk reduced, trailing stop may activate`,
-                  duration: 6000,
-                });
-              }, 2000);
-            }
-            
-            if (newTargetsHit.length === signal.takeProfits.length) {
-              setTimeout(() => {
-                toast({
-                  title: `🏆 Perfect Execution!`,
-                  description: `${signal.symbol} ${signal.type} hit all ${signal.takeProfits.length} take profit targets`,
-                  duration: 10000,
-                });
-              }, 3000);
-            }
           }
         }
       }
@@ -176,18 +82,18 @@ export const useSignalMonitoring = () => {
           if (updateError) {
             console.error('❌ Error updating targets_hit:', updateError);
           } else {
-            console.log(`✅ Market-based targets_hit update for ${signal.symbol}:`, newTargetsHit);
+            console.log(`✅ Pure outcome-based targets_hit update for ${signal.symbol}:`, newTargetsHit);
           }
         } catch (error) {
           console.error('❌ Error updating signal targets:', error);
         }
       }
 
-      // Check if signal should be expired (all targets hit OR stop loss hit)
+      // Check if signal should be expired (all targets hit OR stop loss hit) - PURE OUTCOME ONLY
       const allTargetsHit = newTargetsHit.length === signal.takeProfits.length;
       if (hitStopLoss || allTargetsHit) {
         try {
-          console.log(`🔄 MARKET-BASED EXPIRATION for ${signal.symbol}: ${allTargetsHit ? 'ALL TARGETS HIT' : 'STOP LOSS HIT'}`);
+          console.log(`🔄 PURE OUTCOME-BASED EXPIRATION for ${signal.symbol}: ${allTargetsHit ? 'ALL TARGETS HIT' : 'STOP LOSS HIT'} - NO TIME COMPONENT`);
           
           // Calculate final exit price and P&L
           let finalExitPrice = currentPrice;
@@ -212,13 +118,13 @@ export const useSignalMonitoring = () => {
           // Determine final outcome status
           let finalStatus = '';
           if (allTargetsHit) {
-            finalStatus = 'All Take Profits Hit (Market-Based Outcome)';
+            finalStatus = 'All Take Profits Hit (Pure Outcome-Based)';
           } else if (newTargetsHit.length > 0 && hitStopLoss) {
-            finalStatus = `Take Profit ${Math.max(...newTargetsHit)} Hit, Then Stop Loss (Market-Based Outcome)`;
+            finalStatus = `Take Profit ${Math.max(...newTargetsHit)} Hit, Then Stop Loss (Pure Outcome-Based)`;
           } else if (newTargetsHit.length > 0) {
-            finalStatus = `Take Profit ${Math.max(...newTargetsHit)} Hit (Market-Based Outcome)`;
+            finalStatus = `Take Profit ${Math.max(...newTargetsHit)} Hit (Pure Outcome-Based)`;
           } else {
-            finalStatus = 'Stop Loss Hit (Market-Based Outcome)';
+            finalStatus = 'Stop Loss Hit (Pure Outcome-Based)';
           }
 
           // Check if outcome already exists to prevent duplicates
@@ -229,7 +135,7 @@ export const useSignalMonitoring = () => {
             .single();
 
           if (existingOutcome) {
-            console.log(`⚠️ Outcome already exists for signal ${signal.id}, skipping`);
+            console.log(`⚠️ Pure outcome already exists for signal ${signal.id}, skipping`);
             continue;
           }
 
@@ -247,7 +153,7 @@ export const useSignalMonitoring = () => {
             });
 
           if (outcomeError) {
-            console.error('❌ Error creating market-based signal outcome:', outcomeError);
+            console.error('❌ Error creating pure outcome-based signal outcome:', outcomeError);
             continue;
           }
 
@@ -265,45 +171,28 @@ export const useSignalMonitoring = () => {
             continue;
           }
 
-          console.log(`✅ MARKET-BASED COMPLETION: Signal ${signal.id} completed with outcome: ${isSuccessful ? 'SUCCESS' : 'LOSS'} (${pnlPips} pips)`);
+          console.log(`✅ PURE OUTCOME-BASED EXPIRATION: Signal ${signal.id} expired with outcome: ${isSuccessful ? 'SUCCESS' : 'LOSS'} (${pnlPips} pips) - ${finalStatus}`);
           
-          // Enhanced final notification with detailed analysis
+          // Show final notification
           const notificationTitle = isSuccessful ? "🎯 Signal Completed Successfully!" : "⛔ Signal Stopped Out";
-          let notificationDescription = `${signal.symbol} ${signal.type} ${finalStatus}`;
-          
-          if (isSuccessful) {
-            if (newTargetsHit.length === signal.takeProfits.length) {
-              notificationDescription += ` - Perfect execution: +${pnlPips} pips (all ${signal.takeProfits.length} targets)`;
-            } else {
-              notificationDescription += ` - Partial success: +${pnlPips} pips (${newTargetsHit.length}/${signal.takeProfits.length} targets)`;
-            }
-          } else {
-            notificationDescription += ` - Loss: ${pnlPips} pips`;
-          }
+          const notificationDescription = `${signal.symbol} ${signal.type} ${finalStatus} (${pnlPips >= 0 ? '+' : ''}${pnlPips} pips)`;
           
           toast({
             title: notificationTitle,
             description: notificationDescription,
-            duration: 12000,
-          });
-
-          // Clear price alerts for this signal
-          setLastPriceAlerts(prev => {
-            const newState = { ...prev };
-            delete newState[signal.id];
-            return newState;
+            duration: 8000,
           });
 
         } catch (error) {
-          console.error('❌ Error processing market-based signal completion:', error);
+          console.error('❌ Error processing pure outcome-based signal expiration:', error);
         }
       }
     }
-  }, [toast, checkMarketStatus, checkSignificantMovement]);
+  }, [toast]);
 
   const monitorActiveSignals = useCallback(async () => {
     try {
-      // Get active signals only
+      // Get active signals only (no time-based filtering - pure outcome monitoring only)
       const { data: activeSignals, error: signalsError } = await supabase
         .from('trading_signals')
         .select('*')
@@ -314,7 +203,7 @@ export const useSignalMonitoring = () => {
         return;
       }
 
-      console.log(`🔍 MARKET-BASED MONITORING: ${activeSignals.length} active signals...`);
+      console.log(`🔍 PURE OUTCOME-BASED MONITORING: ${activeSignals.length} active signals (time-based expiration ELIMINATED)...`);
 
       // Get current market prices
       const symbols = [...new Set(activeSignals.map(s => s.symbol))];
@@ -324,7 +213,7 @@ export const useSignalMonitoring = () => {
         .in('symbol', symbols);
 
       if (priceError || !marketData?.length) {
-        console.log('⚠️ No market data available for market-based signal monitoring');
+        console.log('⚠️ No market data available for pure outcome-based signal monitoring');
         return;
       }
 
@@ -347,11 +236,11 @@ export const useSignalMonitoring = () => {
         targetsHit: signal.targets_hit || []
       }));
 
-      // Check for outcomes using market conditions
+      // Check for outcomes using ONLY pure market conditions (NO time component)
       await checkSignalOutcomes(signalsToMonitor, currentPrices);
 
     } catch (error) {
-      console.error('❌ Error in market-based signal monitoring:', error);
+      console.error('❌ Error in pure outcome-based signal monitoring:', error);
     }
   }, [checkSignalOutcomes]);
 
@@ -359,12 +248,12 @@ export const useSignalMonitoring = () => {
     // Initial monitoring check
     monitorActiveSignals();
 
-    // Enhanced monitoring every 5 seconds for immediate market-based detection
+    // Enhanced monitoring every 5 seconds for immediate pure outcome-based detection
     const monitorInterval = setInterval(monitorActiveSignals, 5000);
 
-    // Subscribe to real-time price updates for immediate market-based checking
+    // Subscribe to real-time price updates for immediate pure outcome-based checking
     const priceChannel = supabase
-      .channel('market-outcome-monitoring')
+      .channel('pure-outcome-monitoring')
       .on(
         'postgres_changes',
         {
@@ -373,15 +262,15 @@ export const useSignalMonitoring = () => {
           table: 'centralized_market_state'
         },
         () => {
-          // Check for market-based results immediately after price updates
+          // Check for pure outcome-based results immediately after price updates
           setTimeout(monitorActiveSignals, 500);
         }
       )
       .subscribe();
 
-    // Subscribe to signal updates to refresh monitoring
+    // Subscribe to signal updates to refresh pure outcome monitoring
     const signalChannel = supabase
-      .channel('market-signal-updates')
+      .channel('pure-outcome-signal-updates')
       .on(
         'postgres_changes',
         {
@@ -390,13 +279,13 @@ export const useSignalMonitoring = () => {
           table: 'trading_signals'
         },
         (payload) => {
-          console.log('📡 Market-based signal update detected:', payload);
+          console.log('📡 Pure outcome-based signal update detected (NO time expiration):', payload);
           setTimeout(monitorActiveSignals, 1000);
         }
       )
       .subscribe();
 
-    console.log('🔄 Market-based signal monitoring initialized with comprehensive notifications');
+    console.log('🔄 Pure outcome-based signal monitoring initialized - time-based expiration ELIMINATED');
 
     return () => {
       clearInterval(monitorInterval);

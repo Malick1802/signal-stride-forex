@@ -1,9 +1,8 @@
 
-import React, { useState, memo, useCallback } from 'react';
+import React, { useState, memo } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useEnhancedSignalMonitoring } from '@/hooks/useEnhancedSignalMonitoring';
 import { useSignalOutcomeTracker } from '@/hooks/useSignalOutcomeTracker';
-import { usePerformanceNotifications } from '@/hooks/usePerformanceNotifications';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import SignalStats from './SignalStats';
@@ -12,27 +11,26 @@ import RealTimeStatus from './RealTimeStatus';
 import GlobalRefreshIndicator from './GlobalRefreshIndicator';
 import SignalDebuggingDashboard from './SignalDebuggingDashboard';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Activity, Brain, Shield, Zap, Target, TrendingUp, Bug, Star, Award, AlertTriangle, CheckCircle, Bell, BellOff } from 'lucide-react';
+import { RefreshCw, Activity, Brain, Shield, Zap, Target, TrendingUp, Bug, Star, Award, AlertTriangle, CheckCircle } from 'lucide-react';
 import { useMarketActivation } from '@/hooks/useMarketActivation';
 
 // UPDATED: Increased signal limit for better market coverage and diversification
 const MAX_ACTIVE_SIGNALS = 20;
 
 const TradingSignals = memo(() => {
-  const { signals, loading, lastUpdate, triggerAutomaticSignalGeneration, dailyPerformance } = useTradingSignals();
+  const { signals, loading, lastUpdate, triggerAutomaticSignalGeneration, executeTimeBasedEliminationPlan } = useTradingSignals();
   const { toast } = useToast();
   
-  // Enhanced monitoring systems with comprehensive notifications
+  // Enhanced monitoring systems
   useEnhancedSignalMonitoring();
   useSignalOutcomeTracker();
-  usePerformanceNotifications();
   
   const [analysis, setAnalysis] = useState<Record<string, string>>({});
   const [analyzingSignal, setAnalyzingSignal] = useState<string | null>(null);
   const [detectingOpportunities, setDetectingOpportunities] = useState(false);
   const [testingSystem, setTestingSystem] = useState(false);
+  const [eliminatingTimeBased, setEliminatingTimeBased] = useState(false);
   const [showDebugDashboard, setShowDebugDashboard] = useState(false);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
 
   const { activateMarket } = useMarketActivation();
 
@@ -58,21 +56,30 @@ const TradingSignals = memo(() => {
     ? Math.round(validSignals.reduce((sum, signal) => sum + (signal.confidence || 0), 0) / validSignals.length)
     : 70;
 
-  const toggleNotifications = useCallback(() => {
-    setNotificationsEnabled(prev => {
-      const newState = !prev;
+  const handleEliminateTimeBasedExpiration = async () => {
+    setEliminatingTimeBased(true);
+    try {
+      console.log('🔥 EXECUTING TIME-BASED EXPIRATION ELIMINATION PLAN...');
+      const success = await executeTimeBasedEliminationPlan();
       
+      if (success) {
+        console.log('✅ TIME-BASED EXPIRATION ELIMINATION COMPLETE');
+        toast({
+          title: "🎯 TIME-BASED EXPIRATION ELIMINATED",
+          description: "Signals now expire PURELY on outcome (SL/TP hits) + 72h emergency safety only",
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error executing elimination plan:', error);
       toast({
-        title: newState ? "🔔 Notifications Enabled" : "🔕 Notifications Disabled",
-        description: newState 
-          ? "You'll receive alerts for trading events, targets, and performance milestones"
-          : "Notifications have been turned off - you can re-enable them anytime",
-        duration: 6000,
+        title: "Elimination Plan Error",
+        description: "Failed to eliminate time-based expiration. Please try again.",
+        variant: "destructive"
       });
-      
-      return newState;
-    });
-  }, [toast]);
+    } finally {
+      setEliminatingTimeBased(false);
+    }
+  };
 
   const handleComprehensiveTest = async () => {
     setTestingSystem(true);
@@ -192,62 +199,12 @@ const TradingSignals = memo(() => {
       {/* Real-time Connection Status */}
       <RealTimeStatus />
 
-      {/* Enhanced Signal Statistics with Daily Performance */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <SignalStats 
-          signalsCount={validSignals.length}
-          avgConfidence={avgConfidence}
-          lastUpdate={lastUpdate || 'Never'}
-        />
-        
-        {/* Daily Performance Card */}
-        <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-white flex items-center space-x-2">
-              <TrendingUp className="h-5 w-5 text-emerald-400" />
-              <span>Today's Performance</span>
-            </h3>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleNotifications}
-              className={`${notificationsEnabled ? 'text-emerald-400' : 'text-gray-400'} hover:text-white`}
-            >
-              {notificationsEnabled ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
-            </Button>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <div className="text-gray-400">Completed</div>
-              <div className="text-white text-xl font-bold">{dailyPerformance?.completedSignals || 0}</div>
-            </div>
-            <div>
-              <div className="text-gray-400">Win Rate</div>
-              <div className={`text-xl font-bold ${(dailyPerformance?.winRate || 0) >= 70 ? 'text-emerald-400' : 'text-orange-400'}`}>
-                {dailyPerformance?.winRate || 0}%
-              </div>
-            </div>
-            <div>
-              <div className="text-gray-400">Total Pips</div>
-              <div className={`text-xl font-bold ${(dailyPerformance?.totalPips || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                {(dailyPerformance?.totalPips || 0) >= 0 ? '+' : ''}{dailyPerformance?.totalPips || 0}
-              </div>
-            </div>
-            <div>
-              <div className="text-gray-400">Active Signals</div>
-              <div className="text-blue-400 text-xl font-bold">{validSignals.length}/{MAX_ACTIVE_SIGNALS}</div>
-            </div>
-          </div>
-          
-          {notificationsEnabled && (
-            <div className="mt-4 text-xs text-gray-400 flex items-center space-x-1">
-              <Bell className="h-3 w-3" />
-              <span>Live notifications enabled</span>
-            </div>
-          )}
-        </div>
-      </div>
+      {/* Signal Statistics Overview */}
+      <SignalStats 
+        signalsCount={validSignals.length}
+        avgConfidence={avgConfidence}
+        lastUpdate={lastUpdate || 'Never'}
+      />
 
       {/* Debug Dashboard */}
       {showDebugDashboard && (
@@ -275,9 +232,8 @@ const TradingSignals = memo(() => {
                 ))}
               </select>
             </div>
-            <div className="text-sm text-gray-400 flex items-center space-x-2">
-              <span>⭐ Quality signals • Live notifications • Enhanced monitoring</span>
-              {notificationsEnabled && <Bell className="h-4 w-4 text-emerald-400" />}
+            <div className="text-sm text-gray-400">
+              ⭐ Quality signals • Practical analysis • 65%+ confidence • Achievable risk management
             </div>
           </div>
         </div>
@@ -315,7 +271,7 @@ const TradingSignals = memo(() => {
                 : `No signals for ${selectedPair}`}
             </div>
             <div className="text-sm text-gray-500 mb-6">
-              ⭐ Signal limit: {MAX_ACTIVE_SIGNALS} • Quality focus • 65%+ confidence • Live notifications
+              ⭐ Signal limit: {MAX_ACTIVE_SIGNALS} • Quality focus • 65%+ confidence • AI analysis
             </div>
             <div className="space-x-4">
               <Button

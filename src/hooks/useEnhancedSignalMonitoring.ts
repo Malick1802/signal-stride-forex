@@ -25,21 +25,12 @@ export const useEnhancedSignalMonitoring = () => {
     lastPrice: number
   }>>({});
   
-  const [proximityAlerts, setProximityAlerts] = useState<Record<string, {
-    tpAlerts: number[],
-    slAlert: boolean
-  }>>({});
-  
   // Time threshold for stop loss confirmation (in milliseconds)
   const STOP_LOSS_CONFIRMATION_THRESHOLD = 30000; // 30 seconds
   const STOP_LOSS_CONFIRMATION_COUNT = 3; // Need 3 confirmations
   
   // Factor for trailing stop - how much of the distance to first TP to use
   const TRAILING_STOP_FACTOR = 0.5;
-
-  // Proximity thresholds in pips
-  const TP_PROXIMITY_PIPS = 8;
-  const SL_PROXIMITY_PIPS = 10;
 
   // Clear stale confirmations older than 2 minutes
   const clearStaleConfirmations = useCallback(() => {
@@ -59,76 +50,6 @@ export const useEnhancedSignalMonitoring = () => {
       setStopLossConfirmations(updatedConfirmations);
     }
   }, [stopLossConfirmations]);
-
-  // Check proximity to take profit and stop loss levels
-  const checkProximityAlerts = useCallback((signal: EnhancedSignalData, currentPrice: number) => {
-    const currentProximity = proximityAlerts[signal.id] || { tpAlerts: [], slAlert: false };
-    let hasNewAlert = false;
-
-    // Check Take Profit proximity
-    for (let i = 0; i < signal.takeProfits.length; i++) {
-      const tpPrice = signal.takeProfits[i];
-      const targetNumber = i + 1;
-      
-      // Skip if target already hit
-      if (signal.targetsHit.includes(targetNumber)) continue;
-      
-      // Calculate distance in pips
-      const pipMultiplier = signal.symbol.includes('JPY') ? 100 : 10000;
-      let distancePips = 0;
-      
-      if (signal.type === 'BUY') {
-        distancePips = Math.round((tpPrice - currentPrice) * pipMultiplier);
-      } else {
-        distancePips = Math.round((currentPrice - tpPrice) * pipMultiplier);
-      }
-      
-      // Check if approaching TP (within threshold and not already alerted)
-      if (distancePips > 0 && distancePips <= TP_PROXIMITY_PIPS && !currentProximity.tpAlerts.includes(targetNumber)) {
-        currentProximity.tpAlerts.push(targetNumber);
-        hasNewAlert = true;
-        
-        toast({
-          title: `🎯 Approaching Target ${targetNumber}!`,
-          description: `${signal.symbol} ${signal.type} is ${distancePips} pips away from TP${targetNumber} (${tpPrice.toFixed(5)})`,
-          duration: 6000,
-        });
-        
-        console.log(`🎯 PROXIMITY ALERT: ${signal.symbol} approaching TP${targetNumber} - ${distancePips} pips away`);
-      }
-    }
-
-    // Check Stop Loss proximity
-    const pipMultiplier = signal.symbol.includes('JPY') ? 100 : 10000;
-    let slDistancePips = 0;
-    
-    if (signal.type === 'BUY') {
-      slDistancePips = Math.round((currentPrice - signal.stopLoss) * pipMultiplier);
-    } else {
-      slDistancePips = Math.round((signal.stopLoss - currentPrice) * pipMultiplier);
-    }
-    
-    // Check if approaching SL (within threshold and not already alerted)
-    if (slDistancePips > 0 && slDistancePips <= SL_PROXIMITY_PIPS && !currentProximity.slAlert) {
-      currentProximity.slAlert = true;
-      hasNewAlert = true;
-      
-      toast({
-        title: `⚠️ Approaching Stop Loss!`,
-        description: `${signal.symbol} ${signal.type} is ${slDistancePips} pips away from SL (${signal.stopLoss.toFixed(5)})`,
-        duration: 8000,
-      });
-      
-      console.log(`⚠️ PROXIMITY ALERT: ${signal.symbol} approaching SL - ${slDistancePips} pips away`);
-    }
-
-    if (hasNewAlert) {
-      setProximityAlerts(prev => ({
-        ...prev,
-        [signal.id]: currentProximity
-      }));
-    }
-  }, [proximityAlerts, toast]);
 
   // Calculate and activate trailing stop once TP1 is hit
   const calculateTrailingStop = useCallback((
@@ -242,7 +163,7 @@ export const useEnhancedSignalMonitoring = () => {
     }
   }, [stopLossConfirmations]);
 
-  // Take profit validation logic with enhanced notifications
+  // Take profit validation logic with priority over stop loss
   const validateTakeProfitHits = useCallback((
     signal: EnhancedSignalData, 
     currentPrice: number
@@ -264,50 +185,8 @@ export const useEnhancedSignalMonitoring = () => {
         newTargetsHit.push(targetNumber);
         hasNewTargetHit = true;
         
-        // Calculate pip gain for this target
-        const pipMultiplier = signal.symbol.includes('JPY') ? 100 : 10000;
-        let pipGain = 0;
-        
-        if (signal.type === 'BUY') {
-          pipGain = Math.round((tpPrice - signal.entryPrice) * pipMultiplier);
-        } else {
-          pipGain = Math.round((signal.entryPrice - tpPrice) * pipMultiplier);
-        }
-        
-        // Enhanced notification with pip gains and progress
-        const totalTargets = signal.takeProfits.length;
-        const progress = `${newTargetsHit.length}/${totalTargets}`;
-        
-        toast({
-          title: `🎯 Target ${targetNumber} Hit!`,
-          description: `${signal.symbol} ${signal.type} reached TP${targetNumber} (+${pipGain} pips) - Progress: ${progress} targets`,
-          duration: 8000,
-        });
-        
-        console.log(`🎯 TAKE PROFIT HIT: ${signal.symbol} ${signal.type} TP${targetNumber} (+${pipGain} pips)`);
+        console.log(`🎯 TAKE PROFIT VALIDATION: ${signal.symbol} ${signal.type} TP${targetNumber} HIT`);
         console.log(`🔍 TP LOGIC: ${signal.type === 'BUY' ? `${currentPrice} >= ${tpPrice}` : `${currentPrice} <= ${tpPrice}`} = ${tpHit}`);
-        
-        // Special notification for first target (trailing stop activation)
-        if (targetNumber === 1) {
-          setTimeout(() => {
-            toast({
-              title: `🔄 Trailing Stop Activated!`,
-              description: `${signal.symbol} ${signal.type} trailing stop is now active after TP1 hit`,
-              duration: 6000,
-            });
-          }, 2000);
-        }
-        
-        // Special notification for final target
-        if (newTargetsHit.length === totalTargets) {
-          setTimeout(() => {
-            toast({
-              title: `🏆 All Targets Hit!`,
-              description: `${signal.symbol} ${signal.type} achieved maximum profit - all ${totalTargets} targets completed`,
-              duration: 10000,
-            });
-          }, 3000);
-        }
       }
     }
 
@@ -316,7 +195,7 @@ export const useEnhancedSignalMonitoring = () => {
     }
 
     return newTargetsHit;
-  }, [toast]);
+  }, []);
 
   const processSignalOutcome = useCallback(async (
     signal: EnhancedSignalData, 
@@ -413,27 +292,14 @@ export const useEnhancedSignalMonitoring = () => {
 
       console.log(`🎯 ENHANCED EXPIRATION: Signal ${signal.id} (${signal.symbol}) expired successfully with outcome`);
 
-      // Enhanced final notification with detailed results
-      const notificationTitle = isSuccessful ? "🎯 Signal Completed Successfully!" : "⛔ Signal Stopped Out";
-      let notificationDescription = `${signal.symbol} ${signal.type} ${outcomeNotes}`;
-      
-      if (isSuccessful && targetsHit.length > 0) {
-        notificationDescription += ` - Final Result: +${pnlPips} pips (${targetsHit.length}/${signal.takeProfits.length} targets)`;
-      } else {
-        notificationDescription += ` - Loss: ${pnlPips} pips`;
-      }
+      // Show notification
+      const notificationTitle = isSuccessful ? "🎯 Enhanced Signal Success!" : "⛔ Enhanced Signal Stopped Out";
+      const notificationDescription = `${signal.symbol} ${signal.type} ${outcomeNotes} (${pnlPips >= 0 ? '+' : ''}${pnlPips} pips)`;
       
       toast({
         title: notificationTitle,
         description: notificationDescription,
-        duration: 12000,
-      });
-
-      // Clear proximity alerts for this signal
-      setProximityAlerts(prev => {
-        const newState = { ...prev };
-        delete newState[signal.id];
-        return newState;
+        duration: 8000,
       });
 
     } catch (error) {
@@ -506,10 +372,8 @@ export const useEnhancedSignalMonitoring = () => {
 
         console.log(`📊 ENHANCED VALIDATION: ${signal.symbol} - Current: ${currentPrice}, Entry: ${enhancedSignal.entryPrice}, SL: ${enhancedSignal.stopLoss}`);
 
-        // Check proximity alerts for approaching TP/SL levels
-        checkProximityAlerts(enhancedSignal, currentPrice);
-
         // IMPORTANT: Check take profits BEFORE stop loss to prioritize profits
+        // This is a key change to improve profitability
         const newTargetsHit = validateTakeProfitHits(enhancedSignal, currentPrice);
 
         // If we hit any new targets, update them first
@@ -542,18 +406,7 @@ export const useEnhancedSignalMonitoring = () => {
               
               console.log(`🔄 TRAILING STOP: ${signal.symbol} ${signal.type} - Moving stop loss from ${enhancedSignal.stopLoss} to ${newTrailingStop}`);
               
-              // Calculate pip improvement
-              const pipMultiplier = signal.symbol.includes('JPY') ? 100 : 10000;
-              const pipImprovement = Math.abs(Math.round((newTrailingStop - enhancedSignal.stopLoss) * pipMultiplier));
-              
-              // Notification for trailing stop update
-              toast({
-                title: `🔄 Trailing Stop Updated!`,
-                description: `${signal.symbol} ${signal.type} stop loss moved ${pipImprovement} pips in your favor to ${newTrailingStop.toFixed(5)}`,
-                duration: 6000,
-              });
-              
-              // Update stop loss in database
+              // Update stop loss in database (we'll add trailing_stop column later)
               await supabase
                 .from('trading_signals')
                 .update({ 
@@ -579,7 +432,7 @@ export const useEnhancedSignalMonitoring = () => {
     } catch (error) {
       console.error('❌ ENHANCED MONITORING ERROR:', error);
     }
-  }, [validateStopLossHit, validateTakeProfitHits, processSignalOutcome, calculateTrailingStop, clearStaleConfirmations, checkProximityAlerts]);
+  }, [validateStopLossHit, validateTakeProfitHits, processSignalOutcome, calculateTrailingStop, clearStaleConfirmations]);
 
   useEffect(() => {
     // Initial monitoring
@@ -604,7 +457,7 @@ export const useEnhancedSignalMonitoring = () => {
       )
       .subscribe();
 
-    console.log('🔄 ENHANCED monitoring system activated with comprehensive notifications');
+    console.log('🔄 ENHANCED monitoring system activated with trailing stops and improved validation');
 
     return () => {
       clearInterval(monitorInterval);
