@@ -21,7 +21,7 @@ export const useSignalOutcomeTracker = () => {
 
   const auditSignalExpiration = useCallback(async (signalId: string, reason: string, source: string) => {
     try {
-      console.log(`🔍 AUDIT: Signal ${signalId} expiration - Reason: ${reason}, Source: ${source}`);
+      console.log(`🔍 PURE OUTCOME AUDIT: Signal ${signalId} expiration - Reason: ${reason}, Source: ${source}`);
       
       // Check if outcome already exists with proper error handling
       const { data: existingOutcome, error: outcomeError } = await supabase
@@ -31,33 +31,33 @@ export const useSignalOutcomeTracker = () => {
         .maybeSingle();
 
       if (outcomeError) {
-        console.error(`❌ AUDIT ERROR: Failed to check existing outcome for ${signalId}:`, outcomeError);
+        console.error(`❌ PURE OUTCOME AUDIT ERROR: Failed to check existing outcome for ${signalId}:`, outcomeError);
         return false;
       }
 
       if (existingOutcome) {
-        console.log(`✅ AUDIT: Signal ${signalId} already has outcome record: ${existingOutcome.notes}`);
+        console.log(`✅ PURE OUTCOME AUDIT: Signal ${signalId} has valid outcome record: ${existingOutcome.notes}`);
         return true;
       }
 
-      console.warn(`⚠️ AUDIT: Signal ${signalId} expired WITHOUT outcome record - investigating...`);
+      console.warn(`⚠️ PURE OUTCOME AUDIT: Signal ${signalId} expired WITHOUT outcome record - investigating for time-based interference...`);
       return false;
     } catch (error) {
-      console.error(`❌ AUDIT ERROR for signal ${signalId}:`, error);
+      console.error(`❌ PURE OUTCOME AUDIT ERROR for signal ${signalId}:`, error);
       return false;
     }
   }, []);
 
   const ensureOutcomeForExpiredSignal = useCallback(async (signalData: SignalOutcomeData) => {
     try {
-      console.log(`🛠️ REPAIR: Creating missing outcome for expired signal ${signalData.signal_id}`);
+      console.log(`🛠️ PURE OUTCOME REPAIR: Creating missing outcome for expired signal ${signalData.signal_id}`);
 
-      // Calculate what the outcome should have been
+      // Calculate what the outcome should have been based on pure market conditions
       let exitPrice = signalData.current_price || signalData.entry_price;
       let hitStopLoss = false;
       let hitTargets = signalData.targets_hit || [];
 
-      // Check if stop loss was hit
+      // Check if stop loss was hit (pure price comparison)
       if (signalData.type === 'BUY') {
         hitStopLoss = signalData.current_price <= signalData.stop_loss;
       } else {
@@ -77,10 +77,10 @@ export const useSignalOutcomeTracker = () => {
       }
 
       const outcomeNotes = hitStopLoss 
-        ? `Stop Loss Hit (Retroactive Analysis - Market-Based)`
+        ? `Stop Loss Hit (Retroactive Pure Outcome Analysis)`
         : hitTargets.length > 0 
-          ? `Take Profit ${Math.max(...hitTargets)} Hit (Retroactive Analysis - Market-Based)`
-          : `Unknown Exit Reason (Retroactive Analysis - Market-Based)`;
+          ? `Take Profit ${Math.max(...hitTargets)} Hit (Retroactive Pure Outcome Analysis)`
+          : `Unknown Exit Reason (Retroactive Pure Outcome Analysis - Possible Time-Based Interference)`;
 
       // Create the missing outcome record
       const { error: outcomeError } = await supabase
@@ -96,22 +96,22 @@ export const useSignalOutcomeTracker = () => {
         });
 
       if (outcomeError) {
-        console.error(`❌ REPAIR ERROR: Failed to create outcome for ${signalData.signal_id}:`, outcomeError);
+        console.error(`❌ PURE OUTCOME REPAIR ERROR: Failed to create outcome for ${signalData.signal_id}:`, outcomeError);
         return false;
       }
 
-      console.log(`✅ REPAIR SUCCESS: Created outcome for ${signalData.signal_id} - ${outcomeNotes} (${pnlPips} pips)`);
+      console.log(`✅ PURE OUTCOME REPAIR SUCCESS: Created outcome for ${signalData.signal_id} - ${outcomeNotes} (${pnlPips} pips)`);
       return true;
 
     } catch (error) {
-      console.error(`❌ REPAIR ERROR for signal ${signalData.signal_id}:`, error);
+      console.error(`❌ PURE OUTCOME REPAIR ERROR for signal ${signalData.signal_id}:`, error);
       return false;
     }
   }, []);
 
   const investigateExpiredSignalsWithoutOutcomes = useCallback(async () => {
     try {
-      console.log('🔍 INVESTIGATION: Checking for expired signals without outcome records...');
+      console.log('🔍 PURE OUTCOME INVESTIGATION: Checking for expired signals without outcome records (time-based interference detection)...');
 
       // Step 1: Get all expired signals first
       const { data: expiredSignals, error: signalsError } = await supabase
@@ -130,12 +130,12 @@ export const useSignalOutcomeTracker = () => {
         .eq('status', 'expired');
 
       if (signalsError) {
-        console.error('❌ INVESTIGATION ERROR (signals query):', signalsError);
+        console.error('❌ PURE OUTCOME INVESTIGATION ERROR (signals query):', signalsError);
         return;
       }
 
       if (!expiredSignals || expiredSignals.length === 0) {
-        console.log('✅ INVESTIGATION: No expired signals found');
+        console.log('✅ PURE OUTCOME INVESTIGATION: No expired signals found');
         return;
       }
 
@@ -147,22 +147,22 @@ export const useSignalOutcomeTracker = () => {
         .in('signal_id', signalIds);
 
       if (outcomesError) {
-        console.error('❌ INVESTIGATION ERROR (outcomes query):', outcomesError);
+        console.error('❌ PURE OUTCOME INVESTIGATION ERROR (outcomes query):', outcomesError);
         return;
       }
 
-      // Step 3: Find signals without outcomes
+      // Step 3: Find signals without outcomes (likely time-based expiration interference)
       const signalsWithOutcomes = new Set(existingOutcomes?.map(o => o.signal_id) || []);
       const expiredSignalsWithoutOutcomes = expiredSignals.filter(signal => 
         !signalsWithOutcomes.has(signal.id)
       );
 
       if (expiredSignalsWithoutOutcomes.length === 0) {
-        console.log('✅ INVESTIGATION: All expired signals have outcome records');
+        console.log('✅ PURE OUTCOME INVESTIGATION: All expired signals have valid outcome records');
         return;
       }
 
-      console.warn(`⚠️ INVESTIGATION: Found ${expiredSignalsWithoutOutcomes.length} expired signals WITHOUT outcome records`);
+      console.warn(`⚠️ PURE OUTCOME INVESTIGATION: Found ${expiredSignalsWithoutOutcomes.length} expired signals WITHOUT outcome records - LIKELY TIME-BASED INTERFERENCE`);
 
       // Step 4: Get current market prices for these signals
       const symbols = [...new Set(expiredSignalsWithoutOutcomes.map(s => s.symbol))];
@@ -172,7 +172,7 @@ export const useSignalOutcomeTracker = () => {
         .in('symbol', symbols);
 
       if (marketError) {
-        console.error('❌ INVESTIGATION ERROR (market data query):', marketError);
+        console.error('❌ PURE OUTCOME INVESTIGATION ERROR (market data query):', marketError);
         // Continue without current prices - use entry prices as fallback
       }
 
@@ -211,16 +211,16 @@ export const useSignalOutcomeTracker = () => {
 
       if (repairedCount > 0) {
         toast({
-          title: "Investigation Complete",
-          description: `Repaired ${repairedCount} of ${expiredSignalsWithoutOutcomes.length} signals without outcome records`,
+          title: "Pure Outcome Investigation Complete",
+          description: `Repaired ${repairedCount} of ${expiredSignalsWithoutOutcomes.length} signals affected by time-based interference`,
         });
       }
 
     } catch (error) {
-      console.error('❌ INVESTIGATION ERROR:', error);
+      console.error('❌ PURE OUTCOME INVESTIGATION ERROR:', error);
       toast({
         title: "Investigation Error",
-        description: "Failed to complete signal outcome investigation. Check console for details.",
+        description: "Failed to complete pure outcome investigation. Check console for details.",
         variant: "destructive"
       });
     }
@@ -237,7 +237,7 @@ export const useSignalOutcomeTracker = () => {
 
     try {
       signalStatusChannel = supabase
-        .channel('signal-status-audit')
+        .channel('pure-outcome-status-audit')
         .on(
           'postgres_changes',
           {
@@ -248,33 +248,33 @@ export const useSignalOutcomeTracker = () => {
           },
           async (payload) => {
             try {
-              console.log('🔍 AUDIT: Signal status changed to expired:', payload);
+              console.log('🔍 PURE OUTCOME AUDIT: Signal status changed to expired:', payload);
               const signalId = payload.new?.id;
               
               if (!signalId) {
-                console.warn('⚠️ AUDIT: No signal ID found in payload');
+                console.warn('⚠️ PURE OUTCOME AUDIT: No signal ID found in payload');
                 return;
               }
               
               // Wait a moment for any outcome to be created
               setTimeout(async () => {
                 try {
-                  const hasOutcome = await auditSignalExpiration(signalId, 'Status changed to expired', 'Database trigger');
+                  const hasOutcome = await auditSignalExpiration(signalId, 'Status changed to expired', 'Pure outcome monitoring');
                   if (!hasOutcome) {
-                    console.warn(`⚠️ AUDIT: Signal ${signalId} expired without outcome - needs investigation`);
+                    console.warn(`⚠️ PURE OUTCOME AUDIT: Signal ${signalId} expired without outcome - POSSIBLE TIME-BASED INTERFERENCE`);
                   }
                 } catch (auditError) {
-                  console.error(`❌ AUDIT ERROR for signal ${signalId}:`, auditError);
+                  console.error(`❌ PURE OUTCOME AUDIT ERROR for signal ${signalId}:`, auditError);
                 }
               }, 2000);
             } catch (handlerError) {
-              console.error('❌ AUDIT HANDLER ERROR:', handlerError);
+              console.error('❌ PURE OUTCOME AUDIT HANDLER ERROR:', handlerError);
             }
           }
         )
         .subscribe();
     } catch (subscriptionError) {
-      console.error('❌ Failed to set up signal monitoring subscription:', subscriptionError);
+      console.error('❌ Failed to set up pure outcome monitoring subscription:', subscriptionError);
     }
 
     return () => {
