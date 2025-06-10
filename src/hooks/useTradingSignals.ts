@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { safeParseFloat, safeParseArray } from '@/utils/signalValidation';
 
 interface TradingSignal {
   id: string;
@@ -83,20 +84,24 @@ export const useTradingSignals = () => {
             return null;
           }
 
-          const storedEntryPrice = parseFloat(signal.price?.toString() || '1.0');
+          const storedEntryPrice = safeParseFloat(signal.price, 1.0);
           
-          if (!storedEntryPrice || isNaN(storedEntryPrice) || storedEntryPrice <= 0) {
+          if (storedEntryPrice <= 0) {
             console.warn(`❌ Invalid stored price for ${signal.symbol}: ${storedEntryPrice}`);
             return null;
           }
 
-          // Practical chart data handling
+          // Enhanced chart data handling with null protection
           let chartData = [];
           if (signal.chart_data && Array.isArray(signal.chart_data)) {
-            chartData = signal.chart_data.map(point => ({
-              time: point.time || 0,
-              price: parseFloat(point.price?.toString() || storedEntryPrice.toString())
-            }));
+            chartData = signal.chart_data
+              .filter(point => point && typeof point === 'object')
+              .map(point => ({
+                time: point.time || 0,
+                price: safeParseFloat(point.price, storedEntryPrice)
+              }))
+              .filter(point => point.time > 0 && point.price > 0);
+            
             console.log(`📈 Using practical chart data for ${signal.symbol}: ${chartData.length} points`);
           } else {
             console.warn(`⚠️ No chart data for ${signal.symbol}, using practical fallback`);
@@ -107,25 +112,22 @@ export const useTradingSignals = () => {
             ];
           }
 
-          let takeProfits = [];
-          if (signal.take_profits && Array.isArray(signal.take_profits)) {
-            takeProfits = signal.take_profits.map(tp => parseFloat(tp?.toString() || '0'));
-          }
-
-          const targetsHit = signal.targets_hit || [];
+          // Enhanced take profits handling with null protection
+          const takeProfits = safeParseArray(signal.take_profits);
+          const targetsHit = safeParseArray(signal.targets_hit);
 
           return {
             id: signal.id,
             pair: signal.symbol,
             type: signal.type || 'BUY',
             entryPrice: storedEntryPrice.toFixed(5),
-            stopLoss: signal.stop_loss ? parseFloat(signal.stop_loss.toString()).toFixed(5) : '0.00000',
+            stopLoss: safeParseFloat(signal.stop_loss, 0).toFixed(5),
             takeProfit1: takeProfits[0] ? takeProfits[0].toFixed(5) : '0.00000',
             takeProfit2: takeProfits[1] ? takeProfits[1].toFixed(5) : '0.00000',
             takeProfit3: takeProfits[2] ? takeProfits[2].toFixed(5) : '0.00000',
             takeProfit4: takeProfits[3] ? takeProfits[3].toFixed(5) : '0.00000',
             takeProfit5: takeProfits[4] ? takeProfits[4].toFixed(5) : '0.00000',
-            confidence: Math.floor(signal.confidence || 75), // Practical default confidence
+            confidence: Math.floor(safeParseFloat(signal.confidence, 75)), // Practical default confidence
             timestamp: signal.created_at || new Date().toISOString(),
             status: signal.status || 'active',
             analysisText: signal.analysis_text || `PRACTICAL QUALITY ${signal.type || 'BUY'} signal for ${signal.symbol} (70%+ confidence with balanced risk management)`,

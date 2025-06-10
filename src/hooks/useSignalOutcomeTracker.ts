@@ -109,6 +109,13 @@ export const useSignalOutcomeTracker = () => {
     }
   }, []);
 
+  const safeParseArray = (arrayData: any): number[] => {
+    if (!arrayData) return [];
+    if (!Array.isArray(arrayData)) return [];
+    return arrayData.filter(item => item !== null && item !== undefined && !isNaN(parseFloat(item)))
+                   .map(item => parseFloat(item.toString()));
+  };
+
   const investigateExpiredSignalsWithoutOutcomes = useCallback(async () => {
     try {
       console.log('🔍 PURE OUTCOME INVESTIGATION: Checking for expired signals without outcome records (time-based interference detection)...');
@@ -178,7 +185,9 @@ export const useSignalOutcomeTracker = () => {
 
       const priceMap: Record<string, number> = {};
       marketData?.forEach(data => {
-        priceMap[data.symbol] = parseFloat(data.current_price.toString());
+        if (data.current_price) {
+          priceMap[data.symbol] = parseFloat(data.current_price.toString());
+        }
       });
 
       // Step 5: Repair each signal without outcome (limit to prevent timeout)
@@ -187,17 +196,31 @@ export const useSignalOutcomeTracker = () => {
 
       for (const signal of signalsToRepair) {
         try {
+          // Enhanced null safety for signal processing
+          if (!signal || !signal.id || !signal.symbol || !signal.type || !signal.price || !signal.stop_loss) {
+            console.warn(`⚠️ Skipping signal with missing data: ${signal?.id}`);
+            continue;
+          }
+
+          const entryPrice = parseFloat(signal.price.toString());
+          const stopLoss = parseFloat(signal.stop_loss.toString());
+          
+          if (isNaN(entryPrice) || isNaN(stopLoss)) {
+            console.warn(`⚠️ Skipping signal with invalid prices: ${signal.id}`);
+            continue;
+          }
+
           const signalData: SignalOutcomeData = {
             signal_id: signal.id,
             symbol: signal.symbol,
             type: signal.type as 'BUY' | 'SELL',
-            entry_price: parseFloat(signal.price.toString()),
-            current_price: priceMap[signal.symbol] || parseFloat(signal.price.toString()),
-            stop_loss: parseFloat(signal.stop_loss.toString()),
-            take_profits: signal.take_profits?.map((tp: any) => parseFloat(tp.toString())) || [],
+            entry_price: entryPrice,
+            current_price: priceMap[signal.symbol] || entryPrice,
+            stop_loss: stopLoss,
+            take_profits: safeParseArray(signal.take_profits),
             status: signal.status,
             created_at: signal.created_at,
-            targets_hit: signal.targets_hit || []
+            targets_hit: safeParseArray(signal.targets_hit)
           };
 
           const success = await ensureOutcomeForExpiredSignal(signalData);

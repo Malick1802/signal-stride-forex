@@ -35,13 +35,20 @@ interface SignalCardProps {
 const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
   const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
 
+  // Enhanced validation with early return
+  if (!signal) {
+    console.warn('SignalCard: Null signal provided');
+    return null;
+  }
+
   if (!validateSignal(signal)) {
+    console.warn('SignalCard: Invalid signal data:', signal);
     return null;
   }
 
   const safeSignal = createSafeSignal(signal);
 
-  // Get live centralized real-time market data
+  // Get live centralized real-time market data with error handling
   const {
     currentPrice: liveCurrentPrice,
     getPriceChange,
@@ -56,8 +63,12 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
     entryPrice: safeSignal.entryPrice
   });
 
-  // Fixed signal entry price (never changes)
+  // Fixed signal entry price (never changes) with validation
   const signalEntryPrice = parseFloat(safeSignal.entryPrice);
+  if (isNaN(signalEntryPrice) || signalEntryPrice <= 0) {
+    console.error('SignalCard: Invalid entry price after validation:', safeSignal.entryPrice);
+    return null;
+  }
   
   // Use live current price for real-time updates, fallback to entry price only if no live data
   const currentPrice = liveCurrentPrice || signalEntryPrice;
@@ -65,15 +76,19 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
   // Get live price change data (this will be market data, not signal performance)
   const { change, percentage } = getPriceChange();
 
-  // Use ONLY centralized chart data for real-time updates
-  const chartDataToDisplay = centralizedChartData.map(point => ({
-    timestamp: point.timestamp,
-    time: point.time,
-    price: point.price
-  }));
+  // Use ONLY centralized chart data for real-time updates with safety checks
+  const chartDataToDisplay = Array.isArray(centralizedChartData) 
+    ? centralizedChartData
+        .filter(point => point && typeof point === 'object' && point.timestamp && point.price)
+        .map(point => ({
+          timestamp: point.timestamp,
+          time: point.time,
+          price: point.price
+        }))
+    : [];
 
   // Enhanced connection status
-  const connectionStatus = isConnected && centralizedChartData.length > 0;
+  const connectionStatus = isConnected && chartDataToDisplay.length > 0;
 
   return (
     <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 overflow-hidden">
