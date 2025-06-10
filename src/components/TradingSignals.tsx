@@ -14,7 +14,7 @@ import { RefreshCw, Activity, Brain, Shield, Zap, Target, TrendingUp, Bug, Star,
 import { useMarketActivation } from '@/hooks/useMarketActivation';
 import AutomationDashboard from './AutomationDashboard';
 
-// PRACTICAL: Balanced signal limit for consistent quality
+// RELAXED: Practical signal limit for consistent quality with relaxed criteria
 const MAX_ACTIVE_SIGNALS = 12;
 
 const TradingSignals = memo(() => {
@@ -34,13 +34,13 @@ const TradingSignals = memo(() => {
 
   const { activateMarket } = useMarketActivation();
 
-  // Practical signal validation with balanced criteria
+  // RELAXED signal validation with practical criteria (Phase 1)
   const validSignals = signals.filter(signal => {
     if (!signal || typeof signal !== 'object' || !signal.id || !signal.pair || !signal.type) {
       return false;
     }
-    // Balanced quality checks (lowered from 80% to 70%)
-    if (signal.confidence < 70) {
+    // RELAXED quality checks (lowered from 70% to 65%)
+    if (signal.confidence < 65) {
       console.warn(`⚠️ Low confidence signal filtered out: ${signal.pair} (${signal.confidence}%)`);
       return false;
     }
@@ -54,7 +54,7 @@ const TradingSignals = memo(() => {
 
   const avgConfidence = validSignals.length > 0 
     ? Math.round(validSignals.reduce((sum, signal) => sum + (signal.confidence || 0), 0) / validSignals.length)
-    : 75; // Practical default
+    : 70; // RELAXED default
 
   const handleEliminateTimeBasedExpiration = async () => {
     setEliminatingTimeBased(true);
@@ -127,10 +127,10 @@ const TradingSignals = memo(() => {
     try {
       await triggerAutomaticSignalGeneration();
     } catch (error) {
-      console.error('Error detecting practical opportunities:', error);
+      console.error('Error detecting relaxed practical opportunities:', error);
       toast({
-        title: "Practical Detection Error",
-        description: "Failed to detect new balanced quality opportunities. Please try again.",
+        title: "Relaxed Detection Error",
+        description: "Failed to detect new relaxed quality opportunities. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -184,7 +184,7 @@ const TradingSignals = memo(() => {
   if (loading && validSignals.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-white">Loading practical quality signals (analyzing all currency pairs, limit: {MAX_ACTIVE_SIGNALS})...</div>
+        <div className="text-white">Loading relaxed practical signals (analyzing all currency pairs, limit: {MAX_ACTIVE_SIGNALS})...</div>
       </div>
     );
   }
@@ -235,24 +235,24 @@ const TradingSignals = memo(() => {
         </div>
       </div>
 
-      {/* IMPROVED: Practical Quality Focus Notice */}
+      {/* IMPROVED: RELAXED Quality Focus Notice (Phase 1) */}
       <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 backdrop-blur-sm rounded-xl border border-green-500/30 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <CheckCircle className="h-6 w-6 text-green-400" />
-              <span className="text-white font-bold text-lg">PRACTICAL QUALITY SIGNALS</span>
+              <span className="text-white font-bold text-lg">RELAXED PRACTICAL SIGNALS (Phase 1)</span>
               <span className="text-xs bg-green-500/30 text-green-300 px-3 py-1 rounded-full font-medium">
-                70%+ CONFIDENCE • BALANCED APPROACH
+                65%+ CONFIDENCE • RELAXED APPROACH
               </span>
             </div>
           </div>
           <div className="text-sm text-green-300">
-            🎯 Balanced AI Analysis • Practical Risk Management • 60%+ Win Probability Target
+            🎯 Relaxed AI Analysis • Practical Risk Management • 55%+ Win Probability Target
           </div>
         </div>
         <div className="mt-2 text-xs text-green-400">
-          ⭐ Balanced quality: Advanced GPT-4.1 analysis with practical thresholds • EXCELLENT/GOOD grades accepted
+          ⭐ RELAXED quality: Advanced GPT-4.1 analysis with relaxed thresholds • EXCELLENT/GOOD/FAIR grades accepted
         </div>
       </div>
 
@@ -265,15 +265,15 @@ const TradingSignals = memo(() => {
       {/* Real-time Connection Status */}
       <RealTimeStatus />
 
-      {/* IMPROVED: Practical Signal Generation System */}
+      {/* IMPROVED: RELAXED Signal Generation System (Phase 1) */}
       <div className="bg-gradient-to-r from-blue-500/20 to-cyan-500/20 backdrop-blur-sm rounded-xl border border-blue-500/30 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <Target className="h-5 w-5 text-blue-400" />
-              <span className="text-white font-medium">Practical Quality Signal Generation (Max: {MAX_ACTIVE_SIGNALS})</span>
+              <span className="text-white font-medium">RELAXED Practical Signal Generation (Max: {MAX_ACTIVE_SIGNALS})</span>
               <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">
-                BALANCED-FOCUSED
+                RELAXED-FOCUSED
               </span>
             </div>
             <Button
@@ -285,40 +285,40 @@ const TradingSignals = memo(() => {
               {detectingOpportunities ? (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Analyzing Practical Opportunities...
+                  Analyzing Relaxed Opportunities...
                 </>
               ) : (
                 <>
                   <Target className="h-4 w-4 mr-2" />
-                  Generate Practical Quality Signals
+                  Generate Relaxed Quality Signals
                 </>
               )}
             </Button>
           </div>
           <div className="text-sm text-gray-400">
-            🎯 {validSignals.length}/{MAX_ACTIVE_SIGNALS} active • Balanced rotation • Practical monitoring • 70%+ confidence
+            🎯 {validSignals.length}/{MAX_ACTIVE_SIGNALS} active • Relaxed rotation • Practical monitoring • 65%+ confidence
           </div>
         </div>
         <div className="mt-2 text-xs text-blue-400">
-          ⭐ Practical GPT-4.1 analysis • ATR-based stops • Balanced risk-reward ratios • Multi-timeframe confluence
+          ⭐ RELAXED GPT-4.1 analysis • ATR-based stops • Relaxed risk-reward ratios • Multi-timeframe confluence
         </div>
       </div>
 
-      {/* IMPROVED: Practical Monitoring Status */}
+      {/* IMPROVED: RELAXED Monitoring Status */}
       <div className="bg-purple-500/10 backdrop-blur-sm rounded-xl border border-purple-500/20 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <Brain className="h-5 w-5 text-purple-400" />
-              <span className="text-white font-medium">PRACTICAL OUTCOME-BASED MONITORING</span>
+              <span className="text-white font-medium">RELAXED OUTCOME-BASED MONITORING</span>
               <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-1 rounded">
-                BALANCED QUALITY
+                RELAXED QUALITY
               </span>
             </div>
           </div>
           <div className="flex items-center space-x-4">
             <div className="text-sm text-purple-400">
-              🧠 5-second intervals • Practical signal tracking • Balanced outcomes • 70%+ confidence
+              🧠 5-second intervals • Relaxed signal tracking • Practical outcomes • 65%+ confidence
             </div>
             <Button
               onClick={() => setShowDebugDashboard(!showDebugDashboard)}
@@ -339,33 +339,33 @@ const TradingSignals = memo(() => {
         </div>
       )}
 
-      {/* IMPROVED: Practical Success Mode Notice */}
+      {/* IMPROVED: RELAXED Success Mode Notice */}
       <div className="bg-cyan-500/10 backdrop-blur-sm rounded-xl border border-cyan-500/20 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <TrendingUp className="h-5 w-5 text-cyan-400" />
-              <span className="text-white font-medium">PRACTICAL SUCCESS-FOCUSED MODE</span>
+              <span className="text-white font-medium">RELAXED SUCCESS-FOCUSED MODE</span>
               <span className="text-xs bg-cyan-500/20 text-cyan-400 px-2 py-1 rounded">
-                TARGET: 60-70% SUCCESS RATE
+                TARGET: 55-65% SUCCESS RATE
               </span>
             </div>
           </div>
           <div className="text-sm text-cyan-400">
-            🎯 Balanced market analysis • Practical AI filtering • Achievable risk management
+            🎯 Relaxed market analysis • Practical AI filtering • Achievable risk management
           </div>
         </div>
       </div>
 
-      {/* IMPROVED: Practical System Controls */}
+      {/* IMPROVED: RELAXED System Controls */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <Shield className="h-5 w-5 text-yellow-400" />
-              <span className="text-white font-medium">Practical Quality System Controls</span>
+              <span className="text-white font-medium">RELAXED Quality System Controls</span>
               <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">
-                BALANCED-FOCUSED
+                RELAXED-FOCUSED
               </span>
             </div>
           </div>
@@ -391,7 +391,7 @@ const TradingSignals = memo(() => {
           </div>
         </div>
         <div className="mt-2 text-xs text-yellow-400">
-          🛡️ PRACTICAL QUALITY FOCUS: Balanced signals • 70%+ confidence filter • Achievable risk management
+          🛡️ RELAXED QUALITY FOCUS: Practical signals • 65%+ confidence filter • Achievable risk management
         </div>
       </div>
 
@@ -406,7 +406,7 @@ const TradingSignals = memo(() => {
                 onChange={(e) => setSelectedPair(e.target.value)}
                 className="bg-white/10 border border-white/20 rounded px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="All" className="bg-gray-800 text-white">All Practical Pairs ({validSignals.length}/{MAX_ACTIVE_SIGNALS})</option>
+                <option value="All" className="bg-gray-800 text-white">All Relaxed Pairs ({validSignals.length}/{MAX_ACTIVE_SIGNALS})</option>
                 {availablePairs.map(pair => (
                   <option key={pair} value={pair} className="bg-gray-800 text-white">
                     {pair} ({validSignals.filter(s => s.pair === pair).length})
@@ -415,7 +415,7 @@ const TradingSignals = memo(() => {
               </select>
             </div>
             <div className="text-sm text-gray-400">
-              ⭐ Practical quality signals • Balanced analysis • 70%+ confidence • Achievable risk management
+              ⭐ RELAXED quality signals • Practical analysis • 65%+ confidence • Achievable risk management
             </div>
           </div>
         </div>
@@ -424,7 +424,7 @@ const TradingSignals = memo(() => {
       {/* Enhanced Active Signals Grid */}
       <div>
         <h3 className="text-white text-lg font-semibold mb-4">
-          {selectedPair === 'All' ? `Practical Quality Signals (${filteredSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${selectedPair} Practical Signals (${filteredSignals.length})`}
+          {selectedPair === 'All' ? `RELAXED Quality Signals (${filteredSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${selectedPair} Relaxed Signals (${filteredSignals.length})`}
         </h3>
         
         {filteredSignals.length > 0 ? (
@@ -449,11 +449,11 @@ const TradingSignals = memo(() => {
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
               {selectedPair === 'All' 
-                ? `No practical quality signals generated yet (0/${MAX_ACTIVE_SIGNALS})` 
-                : `No practical signals for ${selectedPair}`}
+                ? `No relaxed practical signals generated yet (0/${MAX_ACTIVE_SIGNALS})` 
+                : `No relaxed signals for ${selectedPair}`}
             </div>
             <div className="text-sm text-gray-500 mb-6">
-              ⭐ Practical signal limit: {MAX_ACTIVE_SIGNALS} • Balanced quality focus • 70%+ confidence • Practical AI analysis
+              ⭐ RELAXED signal limit: {MAX_ACTIVE_SIGNALS} • Practical quality focus • 65%+ confidence • Relaxed AI analysis
             </div>
             <div className="space-x-4">
               <Button
@@ -464,12 +464,12 @@ const TradingSignals = memo(() => {
                 {detectingOpportunities ? (
                   <>
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Analyzing Practical Opportunities...
+                    Analyzing Relaxed Opportunities...
                   </>
                 ) : (
                   <>
                     <Target className="h-4 w-4 mr-2" />
-                    Generate Practical Quality Signals
+                    Generate Relaxed Quality Signals
                   </>
                 )}
               </Button>
@@ -484,3 +484,5 @@ const TradingSignals = memo(() => {
 TradingSignals.displayName = 'TradingSignals';
 
 export default TradingSignals;
+
+</edits_to_apply>
