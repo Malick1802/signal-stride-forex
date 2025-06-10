@@ -1,3 +1,4 @@
+
 import React, { useState, memo } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useEnhancedSignalMonitoring } from '@/hooks/useEnhancedSignalMonitoring';
@@ -10,7 +11,7 @@ import RealTimeStatus from './RealTimeStatus';
 import GlobalRefreshIndicator from './GlobalRefreshIndicator';
 import SignalDebuggingDashboard from './SignalDebuggingDashboard';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Users, Activity, Brain, Shield, Wrench, Zap, FlaskConical, Target, TrendingUp, Clock, Bug, Star, Award } from 'lucide-react';
+import { RefreshCw, Users, Activity, Brain, Shield, Wrench, Zap, FlaskConical, Target, TrendingUp, Clock, Bug, Star, Award, AlertTriangle } from 'lucide-react';
 import { useMarketActivation } from '@/hooks/useMarketActivation';
 import AutomationDashboard from './AutomationDashboard';
 
@@ -18,7 +19,7 @@ import AutomationDashboard from './AutomationDashboard';
 const MAX_ACTIVE_SIGNALS = 12;
 
 const TradingSignals = memo(() => {
-  const { signals, loading, lastUpdate, triggerAutomaticSignalGeneration } = useTradingSignals();
+  const { signals, loading, lastUpdate, triggerAutomaticSignalGeneration, executeTimeBasedEliminationPlan } = useTradingSignals();
   const { toast } = useToast();
   
   // Enhanced monitoring systems
@@ -29,7 +30,7 @@ const TradingSignals = memo(() => {
   const [analyzingSignal, setAnalyzingSignal] = useState<string | null>(null);
   const [detectingOpportunities, setDetectingOpportunities] = useState(false);
   const [testingSystem, setTestingSystem] = useState(false);
-  const [cleaningCrons, setCleaningCrons] = useState(false);
+  const [eliminatingTimeBased, setEliminatingTimeBased] = useState(false);
   const [showDebugDashboard, setShowDebugDashboard] = useState(false);
 
   const { activateMarket } = useMarketActivation();
@@ -56,36 +57,28 @@ const TradingSignals = memo(() => {
     ? Math.round(validSignals.reduce((sum, signal) => sum + (signal.confidence || 0), 0) / validSignals.length)
     : 85; // Enhanced default
 
-  const handleCleanupCrons = async () => {
-    setCleaningCrons(true);
+  const handleEliminateTimeBasedExpiration = async () => {
+    setEliminatingTimeBased(true);
     try {
-      console.log('🧹 PHASE 1: Completely eliminating ALL time-based signal expiration...');
-      const { data, error } = await supabase.functions.invoke('cleanup-crons');
+      console.log('🔥 EXECUTING TIME-BASED EXPIRATION ELIMINATION PLAN...');
+      const success = await executeTimeBasedEliminationPlan();
       
-      if (error) {
-        console.error('❌ Complete elimination error:', error);
+      if (success) {
+        console.log('✅ TIME-BASED EXPIRATION ELIMINATION COMPLETE');
         toast({
-          title: "Elimination Error",
-          description: "Failed to completely eliminate time-based expiration. Check logs for details.",
-          variant: "destructive"
+          title: "🎯 TIME-BASED EXPIRATION ELIMINATED",
+          description: "Signals now expire PURELY on outcome (SL/TP hits) + 72h emergency safety only",
         });
-        return;
       }
-
-      console.log('✅ Complete elimination result:', data);
-      toast({
-        title: "✅ Time-Based Expiration COMPLETELY ELIMINATED",
-        description: "Signals now expire PURELY on outcome (SL/TP hits only) + 72h emergency safety net",
-      });
     } catch (error) {
-      console.error('❌ Error completely eliminating time-based expiration:', error);
+      console.error('❌ Error executing elimination plan:', error);
       toast({
-        title: "Elimination Error",
-        description: "Failed to completely eliminate time-based expiration. Please try again.",
+        title: "Elimination Plan Error",
+        description: "Failed to eliminate time-based expiration. Please try again.",
         variant: "destructive"
       });
     } finally {
-      setCleaningCrons(false);
+      setEliminatingTimeBased(false);
     }
   };
 
@@ -207,6 +200,42 @@ const TradingSignals = memo(() => {
         avgConfidence={avgConfidence}
         lastUpdate={lastUpdate}
       />
+
+      {/* CRITICAL: Time-Based Expiration Elimination Alert */}
+      <div className="bg-gradient-to-r from-red-500/20 to-orange-500/20 backdrop-blur-sm rounded-xl border border-red-500/30 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <AlertTriangle className="h-6 w-6 text-red-400" />
+              <span className="text-white font-bold text-lg">CRITICAL: TIME-BASED EXPIRATION ACTIVE</span>
+              <span className="text-xs bg-red-500/30 text-red-300 px-3 py-1 rounded-full font-medium">
+                SIGNALS EXPIRING AFTER 4 HOURS
+              </span>
+            </div>
+            <Button
+              onClick={handleEliminateTimeBasedExpiration}
+              disabled={eliminatingTimeBased}
+              className="bg-red-600 hover:bg-red-700 text-white text-sm"
+              size="sm"
+            >
+              {eliminatingTimeBased ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Eliminating Time-Based Expiration...
+                </>
+              ) : (
+                <>
+                  <AlertTriangle className="h-4 w-4 mr-2" />
+                  EXECUTE ELIMINATION PLAN
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
+        <div className="mt-2 text-xs text-red-400">
+          ⚠️ Cron job #10 ("expire-old-signals") is causing automatic 4-hour expiration, interfering with outcome-based system
+        </div>
+      </div>
 
       {/* Enhanced Quality Focus Notice */}
       <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 backdrop-blur-sm rounded-xl border border-yellow-500/30 p-4">
@@ -343,24 +372,6 @@ const TradingSignals = memo(() => {
             </div>
           </div>
           <div className="flex space-x-2">
-            <Button
-              onClick={handleCleanupCrons}
-              disabled={cleaningCrons}
-              className="bg-yellow-600 hover:bg-yellow-700 text-white text-sm"
-              size="sm"
-            >
-              {cleaningCrons ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Eliminating Time-Based Expiration...
-                </>
-              ) : (
-                <>
-                  <Clock className="h-4 w-4 mr-2" />
-                  Eliminate ALL Time-Based Expiration
-                </>
-              )}
-            </Button>
             <Button
               onClick={handleComprehensiveTest}
               disabled={testingSystem}

@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -185,6 +186,56 @@ export const useTradingSignals = () => {
     }
   }, [fetchSignals, toast]);
 
+  const executeTimeBasedEliminationPlan = useCallback(async () => {
+    try {
+      console.log('🔥 PHASE 1: Executing TIME-BASED EXPIRATION ELIMINATION PLAN...');
+      
+      // Execute the cleanup-crons function to remove time-based expiration jobs
+      const { data: cleanupResult, error: cleanupError } = await supabase.functions.invoke('cleanup-crons');
+      
+      if (cleanupError) {
+        console.error('❌ ELIMINATION PLAN ERROR:', cleanupError);
+        toast({
+          title: "❌ Elimination Plan Failed",
+          description: "Failed to eliminate time-based expiration. Check console for details.",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      console.log('✅ ELIMINATION PLAN RESULT:', cleanupResult);
+      
+      // Wait for cleanup to complete
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Refresh signals to verify pure outcome-based system
+      await fetchSignals();
+      
+      toast({
+        title: "🎯 TIME-BASED EXPIRATION ELIMINATED",
+        description: `${cleanupResult?.removedJobsByName?.length || 0} time-based jobs removed. Signals now expire ONLY on SL/TP hits + 72h safety net.`,
+      });
+
+      console.log('🎯 PHASE 2: PURE OUTCOME-BASED MONITORING NOW ACTIVE');
+      console.log('✅ Signals will ONLY expire when:');
+      console.log('   - Stop Loss is hit by market price');
+      console.log('   - Take Profit targets are hit by market price');
+      console.log('   - Emergency 72-hour abandonment timeout (safety only)');
+      console.log('❌ NO MORE 4-hour automatic expiration');
+      
+      return true;
+      
+    } catch (error) {
+      console.error('❌ ELIMINATION PLAN ERROR:', error);
+      toast({
+        title: "Elimination Plan Error",
+        description: "Failed to execute time-based expiration elimination plan",
+        variant: "destructive"
+      });
+      return false;
+    }
+  }, [fetchSignals, toast]);
+
   const triggerRealTimeUpdates = useCallback(async () => {
     try {
       console.log('🚀 Triggering enhanced market data update...');
@@ -286,40 +337,7 @@ export const useTradingSignals = () => {
     lastUpdate,
     fetchSignals,
     triggerAutomaticSignalGeneration: triggerEnhancedSignalGeneration,
-    triggerRealTimeUpdates: useCallback(async () => {
-      try {
-        console.log('🚀 Triggering enhanced market data update...');
-        
-        const { data: marketResult, error: marketDataError } = await supabase.functions.invoke('fetch-market-data');
-        
-        if (marketDataError) {
-          console.error('❌ Enhanced market data update failed:', marketDataError);
-          toast({
-            title: "Enhanced Update Failed",
-            description: "Failed to fetch enhanced market data",
-            variant: "destructive"
-          });
-          return;
-        }
-        
-        console.log('✅ Enhanced market data updated');
-        
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        await fetchSignals();
-        
-        toast({
-          title: "🎯 Enhanced Real-time Updates Active",
-          description: "Premium market data refreshed, quality signals updating live",
-        });
-        
-      } catch (error) {
-        console.error('❌ Error in enhanced real-time updates:', error);
-        toast({
-          title: "Enhanced Update Error",
-          description: "Failed to activate enhanced real-time updates",
-          variant: "destructive"
-        });
-      }
-    }, [fetchSignals, toast])
+    executeTimeBasedEliminationPlan, // NEW: Function to eliminate time-based expiration
+    triggerRealTimeUpdates
   };
 };
