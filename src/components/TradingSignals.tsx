@@ -1,4 +1,3 @@
-
 import React, { useState, memo } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useEnhancedSignalMonitoring } from '@/hooks/useEnhancedSignalMonitoring';
@@ -59,20 +58,20 @@ const TradingSignals = memo(() => {
   const handleEliminateTimeBasedExpiration = async () => {
     setEliminatingTimeBased(true);
     try {
-      console.log('🔥 EXECUTING TIME-BASED EXPIRATION ELIMINATION PLAN...');
+      console.log('🔥 EXECUTING COMPREHENSIVE TIME-BASED EXPIRATION ELIMINATION...');
       const success = await executeTimeBasedEliminationPlan();
       
       if (success) {
-        console.log('✅ TIME-BASED EXPIRATION ELIMINATION COMPLETE');
+        console.log('✅ COMPREHENSIVE TIME-BASED EXPIRATION ELIMINATION COMPLETE');
         toast({
-          title: "🎯 TIME-BASED EXPIRATION ELIMINATED",
-          description: "Signals now expire PURELY on outcome (SL/TP hits) + 72h emergency safety only",
+          title: "🎯 TIME-BASED EXPIRATION COMPLETELY ELIMINATED",
+          description: "All cron jobs removed. Signals now expire PURELY on market outcomes (SL/TP) + 72h emergency safety only",
         });
       }
     } catch (error) {
-      console.error('❌ Error executing elimination plan:', error);
+      console.error('❌ Error executing comprehensive elimination:', error);
       toast({
-        title: "Elimination Plan Error",
+        title: "Elimination Error",
         description: "Failed to eliminate time-based expiration. Please try again.",
         variant: "destructive"
       });
@@ -206,6 +205,36 @@ const TradingSignals = memo(() => {
         lastUpdate={lastUpdate || 'Never'}
       />
 
+      {/* Time-Based Expiration Elimination Control */}
+      <div className="bg-red-900/20 backdrop-blur-sm rounded-xl border border-red-500/30 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <Shield className="h-5 w-5 text-red-400" />
+            <div>
+              <h3 className="text-white font-medium">Time-Based Expiration Control</h3>
+              <p className="text-sm text-gray-400">Eliminate automatic time-based signal expiration (keep only market-based outcomes)</p>
+            </div>
+          </div>
+          <Button
+            onClick={handleEliminateTimeBasedExpiration}
+            disabled={eliminatingTimeBased}
+            className="bg-red-600 hover:bg-red-700 text-white"
+          >
+            {eliminatingTimeBased ? (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                Eliminating...
+              </>
+            ) : (
+              <>
+                <Shield className="h-4 w-4 mr-2" />
+                Eliminate Time-Based Expiration
+              </>
+            )}
+          </Button>
+        </div>
+      </div>
+
       {/* Debug Dashboard */}
       {showDebugDashboard && (
         <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-6">
@@ -233,7 +262,7 @@ const TradingSignals = memo(() => {
               </select>
             </div>
             <div className="text-sm text-gray-400">
-              ⭐ Quality signals • Practical analysis • 65%+ confidence • Achievable risk management
+              ⭐ Pure outcome-based • Market validation • No time expiration
             </div>
           </div>
         </div>
@@ -242,7 +271,7 @@ const TradingSignals = memo(() => {
       {/* Enhanced Active Signals Grid */}
       <div>
         <h3 className="text-white text-lg font-semibold mb-4">
-          {selectedPair === 'All' ? `Quality Signals (${filteredSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${selectedPair} Signals (${filteredSignals.length})`}
+          {selectedPair === 'All' ? `Pure Outcome Signals (${filteredSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${selectedPair} Signals (${filteredSignals.length})`}
         </h3>
         
         {filteredSignals.length > 0 ? (
@@ -267,11 +296,11 @@ const TradingSignals = memo(() => {
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
               {selectedPair === 'All' 
-                ? `No practical signals generated yet (0/${MAX_ACTIVE_SIGNALS})` 
+                ? `No pure outcome signals generated yet (0/${MAX_ACTIVE_SIGNALS})` 
                 : `No signals for ${selectedPair}`}
             </div>
             <div className="text-sm text-gray-500 mb-6">
-              ⭐ Signal limit: {MAX_ACTIVE_SIGNALS} • Quality focus • 65%+ confidence • AI analysis
+              ⭐ Signal limit: {MAX_ACTIVE_SIGNALS} • Pure market outcomes • No time expiration
             </div>
             <div className="space-x-4">
               <Button
@@ -287,7 +316,7 @@ const TradingSignals = memo(() => {
                 ) : (
                   <>
                     <Target className="h-4 w-4 mr-2" />
-                    Generate Quality Signals
+                    Generate Pure Outcome Signals
                   </>
                 )}
               </Button>
@@ -302,3 +331,5 @@ const TradingSignals = memo(() => {
 TradingSignals.displayName = 'TradingSignals';
 
 export default TradingSignals;
+
+}
