@@ -1,5 +1,3 @@
-
-
 import React, { useState, memo } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useEnhancedSignalMonitoring } from '@/hooks/useEnhancedSignalMonitoring';
@@ -11,6 +9,7 @@ import SignalCard from './SignalCard';
 import RealTimeStatus from './RealTimeStatus';
 import GlobalRefreshIndicator from './GlobalRefreshIndicator';
 import SignalDebuggingDashboard from './SignalDebuggingDashboard';
+import WorkflowMonitor from './WorkflowMonitor';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Activity, Brain, Shield, Zap, Target, TrendingUp, Bug, Star, Award, AlertTriangle, CheckCircle } from 'lucide-react';
 import { useMarketActivation } from '@/hooks/useMarketActivation';
@@ -194,68 +193,8 @@ const TradingSignals = memo(() => {
 
   return (
     <div className="space-y-6">
-      <SignalStats 
-        signalsCount={validSignals.length}
-        avgConfidence={avgConfidence}
-        lastUpdate={lastUpdate}
-      />
-
-      {/* CRITICAL: Time-Based Expiration Elimination Alert */}
-      <div className="bg-gradient-to-r from-red-500/20 to-orange-500/20 backdrop-blur-sm rounded-xl border border-red-500/30 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <AlertTriangle className="h-6 w-6 text-red-400" />
-              <span className="text-white font-bold text-lg">CRITICAL: TIME-BASED EXPIRATION ACTIVE</span>
-              <span className="text-xs bg-red-500/30 text-red-300 px-3 py-1 rounded-full font-medium">
-                SIGNALS EXPIRING AFTER 4 HOURS
-              </span>
-            </div>
-            <Button
-              onClick={handleEliminateTimeBasedExpiration}
-              disabled={eliminatingTimeBased}
-              className="bg-red-600 hover:bg-red-700 text-white text-sm"
-              size="sm"
-            >
-              {eliminatingTimeBased ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Eliminating Time-Based Expiration...
-                </>
-              ) : (
-                <>
-                  <AlertTriangle className="h-4 w-4 mr-2" />
-                  EXECUTE ELIMINATION PLAN
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
-        <div className="mt-2 text-xs text-red-400">
-          ⚠️ Cron job #10 ("expire-old-signals") is causing automatic 4-hour expiration, interfering with outcome-based system
-        </div>
-      </div>
-
-      {/* UPDATED: Quality Focus Notice with new signal limit */}
-      <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 backdrop-blur-sm rounded-xl border border-green-500/30 p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <CheckCircle className="h-6 w-6 text-green-400" />
-              <span className="text-white font-bold text-lg">PRACTICAL SIGNALS ({MAX_ACTIVE_SIGNALS} MAX)</span>
-              <span className="text-xs bg-green-500/30 text-green-300 px-3 py-1 rounded-full font-medium">
-                65%+ CONFIDENCE • 15 PIP TP1 • 40 PIP MIN SL
-              </span>
-            </div>
-          </div>
-          <div className="text-sm text-green-300">
-            🎯 AI Analysis • Risk Management • 55%+ Win Probability Target
-          </div>
-        </div>
-        <div className="mt-2 text-xs text-green-400">
-          ⭐ Quality focus: Advanced GPT-4.1 analysis • EXCELLENT/GOOD/FAIR grades accepted • Up to {MAX_ACTIVE_SIGNALS} signals
-        </div>
-      </div>
+      {/* GitHub Actions Workflow Monitor */}
+      <WorkflowMonitor />
 
       {/* Global Refresh Status */}
       <GlobalRefreshIndicator />
@@ -482,4 +421,3 @@ const TradingSignals = memo(() => {
 TradingSignals.displayName = 'TradingSignals';
 
 export default TradingSignals;
-
