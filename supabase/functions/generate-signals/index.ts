@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -7,9 +8,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// OPTIMIZED: Reduced maximum signals to prevent timeout
-const MAX_ACTIVE_SIGNALS = 15; // Reduced from 20
-const MAX_NEW_SIGNALS_PER_RUN = 8; // New: Maximum signals to generate per execution
+// UPDATED: Increased maximum signals and improved rotation
+const MAX_ACTIVE_SIGNALS = 20; // Increased from 15
+const MAX_NEW_SIGNALS_PER_RUN = 10; // Increased from 8
 const FUNCTION_TIMEOUT_MS = 120000; // 120 seconds internal timeout
 const CONCURRENT_ANALYSIS_LIMIT = 3; // Process 3 pairs concurrently
 
@@ -44,6 +45,56 @@ const calculateRealisticTakeProfit = (entryPrice: number, symbol: string, signal
   return signalType === 'BUY' 
     ? entryPrice + takeProfitDistance 
     : entryPrice - takeProfitDistance;
+};
+
+// NEW: Intelligent signal rotation function
+const rotateOldestSignals = async (supabase: any, slotsNeeded: number): Promise<number> => {
+  console.log(`🔄 Rotating ${slotsNeeded} oldest signals to make room for new ones...`);
+  
+  try {
+    // Get oldest active signals
+    const { data: oldestSignals, error: selectError } = await supabase
+      .from('trading_signals')
+      .select('id, symbol, created_at')
+      .eq('is_centralized', true)
+      .is('user_id', null)
+      .eq('status', 'active')
+      .order('created_at', { ascending: true })
+      .limit(slotsNeeded);
+
+    if (selectError) {
+      console.error('❌ Error selecting oldest signals:', selectError);
+      return 0;
+    }
+
+    if (!oldestSignals || oldestSignals.length === 0) {
+      console.log('⚠️ No signals found for rotation');
+      return 0;
+    }
+
+    // Update oldest signals to expired status
+    const signalIds = oldestSignals.map(s => s.id);
+    const { error: updateError } = await supabase
+      .from('trading_signals')
+      .update({ 
+        status: 'expired',
+        updated_at: new Date().toISOString()
+      })
+      .in('id', signalIds);
+
+    if (updateError) {
+      console.error('❌ Error updating signals to expired:', updateError);
+      return 0;
+    }
+
+    const rotatedCount = oldestSignals.length;
+    console.log(`✅ Successfully rotated ${rotatedCount} signals: ${oldestSignals.map(s => s.symbol).join(', ')}`);
+    return rotatedCount;
+
+  } catch (error) {
+    console.error('❌ Error in signal rotation:', error);
+    return 0;
+  }
 };
 
 // OPTIMIZED: Streamlined AI analysis with reduced prompt size and 15-pip first TP
@@ -294,7 +345,7 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const isCronTriggered = body.trigger === 'cron';
     
-    console.log(`🎯 OPTIMIZED signal generation starting (MAX: ${MAX_NEW_SIGNALS_PER_RUN} new signals, 15-pip first TP)...`);
+    console.log(`🎯 ENHANCED signal generation starting (MAX: ${MAX_ACTIVE_SIGNALS}, new per run: ${MAX_NEW_SIGNALS_PER_RUN}, 15-pip first TP)...`);
     console.log(`🛡️ Enhanced timeout protection: ${FUNCTION_TIMEOUT_MS/1000}s limit`);
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -323,28 +374,54 @@ serve(async (req) => {
     
     console.log(`📊 Current signals: ${currentSignalCount}/${MAX_ACTIVE_SIGNALS}`);
 
-    if (currentSignalCount >= MAX_ACTIVE_SIGNALS) {
-      console.log(`🚫 Signal limit reached - no new generation`);
-      return new Response(
-        JSON.stringify({ 
-          success: true,
-          message: `Signal limit reached (${currentSignalCount}/${MAX_ACTIVE_SIGNALS})`,
-          signals: [],
-          stats: {
-            opportunitiesAnalyzed: 0,
-            signalsGenerated: 0,
-            totalActiveSignals: currentSignalCount,
-            signalLimit: MAX_ACTIVE_SIGNALS,
-            limitReached: true,
-            executionTime: `${Date.now() - startTime}ms`,
-            firstTakeProfitPips: 15
-          }
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // ENHANCED: Handle when limit is reached with intelligent rotation
+    let availableSlots = MAX_ACTIVE_SIGNALS - currentSignalCount;
+    
+    if (availableSlots <= 0) {
+      console.log(`🔄 Signal limit reached (${currentSignalCount}/${MAX_ACTIVE_SIGNALS}) - initiating intelligent rotation...`);
+      
+      const slotsNeeded = Math.min(MAX_NEW_SIGNALS_PER_RUN, 5); // Rotate up to 5 signals
+      const rotatedCount = await rotateOldestSignals(supabase, slotsNeeded);
+      
+      if (rotatedCount > 0) {
+        availableSlots = rotatedCount;
+        console.log(`✅ Created ${rotatedCount} slots through intelligent rotation`);
+        
+        // Refresh existing pairs after rotation
+        const { data: updatedSignals } = await supabase
+          .from('trading_signals')
+          .select('symbol')
+          .eq('is_centralized', true)
+          .is('user_id', null)
+          .eq('status', 'active');
+        
+        existingPairs.clear();
+        updatedSignals?.forEach(s => existingPairs.add(s.symbol));
+      } else {
+        console.log(`🚫 Unable to rotate signals - no new generation`);
+        return new Response(
+          JSON.stringify({ 
+            success: true,
+            message: `Signal limit reached and rotation failed (${currentSignalCount}/${MAX_ACTIVE_SIGNALS})`,
+            signals: [],
+            stats: {
+              opportunitiesAnalyzed: 0,
+              signalsGenerated: 0,
+              totalActiveSignals: currentSignalCount,
+              signalLimit: MAX_ACTIVE_SIGNALS,
+              limitReached: true,
+              rotationAttempted: true,
+              rotationSuccess: false,
+              executionTime: `${Date.now() - startTime}ms`,
+              firstTakeProfitPips: 15
+            }
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
-    const maxNewSignals = Math.min(MAX_NEW_SIGNALS_PER_RUN, MAX_ACTIVE_SIGNALS - currentSignalCount);
+    const maxNewSignals = Math.min(MAX_NEW_SIGNALS_PER_RUN, availableSlots);
     console.log(`✅ Can generate up to ${maxNewSignals} new AI-analyzed signals (15-pip first TP)`);
 
     // Market data validation
@@ -437,20 +514,21 @@ serve(async (req) => {
       }
     }
 
-    const finalActiveSignals = currentSignalCount + signalsGenerated;
+    const finalActiveSignals = currentSignalCount - (availableSlots - maxNewSignals) + signalsGenerated;
     const executionTime = Date.now() - startTime;
 
-    console.log(`📊 OPTIMIZED GENERATION COMPLETE (15-pip first TP):`);
+    console.log(`📊 ENHANCED GENERATION COMPLETE (15-pip first TP):`);
     console.log(`  - Execution time: ${executionTime}ms (limit: ${FUNCTION_TIMEOUT_MS}ms)`);
     console.log(`  - New AI signals: ${signalsGenerated}/${maxNewSignals}`);
     console.log(`  - Total active: ${finalActiveSignals}/${MAX_ACTIVE_SIGNALS}`);
     console.log(`  - Pairs analyzed: ${latestPrices.size}`);
     console.log(`  - First Take Profit: 15 pips (improved hit rate)`);
+    console.log(`  - Rotation used: ${availableSlots > (MAX_ACTIVE_SIGNALS - currentSignalCount)}`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Optimized generation: ${signalsGenerated} AI-analyzed signals in ${executionTime}ms (15-pip first TP)`,
+        message: `Enhanced generation: ${signalsGenerated} AI-analyzed signals in ${executionTime}ms (15-pip first TP)`,
         signals: generatedSignals?.map(s => ({ 
           id: s.id, 
           symbol: s.symbol, 
@@ -469,7 +547,9 @@ serve(async (req) => {
           timeoutProtection: `${FUNCTION_TIMEOUT_MS/1000}s`,
           enhancedMode: true,
           aiAnalysisRequired: true,
-          firstTakeProfitPips: 15
+          firstTakeProfitPips: 15,
+          rotationUsed: availableSlots > (MAX_ACTIVE_SIGNALS - currentSignalCount),
+          availableSlots: maxNewSignals
         },
         timestamp: new Date().toISOString(),
         trigger: isCronTriggered ? 'cron' : 'manual'
@@ -479,7 +559,7 @@ serve(async (req) => {
 
   } catch (error) {
     const executionTime = Date.now() - startTime;
-    console.error(`💥 OPTIMIZED GENERATION ERROR (${executionTime}ms):`, error);
+    console.error(`💥 ENHANCED GENERATION ERROR (${executionTime}ms):`, error);
     
     return new Response(
       JSON.stringify({ 

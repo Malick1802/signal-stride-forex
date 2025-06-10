@@ -15,7 +15,7 @@ import { useMarketActivation } from '@/hooks/useMarketActivation';
 import AutomationDashboard from './AutomationDashboard';
 
 // Maximum number of active signals
-const MAX_ACTIVE_SIGNALS = 20;
+const MAX_ACTIVE_SIGNALS = 20; // Increased from 15
 
 const TradingSignals = memo(() => {
   const { signals, loading, lastUpdate, triggerAutomaticSignalGeneration } = useTradingSignals();
@@ -348,12 +348,12 @@ const TradingSignals = memo(() => {
               <TrendingUp className="h-5 w-5 text-green-400" />
               <span className="text-white font-medium">Enhanced Success-Focused Signal Generation (Max: {MAX_ACTIVE_SIGNALS})</span>
               <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
-                ENHANCED MONITORING
+                WITH INTELLIGENT ROTATION
               </span>
             </div>
             <Button
               onClick={handleDetectOpportunities}
-              disabled={detectingOpportunities || validSignals.length >= MAX_ACTIVE_SIGNALS}
+              disabled={detectingOpportunities}
               className="bg-green-600 hover:bg-green-700 text-white text-sm"
               size="sm"
             >
@@ -361,11 +361,6 @@ const TradingSignals = memo(() => {
                 <>
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                   Analyzing Enhanced Opportunities...
-                </>
-              ) : validSignals.length >= MAX_ACTIVE_SIGNALS ? (
-                <>
-                  <Target className="h-4 w-4 mr-2" />
-                  Signal Limit Reached
                 </>
               ) : (
                 <>
@@ -376,7 +371,7 @@ const TradingSignals = memo(() => {
             </Button>
           </div>
           <div className="text-sm text-gray-400">
-            🧠 {validSignals.length >= MAX_ACTIVE_SIGNALS ? `Limit reached (${validSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${MAX_ACTIVE_SIGNALS - validSignals.length} slots available`} • Enhanced monitoring • Validated outcomes
+            🧠 {validSignals.length}/{MAX_ACTIVE_SIGNALS} active • Intelligent rotation • Enhanced monitoring • Validated outcomes
           </div>
         </div>
       </div>
@@ -439,23 +434,18 @@ const TradingSignals = memo(() => {
                 : `No signals for ${selectedPair}`}
             </div>
             <div className="text-sm text-gray-500 mb-6">
-              🎯 Signal limit: {MAX_ACTIVE_SIGNALS} • Market-based expiration • Natural lifecycle based on price action
+              🎯 Signal limit: {MAX_ACTIVE_SIGNALS} • Market-based expiration • Natural lifecycle based on price action • Intelligent rotation
             </div>
             <div className="space-x-4">
               <Button
                 onClick={handleDetectOpportunities}
-                disabled={detectingOpportunities || validSignals.length >= MAX_ACTIVE_SIGNALS}
+                disabled={detectingOpportunities}
                 className="bg-green-600 hover:bg-green-700 text-white"
               >
                 {detectingOpportunities ? (
                   <>
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
                     Analyzing Market-Based Opportunities...
-                  </>
-                ) : validSignals.length >= MAX_ACTIVE_SIGNALS ? (
-                  <>
-                    <Target className="h-4 w-4 mr-2" />
-                    Signal Limit Reached ({MAX_ACTIVE_SIGNALS})
                   </>
                 ) : (
                   <>
