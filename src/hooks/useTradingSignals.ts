@@ -21,7 +21,7 @@ interface TradingSignal {
   targetsHit: number[];
 }
 
-// Maximum number of active signals
+// UPDATED: Consistent 20-signal limit with backend
 const MAX_ACTIVE_SIGNALS = 20;
 
 export const useTradingSignals = () => {
@@ -32,7 +32,7 @@ export const useTradingSignals = () => {
 
   const fetchSignals = useCallback(async () => {
     try {
-      // Fetch only ACTIVE centralized signals (limited to 15)
+      // Fetch only ACTIVE centralized signals (limited to 20)
       const { data: centralizedSignals, error } = await supabase
         .from('trading_signals')
         .select('*')
@@ -43,13 +43,13 @@ export const useTradingSignals = () => {
         .limit(MAX_ACTIVE_SIGNALS);
 
       if (error) {
-        console.error('❌ Error fetching active enhanced success-focused signals:', error);
+        console.error('❌ Error fetching active signals:', error);
         setSignals([]);
         return;
       }
 
       if (!centralizedSignals || centralizedSignals.length === 0) {
-        console.log('📭 No active enhanced success-focused signals found');
+        console.log('📭 No active signals found');
         setSignals([]);
         setLastUpdate(new Date().toLocaleTimeString());
         return;
@@ -60,7 +60,7 @@ export const useTradingSignals = () => {
       setLastUpdate(new Date().toLocaleTimeString());
       
       if (processedSignals.length > 0) {
-        console.log(`✅ Loaded ${processedSignals.length}/${MAX_ACTIVE_SIGNALS} enhanced success-focused signals (TARGET: 70%+ SUCCESS RATE)`);
+        console.log(`✅ Loaded ${processedSignals.length}/${MAX_ACTIVE_SIGNALS} active signals`);
       }
       
     } catch (error) {
@@ -72,7 +72,7 @@ export const useTradingSignals = () => {
   }, []);
 
   const processSignals = (activeSignals: any[]) => {
-    console.log(`📊 Processing ${activeSignals.length}/${MAX_ACTIVE_SIGNALS} enhanced success-focused signals (TARGET: 70%+ SUCCESS RATE)`);
+    console.log(`📊 Processing ${activeSignals.length}/${MAX_ACTIVE_SIGNALS} active signals`);
 
     const transformedSignals = activeSignals
       .map(signal => {
@@ -138,48 +138,46 @@ export const useTradingSignals = () => {
       })
       .filter(Boolean) as TradingSignal[];
 
-    console.log(`✅ Successfully processed ${transformedSignals.length}/${MAX_ACTIVE_SIGNALS} enhanced success-focused signals (TARGET: 70%+ SUCCESS RATE)`);
+    console.log(`✅ Successfully processed ${transformedSignals.length}/${MAX_ACTIVE_SIGNALS} active signals`);
     return transformedSignals;
   };
 
   const triggerIndividualSignalGeneration = useCallback(async () => {
     try {
-      console.log(`🚀 Triggering enhanced success-focused signal generation with ${MAX_ACTIVE_SIGNALS}-signal limit (TARGET: 70%+ success rate)...`);
+      console.log(`🚀 Triggering signal generation with ${MAX_ACTIVE_SIGNALS}-signal limit...`);
       
       const { data: signalResult, error: signalError } = await supabase.functions.invoke('generate-signals');
       
       if (signalError) {
-        console.error('❌ Enhanced success-focused signal generation failed:', signalError);
+        console.error('❌ Signal generation failed:', signalError);
         toast({
           title: "Generation Failed",
-          description: "Failed to detect new enhanced success-focused trading opportunities",
+          description: "Failed to detect new trading opportunities",
           variant: "destructive"
         });
         return;
       }
       
-      console.log('✅ Enhanced success-focused signal generation completed with improved success targeting');
+      console.log('✅ Signal generation completed');
       
       await new Promise(resolve => setTimeout(resolve, 1000));
       await fetchSignals();
       
       const signalsGenerated = signalResult?.stats?.signalsGenerated || 0;
-      const opportunitiesAnalyzed = signalResult?.stats?.opportunitiesAnalyzed || 0;
       const totalActiveSignals = signalResult?.stats?.totalActiveSignals || 0;
       const signalLimit = signalResult?.stats?.signalLimit || MAX_ACTIVE_SIGNALS;
-      const limitReached = signalResult?.stats?.limitReached || false;
-      const generationRate = signalResult?.stats?.generationRate || '0%';
+      const rotationUsed = signalResult?.stats?.rotationUsed || false;
       
       toast({
-        title: limitReached ? "Signal Limit Reached" : "Enhanced Success-Focused Generation Complete",
-        description: `${signalsGenerated} new enhanced success signals generated (${totalActiveSignals}/${signalLimit} total active) - TARGET: 70%+ success rate`,
+        title: "Signal Generation Complete",
+        description: `${signalsGenerated} new signals generated (${totalActiveSignals}/${signalLimit} total active)${rotationUsed ? ' - Used intelligent rotation' : ''}`,
       });
       
     } catch (error) {
-      console.error('❌ Error in enhanced success-focused signal generation:', error);
+      console.error('❌ Error in signal generation:', error);
       toast({
         title: "Generation Error",
-        description: "Failed to detect new enhanced success-focused trading opportunities",
+        description: "Failed to detect new trading opportunities",
         variant: "destructive"
       });
     }

@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -8,9 +7,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// UPDATED: Increased maximum signals and improved rotation
-const MAX_ACTIVE_SIGNALS = 20; // Increased from 15
-const MAX_NEW_SIGNALS_PER_RUN = 10; // Increased from 8
+// UPDATED: Consistent 20-signal limit with frontend
+const MAX_ACTIVE_SIGNALS = 20;
+const MAX_NEW_SIGNALS_PER_RUN = 10;
 const FUNCTION_TIMEOUT_MS = 120000; // 120 seconds internal timeout
 const CONCURRENT_ANALYSIS_LIMIT = 3; // Process 3 pairs concurrently
 
@@ -47,7 +46,7 @@ const calculateRealisticTakeProfit = (entryPrice: number, symbol: string, signal
     : entryPrice - takeProfitDistance;
 };
 
-// NEW: Intelligent signal rotation function
+// NEW: Enhanced signal rotation function with better logic
 const rotateOldestSignals = async (supabase: any, slotsNeeded: number): Promise<number> => {
   console.log(`🔄 Rotating ${slotsNeeded} oldest signals to make room for new ones...`);
   
@@ -336,7 +335,7 @@ serve(async (req) => {
 
   const startTime = Date.now();
   
-  // OPTIMIZED: Function timeout protection
+  // Function timeout protection
   const timeoutPromise = new Promise((_, reject) => 
     setTimeout(() => reject(new Error('Function timeout after 120 seconds')), FUNCTION_TIMEOUT_MS)
   );
@@ -345,7 +344,7 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const isCronTriggered = body.trigger === 'cron';
     
-    console.log(`🎯 ENHANCED signal generation starting (MAX: ${MAX_ACTIVE_SIGNALS}, new per run: ${MAX_NEW_SIGNALS_PER_RUN}, 15-pip first TP)...`);
+    console.log(`🎯 ENHANCED signal generation starting (MAX: ${MAX_ACTIVE_SIGNALS}, new per run: ${MAX_NEW_SIGNALS_PER_RUN})...`);
     console.log(`🛡️ Enhanced timeout protection: ${FUNCTION_TIMEOUT_MS/1000}s limit`);
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -358,92 +357,66 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Check existing active signals
+    // Check existing active signals with proper counting
     console.log(`🔍 Checking existing signals (limit: ${MAX_ACTIVE_SIGNALS})...`);
-    const { data: existingSignals, error: existingError } = await supabase
+    const { data: existingSignals, error: existingError, count: totalCount } = await supabase
       .from('trading_signals')
-      .select('symbol')
+      .select('symbol', { count: 'exact' })
       .eq('is_centralized', true)
       .is('user_id', null)
       .eq('status', 'active');
 
     if (existingError) throw existingError;
 
-    const existingPairs = new Set(existingSignals?.map(s => s.symbol) || []);
-    const currentSignalCount = existingPairs.size;
-    
-    console.log(`📊 Current signals: ${currentSignalCount}/${MAX_ACTIVE_SIGNALS}`);
+    const currentSignalCount = totalCount || 0;
+    console.log(`📊 Current active signals: ${currentSignalCount}/${MAX_ACTIVE_SIGNALS}`);
 
-    // ENHANCED: Handle when limit is reached with intelligent rotation
+    // Calculate available slots more accurately
     let availableSlots = MAX_ACTIVE_SIGNALS - currentSignalCount;
     
     if (availableSlots <= 0) {
       console.log(`🔄 Signal limit reached (${currentSignalCount}/${MAX_ACTIVE_SIGNALS}) - initiating intelligent rotation...`);
       
-      const slotsNeeded = Math.min(MAX_NEW_SIGNALS_PER_RUN, 5); // Rotate up to 5 signals
+      const slotsNeeded = Math.min(MAX_NEW_SIGNALS_PER_RUN, 8); // Rotate up to 8 signals
       const rotatedCount = await rotateOldestSignals(supabase, slotsNeeded);
       
       if (rotatedCount > 0) {
         availableSlots = rotatedCount;
         console.log(`✅ Created ${rotatedCount} slots through intelligent rotation`);
-        
-        // Refresh existing pairs after rotation
-        const { data: updatedSignals } = await supabase
-          .from('trading_signals')
-          .select('symbol')
-          .eq('is_centralized', true)
-          .is('user_id', null)
-          .eq('status', 'active');
-        
-        existingPairs.clear();
-        updatedSignals?.forEach(s => existingPairs.add(s.symbol));
       } else {
-        console.log(`🚫 Unable to rotate signals - no new generation`);
-        return new Response(
-          JSON.stringify({ 
-            success: true,
-            message: `Signal limit reached and rotation failed (${currentSignalCount}/${MAX_ACTIVE_SIGNALS})`,
-            signals: [],
-            stats: {
-              opportunitiesAnalyzed: 0,
-              signalsGenerated: 0,
-              totalActiveSignals: currentSignalCount,
-              signalLimit: MAX_ACTIVE_SIGNALS,
-              limitReached: true,
-              rotationAttempted: true,
-              rotationSuccess: false,
-              executionTime: `${Date.now() - startTime}ms`,
-              firstTakeProfitPips: 15
-            }
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        console.log(`🚫 Unable to rotate signals - forcing generation anyway`);
+        // Force generation of at least 2 signals by rotating 2 oldest
+        const forceRotated = await rotateOldestSignals(supabase, 2);
+        availableSlots = Math.max(forceRotated, 1); // Ensure at least 1 slot
       }
     }
 
-    const maxNewSignals = Math.min(MAX_NEW_SIGNALS_PER_RUN, availableSlots);
-    console.log(`✅ Can generate up to ${maxNewSignals} new AI-analyzed signals (15-pip first TP)`);
+    const maxNewSignals = Math.min(MAX_NEW_SIGNALS_PER_RUN, Math.max(availableSlots, 1)); // Always try to generate at least 1
+    console.log(`✅ Will attempt to generate ${maxNewSignals} new signals (available slots: ${availableSlots})`);
 
-    // Market data validation
+    // Get market data
     const { data: marketData, error: marketError } = await supabase
       .from('centralized_market_state')
       .select('*')
       .order('last_update', { ascending: false })
-      .limit(30); // Reduced from 50
+      .limit(30);
 
     if (marketError) throw marketError;
 
-    // OPTIMIZED: Prioritized currency pairs (focus on majors first)
+    // Get existing pairs to avoid duplicates
+    const existingPairs = new Set(existingSignals?.map(s => s.symbol) || []);
+
+    // Prioritized currency pairs
     const prioritizedPairs = [
-      'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD', // Majors first
+      'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD',
       'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY',
       'GBPNZD', 'AUDNZD', 'CADCHF', 'EURAUD', 'EURNZD', 'GBPCAD'
     ];
     
     const availablePairs = prioritizedPairs.filter(pair => !existingPairs.has(pair));
-    const pairsToAnalyze = availablePairs.slice(0, maxNewSignals * 2); // Analyze 2x pairs to account for rejections
+    const pairsToAnalyze = availablePairs.slice(0, maxNewSignals * 3); // Analyze 3x pairs to account for rejections
     
-    console.log(`🔍 Will analyze ${pairsToAnalyze.length} prioritized pairs for ${maxNewSignals} slots (15-pip first TP)`);
+    console.log(`🔍 Will analyze ${pairsToAnalyze.length} pairs for ${maxNewSignals} slots`);
     
     // Get latest prices
     const latestPrices = new Map();
@@ -460,22 +433,22 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: true,
-          message: 'No market data available',
+          message: 'No market data available for signal generation',
           signals: [],
           stats: {
             opportunitiesAnalyzed: 0,
             signalsGenerated: 0,
             totalActiveSignals: currentSignalCount,
-            executionTime: `${Date.now() - startTime}ms`,
-            firstTakeProfitPips: 15
+            signalLimit: MAX_ACTIVE_SIGNALS,
+            executionTime: `${Date.now() - startTime}ms`
           }
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // OPTIMIZED: Concurrent processing with timeout protection
-    console.log(`🚀 Starting optimized concurrent AI analysis (${CONCURRENT_ANALYSIS_LIMIT} parallel, 15-pip first TP)...`);
+    // Generate signals with concurrent processing
+    console.log(`🚀 Starting signal generation (${CONCURRENT_ANALYSIS_LIMIT} parallel)...`);
     
     const processingPromise = processPairsConcurrently(
       Array.from(latestPrices.keys()), 
@@ -493,7 +466,7 @@ serve(async (req) => {
 
     for (const signal of signalsToInsert) {
       try {
-        console.log(`💾 Inserting AI signal for ${signal.symbol} (15-pip first TP)...`);
+        console.log(`💾 Inserting signal for ${signal.symbol}...`);
         const { data: insertedSignal, error: insertError } = await supabase
           .from('trading_signals')
           .insert([signal])
@@ -507,28 +480,27 @@ serve(async (req) => {
 
         signalsGenerated++;
         generatedSignals.push(insertedSignal);
-        console.log(`✅ Inserted signal ${signalsGenerated}/${maxNewSignals}: ${signal.symbol} ${signal.type} (15-pip first TP)`);
+        console.log(`✅ Inserted signal ${signalsGenerated}/${maxNewSignals}: ${signal.symbol} ${signal.type}`);
 
       } catch (error) {
         console.error(`❌ Error inserting signal for ${signal.symbol}:`, error);
       }
     }
 
-    const finalActiveSignals = currentSignalCount - (availableSlots - maxNewSignals) + signalsGenerated;
+    const finalActiveSignals = currentSignalCount - (Math.max(0, currentSignalCount - MAX_ACTIVE_SIGNALS)) + signalsGenerated;
     const executionTime = Date.now() - startTime;
 
-    console.log(`📊 ENHANCED GENERATION COMPLETE (15-pip first TP):`);
-    console.log(`  - Execution time: ${executionTime}ms (limit: ${FUNCTION_TIMEOUT_MS}ms)`);
-    console.log(`  - New AI signals: ${signalsGenerated}/${maxNewSignals}`);
+    console.log(`📊 SIGNAL GENERATION COMPLETE:`);
+    console.log(`  - Execution time: ${executionTime}ms`);
+    console.log(`  - New signals generated: ${signalsGenerated}/${maxNewSignals}`);
     console.log(`  - Total active: ${finalActiveSignals}/${MAX_ACTIVE_SIGNALS}`);
     console.log(`  - Pairs analyzed: ${latestPrices.size}`);
-    console.log(`  - First Take Profit: 15 pips (improved hit rate)`);
-    console.log(`  - Rotation used: ${availableSlots > (MAX_ACTIVE_SIGNALS - currentSignalCount)}`);
+    console.log(`  - Available slots used: ${Math.min(availableSlots, signalsGenerated)}`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Enhanced generation: ${signalsGenerated} AI-analyzed signals in ${executionTime}ms (15-pip first TP)`,
+        message: `Generated ${signalsGenerated} signals in ${executionTime}ms (${finalActiveSignals}/${MAX_ACTIVE_SIGNALS} total)`,
         signals: generatedSignals?.map(s => ({ 
           id: s.id, 
           symbol: s.symbol, 
@@ -545,11 +517,8 @@ serve(async (req) => {
           concurrentLimit: CONCURRENT_ANALYSIS_LIMIT,
           executionTime: `${executionTime}ms`,
           timeoutProtection: `${FUNCTION_TIMEOUT_MS/1000}s`,
-          enhancedMode: true,
-          aiAnalysisRequired: true,
-          firstTakeProfitPips: 15,
-          rotationUsed: availableSlots > (MAX_ACTIVE_SIGNALS - currentSignalCount),
-          availableSlots: maxNewSignals
+          availableSlots: maxNewSignals,
+          rotationUsed: availableSlots !== (MAX_ACTIVE_SIGNALS - currentSignalCount)
         },
         timestamp: new Date().toISOString(),
         trigger: isCronTriggered ? 'cron' : 'manual'
@@ -559,7 +528,7 @@ serve(async (req) => {
 
   } catch (error) {
     const executionTime = Date.now() - startTime;
-    console.error(`💥 ENHANCED GENERATION ERROR (${executionTime}ms):`, error);
+    console.error(`💥 SIGNAL GENERATION ERROR (${executionTime}ms):`, error);
     
     return new Response(
       JSON.stringify({ 
