@@ -199,6 +199,13 @@ const TradingSignals = memo(() => {
       {/* Real-time Connection Status */}
       <RealTimeStatus />
 
+      {/* Signal Statistics Overview */}
+      <SignalStats 
+        signalsCount={validSignals.length}
+        avgConfidence={avgConfidence}
+        lastUpdate={lastUpdate || 'Never'}
+      />
+
       {/* Debug Dashboard */}
       {showDebugDashboard && (
         <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-6">
