@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { TrendingUp, TrendingDown, Trophy, RefreshCw, Target } from 'lucide-react';
+import { TrendingUp, TrendingDown, Target, RefreshCw } from 'lucide-react';
 import { useExpiredSignals } from '@/hooks/useExpiredSignals';
 import { Button } from '@/components/ui/button';
 
@@ -9,17 +9,17 @@ const ExpiredSignals = () => {
 
   const getResultColor = (result: string) => {
     switch (result) {
-      case 'WIN': return 'text-emerald-400 bg-emerald-400/30 border-emerald-400/50';
-      case 'LOSS': return 'text-red-400 bg-red-400/30 border-red-400/50';
-      default: return 'text-gray-400 bg-gray-400/30 border-gray-400/50';
+      case 'WIN': return 'text-emerald-400 bg-emerald-400/20';
+      case 'LOSS': return 'text-red-400 bg-red-400/20';
+      default: return 'text-gray-400 bg-gray-400/20';
     }
   };
 
   const getResultIcon = (result: string) => {
     switch (result) {
-      case 'WIN': return <TrendingUp className="h-5 w-5" />;
-      case 'LOSS': return <TrendingDown className="h-5 w-5" />;
-      default: return <Trophy className="h-5 w-5" />;
+      case 'WIN': return <TrendingUp className="h-4 w-4" />;
+      case 'LOSS': return <TrendingDown className="h-4 w-4" />;
+      default: return <Target className="h-4 w-4" />;
     }
   };
 
@@ -81,7 +81,7 @@ const ExpiredSignals = () => {
 
         {expiredSignals.length === 0 ? (
           <div className="p-12 text-center">
-            <Trophy className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-medium text-white mb-2">No Completed Signals</h3>
             <p className="text-gray-400">No signals have been completed yet. Signals will appear here when they hit their stop loss or take profit levels.</p>
           </div>
@@ -101,31 +101,19 @@ const ExpiredSignals = () => {
                         {signal.type}
                       </span>
                     </div>
-                    {/* Enhanced outcome display with Take Profit hit info */}
-                    <div className="flex items-center space-x-3">
-                      <div className={`flex items-center space-x-2 px-4 py-2 rounded-lg border-2 shadow-lg ${getResultColor(signal.result)}`}>
-                        {getResultIcon(signal.result)}
-                        <span className="text-sm font-bold tracking-wide">{signal.result}</span>
-                      </div>
-                      {/* Take Profit hit indicator */}
-                      {signal.result === 'WIN' && signal.reason && signal.reason.includes('Take Profit') && (
-                        <div className="flex items-center space-x-2 px-3 py-2 bg-emerald-500/20 border border-emerald-400/40 rounded-lg shadow-md">
-                          <Target className="h-4 w-4 text-emerald-400" />
-                          <span className="text-emerald-400 text-sm font-bold tracking-wide">
-                            {signal.reason.replace('Target', 'Take Profit')}
-                          </span>
-                        </div>
-                      )}
+                    <div className={`flex items-center space-x-1 px-2 py-1 rounded ${getResultColor(signal.result)}`}>
+                      {getResultIcon(signal.result)}
+                      <span className="text-xs font-medium">{signal.result}</span>
                     </div>
                   </div>
 
                   <div className="text-right">
-                    <div className={`text-xl font-bold ${
+                    <div className={`text-lg font-bold ${
                       signal.result === 'WIN' ? 'text-emerald-400' : 'text-red-400'
                     }`}>
                       {signal.pnl}
                     </div>
-                    <div className="text-gray-400 text-sm font-medium">{signal.duration}</div>
+                    <div className="text-gray-400 text-sm">{signal.duration}</div>
                   </div>
                 </div>
 
@@ -155,12 +143,12 @@ const ExpiredSignals = () => {
                 <div className="mt-4 flex items-center justify-between text-sm">
                   <div className="flex items-center space-x-4">
                     <div className="flex items-center space-x-1 text-gray-400">
-                      <Trophy className="h-4 w-4" />
+                      <Target className="h-4 w-4" />
                       <span>Completed: {signal.expiredAt}</span>
                     </div>
                   </div>
                   <div className="text-gray-400">
-                    Outcome: <span className="text-white font-bold">{signal.reason}</span>
+                    Outcome: <span className="text-white">{signal.reason}</span>
                   </div>
                 </div>
               </div>
