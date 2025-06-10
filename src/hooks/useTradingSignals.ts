@@ -29,7 +29,112 @@ export const useTradingSignals = () => {
   const [signals, setSignals] = useState<TradingSignal[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<string>('');
+  const [previousSignalCount, setPreviousSignalCount] = useState(0);
+  const [dailyPerformance, setDailyPerformance] = useState({
+    totalSignals: 0,
+    completedSignals: 0,
+    winRate: 0,
+    totalPips: 0
+  });
   const { toast } = useToast();
+
+  // Check for new signals and notify
+  const checkForNewSignals = useCallback((newSignals: TradingSignal[]) => {
+    if (newSignals.length > previousSignalCount) {
+      const newSignalCount = newSignals.length - previousSignalCount;
+      const latestSignal = newSignals[0]; // Assuming newest signals are first
+      
+      if (latestSignal && previousSignalCount > 0) { // Don't notify on initial load
+        // Calculate pip distance to first TP for context
+        const entryPrice = parseFloat(latestSignal.entryPrice);
+        const tp1Price = parseFloat(latestSignal.takeProfit1);
+        const pipMultiplier = latestSignal.pair.includes('JPY') ? 100 : 10000;
+        let tp1Pips = 0;
+        
+        if (latestSignal.type === 'BUY') {
+          tp1Pips = Math.round((tp1Price - entryPrice) * pipMultiplier);
+        } else {
+          tp1Pips = Math.round((entryPrice - tp1Price) * pipMultiplier);
+        }
+        
+        toast({
+          title: `🎯 New Signal Generated!`,
+          description: `${latestSignal.pair} ${latestSignal.type} signal created - Entry: ${latestSignal.entryPrice}, TP1: +${tp1Pips} pips (${latestSignal.confidence}% confidence)`,
+          duration: 8000,
+        });
+        
+        console.log(`🎯 NEW SIGNAL: ${latestSignal.pair} ${latestSignal.type} (${latestSignal.confidence}% confidence)`);
+      }
+    }
+    
+    setPreviousSignalCount(newSignals.length);
+  }, [previousSignalCount, toast]);
+
+  // Calculate and update daily performance
+  const updateDailyPerformance = useCallback(async () => {
+    try {
+      const today = new Date();
+      const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+      
+      // Get today's completed signals
+      const { data: completedToday, error: completedError } = await supabase
+        .from('signal_outcomes')
+        .select('*')
+        .gte('exit_timestamp', startOfDay.toISOString());
+      
+      if (!completedError && completedToday) {
+        const totalCompleted = completedToday.length;
+        const wins = completedToday.filter(outcome => outcome.hit_target).length;
+        const winRate = totalCompleted > 0 ? Math.round((wins / totalCompleted) * 100) : 0;
+        const totalPips = completedToday.reduce((sum, outcome) => sum + (outcome.pnl_pips || 0), 0);
+        
+        const newPerformance = {
+          totalSignals: signals.length,
+          completedSignals: totalCompleted,
+          winRate,
+          totalPips
+        };
+        
+        // Check for performance milestones
+        if (newPerformance.winRate !== dailyPerformance.winRate && totalCompleted >= 3) {
+          if (newPerformance.winRate >= 80) {
+            toast({
+              title: `🏆 Excellent Win Rate!`,
+              description: `Today's win rate: ${newPerformance.winRate}% (${wins}/${totalCompleted} signals)`,
+              duration: 8000,
+            });
+          } else if (newPerformance.winRate >= 70) {
+            toast({
+              title: `📈 Strong Performance!`,
+              description: `Today's win rate: ${newPerformance.winRate}% (${wins}/${totalCompleted} signals)`,
+              duration: 6000,
+            });
+          }
+        }
+        
+        // Check for pip milestones
+        if (Math.abs(newPerformance.totalPips) !== Math.abs(dailyPerformance.totalPips)) {
+          if (newPerformance.totalPips >= 100) {
+            toast({
+              title: `💰 Daily Profit Milestone!`,
+              description: `Today's performance: +${newPerformance.totalPips} pips across ${totalCompleted} completed signals`,
+              duration: 10000,
+            });
+          } else if (newPerformance.totalPips >= 50) {
+            toast({
+              title: `📊 Positive Day!`,
+              description: `Today's performance: +${newPerformance.totalPips} pips`,
+              duration: 6000,
+            });
+          }
+        }
+        
+        setDailyPerformance(newPerformance);
+      }
+    } catch (error) {
+      console.error('Error updating daily performance:', error);
+    }
+  }, [signals.length, dailyPerformance, toast]);
 
   const fetchSignals = useCallback(async () => {
     try {
@@ -58,11 +163,18 @@ export const useTradingSignals = () => {
       }
 
       const processedSignals = processSignals(centralizedSignals);
+      
+      // Check for new signals before updating state
+      checkForNewSignals(processedSignals);
+      
       setSignals(processedSignals);
       setLastUpdate(new Date().toLocaleTimeString());
       
       if (processedSignals.length > 0) {
         console.log(`✅ Loaded ${processedSignals.length}/${MAX_ACTIVE_SIGNALS} practical signals`);
+        
+        // Update daily performance
+        updateDailyPerformance();
       }
       
     } catch (error) {
@@ -71,7 +183,7 @@ export const useTradingSignals = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [checkForNewSignals, updateDailyPerformance]);
 
   const processSignals = (activeSignals: any[]) => {
     console.log(`📊 Processing ${activeSignals.length}/${MAX_ACTIVE_SIGNALS} practical signals`);
@@ -149,6 +261,12 @@ export const useTradingSignals = () => {
     try {
       console.log(`🚀 Triggering PRACTICAL signal generation with ${MAX_ACTIVE_SIGNALS}-signal limit...`);
       
+      toast({
+        title: "🔍 Analyzing Markets...",
+        description: "Scanning all currency pairs for quality trading opportunities",
+        duration: 4000,
+      });
+      
       const { data: signalResult, error: signalError } = await supabase.functions.invoke('generate-signals');
       
       if (signalError) {
@@ -170,10 +288,19 @@ export const useTradingSignals = () => {
       const totalActiveSignals = signalResult?.stats?.totalActiveSignals || 0;
       const signalLimit = signalResult?.stats?.signalLimit || MAX_ACTIVE_SIGNALS;
       
-      toast({
-        title: "🎯 Practical Signals Generated",
-        description: `${signalsGenerated} signals generated (${totalActiveSignals}/${signalLimit} total)`,
-      });
+      if (signalsGenerated > 0) {
+        toast({
+          title: "🎯 New Signals Generated",
+          description: `${signalsGenerated} new quality signals found (${totalActiveSignals}/${signalLimit} total active)`,
+          duration: 8000,
+        });
+      } else {
+        toast({
+          title: "📊 Market Analysis Complete",
+          description: `No new opportunities found. Current signals: ${totalActiveSignals}/${signalLimit}`,
+          duration: 6000,
+        });
+      }
       
     } catch (error) {
       console.error('❌ Error in signal generation:', error);
@@ -290,13 +417,27 @@ export const useTradingSignals = () => {
         console.log(`📡 Practical signals subscription status: ${status}`);
         if (status === 'SUBSCRIBED') {
           console.log(`✅ Practical signal updates connected (up to ${MAX_ACTIVE_SIGNALS} signals)`);
+          
+          toast({
+            title: "📡 Live Updates Active",
+            description: "Real-time signal monitoring connected",
+            duration: 4000,
+          });
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           console.error('❌ Signal subscription failed, attempting to reconnect...');
+          
+          toast({
+            title: "⚠️ Connection Issue",
+            description: "Attempting to reconnect to live updates...",
+            variant: "destructive",
+            duration: 4000,
+          });
+          
           setTimeout(fetchSignals, 2000);
         }
       });
 
-    // Subscribe to signal outcomes
+    // Subscribe to signal outcomes for performance tracking
     const outcomesChannel = supabase
       .channel(`relaxed-signal-outcomes-${Date.now()}`)
       .on(
@@ -307,8 +448,11 @@ export const useTradingSignals = () => {
           table: 'signal_outcomes'
         },
         (payload) => {
-          console.log('📡 Relaxed signal outcome detected, refreshing practical signals:', payload);
-          setTimeout(fetchSignals, 500);
+          console.log('📡 Signal outcome detected, updating performance:', payload);
+          setTimeout(() => {
+            fetchSignals();
+            updateDailyPerformance();
+          }, 500);
         }
       )
       .subscribe();
@@ -324,7 +468,7 @@ export const useTradingSignals = () => {
       supabase.removeChannel(outcomesChannel);
       clearInterval(updateInterval);
     };
-  }, [fetchSignals]);
+  }, [fetchSignals, updateDailyPerformance]);
 
   return {
     signals,
@@ -332,7 +476,6 @@ export const useTradingSignals = () => {
     lastUpdate,
     fetchSignals,
     triggerAutomaticSignalGeneration: triggerSignalGeneration,
-    executeTimeBasedEliminationPlan,
-    triggerRealTimeUpdates
+    dailyPerformance
   };
 };
