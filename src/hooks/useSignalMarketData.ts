@@ -19,7 +19,7 @@ export const useSignalMarketData = ({ pair, entryPrice }: UseSignalMarketDataPro
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
   const [isMarketOpen, setIsMarketOpen] = useState(false);
   const [lastUpdateTime, setLastUpdateTime] = useState<string>('');
-  const [dataSource, setDataSource] = useState<string>('FastForex API');
+  const [dataSource, setDataSource] = useState<string>('Live Market Data');
 
   const checkMarketHours = () => {
     const now = new Date();
@@ -103,7 +103,7 @@ export const useSignalMarketData = ({ pair, entryPrice }: UseSignalMarketDataPro
             hour: '2-digit',
             minute: '2-digit'
           }));
-          setDataSource('FastForex API (Live)');
+          setDataSource('Live Market Data');
           console.log(`📊 Updated ${pair} with real price: ${latestPrice}`);
         } else {
           console.log(`Invalid price data for ${pair}, using fallback`);

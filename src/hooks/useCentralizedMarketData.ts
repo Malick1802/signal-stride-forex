@@ -32,7 +32,7 @@ const SUPPORTED_PAIRS = [
 export const useCentralizedMarketData = (symbol: string) => {
   const [marketData, setMarketData] = useState<CentralizedMarketData | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [dataSource, setDataSource] = useState<string>('FastForex Live');
+  const [dataSource, setDataSource] = useState<string>('Live Market Data');
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const channelsRef = useRef<any[]>([]);
@@ -50,7 +50,7 @@ export const useCentralizedMarketData = (symbol: string) => {
     try {
       console.log(`🚀 [${symbol}] Fetching live data${isRetry ? ' (retry)' : ''}`);
 
-      // Get current FastForex-powered market state
+      // Get current market state
       const { data: marketState, error: stateError } = await supabase
         .from('centralized_market_state')
         .select('*')
@@ -154,7 +154,7 @@ export const useCentralizedMarketData = (symbol: string) => {
         // Update state immediately
         setMarketData(centralizedData);
         setIsConnected(true);
-        setDataSource('FastForex Live');
+        setDataSource('Live Market Data');
         setIsInitialLoad(false);
         setIsLoading(false);
         lastUpdateRef.current = Date.now();
