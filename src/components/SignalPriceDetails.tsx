@@ -104,31 +104,31 @@ const SignalPriceDetails = ({
     { 
       level: 1, 
       price: takeProfit1, 
-      label: "Target 1",
+      label: "Take Profit 1",
       pips: calculateTakeProfitPips(entryPriceFloat, parseFloat(takeProfit1), pair)
     },
     { 
       level: 2, 
       price: takeProfit2, 
-      label: "Target 2",
+      label: "Take Profit 2",
       pips: calculateTakeProfitPips(entryPriceFloat, parseFloat(takeProfit2), pair)
     },
     { 
       level: 3, 
       price: takeProfit3, 
-      label: "Target 3",
+      label: "Take Profit 3",
       pips: calculateTakeProfitPips(entryPriceFloat, parseFloat(takeProfit3), pair)
     },
     { 
       level: 4, 
       price: takeProfit4, 
-      label: "Target 4",
+      label: "Take Profit 4",
       pips: calculateTakeProfitPips(entryPriceFloat, parseFloat(takeProfit4), pair)
     },
     { 
       level: 5, 
       price: takeProfit5, 
-      label: "Target 5",
+      label: "Take Profit 5",
       pips: calculateTakeProfitPips(entryPriceFloat, parseFloat(takeProfit5), pair)
     }
   ];
@@ -136,9 +136,9 @@ const SignalPriceDetails = ({
   return (
     <div className="p-4 space-y-3">
       <div className="flex justify-between items-center">
-        <span className="text-gray-400">Entry Price</span>
+        <span className="text-gray-400 font-bold">Entry Price</span>
         <div className="flex items-center space-x-2">
-          <span className="text-white font-mono">{entryPrice}</span>
+          <span className="text-white font-mono font-bold">{entryPrice}</span>
           <Button
             size="sm"
             variant="ghost"
@@ -151,10 +151,10 @@ const SignalPriceDetails = ({
       </div>
       
       <div className="flex justify-between items-center">
-        <span className="text-gray-400">Stop Loss</span>
+        <span className="text-gray-400 font-bold">Stop Loss</span>
         <div className="flex items-center space-x-2">
-          <span className="text-red-400 font-mono">
-            {stopLoss} <span className="text-gray-500 text-xs">({stopLossPips} pips)</span>
+          <span className="text-red-400 font-mono font-bold">
+            {stopLoss} <span className="text-gray-500 text-xs font-bold">({stopLossPips} pips)</span>
           </span>
           <Button
             size="sm"
@@ -173,11 +173,11 @@ const SignalPriceDetails = ({
           
           return (
             <div key={level} className="flex justify-between items-center">
-              <span className="text-gray-400">{label}</span>
+              <span className="text-gray-400 font-bold">{label}</span>
               <div className="flex items-center space-x-2">
                 <div className="flex items-center space-x-2">
-                  <span className="text-emerald-400 font-mono">
-                    {price} <span className="text-gray-500 text-xs">({pips} pips)</span>
+                  <span className="text-emerald-400 font-mono font-bold">
+                    {price} <span className="text-gray-500 text-xs font-bold">({pips} pips)</span>
                   </span>
                   {targetStatus && (
                     <div className={`px-2 py-1 rounded-md text-xs ${targetStatus.bgColor} ${targetStatus.color} flex items-center space-x-1`}>
@@ -200,17 +200,17 @@ const SignalPriceDetails = ({
         })}
       </div>
 
-      {/* Targets Hit Summary */}
+      {/* Take Profits Hit Summary */}
       {targetsHit.length > 0 && (
         <div className="mt-4 p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
           <div className="flex items-center space-x-2 text-emerald-400">
             <Target className="h-4 w-4" />
-            <span className="text-sm font-semibold">
-              {targetsHit.length === 1 ? '1 Target Hit' : `${targetsHit.length} Targets Hit`}
+            <span className="text-sm font-bold">
+              {targetsHit.length === 1 ? '1 Take Profit Hit' : `${targetsHit.length} Take Profits Hit`}
             </span>
           </div>
-          <div className="text-xs text-emerald-300 mt-1">
-            Target{targetsHit.length > 1 ? 's' : ''}: {targetsHit.join(', ')}
+          <div className="text-xs text-emerald-300 mt-1 font-bold">
+            Take Profit{targetsHit.length > 1 ? 's' : ''}: {targetsHit.join(', ')}
           </div>
         </div>
       )}
