@@ -1,5 +1,5 @@
 
-import React, { useState, memo } from 'react';
+import React, { useState, memo, useCallback } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useEnhancedSignalMonitoring } from '@/hooks/useEnhancedSignalMonitoring';
 import { useSignalOutcomeTracker } from '@/hooks/useSignalOutcomeTracker';
