@@ -1,4 +1,5 @@
 
+
 import React, { useState, memo } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useEnhancedSignalMonitoring } from '@/hooks/useEnhancedSignalMonitoring';
@@ -13,7 +14,6 @@ import SignalDebuggingDashboard from './SignalDebuggingDashboard';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Activity, Brain, Shield, Zap, Target, TrendingUp, Bug, Star, Award, AlertTriangle, CheckCircle } from 'lucide-react';
 import { useMarketActivation } from '@/hooks/useMarketActivation';
-import AutomationDashboard from './AutomationDashboard';
 
 // UPDATED: Increased signal limit for better market coverage and diversification
 const MAX_ACTIVE_SIGNALS = 20;
@@ -257,9 +257,6 @@ const TradingSignals = memo(() => {
         </div>
       </div>
 
-      {/* GitHub Actions Automation Dashboard */}
-      <AutomationDashboard />
-
       {/* Global Refresh Status */}
       <GlobalRefreshIndicator />
 
@@ -485,3 +482,4 @@ const TradingSignals = memo(() => {
 TradingSignals.displayName = 'TradingSignals';
 
 export default TradingSignals;
+
