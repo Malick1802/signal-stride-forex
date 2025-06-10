@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -9,9 +10,9 @@ const corsHeaders = {
 
 // ENHANCED: Balanced quality thresholds for practical signal generation
 const MAX_ACTIVE_SIGNALS = 12;
-const MAX_NEW_SIGNALS_PER_RUN = 6; // Increased from 4 for better signal flow
+const MAX_NEW_SIGNALS_PER_RUN = 6;
 const FUNCTION_TIMEOUT_MS = 180000;
-const CONCURRENT_ANALYSIS_LIMIT = 3; // Increased for better throughput
+const CONCURRENT_ANALYSIS_LIMIT = 3;
 
 // Enhanced pip calculation utilities
 const isJPYPair = (symbol: string): boolean => {
@@ -22,13 +23,13 @@ const getPipValue = (symbol: string): number => {
   return isJPYPair(symbol) ? 0.01 : 0.0001;
 };
 
-// ENHANCED: Improved ATR-based dynamic stop loss calculation
-const calculateATRBasedStopLoss = (entryPrice: number, symbol: string, signalType: string, atrValue: number, volatilityMultiplier: number = 1.8): number => {
+// IMPROVED: Enhanced ATR-based stop loss with 40 pip minimum
+const calculateImprovedStopLoss = (entryPrice: number, symbol: string, signalType: string, atrValue: number, volatilityMultiplier: number = 2.2): number => {
   const pipValue = getPipValue(symbol);
   const atrDistance = atrValue * volatilityMultiplier;
   
-  // Balanced minimum stop loss distances
-  const minimumPips = isJPYPair(symbol) ? 50 : 35; // Reduced for better entries
+  // NEW: Improved minimum stop loss (40 pips for non-JPY, 50 pips for JPY)
+  const minimumPips = isJPYPair(symbol) ? 50 : 40;
   const minimumDistance = minimumPips * pipValue;
   
   const stopDistance = Math.max(atrDistance, minimumDistance);
@@ -38,19 +39,17 @@ const calculateATRBasedStopLoss = (entryPrice: number, symbol: string, signalTyp
     : entryPrice + stopDistance;
 };
 
-// ENHANCED: Practical take profit calculation with balanced risk-reward ratios
-const calculateDynamicTakeProfit = (entryPrice: number, stopLoss: number, symbol: string, signalType: string, level: number): number => {
-  const riskDistance = Math.abs(entryPrice - stopLoss);
+// NEW: Fixed pip-based take profit levels (15, 25, 40, 60, 80 pips)
+const calculateFixedPipTakeProfits = (entryPrice: number, signalType: string, symbol: string): number[] => {
+  const pipValue = getPipValue(symbol);
+  const takeProfitPips = [15, 25, 40, 60, 80]; // Fixed pip levels
   
-  // Practical risk-reward ratios for consistent profitability
-  const riskRewardRatios = [1.2, 1.8, 2.2, 2.8, 3.5]; // More achievable ratios
-  const ratio = riskRewardRatios[level - 1] || 1.8;
-  
-  const rewardDistance = riskDistance * ratio;
-  
-  return signalType === 'BUY' 
-    ? entryPrice + rewardDistance 
-    : entryPrice - rewardDistance;
+  return takeProfitPips.map(pips => {
+    const priceDistance = pips * pipValue;
+    return signalType === 'BUY' 
+      ? entryPrice + priceDistance 
+      : entryPrice - priceDistance;
+  });
 };
 
 // Enhanced signal rotation with balanced selection criteria
@@ -106,7 +105,7 @@ const analyzeWithPracticalAI = async (pair: string, marketData: any, openAIApiKe
   const sma50 = priceHistory.slice(0, Math.min(50, priceHistory.length)).reduce((sum, price) => sum + price, 0) / Math.min(priceHistory.length, 50);
   
   // Improved ATR calculation
-  const atr = technicalData.atr || (currentPrice * 0.0015); // Enhanced fallback ATR
+  const atr = technicalData.atr || (currentPrice * 0.0015);
   
   // Enhanced trend strength calculation
   const trendStrength = Math.abs((currentPrice - sma50) / sma50 * 100);
@@ -130,7 +129,7 @@ const analyzeWithPracticalAI = async (pair: string, marketData: any, openAIApiKe
     sessionAdvantage = ['EURUSD', 'GBPUSD', 'USDCAD', 'USDCHF'].includes(pair);
   }
 
-  // RELAXED AI PROMPT: More practical and achievable analysis
+  // IMPROVED AI PROMPT: Focus on achievable targets with new pip structure
   const aiAnalysisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -142,28 +141,22 @@ const analyzeWithPracticalAI = async (pair: string, marketData: any, openAIApiKe
       messages: [
         {
           role: 'system',
-          content: `You are a PRACTICAL FOREX TRADING AI targeting REALISTIC 55-65% win rate with RELAXED criteria for signal generation.
+          content: `You are a PRACTICAL FOREX TRADING AI optimized for REALISTIC pip targets and proper risk management.
 
-RELAXED ANALYSIS REQUIREMENTS (Phase 1):
-- Multi-timeframe confluence (H1, H4 trends - but not requiring perfect alignment)
-- Support/Resistance level identification (approximate levels acceptable)
-- Market structure analysis (simple patterns accepted)
-- Volume and momentum when available (not mandatory)
-- Basic economic fundamentals awareness
-- Risk-reward optimization (minimum 1:1.0 ratio acceptable)
+IMPROVED RISK MANAGEMENT (Fixed Pip Targets):
+- Take Profit 1: FIXED 15 pips (quick wins)
+- Take Profit 2: FIXED 25 pips (realistic extension)
+- Take Profit 3: FIXED 40 pips (good momentum target)
+- Take Profit 4: FIXED 60 pips (strong trend target)
+- Take Profit 5: FIXED 80 pips (exceptional moves only)
+- Stop Loss: MINIMUM 40 pips (better protection)
 
-PRACTICAL QUALITY STANDARDS (RELAXED):
-- Accept EXCELLENT, GOOD, and FAIR setups (65%+ confidence minimum - LOWERED)
-- Require 1-2 technical confirmations (RELAXED from 2+)
-- Clear entry, stop, and target levels (approximate acceptable)
-- Market session awareness (not mandatory advantage)
-- Practical market conditions (work with what's available)
-
-RELAXED RISK MANAGEMENT:
-- ATR-based stop losses (1.5-2x ATR - flexible)
-- Dynamic take profits at achievable levels
-- Maximum 3% risk per signal (RELAXED)
-- Any market conditions acceptable
+PRACTICAL QUALITY STANDARDS:
+- Accept EXCELLENT, GOOD, and FAIR setups (65%+ confidence minimum)
+- Focus on TP1 and TP2 achievement (15-25 pips)
+- Proper risk-reward with 40+ pip stop loss
+- Market session awareness when possible
+- Clear technical reasoning for entry
 
 OUTPUT FORMAT:
 {
@@ -172,18 +165,17 @@ OUTPUT FORMAT:
   "win_probability": 55-75,
   "technical_score": 5-10,
   "confirmations": ["list", "of", "confirmations"],
-  "atr_multiplier": 1.5-2.2,
-  "risk_reward_ratios": [1.0, 1.5, 2.0, 2.5, 3.0],
+  "atr_multiplier": 2.0-2.5,
   "market_structure": "bullish|bearish|neutral",
   "session_advantage": true|false,
   "key_levels": {"support": price, "resistance": price},
-  "analysis": "practical reasoning with workable levels",
+  "analysis": "practical reasoning with focus on 15-25 pip targets",
   "quality_grade": "EXCELLENT|GOOD|FAIR"
 }`
         },
         {
           role: 'user',
-          content: `PRACTICAL ANALYSIS REQUEST for ${pair} (RELAXED CRITERIA):
+          content: `IMPROVED ANALYSIS REQUEST for ${pair} with FIXED PIP TARGETS:
 
 PRICE DATA:
 - Current: ${currentPrice}
@@ -198,20 +190,18 @@ MARKET CONDITIONS:
 - Session Advantage: ${sessionAdvantage}
 - Price History (last 15): ${priceHistory.slice(0, 15).map(p => p.toFixed(5)).join(', ')}
 
-RELAXED ANALYSIS REQUIREMENTS:
-1. Find practical market direction (doesn't need to be perfect)
-2. Identify workable support/resistance levels
-3. Use available technical indicators (imperfect data OK)
-4. Consider session context (not mandatory)
-5. Calculate reasonable risk-reward setup
-6. Provide FAIR, GOOD or EXCELLENT signals (65%+ confidence - RELAXED)
+IMPROVED TARGET STRUCTURE:
+- TP1: 15 pips (PRIMARY TARGET - focus here)
+- TP2: 25 pips (secondary target)
+- TP3-5: 40, 60, 80 pips (bonus targets)
+- SL: Minimum 40 pips (better protection)
 
-Focus on ACHIEVABLE setups that can work in current conditions. Practical trading over perfect analysis. Generate signals when reasonable opportunity exists.
+Analyze for signals that can realistically hit 15-25 pips with proper 40+ pip stop loss protection. Focus on PRACTICAL setups that work in current market conditions.
 `
         }
       ],
       max_tokens: 800,
-      temperature: 0.3 // Slightly higher for more varied analysis
+      temperature: 0.3
     }),
   });
 
@@ -234,11 +224,10 @@ Focus on ACHIEVABLE setups that can work in current conditions. Practical tradin
   return JSON.parse(jsonMatch[0]);
 };
 
-// ENHANCED: Relaxed concurrent processing with practical quality focus
+// ENHANCED: Improved signal processing with fixed pip targets
 const processBalancedQualitySignals = async (pairs: string[], latestPrices: Map<any, any>, openAIApiKey: string, supabase: any, maxSignals: number) => {
   const results = [];
   
-  // Process pairs with enhanced but practical analysis
   for (let i = 0; i < pairs.length && results.length < maxSignals; i++) {
     const pair = pairs[i];
     
@@ -267,7 +256,7 @@ const processBalancedQualitySignals = async (pairs: string[], latestPrices: Map<
       }).filter(change => change > 0);
 
       const volatility = Math.sqrt(priceChanges.reduce((sum, change) => sum + Math.pow(change, 2), 0) / Math.max(priceChanges.length, 1)) * 100;
-      const atr = currentPrice * (volatility / 100) * 0.025; // Improved ATR calculation
+      const atr = currentPrice * (volatility / 100) * 0.025;
 
       const technicalData = {
         volatility,
@@ -275,40 +264,35 @@ const processBalancedQualitySignals = async (pairs: string[], latestPrices: Map<
         priceChanges: priceChanges.slice(0, 50)
       };
 
-      console.log(`🧠 PRACTICAL AI analysis for ${pair} (ATR: ${atr.toFixed(5)}, Vol: ${volatility.toFixed(2)}%)...`);
+      console.log(`🧠 IMPROVED AI analysis for ${pair} (ATR: ${atr.toFixed(5)}, Vol: ${volatility.toFixed(2)}%)...`);
 
       const aiSignal = await analyzeWithPracticalAI(pair, marketPoint, openAIApiKey, priceHistory, technicalData);
 
-      // RELAXED QUALITY FILTERS (Phase 1)
+      // Quality filters
       if (aiSignal.signal === 'NEUTRAL' || !['BUY', 'SELL'].includes(aiSignal.signal)) {
         console.log(`⚪ No signal for ${pair} - NEUTRAL analysis`);
         continue;
       }
 
-      // RELAXED practical quality requirements (LOWERED THRESHOLDS)
       if (aiSignal.confidence < 65 || aiSignal.win_probability < 55 || aiSignal.technical_score < 5) {
-        console.log(`❌ RELAXED QUALITY FILTER: Signal rejected for ${pair} (conf: ${aiSignal.confidence}%, prob: ${aiSignal.win_probability}%, score: ${aiSignal.technical_score})`);
+        console.log(`❌ QUALITY FILTER: Signal rejected for ${pair} (conf: ${aiSignal.confidence}%, prob: ${aiSignal.win_probability}%, score: ${aiSignal.technical_score})`);
         continue;
       }
 
-      // ACCEPT FAIR GRADE (Phase 1 relaxation)
       if (!['EXCELLENT', 'GOOD', 'FAIR'].includes(aiSignal.quality_grade)) {
-        console.log(`❌ QUALITY GRADE FILTER: EXCELLENT/GOOD/FAIR signals accepted, ${pair} rated: ${aiSignal.quality_grade}`);
+        console.log(`❌ QUALITY GRADE FILTER: ${pair} rated: ${aiSignal.quality_grade}`);
         continue;
       }
 
-      // Enhanced signal generation with practical levels
+      // IMPROVED: Enhanced signal generation with fixed pip targets
       const entryPrice = currentPrice;
-      const atrMultiplier = aiSignal.atr_multiplier || 1.8;
-      const stopLoss = calculateATRBasedStopLoss(entryPrice, pair, aiSignal.signal, atr, atrMultiplier);
+      const atrMultiplier = aiSignal.atr_multiplier || 2.2;
       
-      // Practical take profits with relaxed ratios
-      const riskRewardRatios = aiSignal.risk_reward_ratios || [1.0, 1.5, 2.0, 2.5, 3.0];
-      const takeProfit1 = calculateDynamicTakeProfit(entryPrice, stopLoss, pair, aiSignal.signal, 1);
-      const takeProfit2 = calculateDynamicTakeProfit(entryPrice, stopLoss, pair, aiSignal.signal, 2);
-      const takeProfit3 = calculateDynamicTakeProfit(entryPrice, stopLoss, pair, aiSignal.signal, 3);
-      const takeProfit4 = calculateDynamicTakeProfit(entryPrice, stopLoss, pair, aiSignal.signal, 4);
-      const takeProfit5 = calculateDynamicTakeProfit(entryPrice, stopLoss, pair, aiSignal.signal, 5);
+      // NEW: Improved stop loss with 40 pip minimum
+      const stopLoss = calculateImprovedStopLoss(entryPrice, pair, aiSignal.signal, atr, atrMultiplier);
+      
+      // NEW: Fixed pip-based take profits (15, 25, 40, 60, 80 pips)
+      const takeProfits = calculateFixedPipTakeProfits(entryPrice, aiSignal.signal, pair);
 
       // Enhanced chart data generation
       const chartData = [];
@@ -336,31 +320,24 @@ const processBalancedQualitySignals = async (pairs: string[], latestPrices: Map<
         type: aiSignal.signal,
         price: parseFloat(entryPrice.toFixed(isJPYPair(pair) ? 3 : 5)),
         stop_loss: parseFloat(stopLoss.toFixed(isJPYPair(pair) ? 3 : 5)),
-        take_profits: [
-          parseFloat(takeProfit1.toFixed(isJPYPair(pair) ? 3 : 5)),
-          parseFloat(takeProfit2.toFixed(isJPYPair(pair) ? 3 : 5)),
-          parseFloat(takeProfit3.toFixed(isJPYPair(pair) ? 3 : 5)),
-          parseFloat(takeProfit4.toFixed(isJPYPair(pair) ? 3 : 5)),
-          parseFloat(takeProfit5.toFixed(isJPYPair(pair) ? 3 : 5))
-        ],
+        take_profits: takeProfits.map(tp => parseFloat(tp.toFixed(isJPYPair(pair) ? 3 : 5))),
         confidence: aiSignal.confidence,
         status: 'active',
         is_centralized: true,
         user_id: null,
-        analysis_text: `PRACTICAL ${aiSignal.quality_grade} Analysis (${aiSignal.win_probability}% win probability): ${aiSignal.analysis}`,
+        analysis_text: `IMPROVED ${aiSignal.quality_grade} Analysis (${aiSignal.win_probability}% win probability): ${aiSignal.analysis}. TP1: 15 pips, TP2: 25 pips, SL: 40+ pips minimum.`,
         chart_data: chartData,
         pips: Math.round(Math.abs(entryPrice - stopLoss) / getPipValue(pair)),
         created_at: new Date().toISOString()
       };
 
-      console.log(`✅ PRACTICAL QUALITY SIGNAL for ${pair}: ${aiSignal.signal} (${aiSignal.confidence}% confidence, ${aiSignal.quality_grade} grade)`);
+      console.log(`✅ IMPROVED SIGNAL for ${pair}: ${aiSignal.signal} (${aiSignal.confidence}% confidence, TP1: 15 pips, SL: ${Math.round(Math.abs(entryPrice - stopLoss) / getPipValue(pair))} pips)`);
       results.push(signal);
 
-      // Reduced delay for better throughput
       await new Promise(resolve => setTimeout(resolve, 800));
 
     } catch (error) {
-      console.error(`❌ Error in practical analysis for ${pair}:`, error);
+      console.error(`❌ Error in improved analysis for ${pair}:`, error);
     }
   }
 
@@ -382,8 +359,8 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const isCronTriggered = body.trigger === 'cron';
     
-    console.log(`🎯 RELAXED PRACTICAL signal generation starting (MAX: ${MAX_ACTIVE_SIGNALS}, new per run: ${MAX_NEW_SIGNALS_PER_RUN})...`);
-    console.log(`🛡️ Timeout protection: ${FUNCTION_TIMEOUT_MS/1000}s limit with RELAXED quality focus (65%+ confidence, 55%+ win probability)`);
+    console.log(`🎯 IMPROVED signal generation starting (15 pip TP1, 40 pip min SL, MAX: ${MAX_ACTIVE_SIGNALS})...`);
+    console.log(`🛡️ Timeout protection: ${FUNCTION_TIMEOUT_MS/1000}s limit with IMPROVED pip targets`);
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -419,7 +396,7 @@ serve(async (req) => {
     }
 
     const maxNewSignals = Math.min(MAX_NEW_SIGNALS_PER_RUN, Math.max(availableSlots, 1));
-    console.log(`✅ RELAXED analysis will generate ${maxNewSignals} practical quality signals (65%+ confidence)`);
+    console.log(`✅ IMPROVED analysis will generate ${maxNewSignals} signals with fixed pip targets`);
 
     // Get market data
     const { data: marketData, error: marketError } = await supabase
@@ -433,16 +410,16 @@ serve(async (req) => {
     // Get existing pairs to avoid duplicates
     const existingPairs = new Set(existingSignals?.map(s => s.symbol) || []);
 
-    // Prioritized pairs for balanced analysis
+    // Prioritized pairs for analysis
     const prioritizedPairs = [
       'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD',
       'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY'
     ];
     
     const availablePairs = prioritizedPairs.filter(pair => !existingPairs.has(pair));
-    const pairsToAnalyze = availablePairs.slice(0, maxNewSignals * 3); // Increased analysis pool
+    const pairsToAnalyze = availablePairs.slice(0, maxNewSignals * 3);
     
-    console.log(`🔍 RELAXED analysis of ${pairsToAnalyze.length} pairs for ${maxNewSignals} practical slots (65%+ confidence)`);
+    console.log(`🔍 IMPROVED analysis of ${pairsToAnalyze.length} pairs for ${maxNewSignals} slots (15 pip TP1 focus)`);
     
     // Get latest prices
     const latestPrices = new Map();
@@ -459,7 +436,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: true,
-          message: 'No market data available for relaxed practical analysis',
+          message: 'No market data available for improved analysis',
           signals: [],
           stats: {
             opportunitiesAnalyzed: 0,
@@ -467,9 +444,9 @@ serve(async (req) => {
             totalActiveSignals: currentSignalCount,
             signalLimit: MAX_ACTIVE_SIGNALS,
             executionTime: `${Date.now() - startTime}ms`,
-            relaxedCriteria: true,
-            minimumConfidence: 65,
-            minimumWinProbability: 55
+            improvedTargets: true,
+            tp1Target: 15,
+            minimumStopLoss: 40
           }
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -477,7 +454,7 @@ serve(async (req) => {
     }
 
     // Enhanced signal processing
-    console.log(`🚀 Starting RELAXED PRACTICAL signal generation...`);
+    console.log(`🚀 Starting IMPROVED signal generation with fixed pip targets...`);
     
     const processingPromise = processBalancedQualitySignals(
       Array.from(latestPrices.keys()), 
@@ -495,7 +472,7 @@ serve(async (req) => {
 
     for (const signal of signalsToInsert) {
       try {
-        console.log(`💾 Inserting RELAXED practical signal for ${signal.symbol}...`);
+        console.log(`💾 Inserting IMPROVED signal for ${signal.symbol}...`);
         const { data: insertedSignal, error: insertError } = await supabase
           .from('trading_signals')
           .insert([signal])
@@ -509,7 +486,7 @@ serve(async (req) => {
 
         signalsGenerated++;
         generatedSignals.push(insertedSignal);
-        console.log(`✅ RELAXED signal ${signalsGenerated}/${maxNewSignals}: ${signal.symbol} ${signal.type} (${signal.confidence}% confidence)`);
+        console.log(`✅ IMPROVED signal ${signalsGenerated}/${maxNewSignals}: ${signal.symbol} ${signal.type} (${signal.confidence}% confidence, TP1: 15 pips)`);
 
       } catch (error) {
         console.error(`❌ Error inserting signal for ${signal.symbol}:`, error);
@@ -519,17 +496,16 @@ serve(async (req) => {
     const finalActiveSignals = currentSignalCount - Math.max(0, currentSignalCount - MAX_ACTIVE_SIGNALS) + signalsGenerated;
     const executionTime = Date.now() - startTime;
 
-    console.log(`📊 RELAXED PRACTICAL SIGNAL GENERATION COMPLETE:`);
+    console.log(`📊 IMPROVED SIGNAL GENERATION COMPLETE:`);
     console.log(`  - Execution time: ${executionTime}ms`);
-    console.log(`  - Relaxed signals generated: ${signalsGenerated}/${maxNewSignals}`);
+    console.log(`  - Improved signals generated: ${signalsGenerated}/${maxNewSignals}`);
     console.log(`  - Total active: ${finalActiveSignals}/${MAX_ACTIVE_SIGNALS}`);
-    console.log(`  - Relaxed analysis pairs: ${latestPrices.size}`);
-    console.log(`  - Quality focus: EXCELLENT/GOOD/FAIR signals (65%+ confidence)`);
+    console.log(`  - TP1 target: 15 pips, minimum SL: 40 pips`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Generated ${signalsGenerated} RELAXED PRACTICAL signals in ${executionTime}ms (${finalActiveSignals}/${MAX_ACTIVE_SIGNALS} total)`,
+        message: `Generated ${signalsGenerated} IMPROVED signals with fixed pip targets in ${executionTime}ms (${finalActiveSignals}/${MAX_ACTIVE_SIGNALS} total)`,
         signals: generatedSignals?.map(s => ({ 
           id: s.id, 
           symbol: s.symbol, 
@@ -545,11 +521,11 @@ serve(async (req) => {
           maxNewSignalsPerRun: MAX_NEW_SIGNALS_PER_RUN,
           executionTime: `${executionTime}ms`,
           timeoutProtection: `${FUNCTION_TIMEOUT_MS/1000}s`,
-          relaxedCriteria: true,
-          practicalAnalysis: true,
-          minimumConfidence: 65,
-          minimumWinProbability: 55,
-          acceptedGrades: ['EXCELLENT', 'GOOD', 'FAIR'],
+          improvedTargets: true,
+          tp1Target: 15,
+          tp2Target: 25,
+          minimumStopLoss: 40,
+          takeProfitLevels: [15, 25, 40, 60, 80],
           rotationUsed: availableSlots !== (MAX_ACTIVE_SIGNALS - currentSignalCount)
         },
         timestamp: new Date().toISOString(),
@@ -560,7 +536,7 @@ serve(async (req) => {
 
   } catch (error) {
     const executionTime = Date.now() - startTime;
-    console.error(`💥 RELAXED PRACTICAL SIGNAL GENERATION ERROR (${executionTime}ms):`, error);
+    console.error(`💥 IMPROVED SIGNAL GENERATION ERROR (${executionTime}ms):`, error);
     
     return new Response(
       JSON.stringify({ 
@@ -568,7 +544,7 @@ serve(async (req) => {
         error: error.message,
         executionTime: `${executionTime}ms`,
         timestamp: new Date().toISOString(),
-        relaxedAnalysis: true
+        improvedAnalysis: true
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

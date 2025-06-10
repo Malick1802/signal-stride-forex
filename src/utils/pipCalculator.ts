@@ -14,6 +14,10 @@ export const getPipMultiplier = (symbol: string): number => {
   return isJPYPair(symbol) ? 100 : 10000;
 };
 
+export const getPipValue = (symbol: string): number => {
+  return isJPYPair(symbol) ? 0.01 : 0.0001;
+};
+
 export const calculatePips = (
   entryPrice: number,
   currentPrice: number,
@@ -67,6 +71,43 @@ export const calculateSignalPerformance = (
     isProfit,
     profitLoss
   };
+};
+
+// IMPROVED: Enhanced stop loss calculation with 40 pip minimum
+export const calculateImprovedStopLoss = (
+  entryPrice: number,
+  symbol: string,
+  signalType: string,
+  atrValue: number,
+  volatilityMultiplier: number = 2.2
+): number => {
+  const pipValue = getPipValue(symbol);
+  const atrDistance = atrValue * volatilityMultiplier;
+  
+  // NEW: Improved minimum stop loss distances (40 pips minimum for non-JPY, 50 for JPY)
+  const minimumPips = isJPYPair(symbol) ? 50 : 40;
+  const minimumDistance = minimumPips * pipValue;
+  
+  const stopDistance = Math.max(atrDistance, minimumDistance);
+  
+  return signalType === 'BUY' 
+    ? entryPrice - stopDistance 
+    : entryPrice + stopDistance;
+};
+
+// NEW: Fixed pip-based take profit calculation
+export const calculateFixedPipTakeProfit = (
+  entryPrice: number,
+  signalType: string,
+  pipDistance: number,
+  symbol: string
+): number => {
+  const pipValue = getPipValue(symbol);
+  const priceDistance = pipDistance * pipValue;
+  
+  return signalType === 'BUY' 
+    ? entryPrice + priceDistance 
+    : entryPrice - priceDistance;
 };
 
 export const calculateStopLossPips = (
