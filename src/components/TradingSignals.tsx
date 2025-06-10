@@ -1,3 +1,4 @@
+
 import React, { useState, memo } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useEnhancedSignalMonitoring } from '@/hooks/useEnhancedSignalMonitoring';
@@ -9,7 +10,6 @@ import SignalCard from './SignalCard';
 import RealTimeStatus from './RealTimeStatus';
 import GlobalRefreshIndicator from './GlobalRefreshIndicator';
 import SignalDebuggingDashboard from './SignalDebuggingDashboard';
-import WorkflowMonitor from './WorkflowMonitor';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Activity, Brain, Shield, Zap, Target, TrendingUp, Bug, Star, Award, AlertTriangle, CheckCircle } from 'lucide-react';
 import { useMarketActivation } from '@/hooks/useMarketActivation';
@@ -193,9 +193,6 @@ const TradingSignals = memo(() => {
 
   return (
     <div className="space-y-6">
-      {/* GitHub Actions Workflow Monitor */}
-      <WorkflowMonitor />
-
       {/* Global Refresh Status */}
       <GlobalRefreshIndicator />
 
