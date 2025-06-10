@@ -22,8 +22,8 @@ interface TradingSignal {
   targetsHit: number[];
 }
 
-// RELAXED: Practical signal limit for consistent quality with relaxed criteria
-const MAX_ACTIVE_SIGNALS = 12;
+// UPDATED: Increased signal limit for better market coverage and diversification
+const MAX_ACTIVE_SIGNALS = 20;
 
 export const useTradingSignals = () => {
   const [signals, setSignals] = useState<TradingSignal[]>([]);
@@ -33,7 +33,7 @@ export const useTradingSignals = () => {
 
   const fetchSignals = useCallback(async () => {
     try {
-      // RELAXED signal fetching with practical quality focus
+      // UPDATED signal fetching with increased practical quality focus
       const { data: centralizedSignals, error } = await supabase
         .from('trading_signals')
         .select('*')
@@ -45,36 +45,36 @@ export const useTradingSignals = () => {
         .limit(MAX_ACTIVE_SIGNALS);
 
       if (error) {
-        console.error('❌ Error fetching relaxed practical signals:', error);
+        console.error('❌ Error fetching practical signals:', error);
         setSignals([]);
         return;
       }
 
       if (!centralizedSignals || centralizedSignals.length === 0) {
-        console.log('📭 No relaxed practical signals found');
+        console.log('📭 No practical signals found');
         setSignals([]);
         setLastUpdate(new Date().toLocaleTimeString());
         return;
       }
 
-      const processedSignals = processRelaxedSignals(centralizedSignals);
+      const processedSignals = processSignals(centralizedSignals);
       setSignals(processedSignals);
       setLastUpdate(new Date().toLocaleTimeString());
       
       if (processedSignals.length > 0) {
-        console.log(`✅ Loaded ${processedSignals.length}/${MAX_ACTIVE_SIGNALS} relaxed practical signals`);
+        console.log(`✅ Loaded ${processedSignals.length}/${MAX_ACTIVE_SIGNALS} practical signals`);
       }
       
     } catch (error) {
-      console.error('❌ Error in relaxed fetchSignals:', error);
+      console.error('❌ Error in fetchSignals:', error);
       setSignals([]);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const processRelaxedSignals = (activeSignals: any[]) => {
-    console.log(`📊 Processing ${activeSignals.length}/${MAX_ACTIVE_SIGNALS} relaxed practical signals`);
+  const processSignals = (activeSignals: any[]) => {
+    console.log(`📊 Processing ${activeSignals.length}/${MAX_ACTIVE_SIGNALS} practical signals`);
 
     const transformedSignals = activeSignals
       .map(signal => {
@@ -102,9 +102,9 @@ export const useTradingSignals = () => {
               }))
               .filter(point => point.time > 0 && point.price > 0);
             
-            console.log(`📈 Using relaxed chart data for ${signal.symbol}: ${chartData.length} points`);
+            console.log(`📈 Using practical chart data for ${signal.symbol}: ${chartData.length} points`);
           } else {
-            console.warn(`⚠️ No chart data for ${signal.symbol}, using relaxed fallback`);
+            console.warn(`⚠️ No chart data for ${signal.symbol}, using practical fallback`);
             const now = Date.now();
             chartData = [
               { time: now - 30000, price: storedEntryPrice },
@@ -135,33 +135,33 @@ export const useTradingSignals = () => {
             targetsHit: targetsHit
           };
         } catch (error) {
-          console.error(`❌ Error transforming relaxed signal for ${signal?.symbol}:`, error);
+          console.error(`❌ Error transforming practical signal for ${signal?.symbol}:`, error);
           return null;
         }
       })
       .filter(Boolean) as TradingSignal[];
 
-    console.log(`✅ Successfully processed ${transformedSignals.length}/${MAX_ACTIVE_SIGNALS} relaxed practical signals`);
+    console.log(`✅ Successfully processed ${transformedSignals.length}/${MAX_ACTIVE_SIGNALS} practical signals`);
     return transformedSignals;
   };
 
-  const triggerRelaxedSignalGeneration = useCallback(async () => {
+  const triggerSignalGeneration = useCallback(async () => {
     try {
-      console.log(`🚀 Triggering RELAXED PRACTICAL signal generation with ${MAX_ACTIVE_SIGNALS}-signal limit...`);
+      console.log(`🚀 Triggering PRACTICAL signal generation with ${MAX_ACTIVE_SIGNALS}-signal limit...`);
       
       const { data: signalResult, error: signalError } = await supabase.functions.invoke('generate-signals');
       
       if (signalError) {
-        console.error('❌ Relaxed signal generation failed:', signalError);
+        console.error('❌ Signal generation failed:', signalError);
         toast({
-          title: "Relaxed Generation Failed",
-          description: "Failed to detect new relaxed quality trading opportunities",
+          title: "Generation Failed",
+          description: "Failed to detect new quality trading opportunities",
           variant: "destructive"
         });
         return;
       }
       
-      console.log('✅ Relaxed practical signal generation completed');
+      console.log('✅ Practical signal generation completed');
       
       await new Promise(resolve => setTimeout(resolve, 1500));
       await fetchSignals();
@@ -169,19 +169,17 @@ export const useTradingSignals = () => {
       const signalsGenerated = signalResult?.stats?.signalsGenerated || 0;
       const totalActiveSignals = signalResult?.stats?.totalActiveSignals || 0;
       const signalLimit = signalResult?.stats?.signalLimit || MAX_ACTIVE_SIGNALS;
-      const relaxedCriteria = signalResult?.stats?.relaxedCriteria || false;
-      const practicalAnalysis = signalResult?.stats?.practicalAnalysis || false;
       
       toast({
-        title: "🎯 RELAXED Practical Signals Generated",
-        description: `${signalsGenerated} RELAXED signals generated (${totalActiveSignals}/${signalLimit} total)${relaxedCriteria ? ' - Relaxed criteria' : ''}${practicalAnalysis ? ' - Practical AI' : ''}`,
+        title: "🎯 Practical Signals Generated",
+        description: `${signalsGenerated} signals generated (${totalActiveSignals}/${signalLimit} total)`,
       });
       
     } catch (error) {
-      console.error('❌ Error in relaxed signal generation:', error);
+      console.error('❌ Error in signal generation:', error);
       toast({
-        title: "Relaxed Generation Error",
-        description: "Failed to detect new relaxed quality trading opportunities",
+        title: "Generation Error",
+        description: "Failed to detect new quality trading opportunities",
         variant: "destructive"
       });
     }
@@ -272,9 +270,9 @@ export const useTradingSignals = () => {
   useEffect(() => {
     fetchSignals();
     
-    // RELAXED real-time subscriptions for practical quality signals
+    // Updated real-time subscriptions for practical quality signals
     const signalsChannel = supabase
-      .channel(`relaxed-practical-signals-${Date.now()}`)
+      .channel(`practical-signals-${Date.now()}`)
       .on(
         'postgres_changes',
         {
@@ -284,16 +282,16 @@ export const useTradingSignals = () => {
           filter: 'is_centralized=eq.true'
         },
         (payload) => {
-          console.log(`📡 Relaxed practical signal update detected:`, payload);
+          console.log(`📡 Practical signal update detected:`, payload);
           setTimeout(fetchSignals, 300);
         }
       )
       .subscribe((status) => {
-        console.log(`📡 Relaxed practical signals subscription status: ${status}`);
+        console.log(`📡 Practical signals subscription status: ${status}`);
         if (status === 'SUBSCRIBED') {
-          console.log(`✅ Relaxed practical signal updates connected (65%+ confidence targeting)`);
+          console.log(`✅ Practical signal updates connected (up to ${MAX_ACTIVE_SIGNALS} signals)`);
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error('❌ Relaxed signal subscription failed, attempting to reconnect...');
+          console.error('❌ Signal subscription failed, attempting to reconnect...');
           setTimeout(fetchSignals, 2000);
         }
       });
@@ -333,7 +331,7 @@ export const useTradingSignals = () => {
     loading,
     lastUpdate,
     fetchSignals,
-    triggerAutomaticSignalGeneration: triggerRelaxedSignalGeneration,
+    triggerAutomaticSignalGeneration: triggerSignalGeneration,
     executeTimeBasedEliminationPlan,
     triggerRealTimeUpdates
   };

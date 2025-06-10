@@ -8,9 +8,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// ENHANCED: Balanced quality thresholds for practical signal generation
-const MAX_ACTIVE_SIGNALS = 12;
-const MAX_NEW_SIGNALS_PER_RUN = 6;
+// ENHANCED: Increased signal limit for better market coverage and diversification
+const MAX_ACTIVE_SIGNALS = 20;
+const MAX_NEW_SIGNALS_PER_RUN = 8;
 const FUNCTION_TIMEOUT_MS = 180000;
 const CONCURRENT_ANALYSIS_LIMIT = 3;
 
@@ -390,7 +390,7 @@ serve(async (req) => {
     if (availableSlots <= 0) {
       console.log(`🔄 Signal limit reached - initiating balanced rotation...`);
       
-      const slotsNeeded = Math.min(MAX_NEW_SIGNALS_PER_RUN, 6);
+      const slotsNeeded = Math.min(MAX_NEW_SIGNALS_PER_RUN, 8);
       const rotatedCount = await rotateOldestSignals(supabase, slotsNeeded);
       availableSlots = rotatedCount;
     }

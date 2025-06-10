@@ -14,8 +14,8 @@ import { RefreshCw, Activity, Brain, Shield, Zap, Target, TrendingUp, Bug, Star,
 import { useMarketActivation } from '@/hooks/useMarketActivation';
 import AutomationDashboard from './AutomationDashboard';
 
-// RELAXED: Practical signal limit for consistent quality with relaxed criteria
-const MAX_ACTIVE_SIGNALS = 12;
+// UPDATED: Increased signal limit for better market coverage and diversification
+const MAX_ACTIVE_SIGNALS = 20;
 
 const TradingSignals = memo(() => {
   const { signals, loading, lastUpdate, triggerAutomaticSignalGeneration, executeTimeBasedEliminationPlan } = useTradingSignals();
@@ -34,12 +34,12 @@ const TradingSignals = memo(() => {
 
   const { activateMarket } = useMarketActivation();
 
-  // RELAXED signal validation with practical criteria (Phase 1)
+  // Signal validation with practical criteria
   const validSignals = signals.filter(signal => {
     if (!signal || typeof signal !== 'object' || !signal.id || !signal.pair || !signal.type) {
       return false;
     }
-    // RELAXED quality checks (lowered from 70% to 65%)
+    // Quality checks (65%+ confidence)
     if (signal.confidence < 65) {
       console.warn(`⚠️ Low confidence signal filtered out: ${signal.pair} (${signal.confidence}%)`);
       return false;
@@ -54,7 +54,7 @@ const TradingSignals = memo(() => {
 
   const avgConfidence = validSignals.length > 0 
     ? Math.round(validSignals.reduce((sum, signal) => sum + (signal.confidence || 0), 0) / validSignals.length)
-    : 70; // RELAXED default
+    : 70;
 
   const handleEliminateTimeBasedExpiration = async () => {
     setEliminatingTimeBased(true);
@@ -127,10 +127,10 @@ const TradingSignals = memo(() => {
     try {
       await triggerAutomaticSignalGeneration();
     } catch (error) {
-      console.error('Error detecting relaxed practical opportunities:', error);
+      console.error('Error detecting practical opportunities:', error);
       toast({
-        title: "Relaxed Detection Error",
-        description: "Failed to detect new relaxed quality opportunities. Please try again.",
+        title: "Practical Detection Error",
+        description: "Failed to detect new practical opportunities. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -184,7 +184,7 @@ const TradingSignals = memo(() => {
   if (loading && validSignals.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-white">Loading relaxed practical signals (analyzing all currency pairs, limit: {MAX_ACTIVE_SIGNALS})...</div>
+        <div className="text-white">Loading practical signals (analyzing all currency pairs, limit: {MAX_ACTIVE_SIGNALS})...</div>
       </div>
     );
   }
@@ -235,24 +235,24 @@ const TradingSignals = memo(() => {
         </div>
       </div>
 
-      {/* IMPROVED: RELAXED Quality Focus Notice (Phase 1) */}
+      {/* UPDATED: Quality Focus Notice with new signal limit */}
       <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 backdrop-blur-sm rounded-xl border border-green-500/30 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <CheckCircle className="h-6 w-6 text-green-400" />
-              <span className="text-white font-bold text-lg">RELAXED PRACTICAL SIGNALS (Phase 1)</span>
+              <span className="text-white font-bold text-lg">PRACTICAL SIGNALS ({MAX_ACTIVE_SIGNALS} MAX)</span>
               <span className="text-xs bg-green-500/30 text-green-300 px-3 py-1 rounded-full font-medium">
-                65%+ CONFIDENCE • RELAXED APPROACH
+                65%+ CONFIDENCE • 15 PIP TP1 • 40 PIP MIN SL
               </span>
             </div>
           </div>
           <div className="text-sm text-green-300">
-            🎯 Relaxed AI Analysis • Practical Risk Management • 55%+ Win Probability Target
+            🎯 AI Analysis • Risk Management • 55%+ Win Probability Target
           </div>
         </div>
         <div className="mt-2 text-xs text-green-400">
-          ⭐ RELAXED quality: Advanced GPT-4.1 analysis with relaxed thresholds • EXCELLENT/GOOD/FAIR grades accepted
+          ⭐ Quality focus: Advanced GPT-4.1 analysis • EXCELLENT/GOOD/FAIR grades accepted • Up to {MAX_ACTIVE_SIGNALS} signals
         </div>
       </div>
 
@@ -265,15 +265,15 @@ const TradingSignals = memo(() => {
       {/* Real-time Connection Status */}
       <RealTimeStatus />
 
-      {/* IMPROVED: RELAXED Signal Generation System (Phase 1) */}
+      {/* UPDATED: Signal Generation System with new limit */}
       <div className="bg-gradient-to-r from-blue-500/20 to-cyan-500/20 backdrop-blur-sm rounded-xl border border-blue-500/30 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <Target className="h-5 w-5 text-blue-400" />
-              <span className="text-white font-medium">RELAXED Practical Signal Generation (Max: {MAX_ACTIVE_SIGNALS})</span>
+              <span className="text-white font-medium">Practical Signal Generation (Max: {MAX_ACTIVE_SIGNALS})</span>
               <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">
-                RELAXED-FOCUSED
+                QUALITY-FOCUSED
               </span>
             </div>
             <Button
@@ -285,22 +285,22 @@ const TradingSignals = memo(() => {
               {detectingOpportunities ? (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Analyzing Relaxed Opportunities...
+                  Analyzing Opportunities...
                 </>
               ) : (
                 <>
                   <Target className="h-4 w-4 mr-2" />
-                  Generate Relaxed Quality Signals
+                  Generate Quality Signals
                 </>
               )}
             </Button>
           </div>
           <div className="text-sm text-gray-400">
-            🎯 {validSignals.length}/{MAX_ACTIVE_SIGNALS} active • Relaxed rotation • Practical monitoring • 65%+ confidence
+            🎯 {validSignals.length}/{MAX_ACTIVE_SIGNALS} active • Rotation • Monitoring • 65%+ confidence
           </div>
         </div>
         <div className="mt-2 text-xs text-blue-400">
-          ⭐ RELAXED GPT-4.1 analysis • ATR-based stops • Relaxed risk-reward ratios • Multi-timeframe confluence
+          ⭐ GPT-4.1 analysis • ATR-based stops • Risk-reward ratios • Multi-timeframe confluence
         </div>
       </div>
 
@@ -406,7 +406,7 @@ const TradingSignals = memo(() => {
                 onChange={(e) => setSelectedPair(e.target.value)}
                 className="bg-white/10 border border-white/20 rounded px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="All" className="bg-gray-800 text-white">All Relaxed Pairs ({validSignals.length}/{MAX_ACTIVE_SIGNALS})</option>
+                <option value="All" className="bg-gray-800 text-white">All Pairs ({validSignals.length}/{MAX_ACTIVE_SIGNALS})</option>
                 {availablePairs.map(pair => (
                   <option key={pair} value={pair} className="bg-gray-800 text-white">
                     {pair} ({validSignals.filter(s => s.pair === pair).length})
@@ -415,7 +415,7 @@ const TradingSignals = memo(() => {
               </select>
             </div>
             <div className="text-sm text-gray-400">
-              ⭐ RELAXED quality signals • Practical analysis • 65%+ confidence • Achievable risk management
+              ⭐ Quality signals • Practical analysis • 65%+ confidence • Achievable risk management
             </div>
           </div>
         </div>
@@ -424,7 +424,7 @@ const TradingSignals = memo(() => {
       {/* Enhanced Active Signals Grid */}
       <div>
         <h3 className="text-white text-lg font-semibold mb-4">
-          {selectedPair === 'All' ? `RELAXED Quality Signals (${filteredSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${selectedPair} Relaxed Signals (${filteredSignals.length})`}
+          {selectedPair === 'All' ? `Quality Signals (${filteredSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${selectedPair} Signals (${filteredSignals.length})`}
         </h3>
         
         {filteredSignals.length > 0 ? (
@@ -449,11 +449,11 @@ const TradingSignals = memo(() => {
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
               {selectedPair === 'All' 
-                ? `No relaxed practical signals generated yet (0/${MAX_ACTIVE_SIGNALS})` 
-                : `No relaxed signals for ${selectedPair}`}
+                ? `No practical signals generated yet (0/${MAX_ACTIVE_SIGNALS})` 
+                : `No signals for ${selectedPair}`}
             </div>
             <div className="text-sm text-gray-500 mb-6">
-              ⭐ RELAXED signal limit: {MAX_ACTIVE_SIGNALS} • Practical quality focus • 65%+ confidence • Relaxed AI analysis
+              ⭐ Signal limit: {MAX_ACTIVE_SIGNALS} • Quality focus • 65%+ confidence • AI analysis
             </div>
             <div className="space-x-4">
               <Button
@@ -464,12 +464,12 @@ const TradingSignals = memo(() => {
                 {detectingOpportunities ? (
                   <>
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Analyzing Relaxed Opportunities...
+                    Analyzing Opportunities...
                   </>
                 ) : (
                   <>
                     <Target className="h-4 w-4 mr-2" />
-                    Generate Relaxed Quality Signals
+                    Generate Quality Signals
                   </>
                 )}
               </Button>
@@ -484,3 +484,5 @@ const TradingSignals = memo(() => {
 TradingSignals.displayName = 'TradingSignals';
 
 export default TradingSignals;
+
+}
