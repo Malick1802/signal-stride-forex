@@ -60,8 +60,11 @@ const RealTimePriceDisplay = ({
           </div>
         ) : currentPrice ? (
           <>
-            <div className="text-white text-lg font-mono">
-              {formatPrice(currentPrice)}
+            <div className="flex items-center space-x-2">
+              <span className="text-gray-400 text-xs">Current:</span>
+              <div className="text-white text-lg font-mono">
+                {formatPrice(currentPrice)}
+              </div>
             </div>
             <div className={`flex items-center space-x-1 ${changeColor}`}>
               <TrendIcon className="h-4 w-4" />
