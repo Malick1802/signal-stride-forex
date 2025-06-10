@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { TrendingUp, TrendingDown, Trophy, RefreshCw } from 'lucide-react';
+import { TrendingUp, TrendingDown, Trophy, RefreshCw, Target } from 'lucide-react';
 import { useExpiredSignals } from '@/hooks/useExpiredSignals';
 import { Button } from '@/components/ui/button';
 
@@ -101,10 +101,21 @@ const ExpiredSignals = () => {
                         {signal.type}
                       </span>
                     </div>
-                    {/* Enhanced outcome display */}
-                    <div className={`flex items-center space-x-2 px-4 py-2 rounded-lg border-2 shadow-lg ${getResultColor(signal.result)}`}>
-                      {getResultIcon(signal.result)}
-                      <span className="text-sm font-bold tracking-wide">{signal.result}</span>
+                    {/* Enhanced outcome display with Take Profit hit info */}
+                    <div className="flex items-center space-x-3">
+                      <div className={`flex items-center space-x-2 px-4 py-2 rounded-lg border-2 shadow-lg ${getResultColor(signal.result)}`}>
+                        {getResultIcon(signal.result)}
+                        <span className="text-sm font-bold tracking-wide">{signal.result}</span>
+                      </div>
+                      {/* Take Profit hit indicator */}
+                      {signal.result === 'WIN' && signal.reason && signal.reason.includes('Take Profit') && (
+                        <div className="flex items-center space-x-2 px-3 py-2 bg-emerald-500/20 border border-emerald-400/40 rounded-lg shadow-md">
+                          <Target className="h-4 w-4 text-emerald-400" />
+                          <span className="text-emerald-400 text-sm font-bold tracking-wide">
+                            {signal.reason.replace('Target', 'Take Profit')}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
 
