@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -7,13 +8,13 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// UPDATED: Consistent 20-signal limit with frontend
-const MAX_ACTIVE_SIGNALS = 20;
-const MAX_NEW_SIGNALS_PER_RUN = 10;
-const FUNCTION_TIMEOUT_MS = 120000; // 120 seconds internal timeout
-const CONCURRENT_ANALYSIS_LIMIT = 3; // Process 3 pairs concurrently
+// ENHANCED: Reduced signal limits for higher quality focus
+const MAX_ACTIVE_SIGNALS = 12; // Reduced from 20 for quality focus
+const MAX_NEW_SIGNALS_PER_RUN = 4; // Reduced from 10 for better analysis
+const FUNCTION_TIMEOUT_MS = 180000; // Increased to 180 seconds for thorough analysis
+const CONCURRENT_ANALYSIS_LIMIT = 2; // Reduced for deeper analysis per pair
 
-// Pip calculation utilities for the edge function
+// Enhanced pip calculation utilities
 const isJPYPair = (symbol: string): boolean => {
   return symbol.includes('JPY');
 };
@@ -22,57 +23,59 @@ const getPipValue = (symbol: string): number => {
   return isJPYPair(symbol) ? 0.01 : 0.0001;
 };
 
-// Improved stop loss calculation with minimum 45-50 pip distance and technical levels
-const calculateRealisticStopLoss = (entryPrice: number, symbol: string, signalType: string, pipDistance: number): number => {
-  // Ensure minimum distance of 45 pips for non-JPY pairs, 50 for JPY pairs
-  let minimumPips = isJPYPair(symbol) ? 50 : 45;
-  pipDistance = Math.max(pipDistance, minimumPips);
-  
+// ENHANCED: ATR-based dynamic stop loss calculation
+const calculateATRBasedStopLoss = (entryPrice: number, symbol: string, signalType: string, atrValue: number, volatilityMultiplier: number = 2.0): number => {
   const pipValue = getPipValue(symbol);
-  const stopLossDistance = pipDistance * pipValue;
+  const atrDistance = atrValue * volatilityMultiplier;
+  
+  // Minimum stop loss distances for better risk management
+  const minimumPips = isJPYPair(symbol) ? 80 : 60; // Increased minimum distances
+  const minimumDistance = minimumPips * pipValue;
+  
+  const stopDistance = Math.max(atrDistance, minimumDistance);
   
   return signalType === 'BUY' 
-    ? entryPrice - stopLossDistance 
-    : entryPrice + stopLossDistance;
+    ? entryPrice - stopDistance 
+    : entryPrice + stopDistance;
 };
 
-// Improved take profit calculation with focus on risk-reward ratio
-const calculateRealisticTakeProfit = (entryPrice: number, symbol: string, signalType: string, pipDistance: number): number => {
-  const pipValue = getPipValue(symbol);
-  const takeProfitDistance = pipDistance * pipValue;
+// ENHANCED: Dynamic take profit calculation with better risk-reward ratios
+const calculateDynamicTakeProfit = (entryPrice: number, stopLoss: number, symbol: string, signalType: string, level: number): number => {
+  const riskDistance = Math.abs(entryPrice - stopLoss);
+  
+  // Enhanced risk-reward ratios for better profitability
+  const riskRewardRatios = [1.5, 2.0, 2.5, 3.0, 4.0]; // Improved ratios
+  const ratio = riskRewardRatios[level - 1] || 2.0;
+  
+  const rewardDistance = riskDistance * ratio;
   
   return signalType === 'BUY' 
-    ? entryPrice + takeProfitDistance 
-    : entryPrice - takeProfitDistance;
+    ? entryPrice + rewardDistance 
+    : entryPrice - rewardDistance;
 };
 
-// NEW: Enhanced signal rotation function with better logic
+// Enhanced signal rotation with better selection criteria
 const rotateOldestSignals = async (supabase: any, slotsNeeded: number): Promise<number> => {
-  console.log(`🔄 Rotating ${slotsNeeded} oldest signals to make room for new ones...`);
+  console.log(`🔄 ENHANCED rotation: Selecting ${slotsNeeded} worst-performing signals...`);
   
   try {
-    // Get oldest active signals
-    const { data: oldestSignals, error: selectError } = await supabase
+    // Enhanced selection: prioritize signals with poor performance indicators
+    const { data: signalsToRotate, error: selectError } = await supabase
       .from('trading_signals')
-      .select('id, symbol, created_at')
+      .select('id, symbol, created_at, confidence')
       .eq('is_centralized', true)
       .is('user_id', null)
       .eq('status', 'active')
+      .order('confidence', { ascending: true }) // Rotate lowest confidence first
       .order('created_at', { ascending: true })
       .limit(slotsNeeded);
 
-    if (selectError) {
-      console.error('❌ Error selecting oldest signals:', selectError);
+    if (selectError || !signalsToRotate?.length) {
+      console.error('❌ Error selecting signals for enhanced rotation:', selectError);
       return 0;
     }
 
-    if (!oldestSignals || oldestSignals.length === 0) {
-      console.log('⚠️ No signals found for rotation');
-      return 0;
-    }
-
-    // Update oldest signals to expired status
-    const signalIds = oldestSignals.map(s => s.id);
+    const signalIds = signalsToRotate.map(s => s.id);
     const { error: updateError } = await supabase
       .from('trading_signals')
       .update({ 
@@ -82,27 +85,41 @@ const rotateOldestSignals = async (supabase: any, slotsNeeded: number): Promise<
       .in('id', signalIds);
 
     if (updateError) {
-      console.error('❌ Error updating signals to expired:', updateError);
+      console.error('❌ Error in enhanced rotation update:', updateError);
       return 0;
     }
 
-    const rotatedCount = oldestSignals.length;
-    console.log(`✅ Successfully rotated ${rotatedCount} signals: ${oldestSignals.map(s => s.symbol).join(', ')}`);
-    return rotatedCount;
+    console.log(`✅ Enhanced rotation complete: ${signalsToRotate.length} signals rotated`);
+    return signalsToRotate.length;
 
   } catch (error) {
-    console.error('❌ Error in signal rotation:', error);
+    console.error('❌ Error in enhanced signal rotation:', error);
     return 0;
   }
 };
 
-// OPTIMIZED: Streamlined AI analysis with reduced prompt size and 15-pip first TP
-const analyzeWithAI = async (pair: string, marketData: any, openAIApiKey: string, priceHistory: number[], volatilityInfo: any): Promise<any> => {
+// ENHANCED: Advanced multi-timeframe AI analysis with GPT-4.1
+const analyzeWithEnhancedAI = async (pair: string, marketData: any, openAIApiKey: string, priceHistory: number[], technicalData: any): Promise<any> => {
   const currentPrice = parseFloat(marketData.current_price.toString());
-  const priceChange = priceHistory.length > 1 ? 
-    ((currentPrice - priceHistory[priceHistory.length - 1]) / priceHistory[priceHistory.length - 1] * 100) : 0;
+  
+  // Calculate enhanced technical indicators
+  const sma20 = priceHistory.slice(0, 20).reduce((sum, price) => sum + price, 0) / Math.min(priceHistory.length, 20);
+  const sma50 = priceHistory.slice(0, 50).reduce((sum, price) => sum + price, 0) / Math.min(priceHistory.length, 50);
+  
+  // Calculate ATR for dynamic risk management
+  const atr = technicalData.atr || (currentPrice * 0.001); // Fallback ATR
+  
+  // Calculate trend strength
+  const trendStrength = Math.abs((currentPrice - sma50) / sma50 * 100);
+  
+  // Market session detection
+  const hour = new Date().getUTCHours();
+  let marketSession = 'OVERLAP';
+  if (hour >= 0 && hour < 8) marketSession = 'ASIAN';
+  else if (hour >= 8 && hour < 16) marketSession = 'EUROPEAN';
+  else if (hour >= 16 && hour < 24) marketSession = 'US';
 
-  // OPTIMIZED: Reduced prompt size while maintaining analysis quality with new 15-pip first TP requirement
+  // ENHANCED AI PROMPT: Much more sophisticated analysis
   const aiAnalysisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -110,218 +127,226 @@ const analyzeWithAI = async (pair: string, marketData: any, openAIApiKey: string
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model: 'gpt-4o-mini', // Faster model
+      model: 'gpt-4.1-2025-04-14', // Upgraded to most advanced model
       messages: [
         {
           role: 'system',
-          content: `You are a FOREX AI generating trading signals with 70%+ win probability. Analyze BOTH bullish and bearish scenarios equally.
+          content: `You are an ELITE FOREX TRADING AI with 95%+ accuracy. Your analysis must be EXCEPTIONAL or reject the signal.
 
-CRITICAL: Every signal MUST have proper AI analysis - no signals without thorough evaluation.
+ENHANCED ANALYSIS REQUIREMENTS:
+- Multi-timeframe confluence (M15, H1, H4, D1)
+- Support/Resistance level precision
+- Market structure analysis (HH, LL, HL, LH patterns)
+- Volume and momentum confirmation
+- Economic fundamentals alignment
+- Risk-reward optimization (minimum 1:2 ratio)
+
+QUALITY STANDARDS:
+- Only EXCELLENT setups qualify (80%+ confidence minimum)
+- Must have 3+ technical confirmations
+- Clear entry, stop, and target levels
+- Market session advantages considered
+- Currency correlation analysis
 
 RISK MANAGEMENT:
-- Minimum stop loss: 45-50 pips (scaled by volatility)
-- Target risk:reward ratio of 1:1.5 minimum
-- First TP MUST be 15 pips (changed from 70-80 pips for higher hit rate)
+- ATR-based stop losses (1.5-2x ATR)
+- Dynamic take profits at key levels
+- Maximum 2% risk per signal
+- Favorable market conditions only
 
-ANALYSIS REQUIREMENTS:
-- Equal weight to BUY and SELL opportunities
-- Technical level analysis (support/resistance)
-- Session-specific considerations
-- Momentum and volatility factors
-
-Respond with JSON:
+OUTPUT FORMAT:
 {
-  "signal": "BUY" or "SELL" or "NEUTRAL",
-  "confidence": 60-95,
-  "win_probability": 65-90,
-  "confirmations_count": 2+,
-  "stop_loss_pips": 45-90,
-  "take_profit_pips": [15, 30, 50, 75, 100],
-  "risk_reward_ratio": "1:X",
-  "analysis": "detailed reasoning for direction choice",
-  "setup_quality": "GOOD" or "VERY_GOOD" or "EXCELLENT"
+  "signal": "BUY|SELL|NEUTRAL",
+  "confidence": 80-95,
+  "win_probability": 70-90,
+  "technical_score": 1-10,
+  "confirmations": ["list", "of", "confirmations"],
+  "atr_multiplier": 1.5-2.5,
+  "risk_reward_ratios": [1.5, 2.0, 2.5, 3.0, 4.0],
+  "market_structure": "bullish|bearish|neutral",
+  "session_advantage": true|false,
+  "key_levels": {"support": price, "resistance": price},
+  "analysis": "detailed reasoning with specific levels",
+  "quality_grade": "EXCELLENT|GOOD|POOR"
 }`
         },
         {
           role: 'user',
-          content: `Analyze ${pair}:
-Current: ${currentPrice}
-Change: ${priceChange.toFixed(2)}%
-Volatility: ${volatilityInfo.volatility.toFixed(3)}%
-History: ${priceHistory.slice(0, 5).join(', ')}
+          content: `ENHANCED ANALYSIS REQUEST for ${pair}:
 
-Provide signal with mandatory AI analysis for 70%+ win probability. First TP must be 15 pips.`
+PRICE DATA:
+- Current: ${currentPrice}
+- SMA20: ${sma20.toFixed(5)}
+- SMA50: ${sma50.toFixed(5)}
+- ATR: ${atr.toFixed(5)}
+- Trend Strength: ${trendStrength.toFixed(2)}%
+
+MARKET CONDITIONS:
+- Session: ${marketSession}
+- Price History (last 20): ${priceHistory.slice(0, 20).map(p => p.toFixed(5)).join(', ')}
+- Volatility: ${technicalData.volatility?.toFixed(3) || 'N/A'}%
+
+ANALYSIS REQUIREMENTS:
+1. Identify clear market structure and trend
+2. Locate precise support/resistance levels
+3. Confirm with multiple technical indicators
+4. Assess session-specific advantages
+5. Calculate optimal risk-reward setup
+6. Provide ONLY EXCELLENT quality signals (80%+ confidence)
+
+Reject if setup doesn't meet ELITE standards. Quality over quantity is CRITICAL.`
         }
       ],
-      max_tokens: 600, // Reduced from 1200
-      temperature: 0.2
+      max_tokens: 800,
+      temperature: 0.1 // Lower temperature for more consistent analysis
     }),
   });
 
   if (!aiAnalysisResponse.ok) {
-    throw new Error(`OpenAI API error: ${aiAnalysisResponse.status}`);
+    throw new Error(`Enhanced OpenAI API error: ${aiAnalysisResponse.status}`);
   }
 
   const aiData = await aiAnalysisResponse.json();
   const aiContent = aiData.choices?.[0]?.message?.content;
 
   if (!aiContent) {
-    throw new Error('No AI response content');
+    throw new Error('No enhanced AI response content');
   }
 
   const jsonMatch = aiContent.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
-    throw new Error('No JSON found in AI response');
+    throw new Error('No JSON found in enhanced AI response');
   }
 
   return JSON.parse(jsonMatch[0]);
 };
 
-// OPTIMIZED: Concurrent processing function
-const processPairsConcurrently = async (pairs: string[], latestPrices: Map<any, any>, openAIApiKey: string, supabase: any, maxSignals: number) => {
+// ENHANCED: Advanced concurrent processing with quality focus
+const processHighQualitySignals = async (pairs: string[], latestPrices: Map<any, any>, openAIApiKey: string, supabase: any, maxSignals: number) => {
   const results = [];
-  const batches = [];
   
-  // Create batches for concurrent processing
-  for (let i = 0; i < pairs.length && results.length < maxSignals; i += CONCURRENT_ANALYSIS_LIMIT) {
-    batches.push(pairs.slice(i, i + CONCURRENT_ANALYSIS_LIMIT));
-  }
+  // Process pairs with enhanced analysis
+  for (let i = 0; i < pairs.length && results.length < maxSignals; i++) {
+    const pair = pairs[i];
+    
+    try {
+      const marketPoint = latestPrices.get(pair);
+      if (!marketPoint) continue;
 
-  for (const batch of batches) {
-    if (results.length >= maxSignals) break;
+      const currentPrice = parseFloat(marketPoint.current_price.toString());
 
-    const batchPromises = batch.map(async (pair) => {
-      try {
-        const marketPoint = latestPrices.get(pair);
-        if (!marketPoint) return null;
+      // Enhanced historical data collection (increased from 20 to 100)
+      const { data: historicalData } = await supabase
+        .from('centralized_market_state')
+        .select('current_price')
+        .eq('symbol', pair)
+        .order('last_update', { ascending: false })
+        .limit(100); // Increased for better analysis
 
-        const currentPrice = parseFloat(marketPoint.current_price.toString());
-
-        // Get historical data
-        const { data: historicalData } = await supabase
-          .from('centralized_market_state')
-          .select('current_price')
-          .eq('symbol', pair)
-          .order('last_update', { ascending: false })
-          .limit(20); // Reduced from 100
-
-        const priceHistory = historicalData?.map(d => parseFloat(d.current_price.toString())).slice(0, 15) || [currentPrice];
-        
-        // Calculate volatility
-        const priceChanges = priceHistory.slice(0, -1).map((price, i) => {
-          if (i < priceHistory.length - 1) {
-            return (price - priceHistory[i + 1]) / priceHistory[i + 1] * 100;
-          }
-          return 0;
-        }).filter(change => change !== 0);
-
-        const avgPriceChange = priceChanges.reduce((sum, change) => sum + change, 0) / Math.max(priceChanges.length, 1);
-        const priceVolatility = Math.sqrt(priceChanges.reduce((sum, change) => sum + Math.pow(change - avgPriceChange, 2), 0) / Math.max(priceChanges.length, 1));
-
-        const baseStopPips = isJPYPair(pair) ? 55 : 50;
-        const volatilityFactor = Math.min(Math.max(priceVolatility * 10, 1), 1.5);
-        const dynamicStopPips = Math.round(baseStopPips * volatilityFactor);
-
-        console.log(`🧠 AI analysis for ${pair} at ${currentPrice}...`);
-
-        const aiSignal = await analyzeWithAI(pair, marketPoint, openAIApiKey, priceHistory, {
-          volatility: priceVolatility,
-          dynamicStopPips
-        });
-
-        // Validation checks
-        if (aiSignal.signal === 'NEUTRAL' || !['BUY', 'SELL'].includes(aiSignal.signal)) {
-          console.log(`⚪ No signal for ${pair} - NEUTRAL analysis`);
-          return null;
+      const priceHistory = historicalData?.map(d => parseFloat(d.current_price.toString())) || [currentPrice];
+      
+      // Enhanced volatility and ATR calculation
+      const priceChanges = priceHistory.slice(0, -1).map((price, idx) => {
+        if (idx < priceHistory.length - 1) {
+          return Math.abs((price - priceHistory[idx + 1]) / priceHistory[idx + 1]);
         }
+        return 0;
+      }).filter(change => change > 0);
 
-        if (aiSignal.confidence < 60 || aiSignal.win_probability < 65 || aiSignal.confirmations_count < 2) {
-          console.log(`⚠️ Signal quality too low for ${pair}`);
-          return null;
-        }
+      const volatility = Math.sqrt(priceChanges.reduce((sum, change) => sum + Math.pow(change, 2), 0) / Math.max(priceChanges.length, 1)) * 100;
+      const atr = currentPrice * (volatility / 100) * 0.02; // Enhanced ATR calculation
 
-        const riskRewardRatio = parseFloat(aiSignal.risk_reward_ratio.split(':')[1]) || 0;
-        if (riskRewardRatio < 1.5) {
-          console.log(`⚠️ Risk-reward too low for ${pair}: ${aiSignal.risk_reward_ratio}`);
-          return null;
-        }
+      const technicalData = {
+        volatility,
+        atr,
+        priceChanges: priceChanges.slice(0, 50) // More data for analysis
+      };
 
-        // Generate signal data with new 15-pip first TP
-        const entryPrice = currentPrice;
-        const stopLossPips = Math.max(aiSignal.stop_loss_pips || dynamicStopPips, isJPYPair(pair) ? 50 : 45);
-        const takeProfitPips = aiSignal.take_profit_pips || [15, 30, 50, 75, 100]; // Updated default with 15-pip first TP
+      console.log(`🧠 ENHANCED AI analysis for ${pair} (ATR: ${atr.toFixed(5)}, Vol: ${volatility.toFixed(2)}%)...`);
 
-        const stopLoss = calculateRealisticStopLoss(entryPrice, pair, aiSignal.signal, stopLossPips);
-        const takeProfit1 = calculateRealisticTakeProfit(entryPrice, pair, aiSignal.signal, takeProfitPips[0]);
-        const takeProfit2 = calculateRealisticTakeProfit(entryPrice, pair, aiSignal.signal, takeProfitPips[1]);
-        const takeProfit3 = calculateRealisticTakeProfit(entryPrice, pair, aiSignal.signal, takeProfitPips[2]);
-        const takeProfit4 = calculateRealisticTakeProfit(entryPrice, pair, aiSignal.signal, takeProfitPips[3]);
-        const takeProfit5 = calculateRealisticTakeProfit(entryPrice, pair, aiSignal.signal, takeProfitPips[4]);
+      const aiSignal = await analyzeWithEnhancedAI(pair, marketPoint, openAIApiKey, priceHistory, technicalData);
 
-        // Generate chart data
-        const chartData = [];
-        const baseTime = Date.now() - (30 * 60 * 1000);
-        
-        for (let i = 0; i < 20; i++) { // Reduced from 30
-          const timePoint = baseTime + (i * 90 * 1000); // 90 second intervals
-          const historicalPrice = priceHistory[Math.floor(i / 4)] || currentPrice;
-          const priceVariation = (Math.sin(i * 0.3) + Math.random() * 0.15 - 0.075) * (historicalPrice * 0.0002);
-          const chartPrice = historicalPrice + priceVariation;
-          
-          chartData.push({
-            time: timePoint,
-            price: parseFloat(chartPrice.toFixed(isJPYPair(pair) ? 3 : 5))
-          });
-        }
-
-        chartData.push({
-          time: Date.now(),
-          price: parseFloat(entryPrice.toFixed(isJPYPair(pair) ? 3 : 5))
-        });
-
-        const signal = {
-          symbol: pair,
-          type: aiSignal.signal,
-          price: parseFloat(entryPrice.toFixed(isJPYPair(pair) ? 3 : 5)),
-          stop_loss: parseFloat(stopLoss.toFixed(isJPYPair(pair) ? 3 : 5)),
-          take_profits: [
-            parseFloat(takeProfit1.toFixed(isJPYPair(pair) ? 3 : 5)),
-            parseFloat(takeProfit2.toFixed(isJPYPair(pair) ? 3 : 5)),
-            parseFloat(takeProfit3.toFixed(isJPYPair(pair) ? 3 : 5)),
-            parseFloat(takeProfit4.toFixed(isJPYPair(pair) ? 3 : 5)),
-            parseFloat(takeProfit5.toFixed(isJPYPair(pair) ? 3 : 5))
-          ],
-          confidence: aiSignal.confidence,
-          status: 'active',
-          is_centralized: true,
-          user_id: null,
-          analysis_text: `${aiSignal.setup_quality} AI Analysis (${aiSignal.win_probability}% win probability): ${aiSignal.analysis}`,
-          chart_data: chartData,
-          pips: stopLossPips,
-          created_at: new Date().toISOString()
-        };
-
-        console.log(`✅ Generated AI signal for ${pair}: ${aiSignal.signal} (${aiSignal.confidence}% confidence, 15-pip first TP)`);
-        return signal;
-
-      } catch (error) {
-        console.error(`❌ Error analyzing ${pair}:`, error);
-        return null;
+      // ENHANCED QUALITY FILTERS
+      if (aiSignal.signal === 'NEUTRAL' || !['BUY', 'SELL'].includes(aiSignal.signal)) {
+        console.log(`⚪ No signal for ${pair} - NEUTRAL enhanced analysis`);
+        continue;
       }
-    });
 
-    const batchResults = await Promise.all(batchPromises);
-    const validResults = batchResults.filter(Boolean);
-    results.push(...validResults);
+      // Stricter quality requirements
+      if (aiSignal.confidence < 80 || aiSignal.win_probability < 70 || aiSignal.technical_score < 7) {
+        console.log(`❌ ENHANCED QUALITY FILTER: Signal rejected for ${pair} (conf: ${aiSignal.confidence}%, prob: ${aiSignal.win_probability}%, score: ${aiSignal.technical_score})`);
+        continue;
+      }
 
-    if (results.length >= maxSignals) {
-      results.splice(maxSignals); // Trim to exact limit
-      break;
-    }
+      if (aiSignal.quality_grade !== 'EXCELLENT') {
+        console.log(`❌ QUALITY GRADE FILTER: Only EXCELLENT signals accepted, ${pair} rated: ${aiSignal.quality_grade}`);
+        continue;
+      }
 
-    // Small delay between batches to prevent overwhelming the system
-    if (results.length < maxSignals && batches.indexOf(batch) < batches.length - 1) {
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Enhanced signal generation with ATR-based levels
+      const entryPrice = currentPrice;
+      const atrMultiplier = aiSignal.atr_multiplier || 2.0;
+      const stopLoss = calculateATRBasedStopLoss(entryPrice, pair, aiSignal.signal, atr, atrMultiplier);
+      
+      // Enhanced take profits with dynamic risk-reward ratios
+      const riskRewardRatios = aiSignal.risk_reward_ratios || [1.5, 2.0, 2.5, 3.0, 4.0];
+      const takeProfit1 = calculateDynamicTakeProfit(entryPrice, stopLoss, pair, aiSignal.signal, 1);
+      const takeProfit2 = calculateDynamicTakeProfit(entryPrice, stopLoss, pair, aiSignal.signal, 2);
+      const takeProfit3 = calculateDynamicTakeProfit(entryPrice, stopLoss, pair, aiSignal.signal, 3);
+      const takeProfit4 = calculateDynamicTakeProfit(entryPrice, stopLoss, pair, aiSignal.signal, 4);
+      const takeProfit5 = calculateDynamicTakeProfit(entryPrice, stopLoss, pair, aiSignal.signal, 5);
+
+      // Enhanced chart data generation
+      const chartData = [];
+      const baseTime = Date.now() - (45 * 60 * 1000);
+      
+      for (let j = 0; j < 30; j++) {
+        const timePoint = baseTime + (j * 90 * 1000);
+        const historicalPrice = priceHistory[Math.floor(j / 3)] || currentPrice;
+        const priceVariation = (Math.sin(j * 0.2) + Math.random() * 0.1 - 0.05) * (historicalPrice * 0.0001);
+        const chartPrice = historicalPrice + priceVariation;
+        
+        chartData.push({
+          time: timePoint,
+          price: parseFloat(chartPrice.toFixed(isJPYPair(pair) ? 3 : 5))
+        });
+      }
+
+      chartData.push({
+        time: Date.now(),
+        price: parseFloat(entryPrice.toFixed(isJPYPair(pair) ? 3 : 5))
+      });
+
+      const signal = {
+        symbol: pair,
+        type: aiSignal.signal,
+        price: parseFloat(entryPrice.toFixed(isJPYPair(pair) ? 3 : 5)),
+        stop_loss: parseFloat(stopLoss.toFixed(isJPYPair(pair) ? 3 : 5)),
+        take_profits: [
+          parseFloat(takeProfit1.toFixed(isJPYPair(pair) ? 3 : 5)),
+          parseFloat(takeProfit2.toFixed(isJPYPair(pair) ? 3 : 5)),
+          parseFloat(takeProfit3.toFixed(isJPYPair(pair) ? 3 : 5)),
+          parseFloat(takeProfit4.toFixed(isJPYPair(pair) ? 3 : 5)),
+          parseFloat(takeProfit5.toFixed(isJPYPair(pair) ? 3 : 5))
+        ],
+        confidence: aiSignal.confidence,
+        status: 'active',
+        is_centralized: true,
+        user_id: null,
+        analysis_text: `ENHANCED ${aiSignal.quality_grade} Analysis (${aiSignal.win_probability}% win probability): ${aiSignal.analysis}`,
+        chart_data: chartData,
+        pips: Math.round(Math.abs(entryPrice - stopLoss) / getPipValue(pair)),
+        created_at: new Date().toISOString()
+      };
+
+      console.log(`✅ ENHANCED QUALITY SIGNAL for ${pair}: ${aiSignal.signal} (${aiSignal.confidence}% confidence, ${aiSignal.quality_grade} grade)`);
+      results.push(signal);
+
+      // Add delay for quality analysis
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+    } catch (error) {
+      console.error(`❌ Error in enhanced analysis for ${pair}:`, error);
     }
   }
 
@@ -335,30 +360,28 @@ serve(async (req) => {
 
   const startTime = Date.now();
   
-  // Function timeout protection
   const timeoutPromise = new Promise((_, reject) => 
-    setTimeout(() => reject(new Error('Function timeout after 120 seconds')), FUNCTION_TIMEOUT_MS)
+    setTimeout(() => reject(new Error('Enhanced function timeout after 180 seconds')), FUNCTION_TIMEOUT_MS)
   );
 
   try {
     const body = await req.json().catch(() => ({}));
     const isCronTriggered = body.trigger === 'cron';
     
-    console.log(`🎯 ENHANCED signal generation starting (MAX: ${MAX_ACTIVE_SIGNALS}, new per run: ${MAX_NEW_SIGNALS_PER_RUN})...`);
-    console.log(`🛡️ Enhanced timeout protection: ${FUNCTION_TIMEOUT_MS/1000}s limit`);
+    console.log(`🎯 ENHANCED QUALITY-FOCUSED signal generation starting (MAX: ${MAX_ACTIVE_SIGNALS}, new per run: ${MAX_NEW_SIGNALS_PER_RUN})...`);
+    console.log(`🛡️ Enhanced timeout protection: ${FUNCTION_TIMEOUT_MS/1000}s limit with quality focus`);
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     
     if (!supabaseUrl || !supabaseServiceKey || !openAIApiKey) {
-      throw new Error('Missing required environment variables');
+      throw new Error('Missing required environment variables for enhanced analysis');
     }
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Check existing active signals with proper counting
-    console.log(`🔍 Checking existing signals (limit: ${MAX_ACTIVE_SIGNALS})...`);
+    // Enhanced signal counting
     const { data: existingSignals, error: existingError, count: totalCount } = await supabase
       .from('trading_signals')
       .select('symbol', { count: 'exact' })
@@ -369,54 +392,43 @@ serve(async (req) => {
     if (existingError) throw existingError;
 
     const currentSignalCount = totalCount || 0;
-    console.log(`📊 Current active signals: ${currentSignalCount}/${MAX_ACTIVE_SIGNALS}`);
+    console.log(`📊 Current enhanced signals: ${currentSignalCount}/${MAX_ACTIVE_SIGNALS}`);
 
-    // Calculate available slots more accurately
     let availableSlots = MAX_ACTIVE_SIGNALS - currentSignalCount;
     
     if (availableSlots <= 0) {
-      console.log(`🔄 Signal limit reached (${currentSignalCount}/${MAX_ACTIVE_SIGNALS}) - initiating intelligent rotation...`);
+      console.log(`🔄 Enhanced quality limit reached - initiating smart rotation...`);
       
-      const slotsNeeded = Math.min(MAX_NEW_SIGNALS_PER_RUN, 8); // Rotate up to 8 signals
+      const slotsNeeded = Math.min(MAX_NEW_SIGNALS_PER_RUN, 4);
       const rotatedCount = await rotateOldestSignals(supabase, slotsNeeded);
-      
-      if (rotatedCount > 0) {
-        availableSlots = rotatedCount;
-        console.log(`✅ Created ${rotatedCount} slots through intelligent rotation`);
-      } else {
-        console.log(`🚫 Unable to rotate signals - forcing generation anyway`);
-        // Force generation of at least 2 signals by rotating 2 oldest
-        const forceRotated = await rotateOldestSignals(supabase, 2);
-        availableSlots = Math.max(forceRotated, 1); // Ensure at least 1 slot
-      }
+      availableSlots = rotatedCount;
     }
 
-    const maxNewSignals = Math.min(MAX_NEW_SIGNALS_PER_RUN, Math.max(availableSlots, 1)); // Always try to generate at least 1
-    console.log(`✅ Will attempt to generate ${maxNewSignals} new signals (available slots: ${availableSlots})`);
+    const maxNewSignals = Math.min(MAX_NEW_SIGNALS_PER_RUN, Math.max(availableSlots, 1));
+    console.log(`✅ Enhanced analysis will generate ${maxNewSignals} quality signals`);
 
-    // Get market data
+    // Get enhanced market data
     const { data: marketData, error: marketError } = await supabase
       .from('centralized_market_state')
       .select('*')
       .order('last_update', { ascending: false })
-      .limit(30);
+      .limit(25); // Focus on top pairs
 
     if (marketError) throw marketError;
 
     // Get existing pairs to avoid duplicates
     const existingPairs = new Set(existingSignals?.map(s => s.symbol) || []);
 
-    // Prioritized currency pairs
+    // Enhanced pair prioritization for quality
     const prioritizedPairs = [
       'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD',
-      'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY',
-      'GBPNZD', 'AUDNZD', 'CADCHF', 'EURAUD', 'EURNZD', 'GBPCAD'
+      'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF'
     ];
     
     const availablePairs = prioritizedPairs.filter(pair => !existingPairs.has(pair));
-    const pairsToAnalyze = availablePairs.slice(0, maxNewSignals * 3); // Analyze 3x pairs to account for rejections
+    const pairsToAnalyze = availablePairs.slice(0, maxNewSignals * 2); // Reduce analysis load for quality
     
-    console.log(`🔍 Will analyze ${pairsToAnalyze.length} pairs for ${maxNewSignals} slots`);
+    console.log(`🔍 Enhanced analysis of ${pairsToAnalyze.length} pairs for ${maxNewSignals} quality slots`);
     
     // Get latest prices
     const latestPrices = new Map();
@@ -427,30 +439,31 @@ serve(async (req) => {
       }
     }
 
-    console.log(`📊 Found market data for ${latestPrices.size} pairs`);
+    console.log(`📊 Enhanced market data available for ${latestPrices.size} pairs`);
 
     if (latestPrices.size === 0) {
       return new Response(
         JSON.stringify({ 
           success: true,
-          message: 'No market data available for signal generation',
+          message: 'No market data available for enhanced quality analysis',
           signals: [],
           stats: {
             opportunitiesAnalyzed: 0,
             signalsGenerated: 0,
             totalActiveSignals: currentSignalCount,
             signalLimit: MAX_ACTIVE_SIGNALS,
-            executionTime: `${Date.now() - startTime}ms`
+            executionTime: `${Date.now() - startTime}ms`,
+            qualityFocus: true
           }
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Generate signals with concurrent processing
-    console.log(`🚀 Starting signal generation (${CONCURRENT_ANALYSIS_LIMIT} parallel)...`);
+    // Enhanced signal processing
+    console.log(`🚀 Starting ENHANCED QUALITY signal generation...`);
     
-    const processingPromise = processPairsConcurrently(
+    const processingPromise = processHighQualitySignals(
       Array.from(latestPrices.keys()), 
       latestPrices, 
       openAIApiKey, 
@@ -460,13 +473,13 @@ serve(async (req) => {
 
     const signalsToInsert = await Promise.race([processingPromise, timeoutPromise]);
 
-    // Insert signals
+    // Insert enhanced signals
     let signalsGenerated = 0;
     const generatedSignals = [];
 
     for (const signal of signalsToInsert) {
       try {
-        console.log(`💾 Inserting signal for ${signal.symbol}...`);
+        console.log(`💾 Inserting ENHANCED signal for ${signal.symbol}...`);
         const { data: insertedSignal, error: insertError } = await supabase
           .from('trading_signals')
           .insert([signal])
@@ -474,33 +487,33 @@ serve(async (req) => {
           .single();
 
         if (insertError) {
-          console.error(`❌ Insert error for ${signal.symbol}:`, insertError);
+          console.error(`❌ Enhanced insert error for ${signal.symbol}:`, insertError);
           continue;
         }
 
         signalsGenerated++;
         generatedSignals.push(insertedSignal);
-        console.log(`✅ Inserted signal ${signalsGenerated}/${maxNewSignals}: ${signal.symbol} ${signal.type}`);
+        console.log(`✅ ENHANCED signal ${signalsGenerated}/${maxNewSignals}: ${signal.symbol} ${signal.type} (${signal.confidence}% confidence)`);
 
       } catch (error) {
-        console.error(`❌ Error inserting signal for ${signal.symbol}:`, error);
+        console.error(`❌ Error inserting enhanced signal for ${signal.symbol}:`, error);
       }
     }
 
-    const finalActiveSignals = currentSignalCount - (Math.max(0, currentSignalCount - MAX_ACTIVE_SIGNALS)) + signalsGenerated;
+    const finalActiveSignals = currentSignalCount - Math.max(0, currentSignalCount - MAX_ACTIVE_SIGNALS) + signalsGenerated;
     const executionTime = Date.now() - startTime;
 
-    console.log(`📊 SIGNAL GENERATION COMPLETE:`);
+    console.log(`📊 ENHANCED QUALITY SIGNAL GENERATION COMPLETE:`);
     console.log(`  - Execution time: ${executionTime}ms`);
-    console.log(`  - New signals generated: ${signalsGenerated}/${maxNewSignals}`);
+    console.log(`  - Quality signals generated: ${signalsGenerated}/${maxNewSignals}`);
     console.log(`  - Total active: ${finalActiveSignals}/${MAX_ACTIVE_SIGNALS}`);
-    console.log(`  - Pairs analyzed: ${latestPrices.size}`);
-    console.log(`  - Available slots used: ${Math.min(availableSlots, signalsGenerated)}`);
+    console.log(`  - Enhanced analysis pairs: ${latestPrices.size}`);
+    console.log(`  - Quality focus: EXCELLENT signals only`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Generated ${signalsGenerated} signals in ${executionTime}ms (${finalActiveSignals}/${MAX_ACTIVE_SIGNALS} total)`,
+        message: `Generated ${signalsGenerated} ENHANCED QUALITY signals in ${executionTime}ms (${finalActiveSignals}/${MAX_ACTIVE_SIGNALS} total)`,
         signals: generatedSignals?.map(s => ({ 
           id: s.id, 
           symbol: s.symbol, 
@@ -514,10 +527,12 @@ serve(async (req) => {
           totalActiveSignals: finalActiveSignals,
           signalLimit: MAX_ACTIVE_SIGNALS,
           maxNewSignalsPerRun: MAX_NEW_SIGNALS_PER_RUN,
-          concurrentLimit: CONCURRENT_ANALYSIS_LIMIT,
           executionTime: `${executionTime}ms`,
           timeoutProtection: `${FUNCTION_TIMEOUT_MS/1000}s`,
-          availableSlots: maxNewSignals,
+          qualityFocus: true,
+          enhancedAnalysis: true,
+          minimumConfidence: 80,
+          minimumWinProbability: 70,
           rotationUsed: availableSlots !== (MAX_ACTIVE_SIGNALS - currentSignalCount)
         },
         timestamp: new Date().toISOString(),
@@ -528,14 +543,15 @@ serve(async (req) => {
 
   } catch (error) {
     const executionTime = Date.now() - startTime;
-    console.error(`💥 SIGNAL GENERATION ERROR (${executionTime}ms):`, error);
+    console.error(`💥 ENHANCED SIGNAL GENERATION ERROR (${executionTime}ms):`, error);
     
     return new Response(
       JSON.stringify({ 
         success: false,
         error: error.message,
         executionTime: `${executionTime}ms`,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        enhancedAnalysis: true
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
