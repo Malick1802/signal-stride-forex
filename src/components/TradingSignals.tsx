@@ -1,4 +1,3 @@
-
 import React, { useState, memo } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useEnhancedSignalMonitoring } from '@/hooks/useEnhancedSignalMonitoring';
@@ -11,11 +10,11 @@ import RealTimeStatus from './RealTimeStatus';
 import GlobalRefreshIndicator from './GlobalRefreshIndicator';
 import SignalDebuggingDashboard from './SignalDebuggingDashboard';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Users, Activity, Brain, Shield, Wrench, Zap, FlaskConical, Target, TrendingUp, Clock, Bug, Star, Award, AlertTriangle } from 'lucide-react';
+import { RefreshCw, Activity, Brain, Shield, Zap, Target, TrendingUp, Bug, Star, Award, AlertTriangle, CheckCircle } from 'lucide-react';
 import { useMarketActivation } from '@/hooks/useMarketActivation';
 import AutomationDashboard from './AutomationDashboard';
 
-// ENHANCED: Reduced signal limit for premium quality focus
+// PRACTICAL: Balanced signal limit for consistent quality
 const MAX_ACTIVE_SIGNALS = 12;
 
 const TradingSignals = memo(() => {
@@ -35,13 +34,13 @@ const TradingSignals = memo(() => {
 
   const { activateMarket } = useMarketActivation();
 
-  // Enhanced signal validation
+  // Practical signal validation with balanced criteria
   const validSignals = signals.filter(signal => {
     if (!signal || typeof signal !== 'object' || !signal.id || !signal.pair || !signal.type) {
       return false;
     }
-    // Additional quality checks
-    if (signal.confidence < 80) {
+    // Balanced quality checks (lowered from 80% to 70%)
+    if (signal.confidence < 70) {
       console.warn(`⚠️ Low confidence signal filtered out: ${signal.pair} (${signal.confidence}%)`);
       return false;
     }
@@ -55,7 +54,7 @@ const TradingSignals = memo(() => {
 
   const avgConfidence = validSignals.length > 0 
     ? Math.round(validSignals.reduce((sum, signal) => sum + (signal.confidence || 0), 0) / validSignals.length)
-    : 85; // Enhanced default
+    : 75; // Practical default
 
   const handleEliminateTimeBasedExpiration = async () => {
     setEliminatingTimeBased(true);
@@ -108,7 +107,6 @@ const TradingSignals = memo(() => {
         description: message,
       });
 
-      // Refresh signals after test
       setTimeout(() => {
         window.location.reload();
       }, 2000);
@@ -129,10 +127,10 @@ const TradingSignals = memo(() => {
     try {
       await triggerAutomaticSignalGeneration();
     } catch (error) {
-      console.error('Error detecting enhanced opportunities:', error);
+      console.error('Error detecting practical opportunities:', error);
       toast({
-        title: "Enhanced Detection Error",
-        description: "Failed to detect new premium high-quality opportunities. Please try again.",
+        title: "Practical Detection Error",
+        description: "Failed to detect new balanced quality opportunities. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -186,7 +184,7 @@ const TradingSignals = memo(() => {
   if (loading && validSignals.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-white">Loading premium quality signals (analyzing all currency pairs, limit: {MAX_ACTIVE_SIGNALS})...</div>
+        <div className="text-white">Loading practical quality signals (analyzing all currency pairs, limit: {MAX_ACTIVE_SIGNALS})...</div>
       </div>
     );
   }
@@ -237,24 +235,24 @@ const TradingSignals = memo(() => {
         </div>
       </div>
 
-      {/* Enhanced Quality Focus Notice */}
-      <div className="bg-gradient-to-r from-yellow-500/20 to-orange-500/20 backdrop-blur-sm rounded-xl border border-yellow-500/30 p-4">
+      {/* IMPROVED: Practical Quality Focus Notice */}
+      <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 backdrop-blur-sm rounded-xl border border-green-500/30 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <Star className="h-6 w-6 text-yellow-400" />
-              <span className="text-white font-bold text-lg">PREMIUM QUALITY SIGNALS</span>
-              <span className="text-xs bg-yellow-500/30 text-yellow-300 px-3 py-1 rounded-full font-medium">
-                85%+ CONFIDENCE ONLY
+              <CheckCircle className="h-6 w-6 text-green-400" />
+              <span className="text-white font-bold text-lg">PRACTICAL QUALITY SIGNALS</span>
+              <span className="text-xs bg-green-500/30 text-green-300 px-3 py-1 rounded-full font-medium">
+                70%+ CONFIDENCE • BALANCED APPROACH
               </span>
             </div>
           </div>
-          <div className="text-sm text-yellow-300">
-            🎯 Enhanced AI Analysis • ATR-Based Risk Management • 70%+ Win Probability Target
+          <div className="text-sm text-green-300">
+            🎯 Balanced AI Analysis • Practical Risk Management • 60%+ Win Probability Target
           </div>
         </div>
-        <div className="mt-2 text-xs text-yellow-400">
-          ⭐ Quality over quantity: Advanced GPT-4.1 analysis with multi-timeframe confluence and strict filtering
+        <div className="mt-2 text-xs text-green-400">
+          ⭐ Balanced quality: Advanced GPT-4.1 analysis with practical thresholds • EXCELLENT/GOOD grades accepted
         </div>
       </div>
 
@@ -267,60 +265,60 @@ const TradingSignals = memo(() => {
       {/* Real-time Connection Status */}
       <RealTimeStatus />
 
-      {/* Enhanced Quality Signal Generation System */}
-      <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 backdrop-blur-sm rounded-xl border border-green-500/30 p-4">
+      {/* IMPROVED: Practical Signal Generation System */}
+      <div className="bg-gradient-to-r from-blue-500/20 to-cyan-500/20 backdrop-blur-sm rounded-xl border border-blue-500/30 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <Award className="h-5 w-5 text-green-400" />
-              <span className="text-white font-medium">Enhanced Premium Signal Generation (Max: {MAX_ACTIVE_SIGNALS})</span>
-              <span className="text-xs bg-green-500/20 text-green-400 px-2 py-1 rounded">
-                QUALITY-FOCUSED
+              <Target className="h-5 w-5 text-blue-400" />
+              <span className="text-white font-medium">Practical Quality Signal Generation (Max: {MAX_ACTIVE_SIGNALS})</span>
+              <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">
+                BALANCED-FOCUSED
               </span>
             </div>
             <Button
               onClick={handleDetectOpportunities}
               disabled={detectingOpportunities}
-              className="bg-green-600 hover:bg-green-700 text-white text-sm"
+              className="bg-blue-600 hover:bg-blue-700 text-white text-sm"
               size="sm"
             >
               {detectingOpportunities ? (
                 <>
                   <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Analyzing Premium Opportunities...
+                  Analyzing Practical Opportunities...
                 </>
               ) : (
                 <>
-                  <Star className="h-4 w-4 mr-2" />
-                  Generate Premium Quality Signals
+                  <Target className="h-4 w-4 mr-2" />
+                  Generate Practical Quality Signals
                 </>
               )}
             </Button>
           </div>
           <div className="text-sm text-gray-400">
-            🎯 {validSignals.length}/{MAX_ACTIVE_SIGNALS} active • Premium rotation • Enhanced monitoring • 85%+ confidence
+            🎯 {validSignals.length}/{MAX_ACTIVE_SIGNALS} active • Balanced rotation • Practical monitoring • 70%+ confidence
           </div>
         </div>
-        <div className="mt-2 text-xs text-green-400">
-          ⭐ Advanced GPT-4.1 analysis • ATR-based stops • Dynamic risk-reward ratios • Multi-timeframe confluence
+        <div className="mt-2 text-xs text-blue-400">
+          ⭐ Practical GPT-4.1 analysis • ATR-based stops • Balanced risk-reward ratios • Multi-timeframe confluence
         </div>
       </div>
 
-      {/* Enhanced Monitoring Status */}
+      {/* IMPROVED: Practical Monitoring Status */}
       <div className="bg-purple-500/10 backdrop-blur-sm rounded-xl border border-purple-500/20 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <Brain className="h-5 w-5 text-purple-400" />
-              <span className="text-white font-medium">ENHANCED OUTCOME-BASED MONITORING</span>
+              <span className="text-white font-medium">PRACTICAL OUTCOME-BASED MONITORING</span>
               <span className="text-xs bg-purple-500/20 text-purple-400 px-2 py-1 rounded">
-                PREMIUM QUALITY
+                BALANCED QUALITY
               </span>
             </div>
           </div>
           <div className="flex items-center space-x-4">
             <div className="text-sm text-purple-400">
-              🧠 5-second intervals • Premium signal tracking • Enhanced outcomes • 85%+ confidence
+              🧠 5-second intervals • Practical signal tracking • Balanced outcomes • 70%+ confidence
             </div>
             <Button
               onClick={() => setShowDebugDashboard(!showDebugDashboard)}
@@ -341,33 +339,33 @@ const TradingSignals = memo(() => {
         </div>
       )}
 
-      {/* Enhanced Success Mode Notice */}
-      <div className="bg-blue-500/10 backdrop-blur-sm rounded-xl border border-blue-500/20 p-4">
+      {/* IMPROVED: Practical Success Mode Notice */}
+      <div className="bg-cyan-500/10 backdrop-blur-sm rounded-xl border border-cyan-500/20 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
-              <TrendingUp className="h-5 w-5 text-blue-400" />
-              <span className="text-white font-medium">ENHANCED SUCCESS-FOCUSED MODE</span>
-              <span className="text-xs bg-blue-500/20 text-blue-400 px-2 py-1 rounded">
-                TARGET: 70%+ SUCCESS RATE
+              <TrendingUp className="h-5 w-5 text-cyan-400" />
+              <span className="text-white font-medium">PRACTICAL SUCCESS-FOCUSED MODE</span>
+              <span className="text-xs bg-cyan-500/20 text-cyan-400 px-2 py-1 rounded">
+                TARGET: 60-70% SUCCESS RATE
               </span>
             </div>
           </div>
-          <div className="text-sm text-blue-400">
-            🎯 Premium market analysis • Enhanced AI filtering • Superior risk management
+          <div className="text-sm text-cyan-400">
+            🎯 Balanced market analysis • Practical AI filtering • Achievable risk management
           </div>
         </div>
       </div>
 
-      {/* Enhanced System Controls */}
+      {/* IMPROVED: Practical System Controls */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <Shield className="h-5 w-5 text-yellow-400" />
-              <span className="text-white font-medium">Enhanced Premium System Controls</span>
+              <span className="text-white font-medium">Practical Quality System Controls</span>
               <span className="text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded">
-                QUALITY-FOCUSED
+                BALANCED-FOCUSED
               </span>
             </div>
           </div>
@@ -393,7 +391,7 @@ const TradingSignals = memo(() => {
           </div>
         </div>
         <div className="mt-2 text-xs text-yellow-400">
-          🛡️ ENHANCED QUALITY FOCUS: Premium signals only • 85%+ confidence filter • Advanced risk management
+          🛡️ PRACTICAL QUALITY FOCUS: Balanced signals • 70%+ confidence filter • Achievable risk management
         </div>
       </div>
 
@@ -406,9 +404,9 @@ const TradingSignals = memo(() => {
               <select
                 value={selectedPair}
                 onChange={(e) => setSelectedPair(e.target.value)}
-                className="bg-white/10 border border-white/20 rounded px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+                className="bg-white/10 border border-white/20 rounded px-3 py-2 text-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="All" className="bg-gray-800 text-white">All Premium Pairs ({validSignals.length}/{MAX_ACTIVE_SIGNALS})</option>
+                <option value="All" className="bg-gray-800 text-white">All Practical Pairs ({validSignals.length}/{MAX_ACTIVE_SIGNALS})</option>
                 {availablePairs.map(pair => (
                   <option key={pair} value={pair} className="bg-gray-800 text-white">
                     {pair} ({validSignals.filter(s => s.pair === pair).length})
@@ -417,7 +415,7 @@ const TradingSignals = memo(() => {
               </select>
             </div>
             <div className="text-sm text-gray-400">
-              ⭐ Premium quality signals • Enhanced analysis • 85%+ confidence • Superior risk management
+              ⭐ Practical quality signals • Balanced analysis • 70%+ confidence • Achievable risk management
             </div>
           </div>
         </div>
@@ -426,7 +424,7 @@ const TradingSignals = memo(() => {
       {/* Enhanced Active Signals Grid */}
       <div>
         <h3 className="text-white text-lg font-semibold mb-4">
-          {selectedPair === 'All' ? `Premium Quality Signals (${filteredSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${selectedPair} Premium Signals (${filteredSignals.length})`}
+          {selectedPair === 'All' ? `Practical Quality Signals (${filteredSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${selectedPair} Practical Signals (${filteredSignals.length})`}
         </h3>
         
         {filteredSignals.length > 0 ? (
@@ -451,27 +449,27 @@ const TradingSignals = memo(() => {
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
               {selectedPair === 'All' 
-                ? `No premium quality signals generated yet (0/${MAX_ACTIVE_SIGNALS})` 
-                : `No premium signals for ${selectedPair}`}
+                ? `No practical quality signals generated yet (0/${MAX_ACTIVE_SIGNALS})` 
+                : `No practical signals for ${selectedPair}`}
             </div>
             <div className="text-sm text-gray-500 mb-6">
-              ⭐ Premium signal limit: {MAX_ACTIVE_SIGNALS} • Enhanced quality focus • 85%+ confidence • Advanced AI analysis
+              ⭐ Practical signal limit: {MAX_ACTIVE_SIGNALS} • Balanced quality focus • 70%+ confidence • Practical AI analysis
             </div>
             <div className="space-x-4">
               <Button
                 onClick={handleDetectOpportunities}
                 disabled={detectingOpportunities}
-                className="bg-green-600 hover:bg-green-700 text-white"
+                className="bg-blue-600 hover:bg-blue-700 text-white"
               >
                 {detectingOpportunities ? (
                   <>
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Analyzing Premium Opportunities...
+                    Analyzing Practical Opportunities...
                   </>
                 ) : (
                   <>
-                    <Star className="h-4 w-4 mr-2" />
-                    Generate Premium Quality Signals
+                    <Target className="h-4 w-4 mr-2" />
+                    Generate Practical Quality Signals
                   </>
                 )}
               </Button>

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -22,7 +21,7 @@ interface TradingSignal {
   targetsHit: number[];
 }
 
-// ENHANCED: Reduced signal limit for quality focus (matching backend)
+// PRACTICAL: Balanced signal limit for consistent quality
 const MAX_ACTIVE_SIGNALS = 12;
 
 export const useTradingSignals = () => {
@@ -33,48 +32,48 @@ export const useTradingSignals = () => {
 
   const fetchSignals = useCallback(async () => {
     try {
-      // Enhanced signal fetching with quality focus
+      // Practical signal fetching with balanced quality focus
       const { data: centralizedSignals, error } = await supabase
         .from('trading_signals')
         .select('*')
         .eq('status', 'active')
         .eq('is_centralized', true)
         .is('user_id', null)
-        .order('confidence', { ascending: false }) // Order by quality (confidence)
+        .order('confidence', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(MAX_ACTIVE_SIGNALS);
 
       if (error) {
-        console.error('❌ Error fetching enhanced quality signals:', error);
+        console.error('❌ Error fetching practical quality signals:', error);
         setSignals([]);
         return;
       }
 
       if (!centralizedSignals || centralizedSignals.length === 0) {
-        console.log('📭 No enhanced quality signals found');
+        console.log('📭 No practical quality signals found');
         setSignals([]);
         setLastUpdate(new Date().toLocaleTimeString());
         return;
       }
 
-      const processedSignals = processEnhancedSignals(centralizedSignals);
+      const processedSignals = processPracticalSignals(centralizedSignals);
       setSignals(processedSignals);
       setLastUpdate(new Date().toLocaleTimeString());
       
       if (processedSignals.length > 0) {
-        console.log(`✅ Loaded ${processedSignals.length}/${MAX_ACTIVE_SIGNALS} enhanced quality signals`);
+        console.log(`✅ Loaded ${processedSignals.length}/${MAX_ACTIVE_SIGNALS} practical quality signals`);
       }
       
     } catch (error) {
-      console.error('❌ Error in enhanced fetchSignals:', error);
+      console.error('❌ Error in practical fetchSignals:', error);
       setSignals([]);
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const processEnhancedSignals = (activeSignals: any[]) => {
-    console.log(`📊 Processing ${activeSignals.length}/${MAX_ACTIVE_SIGNALS} enhanced quality signals`);
+  const processPracticalSignals = (activeSignals: any[]) => {
+    console.log(`📊 Processing ${activeSignals.length}/${MAX_ACTIVE_SIGNALS} practical quality signals`);
 
     const transformedSignals = activeSignals
       .map(signal => {
@@ -91,16 +90,16 @@ export const useTradingSignals = () => {
             return null;
           }
 
-          // Enhanced chart data handling
+          // Practical chart data handling
           let chartData = [];
           if (signal.chart_data && Array.isArray(signal.chart_data)) {
             chartData = signal.chart_data.map(point => ({
               time: point.time || 0,
               price: parseFloat(point.price?.toString() || storedEntryPrice.toString())
             }));
-            console.log(`📈 Using enhanced chart data for ${signal.symbol}: ${chartData.length} points`);
+            console.log(`📈 Using practical chart data for ${signal.symbol}: ${chartData.length} points`);
           } else {
-            console.warn(`⚠️ No chart data for ${signal.symbol}, using enhanced fallback`);
+            console.warn(`⚠️ No chart data for ${signal.symbol}, using practical fallback`);
             const now = Date.now();
             chartData = [
               { time: now - 30000, price: storedEntryPrice },
@@ -126,41 +125,41 @@ export const useTradingSignals = () => {
             takeProfit3: takeProfits[2] ? takeProfits[2].toFixed(5) : '0.00000',
             takeProfit4: takeProfits[3] ? takeProfits[3].toFixed(5) : '0.00000',
             takeProfit5: takeProfits[4] ? takeProfits[4].toFixed(5) : '0.00000',
-            confidence: Math.floor(signal.confidence || 85), // Enhanced default confidence
+            confidence: Math.floor(signal.confidence || 75), // Practical default confidence
             timestamp: signal.created_at || new Date().toISOString(),
             status: signal.status || 'active',
-            analysisText: signal.analysis_text || `ENHANCED QUALITY ${signal.type || 'BUY'} signal for ${signal.symbol} (85%+ confidence with improved risk management)`,
+            analysisText: signal.analysis_text || `PRACTICAL QUALITY ${signal.type || 'BUY'} signal for ${signal.symbol} (70%+ confidence with balanced risk management)`,
             chartData: chartData,
             targetsHit: targetsHit
           };
         } catch (error) {
-          console.error(`❌ Error transforming enhanced signal for ${signal?.symbol}:`, error);
+          console.error(`❌ Error transforming practical signal for ${signal?.symbol}:`, error);
           return null;
         }
       })
       .filter(Boolean) as TradingSignal[];
 
-    console.log(`✅ Successfully processed ${transformedSignals.length}/${MAX_ACTIVE_SIGNALS} enhanced quality signals`);
+    console.log(`✅ Successfully processed ${transformedSignals.length}/${MAX_ACTIVE_SIGNALS} practical quality signals`);
     return transformedSignals;
   };
 
-  const triggerEnhancedSignalGeneration = useCallback(async () => {
+  const triggerPracticalSignalGeneration = useCallback(async () => {
     try {
-      console.log(`🚀 Triggering ENHANCED QUALITY signal generation with ${MAX_ACTIVE_SIGNALS}-signal limit...`);
+      console.log(`🚀 Triggering PRACTICAL QUALITY signal generation with ${MAX_ACTIVE_SIGNALS}-signal limit...`);
       
       const { data: signalResult, error: signalError } = await supabase.functions.invoke('generate-signals');
       
       if (signalError) {
-        console.error('❌ Enhanced signal generation failed:', signalError);
+        console.error('❌ Practical signal generation failed:', signalError);
         toast({
-          title: "Enhanced Generation Failed",
-          description: "Failed to detect new high-quality trading opportunities",
+          title: "Practical Generation Failed",
+          description: "Failed to detect new balanced quality trading opportunities",
           variant: "destructive"
         });
         return;
       }
       
-      console.log('✅ Enhanced quality signal generation completed');
+      console.log('✅ Practical quality signal generation completed');
       
       await new Promise(resolve => setTimeout(resolve, 1500));
       await fetchSignals();
@@ -168,19 +167,19 @@ export const useTradingSignals = () => {
       const signalsGenerated = signalResult?.stats?.signalsGenerated || 0;
       const totalActiveSignals = signalResult?.stats?.totalActiveSignals || 0;
       const signalLimit = signalResult?.stats?.signalLimit || MAX_ACTIVE_SIGNALS;
-      const qualityFocus = signalResult?.stats?.qualityFocus || false;
-      const enhancedAnalysis = signalResult?.stats?.enhancedAnalysis || false;
+      const practicalQuality = signalResult?.stats?.practicalQuality || false;
+      const balancedAnalysis = signalResult?.stats?.balancedAnalysis || false;
       
       toast({
-        title: "🎯 Enhanced Quality Signals Generated",
-        description: `${signalsGenerated} PREMIUM signals generated (${totalActiveSignals}/${signalLimit} total)${qualityFocus ? ' - Quality-focused' : ''}${enhancedAnalysis ? ' - Advanced AI' : ''}`,
+        title: "🎯 Practical Quality Signals Generated",
+        description: `${signalsGenerated} BALANCED signals generated (${totalActiveSignals}/${signalLimit} total)${practicalQuality ? ' - Practical quality' : ''}${balancedAnalysis ? ' - Balanced AI' : ''}`,
       });
       
     } catch (error) {
-      console.error('❌ Error in enhanced signal generation:', error);
+      console.error('❌ Error in practical signal generation:', error);
       toast({
-        title: "Enhanced Generation Error",
-        description: "Failed to detect new premium trading opportunities",
+        title: "Practical Generation Error",
+        description: "Failed to detect new balanced quality trading opportunities",
         variant: "destructive"
       });
     }
@@ -190,7 +189,6 @@ export const useTradingSignals = () => {
     try {
       console.log('🔥 PHASE 1: Executing TIME-BASED EXPIRATION ELIMINATION PLAN...');
       
-      // Execute the cleanup-crons function to remove time-based expiration jobs
       const { data: cleanupResult, error: cleanupError } = await supabase.functions.invoke('cleanup-crons');
       
       if (cleanupError) {
@@ -205,10 +203,7 @@ export const useTradingSignals = () => {
 
       console.log('✅ ELIMINATION PLAN RESULT:', cleanupResult);
       
-      // Wait for cleanup to complete
       await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      // Refresh signals to verify pure outcome-based system
       await fetchSignals();
       
       toast({
@@ -238,35 +233,35 @@ export const useTradingSignals = () => {
 
   const triggerRealTimeUpdates = useCallback(async () => {
     try {
-      console.log('🚀 Triggering enhanced market data update...');
+      console.log('🚀 Triggering practical market data update...');
       
       const { data: marketResult, error: marketDataError } = await supabase.functions.invoke('fetch-market-data');
       
       if (marketDataError) {
-        console.error('❌ Enhanced market data update failed:', marketDataError);
+        console.error('❌ Practical market data update failed:', marketDataError);
         toast({
-          title: "Enhanced Update Failed",
-          description: "Failed to fetch enhanced market data",
+          title: "Practical Update Failed",
+          description: "Failed to fetch practical market data",
           variant: "destructive"
         });
         return;
       }
       
-      console.log('✅ Enhanced market data updated');
+      console.log('✅ Practical market data updated');
       
       await new Promise(resolve => setTimeout(resolve, 2000));
       await fetchSignals();
       
       toast({
-        title: "🎯 Enhanced Real-time Updates Active",
-        description: "Premium market data refreshed, quality signals updating live",
+        title: "🎯 Practical Real-time Updates Active",
+        description: "Balanced market data refreshed, practical signals updating live",
       });
       
     } catch (error) {
-      console.error('❌ Error in enhanced real-time updates:', error);
+      console.error('❌ Error in practical real-time updates:', error);
       toast({
-        title: "Enhanced Update Error",
-        description: "Failed to activate enhanced real-time updates",
+        title: "Practical Update Error",
+        description: "Failed to activate practical real-time updates",
         variant: "destructive"
       });
     }
@@ -275,9 +270,9 @@ export const useTradingSignals = () => {
   useEffect(() => {
     fetchSignals();
     
-    // Enhanced real-time subscriptions for quality signals
+    // Practical real-time subscriptions for balanced quality signals
     const signalsChannel = supabase
-      .channel(`enhanced-quality-signals-${Date.now()}`)
+      .channel(`practical-quality-signals-${Date.now()}`)
       .on(
         'postgres_changes',
         {
@@ -287,23 +282,23 @@ export const useTradingSignals = () => {
           filter: 'is_centralized=eq.true'
         },
         (payload) => {
-          console.log(`📡 Enhanced quality signal update detected:`, payload);
+          console.log(`📡 Practical quality signal update detected:`, payload);
           setTimeout(fetchSignals, 300);
         }
       )
       .subscribe((status) => {
-        console.log(`📡 Enhanced quality signals subscription status: ${status}`);
+        console.log(`📡 Practical quality signals subscription status: ${status}`);
         if (status === 'SUBSCRIBED') {
-          console.log(`✅ Enhanced quality signal updates connected (85%+ confidence targeting)`);
+          console.log(`✅ Practical quality signal updates connected (70%+ confidence targeting)`);
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          console.error('❌ Enhanced signal subscription failed, attempting to reconnect...');
+          console.error('❌ Practical signal subscription failed, attempting to reconnect...');
           setTimeout(fetchSignals, 2000);
         }
       });
 
     // Subscribe to signal outcomes
     const outcomesChannel = supabase
-      .channel(`enhanced-signal-outcomes-${Date.now()}`)
+      .channel(`practical-signal-outcomes-${Date.now()}`)
       .on(
         'postgres_changes',
         {
@@ -312,17 +307,17 @@ export const useTradingSignals = () => {
           table: 'signal_outcomes'
         },
         (payload) => {
-          console.log('📡 Enhanced signal outcome detected, refreshing quality signals:', payload);
+          console.log('📡 Practical signal outcome detected, refreshing balanced signals:', payload);
           setTimeout(fetchSignals, 500);
         }
       )
       .subscribe();
 
-    // Enhanced monitoring interval (reduced frequency for quality signals)
+    // Practical monitoring interval (balanced frequency)
     const updateInterval = setInterval(async () => {
-      console.log(`🔄 Periodic enhanced quality signal refresh...`);
+      console.log(`🔄 Periodic practical quality signal refresh...`);
       await fetchSignals();
-    }, 3 * 60 * 1000); // Every 3 minutes for quality focus
+    }, 2.5 * 60 * 1000); // Every 2.5 minutes for balanced monitoring
 
     return () => {
       supabase.removeChannel(signalsChannel);
@@ -336,8 +331,8 @@ export const useTradingSignals = () => {
     loading,
     lastUpdate,
     fetchSignals,
-    triggerAutomaticSignalGeneration: triggerEnhancedSignalGeneration,
-    executeTimeBasedEliminationPlan, // NEW: Function to eliminate time-based expiration
+    triggerAutomaticSignalGeneration: triggerPracticalSignalGeneration,
+    executeTimeBasedEliminationPlan,
     triggerRealTimeUpdates
   };
 };
