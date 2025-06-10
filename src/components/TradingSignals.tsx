@@ -1,3 +1,4 @@
+
 import React, { useState, memo } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useEnhancedSignalMonitoring } from '@/hooks/useEnhancedSignalMonitoring';
@@ -484,5 +485,3 @@ const TradingSignals = memo(() => {
 TradingSignals.displayName = 'TradingSignals';
 
 export default TradingSignals;
-
-}
