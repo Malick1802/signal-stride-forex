@@ -50,7 +50,7 @@ const TradingSignals = memo(() => {
   const availablePairs = Array.from(new Set(validSignals.map(signal => signal.pair))).filter(Boolean);
   const [selectedPair, setSelectedPair] = useState('All');
 
-  const filteredSignals = selectedPair === 'All' ? validSignals : validSignals.filter(signal => signal.pair === selectedPair);
+  const filteredSignals = selectedPair === 'All' ? validSignals : validSignals.filter(signal => signal.pair === selectedPair);\
 
   const avgConfidence = validSignals.length > 0 
     ? Math.round(validSignals.reduce((sum, signal) => sum + (signal.confidence || 0), 0) / validSignals.length)
@@ -440,7 +440,7 @@ const TradingSignals = memo(() => {
                   signal={signal}
                   analysis={analysis}
                   analyzingSignal={analyzingSignal}
-                  onGetAIAnalysis={() => {}} // ... keep existing code
+                  onGetAIAnalysis={() => handleGetAIAnalysis(signal.id)}
                 />
               );
             })}
@@ -484,5 +484,3 @@ const TradingSignals = memo(() => {
 TradingSignals.displayName = 'TradingSignals';
 
 export default TradingSignals;
-
-</edits_to_apply>
