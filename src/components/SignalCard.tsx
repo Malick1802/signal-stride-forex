@@ -35,24 +35,24 @@ interface SignalCardProps {
 const SignalCard = memo(({ signal, analysis, analyzingSignal, onGetAIAnalysis }: SignalCardProps) => {
   const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
 
-  // Enhanced null safety check
+  // Early return for null signals
   if (!signal) {
     console.warn('SignalCard: Null signal provided, rendering nothing');
     return null;
   }
 
-  // Professional validation using existing utility
+  // Validate the signal using existing utility
   if (!validateSignal(signal)) {
-    console.warn('SignalCard: Signal failed validation:', signal?.id || 'unknown');
+    console.warn('SignalCard: Signal failed validation:', signal.id || 'unknown');
     return null;
   }
 
-  // Create safe signal after validation - signal is guaranteed to be valid here
+  // Create safe signal object - at this point signal is guaranteed to be valid
   const safeSignal = createSafeSignal(signal);
 
-  // Final safety check after validation
-  if (!safeSignal || !safeSignal.id || !safeSignal.pair || !safeSignal.type) {
-    console.error('SignalCard: Safe signal creation failed for:', safeSignal?.id || 'unknown');
+  // Validate the safe signal was created properly
+  if (!safeSignal.id || !safeSignal.pair || !safeSignal.type) {
+    console.error('SignalCard: Safe signal creation failed for signal ID:', signal.id || 'unknown');
     return null;
   }
 
