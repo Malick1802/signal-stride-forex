@@ -23,10 +23,10 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log('🔧 Creating database function for cron cleanup...');
+    console.log('🔧 Creating selective database functions for time-expiration cleanup...');
 
-    // This function will be called by the cleanup-crons function
-    const createCleanupFunction = `
+    // Create function for selective cron job removal (only time-based expiration)
+    const createSelectiveCleanupFunction = `
       CREATE OR REPLACE FUNCTION unschedule_cron_job(job_name TEXT)
       RETURNS BOOLEAN AS $$
       BEGIN
@@ -37,23 +37,59 @@ serve(async (req) => {
           RETURN FALSE;
       END;
       $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+      CREATE OR REPLACE FUNCTION list_time_expiration_jobs()
+      RETURNS TABLE(job_name TEXT, job_schedule TEXT) AS $$
+      BEGIN
+        RETURN QUERY
+        SELECT 
+          cj.jobname::TEXT,
+          cj.schedule::TEXT
+        FROM cron.job cj
+        WHERE cj.jobname SIMILAR TO '%(expire|expiration|timeout|cleanup)%'
+        AND cj.jobname NOT SIMILAR TO '%(generate|fetch|stream|tick)%';
+      END;
+      $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+      CREATE OR REPLACE FUNCTION preserve_essential_jobs()
+      RETURNS TABLE(job_name TEXT, job_status TEXT) AS $$
+      BEGIN
+        RETURN QUERY
+        SELECT 
+          cj.jobname::TEXT,
+          'PRESERVED'::TEXT
+        FROM cron.job cj
+        WHERE cj.jobname IN (
+          'auto-generate-signals',
+          'fetch-market-data',
+          'fastforex-market-stream',
+          'fastforex-tick-generator',
+          'fastforex-signal-generation',
+          'invoke-generate-signals-every-5min'
+        );
+      END;
+      $$ LANGUAGE plpgsql SECURITY DEFINER;
     `;
 
-    // Since we can't execute raw SQL directly, we'll return instructions
-    console.log('✅ Database function ready for creation');
+    console.log('✅ Selective database functions ready for creation');
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Cron cleanup function prepared',
-        sqlFunction: createCleanupFunction,
+        message: 'Selective cron cleanup functions prepared',
+        approach: 'SELECTIVE - Remove only time-based expiration, preserve essential services',
+        sqlFunctions: createSelectiveCleanupFunction,
+        targeting: {
+          remove: ['expire-old-signals', 'signal-expiration-*', 'timeout-*', 'cleanup-*'],
+          preserve: ['auto-generate-signals', 'fetch-market-data', 'fastforex-*']
+        },
         timestamp: new Date().toISOString()
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('❌ Error preparing cleanup function:', error);
+    console.error('❌ Error preparing selective cleanup functions:', error);
     return new Response(
       JSON.stringify({ 
         error: error.message,
