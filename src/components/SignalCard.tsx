@@ -47,12 +47,12 @@ const SignalCard = memo(({ signal, analysis, analyzingSignal, onGetAIAnalysis }:
     return null;
   }
 
-  // Create safe signal object - at this point signal is guaranteed to be valid
+  // At this point, signal is guaranteed to be valid, so we can safely create the safe signal
   const safeSignal = createSafeSignal(signal);
 
   // Validate the safe signal was created properly
   if (!safeSignal.id || !safeSignal.pair || !safeSignal.type) {
-    console.error('SignalCard: Safe signal creation failed for signal ID:', signal.id || 'unknown');
+    console.error('SignalCard: Safe signal creation failed for signal ID:', safeSignal.id || 'unknown');
     return null;
   }
 
