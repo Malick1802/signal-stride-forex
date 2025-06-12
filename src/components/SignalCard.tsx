@@ -35,43 +35,38 @@ interface SignalCardProps {
 const SignalCard = memo(({ signal, analysis, analyzingSignal, onGetAIAnalysis }: SignalCardProps) => {
   const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
 
-  // ENHANCED: Professional forex signal validation with comprehensive null checks
+  // Enhanced null safety check
   if (!signal) {
-    console.warn('SignalCard: Null signal provided, skipping professional render');
+    console.warn('SignalCard: Null signal provided, rendering nothing');
     return null;
   }
 
-  // Professional forex standards validation
-  const requiredProps = ['id', 'pair', 'type', 'entryPrice'];
-  const missingProps = requiredProps.filter(prop => !signal[prop as keyof typeof signal]);
-  
-  if (missingProps.length > 0) {
-    console.warn('SignalCard: Professional signal missing required properties:', {
-      signal: signal,
-      missingProps,
-      hasId: !!signal.id,
-      hasPair: !!signal.pair,
-      hasType: !!signal.type,
-      hasEntryPrice: !!signal.entryPrice
+  // Validate required properties exist
+  if (!signal.id || !signal.pair || !signal.type || !signal.entryPrice) {
+    console.warn('SignalCard: Signal missing required properties:', {
+      id: !!signal.id,
+      pair: !!signal.pair,
+      type: !!signal.type,
+      entryPrice: !!signal.entryPrice
     });
     return null;
   }
 
   // Professional validation using existing utility
   if (!validateSignal(signal)) {
-    console.warn('SignalCard: Professional signal failed validation:', signal);
+    console.warn('SignalCard: Signal failed validation:', signal.id);
     return null;
   }
 
   const safeSignal = createSafeSignal(signal);
 
-  // Additional safety validation for professional standards
+  // Final safety check after validation
   if (!safeSignal || !safeSignal.id || !safeSignal.pair || !safeSignal.type) {
-    console.error('SignalCard: Professional safe signal creation failed for:', signal.id);
+    console.error('SignalCard: Safe signal creation failed for:', signal.id);
     return null;
   }
 
-  // Get live centralized real-time market data with enhanced error handling
+  // Get live centralized real-time market data
   const {
     currentPrice: liveCurrentPrice,
     getPriceChange,
@@ -89,21 +84,20 @@ const SignalCard = memo(({ signal, analysis, analyzingSignal, onGetAIAnalysis }:
   // Professional forex entry price validation
   const signalEntryPrice = parseFloat(safeSignal.entryPrice);
   if (isNaN(signalEntryPrice) || signalEntryPrice <= 0) {
-    console.error('SignalCard: Invalid professional entry price after validation:', safeSignal.entryPrice);
+    console.error('SignalCard: Invalid entry price:', safeSignal.entryPrice);
     return null;
   }
   
-  // Use live current price for real-time updates, fallback to entry price with professional validation
+  // Use live current price for real-time updates, fallback to entry price
   const currentPrice = liveCurrentPrice && liveCurrentPrice > 0 ? liveCurrentPrice : signalEntryPrice;
   
-  // Get live price change data for professional analysis
+  // Get live price change data
   const { change, percentage } = getPriceChange();
 
-  // Professional chart data processing with enhanced safety
+  // Professional chart data processing with type safety
   const chartDataToDisplay = Array.isArray(centralizedChartData) 
     ? centralizedChartData
         .filter(point => {
-          // Professional data point validation
           if (!point || typeof point !== 'object') return false;
           if (!point.timestamp || !point.price) return false;
           if (isNaN(point.price) || point.price <= 0) return false;
@@ -111,7 +105,7 @@ const SignalCard = memo(({ signal, analysis, analyzingSignal, onGetAIAnalysis }:
         })
         .map(point => ({
           timestamp: point.timestamp,
-          time: point.time || point.timestamp,
+          time: String(point.time || point.timestamp), // Fix: Always convert to string
           price: point.price
         }))
     : [];
