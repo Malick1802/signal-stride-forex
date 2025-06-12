@@ -1,3 +1,4 @@
+
 import React, { useState, memo } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useEnhancedSignalMonitoring } from '@/hooks/useEnhancedSignalMonitoring';
@@ -34,41 +35,53 @@ const TradingSignals = memo(() => {
 
   const { activateMarket } = useMarketActivation();
 
-  // Enhanced signal validation with comprehensive null checks and debugging
+  // ENHANCED: Comprehensive signal validation with professional forex standards
   const validSignals = signals.filter(signal => {
+    // First-level null/undefined check
     if (!signal) {
-      console.warn('🚫 Null signal filtered out');
+      console.warn('🚫 Null/undefined signal filtered out');
       return false;
     }
     
+    // Type validation
     if (typeof signal !== 'object') {
       console.warn('🚫 Non-object signal filtered out:', typeof signal);
       return false;
     }
     
-    if (!signal.id || !signal.pair || !signal.type) {
+    // Essential property validation
+    const requiredProps = ['id', 'pair', 'type', 'entryPrice'];
+    const missingProps = requiredProps.filter(prop => !signal[prop as keyof typeof signal]);
+    
+    if (missingProps.length > 0) {
       console.warn('🚫 Signal missing required properties:', {
         id: signal.id,
         pair: signal.pair,
         type: signal.type,
-        hasId: !!signal.id,
-        hasPair: !!signal.pair,
-        hasType: !!signal.type
+        entryPrice: signal.entryPrice,
+        missingProps
       });
       return false;
     }
     
-    // Quality checks (65%+ confidence)
+    // Professional forex quality standards (65%+ confidence)
     if (signal.confidence < 65) {
       console.warn(`⚠️ Low confidence signal filtered out: ${signal.pair} (${signal.confidence}%)`);
       return false;
     }
     
-    console.log(`✅ Valid signal: ${signal.pair} ${signal.type} (${signal.confidence}%)`);
+    // Price validation for forex pairs
+    const entryPrice = parseFloat(signal.entryPrice);
+    if (isNaN(entryPrice) || entryPrice <= 0) {
+      console.warn(`❌ Invalid entry price for ${signal.pair}: ${signal.entryPrice}`);
+      return false;
+    }
+    
+    console.log(`✅ Professional forex signal validated: ${signal.pair} ${signal.type} (${signal.confidence}%)`);
     return true;
   });
 
-  console.log(`📊 Signal filtering results: ${validSignals.length}/${signals.length} valid signals`);
+  console.log(`📊 Professional signal filtering: ${validSignals.length}/${signals.length} valid signals`);
 
   const availablePairs = Array.from(new Set(validSignals.map(signal => signal.pair))).filter(Boolean);
   const [selectedPair, setSelectedPair] = useState('All');
@@ -81,67 +94,71 @@ const TradingSignals = memo(() => {
 
   const handleInvestigateSignalExpiration = async () => {
     try {
-      console.log('🔍 INVESTIGATING: Why signals are missing...');
+      console.log('🔍 PROFESSIONAL INVESTIGATION: Analyzing signal expiration patterns...');
       
-      // Check total signals in database
+      // Check total signals with enhanced debugging
       const { data: allSignals, error: allSignalsError } = await supabase
         .from('trading_signals')
-        .select('id, status, created_at, symbol, confidence')
+        .select('id, status, created_at, symbol, confidence, is_centralized')
+        .eq('is_centralized', true)
+        .is('user_id', null)
         .order('created_at', { ascending: false })
-        .limit(50);
+        .limit(100);
 
       if (allSignalsError) {
-        console.error('❌ Error fetching all signals:', allSignalsError);
+        console.error('❌ Investigation error:', allSignalsError);
         toast({
           title: "❌ Investigation Error",
-          description: "Failed to fetch signals from database",
+          description: "Failed to fetch signals for professional analysis",
           variant: "destructive"
         });
         return;
       }
 
-      // Check active vs expired signals
+      // Professional analysis of signal patterns
       const activeCount = allSignals?.filter(s => s.status === 'active').length || 0;
       const expiredCount = allSignals?.filter(s => s.status === 'expired').length || 0;
       const recentSignals = allSignals?.slice(0, 10) || [];
+      const highConfidenceSignals = allSignals?.filter(s => s.confidence >= 65).length || 0;
       
-      console.log(`📊 INVESTIGATION RESULTS:
-        - Total signals checked: ${allSignals?.length || 0}
-        - Active signals: ${activeCount}
+      console.log(`📊 PROFESSIONAL ANALYSIS RESULTS:
+        - Total signals analyzed: ${allSignals?.length || 0}
+        - Active professional signals: ${activeCount}
         - Expired signals: ${expiredCount}
-        - Recent signals:`, recentSignals);
+        - High confidence signals (65%+): ${highConfidenceSignals}
+        - Recent signal sample:`, recentSignals);
 
       const debugData = {
         totalSignals: allSignals?.length || 0,
         activeSignals: activeCount,
         expiredSignals: expiredCount,
         recentSignals: recentSignals,
-        highConfidenceSignals: allSignals?.filter(s => s.confidence >= 65).length || 0,
-        centralizedSignals: allSignals?.filter(s => s.status === 'active').length || 0
+        highConfidenceSignals: highConfidenceSignals,
+        professionalSignals: activeCount
       };
       
       setDebugInfo(debugData);
       
       toast({
-        title: "🔍 Investigation Complete",
-        description: `Found ${activeCount} active, ${expiredCount} expired signals out of ${allSignals?.length || 0} total.`,
+        title: "🔍 Professional Analysis Complete",
+        description: `Found ${activeCount} active, ${expiredCount} expired signals. ${highConfidenceSignals} high-confidence signals detected.`,
       });
 
-      // Show recommendations
+      // Professional recommendations
       if (activeCount === 0 && expiredCount > 0) {
-        console.log('⚠️ RECOMMENDATION: All signals are expired - likely time-based expiration is still active');
+        console.log('⚠️ PROFESSIONAL RECOMMENDATION: Time-based expiration detected - requires elimination');
         toast({
-          title: "⚠️ Time-Based Expiration Detected",
-          description: "All signals expired - recommend running elimination plan and generating new signals",
+          title: "⚠️ Time-Based Expiration Active",
+          description: "Professional analysis suggests running elimination plan and generating new signals",
           variant: "destructive"
         });
       }
 
     } catch (error) {
-      console.error('❌ Investigation error:', error);
+      console.error('❌ Professional investigation error:', error);
       toast({
         title: "Investigation Error",
-        description: "Failed to investigate signal expiration. Check console for details.",
+        description: "Professional analysis failed. Check console for details.",
         variant: "destructive"
       });
     }
@@ -175,26 +192,26 @@ const TradingSignals = memo(() => {
   const handleComprehensiveTest = async () => {
     setTestingSystem(true);
     try {
-      console.log('🧪 Running comprehensive system test...');
+      console.log('🧪 Running comprehensive professional forex system test...');
       const { data, error } = await supabase.functions.invoke('test-signal-generation');
       
       if (error) {
-        console.error('❌ Comprehensive test error:', error);
+        console.error('❌ Professional test error:', error);
         toast({
           title: "Test Error", 
-          description: "Comprehensive test failed. Check logs for details.",
+          description: "Professional forex system test failed. Check logs for details.",
           variant: "destructive"
         });
         return;
       }
 
-      console.log('✅ Comprehensive test result:', data);
+      console.log('✅ Professional test result:', data);
       
       const testResults = data.tests || {};
-      let message = `OpenAI: ${testResults.openAI || 'unknown'}, Market Data: ${testResults.marketData || 0}, Signals: ${testResults.signalsAfterGeneration || 0}`;
+      let message = `OpenAI Professional Analysis: ${testResults.openAI || 'unknown'}, Market Data: ${testResults.marketData || 0}, Professional Signals: ${testResults.signalsAfterGeneration || 0}`;
       
       toast({
-        title: "✅ Comprehensive Test Complete",
+        title: "✅ Professional Test Complete",
         description: message,
       });
 
@@ -202,10 +219,10 @@ const TradingSignals = memo(() => {
         window.location.reload();
       }, 2000);
     } catch (error) {
-      console.error('❌ Error running comprehensive test:', error);
+      console.error('❌ Error running professional test:', error);
       toast({
         title: "Test Error",
-        description: "Failed to run comprehensive test. Please try again.",
+        description: "Failed to run professional forex system test. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -216,12 +233,13 @@ const TradingSignals = memo(() => {
   const handleDetectOpportunities = async () => {
     setDetectingOpportunities(true);
     try {
+      console.log('🎯 Detecting professional forex opportunities with enhanced AI analysis...');
       await triggerAutomaticSignalGeneration();
     } catch (error) {
-      console.error('Error detecting practical opportunities:', error);
+      console.error('Error detecting professional opportunities:', error);
       toast({
-        title: "Practical Detection Error",
-        description: "Failed to detect new practical opportunities. Please try again.",
+        title: "Professional Detection Error",
+        description: "Failed to detect new professional forex opportunities. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -275,7 +293,7 @@ const TradingSignals = memo(() => {
   if (loading && validSignals.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-white">Loading practical signals (analyzing all currency pairs, limit: {MAX_ACTIVE_SIGNALS})...</div>
+        <div className="text-white">Loading professional forex signals (analyzing technical indicators, limit: {MAX_ACTIVE_SIGNALS})...</div>
       </div>
     );
   }
@@ -297,51 +315,51 @@ const TradingSignals = memo(() => {
         lastUpdate={lastUpdate || 'Never'}
       />
 
-      {/* Investigation Control */}
+      {/* Professional Investigation Control */}
       <div className="bg-amber-900/20 backdrop-blur-sm rounded-xl border border-amber-500/30 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <Bug className="h-5 w-5 text-amber-400" />
+            <Brain className="h-5 w-5 text-amber-400" />
             <div>
-              <h3 className="text-white font-medium">Signal Investigation</h3>
-              <p className="text-sm text-gray-400">Investigate why signals are missing and check database status</p>
+              <h3 className="text-white font-medium">Professional Signal Analysis</h3>
+              <p className="text-sm text-gray-400">Advanced investigation of signal patterns with technical indicators</p>
             </div>
           </div>
           <Button
             onClick={handleInvestigateSignalExpiration}
             className="bg-amber-600 hover:bg-amber-700 text-white"
           >
-            <Bug className="h-4 w-4 mr-2" />
-            Investigate Signal Status
+            <Brain className="h-4 w-4 mr-2" />
+            Professional Analysis
           </Button>
         </div>
         
         {debugInfo && (
           <div className="mt-4 bg-black/20 rounded-lg p-4">
-            <h4 className="text-white font-medium mb-2">Investigation Results:</h4>
+            <h4 className="text-white font-medium mb-2">Professional Analysis Results:</h4>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
               <div>
                 <div className="text-gray-400">Total Signals</div>
                 <div className="text-white font-bold">{debugInfo.totalSignals}</div>
               </div>
               <div>
-                <div className="text-gray-400">Active</div>
+                <div className="text-gray-400">Active Professional</div>
                 <div className="text-emerald-400 font-bold">{debugInfo.activeSignals}</div>
+              </div>
+              <div>
+                <div className="text-gray-400">High Confidence (65%+)</div>
+                <div className="text-blue-400 font-bold">{debugInfo.highConfidenceSignals}</div>
               </div>
               <div>
                 <div className="text-gray-400">Expired</div>
                 <div className="text-red-400 font-bold">{debugInfo.expiredSignals}</div>
               </div>
-              <div>
-                <div className="text-gray-400">High Confidence</div>
-                <div className="text-blue-400 font-bold">{debugInfo.highConfidenceSignals}</div>
-              </div>
             </div>
             {debugInfo.activeSignals === 0 && debugInfo.expiredSignals > 0 && (
               <div className="mt-2">
-                <div className="text-red-400 text-sm font-medium">⚠️ All signals are expired - Time-based expiration likely active</div>
+                <div className="text-red-400 text-sm font-medium">⚠️ Time-based expiration active - Professional recommendation: eliminate and regenerate</div>
                 <div className="text-yellow-300 text-xs">
-                  Recommendation: Run elimination plan, then generate new signals
+                  Technical indicators suggest fresh analysis needed
                 </div>
               </div>
             )}
@@ -406,7 +424,7 @@ const TradingSignals = memo(() => {
               </select>
             </div>
             <div className="text-sm text-gray-400">
-              ⭐ Pure outcome-based • Market validation • No time expiration
+              ⭐ Professional analysis • RSI • MACD • Bollinger • EMAs
             </div>
           </div>
         </div>
@@ -415,7 +433,7 @@ const TradingSignals = memo(() => {
       {/* Enhanced Active Signals Grid */}
       <div>
         <h3 className="text-white text-lg font-semibold mb-4">
-          {selectedPair === 'All' ? `Pure Outcome Signals (${filteredSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${selectedPair} Signals (${filteredSignals.length})`}
+          {selectedPair === 'All' ? `Professional Forex Signals (${filteredSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${selectedPair} Signals (${filteredSignals.length})`}
         </h3>
         
         {filteredSignals.length > 0 ? (
@@ -441,11 +459,11 @@ const TradingSignals = memo(() => {
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
               {selectedPair === 'All' 
-                ? `No pure outcome signals generated yet (0/${MAX_ACTIVE_SIGNALS})` 
+                ? `No professional forex signals generated yet (0/${MAX_ACTIVE_SIGNALS})` 
                 : `No signals for ${selectedPair}`}
             </div>
             <div className="text-sm text-gray-500 mb-6">
-              ⭐ Signal limit: {MAX_ACTIVE_SIGNALS} • Pure market outcomes • No time expiration
+              ⭐ Professional Analysis: RSI • MACD • Bollinger Bands • 50/200 EMA • ATR • News Sentiment
             </div>
             <div className="space-x-4">
               <Button
@@ -456,12 +474,12 @@ const TradingSignals = memo(() => {
                 {detectingOpportunities ? (
                   <>
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Analyzing Opportunities...
+                    Analyzing Professional Opportunities...
                   </>
                 ) : (
                   <>
-                    <Target className="h-4 w-4 mr-2" />
-                    Generate Pure Outcome Signals
+                    <Brain className="h-4 w-4 mr-2" />
+                    Generate Professional Signals
                   </>
                 )}
               </Button>

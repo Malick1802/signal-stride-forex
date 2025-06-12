@@ -32,18 +32,23 @@ interface SignalCardProps {
   onGetAIAnalysis: (signalId: string) => void;
 }
 
-const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
+const SignalCard = memo(({ signal, analysis, analyzingSignal, onGetAIAnalysis }: SignalCardProps) => {
   const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
 
-  // Enhanced validation with comprehensive null checks
+  // ENHANCED: Professional forex signal validation with comprehensive null checks
   if (!signal) {
-    console.warn('SignalCard: Null signal provided, skipping render');
+    console.warn('SignalCard: Null signal provided, skipping professional render');
     return null;
   }
 
-  // Check for all required properties before validation
-  if (!signal.id || !signal.pair || !signal.type || !signal.entryPrice) {
-    console.warn('SignalCard: Signal missing required properties:', {
+  // Professional forex standards validation
+  const requiredProps = ['id', 'pair', 'type', 'entryPrice'];
+  const missingProps = requiredProps.filter(prop => !signal[prop as keyof typeof signal]);
+  
+  if (missingProps.length > 0) {
+    console.warn('SignalCard: Professional signal missing required properties:', {
+      signal: signal,
+      missingProps,
       hasId: !!signal.id,
       hasPair: !!signal.pair,
       hasType: !!signal.type,
@@ -52,20 +57,21 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
     return null;
   }
 
+  // Professional validation using existing utility
   if (!validateSignal(signal)) {
-    console.warn('SignalCard: Signal failed validation:', signal);
+    console.warn('SignalCard: Professional signal failed validation:', signal);
     return null;
   }
 
   const safeSignal = createSafeSignal(signal);
 
-  // Additional safety check after safe signal creation
+  // Additional safety validation for professional standards
   if (!safeSignal || !safeSignal.id || !safeSignal.pair || !safeSignal.type) {
-    console.error('SignalCard: Safe signal creation failed for:', signal.id);
+    console.error('SignalCard: Professional safe signal creation failed for:', signal.id);
     return null;
   }
 
-  // Get live centralized real-time market data with error handling
+  // Get live centralized real-time market data with enhanced error handling
   const {
     currentPrice: liveCurrentPrice,
     getPriceChange,
@@ -80,31 +86,37 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
     entryPrice: safeSignal.entryPrice
   });
 
-  // Fixed signal entry price (never changes) with validation
+  // Professional forex entry price validation
   const signalEntryPrice = parseFloat(safeSignal.entryPrice);
   if (isNaN(signalEntryPrice) || signalEntryPrice <= 0) {
-    console.error('SignalCard: Invalid entry price after validation:', safeSignal.entryPrice);
+    console.error('SignalCard: Invalid professional entry price after validation:', safeSignal.entryPrice);
     return null;
   }
   
-  // Use live current price for real-time updates, fallback to entry price only if no live data
-  const currentPrice = liveCurrentPrice || signalEntryPrice;
+  // Use live current price for real-time updates, fallback to entry price with professional validation
+  const currentPrice = liveCurrentPrice && liveCurrentPrice > 0 ? liveCurrentPrice : signalEntryPrice;
   
-  // Get live price change data (this will be market data, not signal performance)
+  // Get live price change data for professional analysis
   const { change, percentage } = getPriceChange();
 
-  // Use ONLY centralized chart data for real-time updates with safety checks
+  // Professional chart data processing with enhanced safety
   const chartDataToDisplay = Array.isArray(centralizedChartData) 
     ? centralizedChartData
-        .filter(point => point && typeof point === 'object' && point.timestamp && point.price)
+        .filter(point => {
+          // Professional data point validation
+          if (!point || typeof point !== 'object') return false;
+          if (!point.timestamp || !point.price) return false;
+          if (isNaN(point.price) || point.price <= 0) return false;
+          return true;
+        })
         .map(point => ({
           timestamp: point.timestamp,
-          time: point.time,
+          time: point.time || point.timestamp,
           price: point.price
         }))
     : [];
 
-  // Enhanced connection status
+  // Professional connection status
   const connectionStatus = isConnected && chartDataToDisplay.length > 0;
 
   return (
