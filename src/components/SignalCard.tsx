@@ -41,14 +41,24 @@ const SignalCard = memo(({ signal, analysis, analyzingSignal, onGetAIAnalysis }:
     return null;
   }
 
-  // Validate required properties exist
-  if (!signal.id || !signal.pair || !signal.type || !signal.entryPrice) {
-    console.warn('SignalCard: Signal missing required properties:', {
-      id: !!signal.id,
-      pair: !!signal.pair,
-      type: !!signal.type,
-      entryPrice: !!signal.entryPrice
-    });
+  // Validate required properties exist - using early returns for better type narrowing
+  if (!signal.id) {
+    console.warn('SignalCard: Signal missing id');
+    return null;
+  }
+
+  if (!signal.pair) {
+    console.warn('SignalCard: Signal missing pair');
+    return null;
+  }
+
+  if (!signal.type) {
+    console.warn('SignalCard: Signal missing type');
+    return null;
+  }
+
+  if (!signal.entryPrice) {
+    console.warn('SignalCard: Signal missing entryPrice');
     return null;
   }
 
