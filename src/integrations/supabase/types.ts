@@ -118,117 +118,6 @@ export type Database = {
         }
         Relationships: []
       }
-      chart_patterns: {
-        Row: {
-          confidence_score: number
-          created_at: string
-          detected_at: string
-          id: string
-          pattern_type: string
-          resistance_level: number | null
-          support_level: number | null
-          symbol: string
-          target_price: number | null
-        }
-        Insert: {
-          confidence_score: number
-          created_at?: string
-          detected_at: string
-          id?: string
-          pattern_type: string
-          resistance_level?: number | null
-          support_level?: number | null
-          symbol: string
-          target_price?: number | null
-        }
-        Update: {
-          confidence_score?: number
-          created_at?: string
-          detected_at?: string
-          id?: string
-          pattern_type?: string
-          resistance_level?: number | null
-          support_level?: number | null
-          symbol?: string
-          target_price?: number | null
-        }
-        Relationships: []
-      }
-      comprehensive_market_data: {
-        Row: {
-          close_price: number
-          created_at: string
-          high_price: number
-          id: string
-          low_price: number
-          open_price: number
-          symbol: string
-          timestamp: string
-          volume: number | null
-        }
-        Insert: {
-          close_price: number
-          created_at?: string
-          high_price: number
-          id?: string
-          low_price: number
-          open_price: number
-          symbol: string
-          timestamp: string
-          volume?: number | null
-        }
-        Update: {
-          close_price?: number
-          created_at?: string
-          high_price?: number
-          id?: string
-          low_price?: number
-          open_price?: number
-          symbol?: string
-          timestamp?: string
-          volume?: number | null
-        }
-        Relationships: []
-      }
-      economic_events: {
-        Row: {
-          actual_value: string | null
-          created_at: string
-          currency: string
-          event_time: string
-          forecast_value: string | null
-          id: string
-          impact_level: string
-          previous_value: string | null
-          sentiment_score: number | null
-          title: string
-        }
-        Insert: {
-          actual_value?: string | null
-          created_at?: string
-          currency: string
-          event_time: string
-          forecast_value?: string | null
-          id?: string
-          impact_level: string
-          previous_value?: string | null
-          sentiment_score?: number | null
-          title: string
-        }
-        Update: {
-          actual_value?: string | null
-          created_at?: string
-          currency?: string
-          event_time?: string
-          forecast_value?: string | null
-          id?: string
-          impact_level?: string
-          previous_value?: string | null
-          sentiment_score?: number | null
-          title?: string
-        }
-        Relationships: []
-      }
       financial_transactions: {
         Row: {
           amount: number
@@ -361,45 +250,6 @@ export type Database = {
           timestamp?: string
           type?: string | null
           volume?: number | null
-        }
-        Relationships: []
-      }
-      market_sentiment: {
-        Row: {
-          created_at: string
-          id: string
-          institutional_bias: string | null
-          news_sentiment: number | null
-          retail_long_percentage: number | null
-          retail_short_percentage: number | null
-          sentiment_label: string
-          sentiment_score: number
-          symbol: string
-          timestamp: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          institutional_bias?: string | null
-          news_sentiment?: number | null
-          retail_long_percentage?: number | null
-          retail_short_percentage?: number | null
-          sentiment_label: string
-          sentiment_score: number
-          symbol: string
-          timestamp: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          institutional_bias?: string | null
-          news_sentiment?: number | null
-          retail_long_percentage?: number | null
-          retail_short_percentage?: number | null
-          sentiment_label?: string
-          sentiment_score?: number
-          symbol?: string
-          timestamp?: string
         }
         Relationships: []
       }
@@ -611,60 +461,6 @@ export type Database = {
         }
         Relationships: []
       }
-      technical_indicators: {
-        Row: {
-          atr_14: number | null
-          bb_lower: number | null
-          bb_middle: number | null
-          bb_upper: number | null
-          created_at: string
-          ema_200: number | null
-          ema_50: number | null
-          id: string
-          macd_histogram: number | null
-          macd_line: number | null
-          macd_signal: number | null
-          rsi_14: number | null
-          symbol: string
-          timeframe: string
-          timestamp: string
-        }
-        Insert: {
-          atr_14?: number | null
-          bb_lower?: number | null
-          bb_middle?: number | null
-          bb_upper?: number | null
-          created_at?: string
-          ema_200?: number | null
-          ema_50?: number | null
-          id?: string
-          macd_histogram?: number | null
-          macd_line?: number | null
-          macd_signal?: number | null
-          rsi_14?: number | null
-          symbol: string
-          timeframe?: string
-          timestamp: string
-        }
-        Update: {
-          atr_14?: number | null
-          bb_lower?: number | null
-          bb_middle?: number | null
-          bb_upper?: number | null
-          created_at?: string
-          ema_200?: number | null
-          ema_50?: number | null
-          id?: string
-          macd_histogram?: number | null
-          macd_line?: number | null
-          macd_signal?: number | null
-          rsi_14?: number | null
-          symbol?: string
-          timeframe?: string
-          timestamp?: string
-        }
-        Relationships: []
-      }
       trading_instruments: {
         Row: {
           base_currency: string | null
@@ -718,25 +514,17 @@ export type Database = {
           chart_data: Json | null
           confidence: number
           created_at: string
-          economic_impact: string | null
-          fundamental_score: number | null
           id: string
           is_centralized: boolean | null
           last_price: number | null
           market_conditions: string[] | null
-          market_context: Json | null
-          pattern_detected: string | null
           pips: number
           price: number
-          risk_reward_ratio: number | null
-          sentiment_score: number | null
           status: string
           stop_loss: number
           symbol: string
           take_profits: number[] | null
           targets_hit: number[] | null
-          technical_indicators: Json | null
-          technical_score: number | null
           timestamp: string
           type: string
           updated_at: string
@@ -750,25 +538,17 @@ export type Database = {
           chart_data?: Json | null
           confidence: number
           created_at?: string
-          economic_impact?: string | null
-          fundamental_score?: number | null
           id?: string
           is_centralized?: boolean | null
           last_price?: number | null
           market_conditions?: string[] | null
-          market_context?: Json | null
-          pattern_detected?: string | null
           pips: number
           price: number
-          risk_reward_ratio?: number | null
-          sentiment_score?: number | null
           status?: string
           stop_loss: number
           symbol: string
           take_profits?: number[] | null
           targets_hit?: number[] | null
-          technical_indicators?: Json | null
-          technical_score?: number | null
           timestamp?: string
           type: string
           updated_at?: string
@@ -782,25 +562,17 @@ export type Database = {
           chart_data?: Json | null
           confidence?: number
           created_at?: string
-          economic_impact?: string | null
-          fundamental_score?: number | null
           id?: string
           is_centralized?: boolean | null
           last_price?: number | null
           market_conditions?: string[] | null
-          market_context?: Json | null
-          pattern_detected?: string | null
           pips?: number
           price?: number
-          risk_reward_ratio?: number | null
-          sentiment_score?: number | null
           status?: string
           stop_loss?: number
           symbol?: string
           take_profits?: number[] | null
           targets_hit?: number[] | null
-          technical_indicators?: Json | null
-          technical_score?: number | null
           timestamp?: string
           type?: string
           updated_at?: string
