@@ -1,7 +1,7 @@
-
 import { useEffect, useCallback, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import Logger from '@/utils/logger';
 
 interface EnhancedSignalData {
   id: string;
@@ -42,7 +42,7 @@ export const useEnhancedSignalMonitoring = () => {
       if (now - updatedConfirmations[signalId].firstDetectedAt > 60000) { // 1 minute max
         delete updatedConfirmations[signalId];
         hasChanges = true;
-        console.log(`🧹 Clearing stale SL confirmation for ${signalId}`);
+        Logger.debug('monitoring', `Clearing stale SL confirmation for ${signalId}`);
       }
     });
     
@@ -115,8 +115,7 @@ export const useEnhancedSignalMonitoring = () => {
       const isCountThresholdMet = newCount >= STOP_LOSS_CONFIRMATION_COUNT;
       
       if (isCountThresholdMet && isTimeThresholdMet) {
-        console.log(`✅ PURE OUTCOME SL CONFIRMED: ${signal.symbol} ${signal.type} - Price: ${currentPrice}, SL: ${signal.stopLoss}`);
-        console.log(`🔍 PURE OUTCOME: ${newCount} confirmations over ${Math.round(timeElapsed / 1000)}s - NO TIME EXPIRATION`);
+        Logger.info('monitoring', `SL CONFIRMED: ${signal.symbol} ${signal.type} - Price: ${currentPrice}, SL: ${signal.stopLoss}`);
         
         setStopLossConfirmations(prevState => {
           const newState = { ...prevState };
@@ -129,8 +128,7 @@ export const useEnhancedSignalMonitoring = () => {
       
       return false;
     } else {
-      console.log(`⚠️ PURE OUTCOME SL DETECTION: ${signal.symbol} ${signal.type} - Price: ${currentPrice}, SL: ${signal.stopLoss}`);
-      console.log(`🔍 Starting PURE OUTCOME confirmation for ${signal.id} - NO TIME COMPONENT`);
+      Logger.debug('monitoring', `SL DETECTION: ${signal.symbol} ${signal.type} - Starting confirmation`);
       
       setStopLossConfirmations(prevState => ({
         ...prevState,
@@ -167,8 +165,7 @@ export const useEnhancedSignalMonitoring = () => {
         newTargetsHit.push(targetNumber);
         hasNewTargetHit = true;
         
-        console.log(`🎯 PURE OUTCOME TP HIT: ${signal.symbol} ${signal.type} TP${targetNumber} - NO TIME FACTOR`);
-        console.log(`🔍 PURE OUTCOME TP LOGIC: ${signal.type === 'BUY' ? `${currentPrice} >= ${tpPrice}` : `${currentPrice} <= ${tpPrice}`}`);
+        Logger.info('monitoring', `TP HIT: ${signal.symbol} ${signal.type} TP${targetNumber}`);
       }
     }
 
@@ -192,7 +189,7 @@ export const useEnhancedSignalMonitoring = () => {
 
       if (!shouldExpire) return;
 
-      console.log(`🔄 PURE OUTCOME PROCESSING: ${signal.symbol} - SL: ${stopLossHit}, All TP: ${allTargetsHit} - ZERO TIME COMPONENT`);
+      Logger.info('monitoring', `Processing outcome: ${signal.symbol} - SL: ${stopLossHit}, All TP: ${allTargetsHit}`);
 
       // Check for existing outcome
       const { data: existingOutcome } = await supabase
@@ -202,7 +199,7 @@ export const useEnhancedSignalMonitoring = () => {
         .single();
 
       if (existingOutcome) {
-        console.log(`⚠️ PURE OUTCOME: Outcome exists for ${signal.id}, skipping`);
+        Logger.debug('monitoring', `Outcome exists for ${signal.id}, skipping`);
         return;
       }
 
@@ -229,13 +226,13 @@ export const useEnhancedSignalMonitoring = () => {
       // Determine outcome notes
       let outcomeNotes = '';
       if (allTargetsHit) {
-        outcomeNotes = 'All Take Profits Hit (Pure Outcome-Based - NO Time Expiration)';
+        outcomeNotes = 'All Take Profits Hit (Pure Outcome-Based)';
       } else if (targetsHit.length > 0 && stopLossHit) {
-        outcomeNotes = `Take Profit ${Math.max(...targetsHit)} Hit, Then Stop Loss (Pure Outcome-Based - NO Time Expiration)`;
+        outcomeNotes = `Take Profit ${Math.max(...targetsHit)} Hit, Then Stop Loss (Pure Outcome-Based)`;
       } else if (targetsHit.length > 0) {
-        outcomeNotes = `Take Profit ${Math.max(...targetsHit)} Hit (Pure Outcome-Based - NO Time Expiration)`;
+        outcomeNotes = `Take Profit ${Math.max(...targetsHit)} Hit (Pure Outcome-Based)`;
       } else {
-        outcomeNotes = 'Stop Loss Hit (Pure Outcome-Based - NO Time Expiration)';
+        outcomeNotes = 'Stop Loss Hit (Pure Outcome-Based)';
       }
 
       // Create outcome record
@@ -252,11 +249,11 @@ export const useEnhancedSignalMonitoring = () => {
         });
 
       if (outcomeError) {
-        console.error(`❌ PURE OUTCOME: Failed to create outcome for ${signal.id}:`, outcomeError);
+        Logger.error('monitoring', `Failed to create outcome for ${signal.id}:`, outcomeError);
         return;
       }
 
-      console.log(`✅ PURE OUTCOME: Created for ${signal.id}: ${outcomeNotes} (${pnlPips} pips)`);
+      Logger.info('monitoring', `Created outcome for ${signal.id}: ${outcomeNotes} (${pnlPips} pips)`);
 
       // Update signal status
       const { error: updateError } = await supabase
@@ -269,11 +266,11 @@ export const useEnhancedSignalMonitoring = () => {
         .eq('id', signal.id);
 
       if (updateError) {
-        console.error(`❌ PURE OUTCOME: Failed to update signal ${signal.id}:`, updateError);
+        Logger.error('monitoring', `Failed to update signal ${signal.id}:`, updateError);
         return;
       }
 
-      console.log(`🎯 PURE OUTCOME EXPIRATION: ${signal.id} (${signal.symbol}) - MARKET BASED ONLY`);
+      Logger.info('monitoring', `Signal expired: ${signal.id} (${signal.symbol}) - Market based`);
 
       // Show notification
       const notificationTitle = isSuccessful ? "🎯 Pure Outcome Success!" : "⛔ Pure Outcome Stop Loss";
@@ -286,7 +283,7 @@ export const useEnhancedSignalMonitoring = () => {
       });
 
     } catch (error) {
-      console.error(`❌ PURE OUTCOME: Error processing ${signal.id}:`, error);
+      Logger.error('monitoring', `Error processing outcome for ${signal.id}:`, error);
     }
   }, [toast]);
 
@@ -304,7 +301,7 @@ export const useEnhancedSignalMonitoring = () => {
         return;
       }
 
-      console.log(`🔍 PURE OUTCOME EXCLUSIVE MONITORING: ${activeSignals.length} signals - NO TIME EXPIRATION`);
+      Logger.debug('monitoring', `Monitoring ${activeSignals.length} signals`);
 
       // Get current market prices
       const symbols = [...new Set(activeSignals.map(s => s.symbol))];
@@ -314,7 +311,7 @@ export const useEnhancedSignalMonitoring = () => {
         .in('symbol', symbols);
 
       if (priceError || !marketData?.length) {
-        console.log('⚠️ PURE OUTCOME: No market data available');
+        Logger.debug('monitoring', 'No market data available');
         return;
       }
 
@@ -334,7 +331,7 @@ export const useEnhancedSignalMonitoring = () => {
 
         const takeProfits = signal.take_profits?.map((tp: any) => parseFloat(tp.toString())) || [];
         if (takeProfits.length === 0) {
-          console.warn(`⚠️ Signal ${signal.id} has no take profits, skipping`);
+          Logger.debug('monitoring', `Signal ${signal.id} has no take profits, skipping`);
           continue;
         }
 
@@ -352,7 +349,7 @@ export const useEnhancedSignalMonitoring = () => {
           currentTrailingStop: undefined
         };
 
-        console.log(`📊 PURE OUTCOME VALIDATION: ${signal.symbol} - Current: ${currentPrice}, Entry: ${enhancedSignal.entryPrice}, SL: ${enhancedSignal.stopLoss} - MARKET ONLY`);
+        Logger.debug('monitoring', `Validating ${signal.symbol} - Current: ${currentPrice}, Entry: ${enhancedSignal.entryPrice}, SL: ${enhancedSignal.stopLoss}`);
 
         // Check take profits FIRST (priority over stop loss)
         const newTargetsHit = validateTakeProfitHits(enhancedSignal, currentPrice);
@@ -367,7 +364,7 @@ export const useEnhancedSignalMonitoring = () => {
             })
             .eq('id', signal.id);
 
-          console.log(`✅ PURE OUTCOME: Updated targets for ${signal.symbol}:`, newTargetsHit);
+          Logger.info('monitoring', `Updated targets for ${signal.symbol}:`, newTargetsHit);
           enhancedSignal.targetsHit = newTargetsHit;
           enhancedSignal.trailingStopActive = newTargetsHit.length > 0;
         }
@@ -382,7 +379,7 @@ export const useEnhancedSignalMonitoring = () => {
             if ((enhancedSignal.type === 'BUY' && newTrailingStop > currentStop) ||
                 (enhancedSignal.type === 'SELL' && newTrailingStop < currentStop)) {
               
-              console.log(`🔄 PURE OUTCOME TRAILING: ${signal.symbol} ${signal.type} - Moving SL from ${enhancedSignal.stopLoss} to ${newTrailingStop}`);
+              Logger.info('monitoring', `Trailing SL: ${signal.symbol} ${signal.type} - Moving SL from ${enhancedSignal.stopLoss} to ${newTrailingStop}`);
               
               await supabase
                 .from('trading_signals')
@@ -406,7 +403,7 @@ export const useEnhancedSignalMonitoring = () => {
       }
 
     } catch (error) {
-      console.error('❌ PURE OUTCOME MONITORING ERROR:', error);
+      Logger.error('monitoring', 'Monitoring error:', error);
     }
   }, [validateStopLossHit, validateTakeProfitHits, processSignalOutcome, calculateTrailingStop, clearStaleConfirmations]);
 
@@ -414,7 +411,7 @@ export const useEnhancedSignalMonitoring = () => {
     // Initial monitoring
     monitorSignalsEnhanced();
 
-    // Enhanced monitoring every 3 seconds for maximum responsiveness
+    // Keep 3-second monitoring as requested for maximum responsiveness
     const monitorInterval = setInterval(monitorSignalsEnhanced, 3000);
 
     // Real-time price update monitoring
@@ -433,7 +430,7 @@ export const useEnhancedSignalMonitoring = () => {
       )
       .subscribe();
 
-    console.log('🔄 PURE OUTCOME EXCLUSIVE MONITORING: Active with enhanced validation - ZERO TIME EXPIRATION');
+    Logger.info('monitoring', 'Pure outcome exclusive monitoring active with 3s interval');
 
     return () => {
       clearInterval(monitorInterval);

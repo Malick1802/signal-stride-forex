@@ -1,4 +1,4 @@
-import React, { useState, memo } from 'react';
+import React, { useState, memo, useMemo, useCallback } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useEnhancedSignalMonitoring } from '@/hooks/useEnhancedSignalMonitoring';
 import { useSignalOutcomeTracker } from '@/hooks/useSignalOutcomeTracker';
@@ -12,6 +12,7 @@ import SignalDebuggingDashboard from './SignalDebuggingDashboard';
 import { Button } from '@/components/ui/button';
 import { RefreshCw, Activity, Brain, Shield, Zap, Target, TrendingUp, Bug, Star, Award, AlertTriangle, CheckCircle } from 'lucide-react';
 import { useMarketActivation } from '@/hooks/useMarketActivation';
+import Logger from '@/utils/logger';
 
 // UPDATED: Increased signal limit for better market coverage and diversification
 const MAX_ACTIVE_SIGNALS = 20;
@@ -34,54 +35,65 @@ const TradingSignals = memo(() => {
 
   const { activateMarket } = useMarketActivation();
 
-  // Enhanced signal validation with comprehensive null checks and debugging
-  const validSignals = signals.filter(signal => {
-    if (!signal) {
-      console.warn('🚫 Null signal filtered out');
-      return false;
+  // Memoized signal validation with proper loading state handling
+  const validSignals = useMemo(() => {
+    // Prevent filtering during initial load to avoid race condition
+    if (loading || !signals || signals.length === 0) {
+      Logger.debug('signals', `Signal filtering skipped - loading: ${loading}, signals: ${signals?.length || 0}`);
+      return [];
     }
-    
-    if (typeof signal !== 'object') {
-      console.warn('🚫 Non-object signal filtered out:', typeof signal);
-      return false;
-    }
-    
-    if (!signal.id || !signal.pair || !signal.type) {
-      console.warn('🚫 Signal missing required properties:', {
-        id: signal.id,
-        pair: signal.pair,
-        type: signal.type,
-        hasId: !!signal.id,
-        hasPair: !!signal.pair,
-        hasType: !!signal.type
-      });
-      return false;
-    }
-    
-    // Quality checks (65%+ confidence)
-    if (signal.confidence < 65) {
-      console.warn(`⚠️ Low confidence signal filtered out: ${signal.pair} (${signal.confidence}%)`);
-      return false;
-    }
-    
-    console.log(`✅ Valid signal: ${signal.pair} ${signal.type} (${signal.confidence}%)`);
-    return true;
-  });
 
-  console.log(`📊 Signal filtering results: ${validSignals.length}/${signals.length} valid signals`);
+    const filtered = signals.filter(signal => {
+      if (!signal) {
+        Logger.debug('signals', 'Null signal filtered out');
+        return false;
+      }
+      
+      if (typeof signal !== 'object') {
+        Logger.debug('signals', `Non-object signal filtered out: ${typeof signal}`);
+        return false;
+      }
+      
+      if (!signal.id || !signal.pair || !signal.type) {
+        Logger.debug('signals', `Signal missing required properties: ${signal.id} ${signal.pair} ${signal.type}`);
+        return false;
+      }
+      
+      // Quality checks (65%+ confidence)
+      if (signal.confidence < 65) {
+        Logger.debug('signals', `Low confidence signal filtered out: ${signal.pair} (${signal.confidence}%)`);
+        return false;
+      }
+      
+      return true;
+    });
 
-  const availablePairs = Array.from(new Set(validSignals.map(signal => signal.pair))).filter(Boolean);
+    Logger.info('signals', `Signal filtering results: ${filtered.length}/${signals.length} valid signals`);
+    return filtered;
+  }, [signals, loading]);
+
+  // Memoized available pairs to prevent unnecessary recalculations
+  const availablePairs = useMemo(() => {
+    return Array.from(new Set(validSignals.map(signal => signal.pair))).filter(Boolean);
+  }, [validSignals]);
+
   const [selectedPair, setSelectedPair] = useState('All');
 
-  const filteredSignals = selectedPair === 'All' ? validSignals : validSignals.filter(signal => signal.pair === selectedPair);
+  // Memoized filtered signals
+  const filteredSignals = useMemo(() => {
+    return selectedPair === 'All' ? validSignals : validSignals.filter(signal => signal.pair === selectedPair);
+  }, [selectedPair, validSignals]);
 
-  const avgConfidence = validSignals.length > 0 
-    ? Math.round(validSignals.reduce((sum, signal) => sum + (signal.confidence || 0), 0) / validSignals.length)
-    : 70;
+  // Memoized average confidence calculation
+  const avgConfidence = useMemo(() => {
+    return validSignals.length > 0 
+      ? Math.round(validSignals.reduce((sum, signal) => sum + (signal.confidence || 0), 0) / validSignals.length)
+      : 70;
+  }, [validSignals]);
 
-  const handleInvestigateSignalExpiration = async () => {
+  const handleInvestigateSignalExpiration = useCallback(async () => {
     try {
-      console.log('🔍 INVESTIGATING: Why signals are missing...');
+      Logger.info('signals', 'Investigating signal expiration...');
       
       // Check total signals in database
       const { data: allSignals, error: allSignalsError } = await supabase
@@ -91,7 +103,7 @@ const TradingSignals = memo(() => {
         .limit(50);
 
       if (allSignalsError) {
-        console.error('❌ Error fetching all signals:', allSignalsError);
+        Logger.error('signals', 'Error fetching all signals:', allSignalsError);
         toast({
           title: "❌ Investigation Error",
           description: "Failed to fetch signals from database",
@@ -105,12 +117,6 @@ const TradingSignals = memo(() => {
       const expiredCount = allSignals?.filter(s => s.status === 'expired').length || 0;
       const recentSignals = allSignals?.slice(0, 10) || [];
       
-      console.log(`📊 INVESTIGATION RESULTS:
-        - Total signals checked: ${allSignals?.length || 0}
-        - Active signals: ${activeCount}
-        - Expired signals: ${expiredCount}
-        - Recent signals:`, recentSignals);
-
       const debugData = {
         totalSignals: allSignals?.length || 0,
         activeSignals: activeCount,
@@ -127,9 +133,9 @@ const TradingSignals = memo(() => {
         description: `Found ${activeCount} active, ${expiredCount} expired signals out of ${allSignals?.length || 0} total.`,
       });
 
-      // Show recommendations
+      // Show recommendations based on findings
       if (activeCount === 0 && expiredCount > 0) {
-        console.log('⚠️ RECOMMENDATION: All signals are expired - likely time-based expiration is still active');
+        Logger.warn('signals', 'All signals expired - time-based expiration likely active');
         toast({
           title: "⚠️ Time-Based Expiration Detected",
           description: "All signals expired - recommend running elimination plan and generating new signals",
@@ -138,30 +144,30 @@ const TradingSignals = memo(() => {
       }
 
     } catch (error) {
-      console.error('❌ Investigation error:', error);
+      Logger.error('signals', 'Investigation error:', error);
       toast({
         title: "Investigation Error",
         description: "Failed to investigate signal expiration. Check console for details.",
         variant: "destructive"
       });
     }
-  };
+  }, [toast]);
 
   const handleEliminateTimeBasedExpiration = async () => {
     setEliminatingTimeBased(true);
     try {
-      console.log('🔥 EXECUTING COMPREHENSIVE TIME-BASED EXPIRATION ELIMINATION...');
+      Logger.info('signals', 'Executing comprehensive time-based expiration elimination...');
       const success = await executeTimeBasedEliminationPlan();
       
       if (success) {
-        console.log('✅ COMPREHENSIVE TIME-BASED EXPIRATION ELIMINATION COMPLETE');
+        Logger.info('signals', 'Time-based expiration elimination complete');
         toast({
           title: "🎯 TIME-BASED EXPIRATION COMPLETELY ELIMINATED",
           description: "All cron jobs removed. Signals now expire PURELY on market outcomes (SL/TP) + 72h emergency safety only",
         });
       }
     } catch (error) {
-      console.error('❌ Error executing comprehensive elimination:', error);
+      Logger.error('signals', 'Error executing comprehensive elimination:', error);
       toast({
         title: "Elimination Error",
         description: "Failed to eliminate time-based expiration. Please try again.",
@@ -175,11 +181,11 @@ const TradingSignals = memo(() => {
   const handleComprehensiveTest = async () => {
     setTestingSystem(true);
     try {
-      console.log('🧪 Running comprehensive system test...');
+      Logger.info('signals', 'Running comprehensive system test...');
       const { data, error } = await supabase.functions.invoke('test-signal-generation');
       
       if (error) {
-        console.error('❌ Comprehensive test error:', error);
+        Logger.error('signals', 'Comprehensive test error:', error);
         toast({
           title: "Test Error", 
           description: "Comprehensive test failed. Check logs for details.",
@@ -188,7 +194,7 @@ const TradingSignals = memo(() => {
         return;
       }
 
-      console.log('✅ Comprehensive test result:', data);
+      Logger.info('signals', 'Comprehensive test result:', data);
       
       const testResults = data.tests || {};
       let message = `OpenAI: ${testResults.openAI || 'unknown'}, Market Data: ${testResults.marketData || 0}, Signals: ${testResults.signalsAfterGeneration || 0}`;
@@ -202,7 +208,7 @@ const TradingSignals = memo(() => {
         window.location.reload();
       }, 2000);
     } catch (error) {
-      console.error('❌ Error running comprehensive test:', error);
+      Logger.error('signals', 'Error running comprehensive test:', error);
       toast({
         title: "Test Error",
         description: "Failed to run comprehensive test. Please try again.",
@@ -218,7 +224,7 @@ const TradingSignals = memo(() => {
     try {
       await triggerAutomaticSignalGeneration();
     } catch (error) {
-      console.error('Error detecting practical opportunities:', error);
+      Logger.error('signals', 'Error detecting practical opportunities:', error);
       toast({
         title: "Practical Detection Error",
         description: "Failed to detect new practical opportunities. Please try again.",
@@ -240,7 +246,7 @@ const TradingSignals = memo(() => {
       });
 
       if (error) {
-        console.error('AI analysis error:', error);
+        Logger.error('signals', 'AI analysis error:', error);
         toast({
           title: "Analysis Error",
           description: "Failed to get additional AI analysis. Please try again.",
@@ -261,7 +267,7 @@ const TradingSignals = memo(() => {
         });
       }
     } catch (error) {
-      console.error('Error getting AI analysis:', error);
+      Logger.error('signals', 'Error getting AI analysis:', error);
       toast({
         title: "Analysis Error",
         description: "Failed to get additional AI analysis. Please try again.",
@@ -272,6 +278,7 @@ const TradingSignals = memo(() => {
     }
   };
 
+  // Show loading state during initial load to prevent race condition
   if (loading && validSignals.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -422,7 +429,7 @@ const TradingSignals = memo(() => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredSignals.map(signal => {
               if (!signal || !signal.id) {
-                console.warn('🚫 Skipping invalid signal in render:', signal);
+                Logger.debug('signals', 'Skipping invalid signal in render:', signal?.id);
                 return null;
               }
               
