@@ -32,31 +32,40 @@ interface SignalCardProps {
   onGetAIAnalysis: (signalId: string) => void;
 }
 
-const SignalCard = memo(({ signal, analysis, analyzingSignal, onGetAIAnalysis }: SignalCardProps) => {
+const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
   const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
 
-  // Early return for null signals
+  // Enhanced validation with comprehensive null checks
   if (!signal) {
-    console.warn('SignalCard: Null signal provided, rendering nothing');
+    console.warn('SignalCard: Null signal provided, skipping render');
     return null;
   }
 
-  // Validate the signal using existing utility
+  // Check for all required properties before validation
+  if (!signal.id || !signal.pair || !signal.type || !signal.entryPrice) {
+    console.warn('SignalCard: Signal missing required properties:', {
+      hasId: !!signal.id,
+      hasPair: !!signal.pair,
+      hasType: !!signal.type,
+      hasEntryPrice: !!signal.entryPrice
+    });
+    return null;
+  }
+
   if (!validateSignal(signal)) {
-    console.warn('SignalCard: Signal failed validation:', signal.id || 'unknown');
+    console.warn('SignalCard: Signal failed validation:', signal);
     return null;
   }
 
-  // At this point, signal is guaranteed to be valid, so we can safely create the safe signal
   const safeSignal = createSafeSignal(signal);
 
-  // Validate the safe signal was created properly
-  if (!safeSignal.id || !safeSignal.pair || !safeSignal.type) {
-    console.error('SignalCard: Safe signal creation failed for signal ID:', safeSignal.id || 'unknown');
+  // Additional safety check after safe signal creation
+  if (!safeSignal || !safeSignal.id || !safeSignal.pair || !safeSignal.type) {
+    console.error('SignalCard: Safe signal creation failed for:', signal.id);
     return null;
   }
 
-  // Get live centralized real-time market data
+  // Get live centralized real-time market data with error handling
   const {
     currentPrice: liveCurrentPrice,
     getPriceChange,
@@ -71,36 +80,31 @@ const SignalCard = memo(({ signal, analysis, analyzingSignal, onGetAIAnalysis }:
     entryPrice: safeSignal.entryPrice
   });
 
-  // Professional forex entry price validation
+  // Fixed signal entry price (never changes) with validation
   const signalEntryPrice = parseFloat(safeSignal.entryPrice);
   if (isNaN(signalEntryPrice) || signalEntryPrice <= 0) {
-    console.error('SignalCard: Invalid entry price:', safeSignal.entryPrice);
+    console.error('SignalCard: Invalid entry price after validation:', safeSignal.entryPrice);
     return null;
   }
   
-  // Use live current price for real-time updates, fallback to entry price
-  const currentPrice = liveCurrentPrice && liveCurrentPrice > 0 ? liveCurrentPrice : signalEntryPrice;
+  // Use live current price for real-time updates, fallback to entry price only if no live data
+  const currentPrice = liveCurrentPrice || signalEntryPrice;
   
-  // Get live price change data
+  // Get live price change data (this will be market data, not signal performance)
   const { change, percentage } = getPriceChange();
 
-  // Professional chart data processing with type safety
+  // Use ONLY centralized chart data for real-time updates with safety checks
   const chartDataToDisplay = Array.isArray(centralizedChartData) 
     ? centralizedChartData
-        .filter(point => {
-          if (!point || typeof point !== 'object') return false;
-          if (!point.timestamp || !point.price) return false;
-          if (isNaN(point.price) || point.price <= 0) return false;
-          return true;
-        })
+        .filter(point => point && typeof point === 'object' && point.timestamp && point.price)
         .map(point => ({
           timestamp: point.timestamp,
-          time: String(point.time || point.timestamp),
+          time: point.time,
           price: point.price
         }))
     : [];
 
-  // Professional connection status
+  // Enhanced connection status
   const connectionStatus = isConnected && chartDataToDisplay.length > 0;
 
   return (
