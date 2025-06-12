@@ -33,6 +33,8 @@ export const useTradingSignals = () => {
 
   const fetchSignals = useCallback(async () => {
     try {
+      console.log(`🔍 Fetching active signals (limit: ${MAX_ACTIVE_SIGNALS})...`);
+      
       // UPDATED signal fetching with increased practical quality focus
       const { data: centralizedSignals, error } = await supabase
         .from('trading_signals')
@@ -50,19 +52,39 @@ export const useTradingSignals = () => {
         return;
       }
 
+      console.log(`📊 RAW SIGNALS FETCHED: ${centralizedSignals?.length || 0} signals from database`);
+
       if (!centralizedSignals || centralizedSignals.length === 0) {
-        console.log('📭 No practical signals found');
+        console.log('📭 No practical signals found in database');
         setSignals([]);
         setLastUpdate(new Date().toLocaleTimeString());
         return;
       }
 
+      // Log raw signal data for debugging
+      centralizedSignals.forEach((signal, index) => {
+        console.log(`📊 Raw Signal ${index + 1}:`, {
+          id: signal.id,
+          symbol: signal.symbol,
+          type: signal.type,
+          status: signal.status,
+          confidence: signal.confidence,
+          created_at: signal.created_at,
+          hasRequiredFields: !!(signal.id && signal.symbol && signal.type && signal.price)
+        });
+      });
+
       const processedSignals = processSignals(centralizedSignals);
+      
+      console.log(`📊 PROCESSED SIGNALS: ${processedSignals.length}/${centralizedSignals.length} signals passed processing`);
+      
       setSignals(processedSignals);
       setLastUpdate(new Date().toLocaleTimeString());
       
       if (processedSignals.length > 0) {
         console.log(`✅ Loaded ${processedSignals.length}/${MAX_ACTIVE_SIGNALS} practical signals`);
+      } else {
+        console.warn(`⚠️ No signals passed processing validation out of ${centralizedSignals.length} raw signals`);
       }
       
     } catch (error) {
@@ -77,10 +99,24 @@ export const useTradingSignals = () => {
     console.log(`📊 Processing ${activeSignals.length}/${MAX_ACTIVE_SIGNALS} practical signals`);
 
     const transformedSignals = activeSignals
-      .map(signal => {
+      .map((signal, index) => {
         try {
+          console.log(`🔄 Processing signal ${index + 1}/${activeSignals.length}:`, signal?.id || 'NO_ID');
+          
+          if (!signal) {
+            console.warn(`❌ Signal ${index + 1} is null/undefined`);
+            return null;
+          }
+
           if (!signal?.id || !signal?.symbol || !signal?.type) {
-            console.warn('❌ Invalid signal data:', signal);
+            console.warn(`❌ Signal ${index + 1} missing required fields:`, {
+              id: signal?.id,
+              symbol: signal?.symbol,
+              type: signal?.type,
+              hasId: !!signal?.id,
+              hasSymbol: !!signal?.symbol,
+              hasType: !!signal?.type
+            });
             return null;
           }
 
@@ -116,7 +152,7 @@ export const useTradingSignals = () => {
           const takeProfits = safeParseArray(signal.take_profits);
           const targetsHit = safeParseArray(signal.targets_hit);
 
-          return {
+          const transformedSignal = {
             id: signal.id,
             pair: signal.symbol,
             type: signal.type || 'BUY',
@@ -134,8 +170,11 @@ export const useTradingSignals = () => {
             chartData: chartData,
             targetsHit: targetsHit
           };
+
+          console.log(`✅ Successfully processed signal ${index + 1}: ${transformedSignal.pair} ${transformedSignal.type} (${transformedSignal.confidence}%)`);
+          return transformedSignal;
         } catch (error) {
-          console.error(`❌ Error transforming practical signal for ${signal?.symbol}:`, error);
+          console.error(`❌ Error transforming practical signal ${index + 1} for ${signal?.symbol}:`, error);
           return null;
         }
       })

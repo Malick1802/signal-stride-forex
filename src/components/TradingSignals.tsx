@@ -1,4 +1,3 @@
-
 import React, { useState, memo } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useEnhancedSignalMonitoring } from '@/hooks/useEnhancedSignalMonitoring';
@@ -31,21 +30,45 @@ const TradingSignals = memo(() => {
   const [testingSystem, setTestingSystem] = useState(false);
   const [eliminatingTimeBased, setEliminatingTimeBased] = useState(false);
   const [showDebugDashboard, setShowDebugDashboard] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
 
   const { activateMarket } = useMarketActivation();
 
-  // Signal validation with practical criteria
+  // Enhanced signal validation with comprehensive null checks and debugging
   const validSignals = signals.filter(signal => {
-    if (!signal || typeof signal !== 'object' || !signal.id || !signal.pair || !signal.type) {
+    if (!signal) {
+      console.warn('🚫 Null signal filtered out');
       return false;
     }
+    
+    if (typeof signal !== 'object') {
+      console.warn('🚫 Non-object signal filtered out:', typeof signal);
+      return false;
+    }
+    
+    if (!signal.id || !signal.pair || !signal.type) {
+      console.warn('🚫 Signal missing required properties:', {
+        id: signal.id,
+        pair: signal.pair,
+        type: signal.type,
+        hasId: !!signal.id,
+        hasPair: !!signal.pair,
+        hasType: !!signal.type
+      });
+      return false;
+    }
+    
     // Quality checks (65%+ confidence)
     if (signal.confidence < 65) {
       console.warn(`⚠️ Low confidence signal filtered out: ${signal.pair} (${signal.confidence}%)`);
       return false;
     }
+    
+    console.log(`✅ Valid signal: ${signal.pair} ${signal.type} (${signal.confidence}%)`);
     return true;
   });
+
+  console.log(`📊 Signal filtering results: ${validSignals.length}/${signals.length} valid signals`);
 
   const availablePairs = Array.from(new Set(validSignals.map(signal => signal.pair))).filter(Boolean);
   const [selectedPair, setSelectedPair] = useState('All');
@@ -55,6 +78,80 @@ const TradingSignals = memo(() => {
   const avgConfidence = validSignals.length > 0 
     ? Math.round(validSignals.reduce((sum, signal) => sum + (signal.confidence || 0), 0) / validSignals.length)
     : 70;
+
+  const handleInvestigateSignalExpiration = async () => {
+    try {
+      console.log('🔍 INVESTIGATING: Why all signals are expired...');
+      
+      // Check total signals in database
+      const { data: allSignals, error: allSignalsError } = await supabase
+        .from('trading_signals')
+        .select('id, status, created_at, symbol')
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (allSignalsError) {
+        console.error('❌ Error fetching all signals:', allSignalsError);
+        return;
+      }
+
+      // Check active vs expired signals
+      const activeCount = allSignals?.filter(s => s.status === 'active').length || 0;
+      const expiredCount = allSignals?.filter(s => s.status === 'expired').length || 0;
+      
+      console.log(`📊 INVESTIGATION RESULTS:
+        - Total signals checked: ${allSignals?.length || 0}
+        - Active signals: ${activeCount}
+        - Expired signals: ${expiredCount}
+        - Recent signals:`, allSignals?.slice(0, 5));
+
+      // Check for active cron jobs
+      const { data: cronJobs, error: cronError } = await supabase
+        .from('cron.job')
+        .select('*');
+
+      if (!cronError && cronJobs) {
+        console.log(`📊 ACTIVE CRON JOBS: ${cronJobs.length} jobs found:`, cronJobs);
+        
+        const suspiciousJobs = cronJobs.filter(job => 
+          job.jobname && (
+            job.jobname.includes('expire') ||
+            job.jobname.includes('cleanup') ||
+            job.jobname.includes('signal') ||
+            job.jobname.includes('timeout')
+          )
+        );
+        
+        console.log(`⚠️ SUSPICIOUS TIME-BASED JOBS: ${suspiciousJobs.length}`, suspiciousJobs);
+      }
+
+      const debugData = {
+        totalSignals: allSignals?.length || 0,
+        activeSignals: activeCount,
+        expiredSignals: expiredCount,
+        cronJobsCount: cronJobs?.length || 0,
+        suspiciousCronJobs: cronJobs?.filter(job => 
+          job.jobname && job.jobname.toLowerCase().includes('expire')
+        ) || [],
+        recentSignals: allSignals?.slice(0, 10) || []
+      };
+      
+      setDebugInfo(debugData);
+      
+      toast({
+        title: "🔍 Investigation Complete",
+        description: `Found ${activeCount} active, ${expiredCount} expired signals. ${cronJobs?.length || 0} cron jobs running.`,
+      });
+
+    } catch (error) {
+      console.error('❌ Investigation error:', error);
+      toast({
+        title: "Investigation Error",
+        description: "Failed to investigate signal expiration. Check console for details.",
+        variant: "destructive"
+      });
+    }
+  };
 
   const handleEliminateTimeBasedExpiration = async () => {
     setEliminatingTimeBased(true);
@@ -206,6 +303,58 @@ const TradingSignals = memo(() => {
         lastUpdate={lastUpdate || 'Never'}
       />
 
+      {/* Investigation Control */}
+      <div className="bg-amber-900/20 backdrop-blur-sm rounded-xl border border-amber-500/30 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-3">
+            <Bug className="h-5 w-5 text-amber-400" />
+            <div>
+              <h3 className="text-white font-medium">Signal Investigation</h3>
+              <p className="text-sm text-gray-400">Investigate why signals are missing and check for time-based interference</p>
+            </div>
+          </div>
+          <Button
+            onClick={handleInvestigateSignalExpiration}
+            className="bg-amber-600 hover:bg-amber-700 text-white"
+          >
+            <Bug className="h-4 w-4 mr-2" />
+            Investigate Signal Status
+          </Button>
+        </div>
+        
+        {debugInfo && (
+          <div className="mt-4 bg-black/20 rounded-lg p-4">
+            <h4 className="text-white font-medium mb-2">Investigation Results:</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+              <div>
+                <div className="text-gray-400">Total Signals</div>
+                <div className="text-white font-bold">{debugInfo.totalSignals}</div>
+              </div>
+              <div>
+                <div className="text-gray-400">Active</div>
+                <div className="text-emerald-400 font-bold">{debugInfo.activeSignals}</div>
+              </div>
+              <div>
+                <div className="text-gray-400">Expired</div>
+                <div className="text-red-400 font-bold">{debugInfo.expiredSignals}</div>
+              </div>
+              <div>
+                <div className="text-gray-400">Cron Jobs</div>
+                <div className="text-blue-400 font-bold">{debugInfo.cronJobsCount}</div>
+              </div>
+            </div>
+            {debugInfo.suspiciousCronJobs.length > 0 && (
+              <div className="mt-2">
+                <div className="text-red-400 text-sm font-medium">⚠️ Suspicious Time-Based Jobs Found:</div>
+                <div className="text-red-300 text-xs">
+                  {debugInfo.suspiciousCronJobs.map((job: any) => job.jobname).join(', ')}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Time-Based Expiration Elimination Control */}
       <div className="bg-red-900/20 backdrop-blur-sm rounded-xl border border-red-500/30 p-4">
         <div className="flex items-center justify-between">
@@ -279,6 +428,7 @@ const TradingSignals = memo(() => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredSignals.map(signal => {
               if (!signal || !signal.id) {
+                console.warn('🚫 Skipping invalid signal in render:', signal);
                 return null;
               }
               

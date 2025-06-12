@@ -35,18 +35,35 @@ interface SignalCardProps {
 const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
   const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
 
-  // Enhanced validation with early return
+  // Enhanced validation with comprehensive null checks
   if (!signal) {
-    console.warn('SignalCard: Null signal provided');
+    console.warn('SignalCard: Null signal provided, skipping render');
+    return null;
+  }
+
+  // Check for all required properties before validation
+  if (!signal.id || !signal.pair || !signal.type || !signal.entryPrice) {
+    console.warn('SignalCard: Signal missing required properties:', {
+      hasId: !!signal.id,
+      hasPair: !!signal.pair,
+      hasType: !!signal.type,
+      hasEntryPrice: !!signal.entryPrice
+    });
     return null;
   }
 
   if (!validateSignal(signal)) {
-    console.warn('SignalCard: Invalid signal data:', signal);
+    console.warn('SignalCard: Signal failed validation:', signal);
     return null;
   }
 
   const safeSignal = createSafeSignal(signal);
+
+  // Additional safety check after safe signal creation
+  if (!safeSignal || !safeSignal.id || !safeSignal.pair || !safeSignal.type) {
+    console.error('SignalCard: Safe signal creation failed for:', signal.id);
+    return null;
+  }
 
   // Get live centralized real-time market data with error handling
   const {
