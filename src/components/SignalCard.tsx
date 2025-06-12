@@ -41,38 +41,18 @@ const SignalCard = memo(({ signal, analysis, analyzingSignal, onGetAIAnalysis }:
     return null;
   }
 
-  // Validate required properties exist - using early returns for better type narrowing
-  if (!signal.id) {
-    console.warn('SignalCard: Signal missing id');
-    return null;
-  }
-
-  if (!signal.pair) {
-    console.warn('SignalCard: Signal missing pair');
-    return null;
-  }
-
-  if (!signal.type) {
-    console.warn('SignalCard: Signal missing type');
-    return null;
-  }
-
-  if (!signal.entryPrice) {
-    console.warn('SignalCard: Signal missing entryPrice');
-    return null;
-  }
-
   // Professional validation using existing utility
   if (!validateSignal(signal)) {
-    console.warn('SignalCard: Signal failed validation:', signal.id);
+    console.warn('SignalCard: Signal failed validation:', signal.id || 'unknown');
     return null;
   }
 
+  // Create safe signal after validation
   const safeSignal = createSafeSignal(signal);
 
   // Final safety check after validation
   if (!safeSignal || !safeSignal.id || !safeSignal.pair || !safeSignal.type) {
-    console.error('SignalCard: Safe signal creation failed for:', signal.id);
+    console.error('SignalCard: Safe signal creation failed for:', signal.id || 'unknown');
     return null;
   }
 
@@ -115,7 +95,7 @@ const SignalCard = memo(({ signal, analysis, analyzingSignal, onGetAIAnalysis }:
         })
         .map(point => ({
           timestamp: point.timestamp,
-          time: String(point.time || point.timestamp), // Fix: Always convert to string
+          time: String(point.time || point.timestamp),
           price: point.price
         }))
     : [];
