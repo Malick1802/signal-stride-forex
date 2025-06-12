@@ -52,7 +52,7 @@ const SignalCard = memo(({ signal, analysis, analyzingSignal, onGetAIAnalysis }:
 
   // Final safety check after validation
   if (!safeSignal || !safeSignal.id || !safeSignal.pair || !safeSignal.type) {
-    console.error('SignalCard: Safe signal creation failed for:', signal?.id || 'unknown');
+    console.error('SignalCard: Safe signal creation failed for:', safeSignal?.id || 'unknown');
     return null;
   }
 
