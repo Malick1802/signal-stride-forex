@@ -43,16 +43,16 @@ const SignalCard = memo(({ signal, analysis, analyzingSignal, onGetAIAnalysis }:
 
   // Professional validation using existing utility
   if (!validateSignal(signal)) {
-    console.warn('SignalCard: Signal failed validation:', signal.id || 'unknown');
+    console.warn('SignalCard: Signal failed validation:', signal?.id || 'unknown');
     return null;
   }
 
-  // Create safe signal after validation
+  // Create safe signal after validation - signal is guaranteed to be valid here
   const safeSignal = createSafeSignal(signal);
 
   // Final safety check after validation
   if (!safeSignal || !safeSignal.id || !safeSignal.pair || !safeSignal.type) {
-    console.error('SignalCard: Safe signal creation failed for:', signal.id || 'unknown');
+    console.error('SignalCard: Safe signal creation failed for:', signal?.id || 'unknown');
     return null;
   }
 
