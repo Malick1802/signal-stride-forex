@@ -81,67 +81,61 @@ const TradingSignals = memo(() => {
 
   const handleInvestigateSignalExpiration = async () => {
     try {
-      console.log('🔍 INVESTIGATING: Why all signals are expired...');
+      console.log('🔍 INVESTIGATING: Why signals are missing...');
       
       // Check total signals in database
       const { data: allSignals, error: allSignalsError } = await supabase
         .from('trading_signals')
-        .select('id, status, created_at, symbol')
+        .select('id, status, created_at, symbol, confidence')
         .order('created_at', { ascending: false })
         .limit(50);
 
       if (allSignalsError) {
         console.error('❌ Error fetching all signals:', allSignalsError);
+        toast({
+          title: "❌ Investigation Error",
+          description: "Failed to fetch signals from database",
+          variant: "destructive"
+        });
         return;
       }
 
       // Check active vs expired signals
       const activeCount = allSignals?.filter(s => s.status === 'active').length || 0;
       const expiredCount = allSignals?.filter(s => s.status === 'expired').length || 0;
+      const recentSignals = allSignals?.slice(0, 10) || [];
       
       console.log(`📊 INVESTIGATION RESULTS:
         - Total signals checked: ${allSignals?.length || 0}
         - Active signals: ${activeCount}
         - Expired signals: ${expiredCount}
-        - Recent signals:`, allSignals?.slice(0, 5));
-
-      // Check for active cron jobs
-      const { data: cronJobs, error: cronError } = await supabase
-        .from('cron.job')
-        .select('*');
-
-      if (!cronError && cronJobs) {
-        console.log(`📊 ACTIVE CRON JOBS: ${cronJobs.length} jobs found:`, cronJobs);
-        
-        const suspiciousJobs = cronJobs.filter(job => 
-          job.jobname && (
-            job.jobname.includes('expire') ||
-            job.jobname.includes('cleanup') ||
-            job.jobname.includes('signal') ||
-            job.jobname.includes('timeout')
-          )
-        );
-        
-        console.log(`⚠️ SUSPICIOUS TIME-BASED JOBS: ${suspiciousJobs.length}`, suspiciousJobs);
-      }
+        - Recent signals:`, recentSignals);
 
       const debugData = {
         totalSignals: allSignals?.length || 0,
         activeSignals: activeCount,
         expiredSignals: expiredCount,
-        cronJobsCount: cronJobs?.length || 0,
-        suspiciousCronJobs: cronJobs?.filter(job => 
-          job.jobname && job.jobname.toLowerCase().includes('expire')
-        ) || [],
-        recentSignals: allSignals?.slice(0, 10) || []
+        recentSignals: recentSignals,
+        highConfidenceSignals: allSignals?.filter(s => s.confidence >= 65).length || 0,
+        centralizedSignals: allSignals?.filter(s => s.status === 'active').length || 0
       };
       
       setDebugInfo(debugData);
       
       toast({
         title: "🔍 Investigation Complete",
-        description: `Found ${activeCount} active, ${expiredCount} expired signals. ${cronJobs?.length || 0} cron jobs running.`,
+        description: `Found ${activeCount} active, ${expiredCount} expired signals out of ${allSignals?.length || 0} total.`,
       });
+
+      // Show recommendations
+      if (activeCount === 0 && expiredCount > 0) {
+        console.log('⚠️ RECOMMENDATION: All signals are expired - likely time-based expiration is still active');
+        toast({
+          title: "⚠️ Time-Based Expiration Detected",
+          description: "All signals expired - recommend running elimination plan and generating new signals",
+          variant: "destructive"
+        });
+      }
 
     } catch (error) {
       console.error('❌ Investigation error:', error);
@@ -310,7 +304,7 @@ const TradingSignals = memo(() => {
             <Bug className="h-5 w-5 text-amber-400" />
             <div>
               <h3 className="text-white font-medium">Signal Investigation</h3>
-              <p className="text-sm text-gray-400">Investigate why signals are missing and check for time-based interference</p>
+              <p className="text-sm text-gray-400">Investigate why signals are missing and check database status</p>
             </div>
           </div>
           <Button
@@ -339,15 +333,15 @@ const TradingSignals = memo(() => {
                 <div className="text-red-400 font-bold">{debugInfo.expiredSignals}</div>
               </div>
               <div>
-                <div className="text-gray-400">Cron Jobs</div>
-                <div className="text-blue-400 font-bold">{debugInfo.cronJobsCount}</div>
+                <div className="text-gray-400">High Confidence</div>
+                <div className="text-blue-400 font-bold">{debugInfo.highConfidenceSignals}</div>
               </div>
             </div>
-            {debugInfo.suspiciousCronJobs.length > 0 && (
+            {debugInfo.activeSignals === 0 && debugInfo.expiredSignals > 0 && (
               <div className="mt-2">
-                <div className="text-red-400 text-sm font-medium">⚠️ Suspicious Time-Based Jobs Found:</div>
-                <div className="text-red-300 text-xs">
-                  {debugInfo.suspiciousCronJobs.map((job: any) => job.jobname).join(', ')}
+                <div className="text-red-400 text-sm font-medium">⚠️ All signals are expired - Time-based expiration likely active</div>
+                <div className="text-yellow-300 text-xs">
+                  Recommendation: Run elimination plan, then generate new signals
                 </div>
               </div>
             )}
