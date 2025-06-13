@@ -23,7 +23,7 @@ interface SignalCardProps {
     takeProfit5?: string;
     confidence: number;
     timestamp: string;
-    analysisText?: string;
+    analysisText: string;
     chartData: Array<{ time: number; price: number }>;
     targetsHit?: number[];
   } | null;
@@ -65,12 +65,15 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
     );
   }
 
-  if (!validateSignal(signal)) {
-    console.warn('SignalCard: Signal failed validation:', signal);
+  // At this point, TypeScript knows signal is not null and has required properties
+  const validatedSignal = signal;
+
+  if (!validateSignal(validatedSignal)) {
+    console.warn('SignalCard: Signal failed validation:', validatedSignal);
     return (
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="text-white/60 text-center">
-          Signal validation failed for {signal.pair}
+          Signal validation failed for {validatedSignal.pair}
         </div>
       </div>
     );
@@ -78,24 +81,24 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
 
   let safeSignal;
   try {
-    safeSignal = createSafeSignal(signal);
+    safeSignal = createSafeSignal(validatedSignal);
   } catch (error) {
     console.error('SignalCard: Error creating safe signal:', error);
     return (
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="text-white/60 text-center">
-          Error processing signal for {signal.pair}
+          Error processing signal for {validatedSignal.pair}
         </div>
       </div>
     );
   }
 
   if (!safeSignal || !safeSignal.id || !safeSignal.pair || !safeSignal.type) {
-    console.error('SignalCard: Safe signal creation failed for:', signal.id);
+    console.error('SignalCard: Safe signal creation failed for:', validatedSignal.id);
     return (
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
         <div className="text-white/60 text-center">
-          Failed to process signal for {signal.pair}
+          Failed to process signal for {validatedSignal.pair}
         </div>
       </div>
     );
@@ -230,11 +233,11 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
         takeProfit1={safeSignal.takeProfit1}
         takeProfit2={safeSignal.takeProfit2}
         takeProfit3={safeSignal.takeProfit3}
-        takeProfit4={signal?.takeProfit4 || '0.00000'}
-        takeProfit5={signal?.takeProfit5 || '0.00000'}
+        takeProfit4={validatedSignal?.takeProfit4 || '0.00000'}
+        takeProfit5={validatedSignal?.takeProfit5 || '0.00000'}
         currentPrice={currentPrice}
         signalType={safeSignal.type}
-        targetsHit={signal?.targetsHit || []}
+        targetsHit={validatedSignal?.targetsHit || []}
         pair={safeSignal.pair}
       />
 
