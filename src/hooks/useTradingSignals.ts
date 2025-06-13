@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -19,7 +18,7 @@ interface TradingSignal {
   confidence: number;
   timestamp: string;
   status: string;
-  analysisText?: string;
+  analysisText: string; // Made required to match the type predicate
   chartData: Array<{ time: number; price: number }>;
   targetsHit: number[];
 }
@@ -156,7 +155,7 @@ export const useTradingSignals = () => {
             const takeProfits = safeParseArray(signal.take_profits);
             const targetsHit = safeParseArray(signal.targets_hit);
 
-            const transformedSignal = {
+            const transformedSignal: TradingSignal = {
               id: signal.id,
               pair: signal.symbol,
               type: signal.type || 'BUY',
@@ -182,7 +181,22 @@ export const useTradingSignals = () => {
             return null;
           }
         })
-        .filter((signal): signal is TradingSignal => signal !== null);
+        .filter((signal): signal is TradingSignal => {
+          if (!signal) return false;
+          
+          // Additional validation to ensure all required properties exist
+          return !!(signal.id && 
+                   signal.pair && 
+                   signal.type && 
+                   signal.entryPrice && 
+                   signal.stopLoss && 
+                   signal.takeProfit1 && 
+                   signal.takeProfit2 && 
+                   signal.takeProfit3 && 
+                   signal.confidence && 
+                   signal.timestamp && 
+                   signal.analysisText);
+        });
 
       Logger.info('signals', `Successfully processed ${transformedSignals.length}/${MAX_ACTIVE_SIGNALS} signals`);
       return transformedSignals;
