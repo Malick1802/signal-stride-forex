@@ -1,3 +1,4 @@
+
 import React, { useState, memo, useMemo, useCallback } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useEnhancedSignalMonitoring } from '@/hooks/useEnhancedSignalMonitoring';
@@ -10,7 +11,7 @@ import RealTimeStatus from './RealTimeStatus';
 import GlobalRefreshIndicator from './GlobalRefreshIndicator';
 import SignalDebuggingDashboard from './SignalDebuggingDashboard';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Activity, Brain, Shield, Zap, Target, TrendingUp, Bug, Star, Award, AlertTriangle, CheckCircle } from 'lucide-react';
+import { RefreshCw, Activity, Brain, Shield, Zap, Target, TrendingUp, Bug, Star, Award, AlertTriangle, CheckCircle, BarChart3 } from 'lucide-react';
 import { useMarketActivation } from '@/hooks/useMarketActivation';
 import Logger from '@/utils/logger';
 
@@ -18,7 +19,7 @@ import Logger from '@/utils/logger';
 const MAX_ACTIVE_SIGNALS = 20;
 
 const TradingSignals = memo(() => {
-  const { signals, loading, lastUpdate, triggerAutomaticSignalGeneration, executeTimeBasedEliminationPlan } = useTradingSignals();
+  const { signals, loading, lastUpdate, signalDistribution, triggerAutomaticSignalGeneration, executeTimeBasedEliminationPlan } = useTradingSignals();
   const { toast } = useToast();
   
   // Enhanced monitoring systems
@@ -91,6 +92,10 @@ const TradingSignals = memo(() => {
       : 70;
   }, [validSignals]);
 
+  // Calculate signal type imbalance
+  const signalImbalance = Math.abs(signalDistribution.buy - signalDistribution.sell);
+  const isImbalanced = signalImbalance >= 3;
+
   const handleInvestigateSignalExpiration = useCallback(async () => {
     try {
       Logger.info('signals', 'Investigating signal expiration...');
@@ -98,7 +103,7 @@ const TradingSignals = memo(() => {
       // Check total signals in database
       const { data: allSignals, error: allSignalsError } = await supabase
         .from('trading_signals')
-        .select('id, status, created_at, symbol, confidence')
+        .select('id, status, created_at, symbol, confidence, type')
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -115,12 +120,16 @@ const TradingSignals = memo(() => {
       // Check active vs expired signals
       const activeCount = allSignals?.filter(s => s.status === 'active').length || 0;
       const expiredCount = allSignals?.filter(s => s.status === 'expired').length || 0;
+      const activeBuyCount = allSignals?.filter(s => s.status === 'active' && s.type === 'BUY').length || 0;
+      const activeSellCount = allSignals?.filter(s => s.status === 'active' && s.type === 'SELL').length || 0;
       const recentSignals = allSignals?.slice(0, 10) || [];
       
       const debugData = {
         totalSignals: allSignals?.length || 0,
         activeSignals: activeCount,
         expiredSignals: expiredCount,
+        activeBuySignals: activeBuyCount,
+        activeSellSignals: activeSellCount,
         recentSignals: recentSignals,
         highConfidenceSignals: allSignals?.filter(s => s.confidence >= 65).length || 0,
         centralizedSignals: allSignals?.filter(s => s.status === 'active').length || 0
@@ -130,7 +139,7 @@ const TradingSignals = memo(() => {
       
       toast({
         title: "🔍 Investigation Complete",
-        description: `Found ${activeCount} active, ${expiredCount} expired signals out of ${allSignals?.length || 0} total.`,
+        description: `Found ${activeCount} active (BUY: ${activeBuyCount}, SELL: ${activeSellCount}), ${expiredCount} expired signals out of ${allSignals?.length || 0} total.`,
       });
 
       // Show recommendations based on findings
@@ -139,6 +148,13 @@ const TradingSignals = memo(() => {
         toast({
           title: "⚠️ Time-Based Expiration Detected",
           description: "All signals expired - recommend running elimination plan and generating new signals",
+          variant: "destructive"
+        });
+      } else if (Math.abs(activeBuyCount - activeSellCount) >= 5) {
+        Logger.warn('signals', `Signal imbalance detected: BUY: ${activeBuyCount}, SELL: ${activeSellCount}`);
+        toast({
+          title: "⚠️ Signal Type Imbalance",
+          description: `Heavy bias toward ${activeBuyCount > activeSellCount ?'SELL':'BUY'} signals - consider regenerating for balance`,
           variant: "destructive"
         });
       }
@@ -224,10 +240,10 @@ const TradingSignals = memo(() => {
     try {
       await triggerAutomaticSignalGeneration();
     } catch (error) {
-      Logger.error('signals', 'Error detecting practical opportunities:', error);
+      Logger.error('signals', 'Error detecting balanced opportunities:', error);
       toast({
-        title: "Practical Detection Error",
-        description: "Failed to detect new practical opportunities. Please try again.",
+        title: "Balanced Detection Error",
+        description: "Failed to detect new balanced opportunities. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -282,7 +298,7 @@ const TradingSignals = memo(() => {
   if (loading && validSignals.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-white">Loading practical signals (analyzing all currency pairs, limit: {MAX_ACTIVE_SIGNALS})...</div>
+        <div className="text-white">Loading balanced signals (analyzing all currency pairs, limit: {MAX_ACTIVE_SIGNALS})...</div>
       </div>
     );
   }
@@ -304,6 +320,36 @@ const TradingSignals = memo(() => {
         lastUpdate={lastUpdate || 'Never'}
       />
 
+      {/* Signal Type Distribution Display */}
+      {hasSignalData && (
+        <div className={`backdrop-blur-sm rounded-xl border p-4 ${
+          isImbalanced 
+            ? 'bg-amber-900/20 border-amber-500/30' 
+            : 'bg-emerald-900/20 border-emerald-500/30'
+        }`}>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <BarChart3 className={`h-5 w-5 ${isImbalanced ? 'text-amber-400' : 'text-emerald-400'}`} />
+              <div>
+                <h3 className="text-white font-medium">Signal Type Distribution</h3>
+                <div className="flex items-center space-x-4 text-sm">
+                  <span className="text-green-400">BUY: {signalDistribution.buy}</span>
+                  <span className="text-red-400">SELL: {signalDistribution.sell}</span>
+                  <span className={`${isImbalanced ? 'text-amber-400' : 'text-emerald-400'}`}>
+                    {isImbalanced ? `Imbalanced (${signalImbalance} difference)` : 'Balanced'}
+                  </span>
+                </div>
+              </div>
+            </div>
+            {isImbalanced && (
+              <div className="text-xs text-amber-300">
+                ⚠️ Signal generation will auto-balance
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Investigation Control */}
       <div className="bg-amber-900/20 backdrop-blur-sm rounded-xl border border-amber-500/30 p-4">
         <div className="flex items-center justify-between">
@@ -311,7 +357,7 @@ const TradingSignals = memo(() => {
             <Bug className="h-5 w-5 text-amber-400" />
             <div>
               <h3 className="text-white font-medium">Signal Investigation</h3>
-              <p className="text-sm text-gray-400">Investigate why signals are missing and check database status</p>
+              <p className="text-sm text-gray-400">Investigate signal status and type distribution</p>
             </div>
           </div>
           <Button
@@ -336,12 +382,12 @@ const TradingSignals = memo(() => {
                 <div className="text-emerald-400 font-bold">{debugInfo.activeSignals}</div>
               </div>
               <div>
-                <div className="text-gray-400">Expired</div>
-                <div className="text-red-400 font-bold">{debugInfo.expiredSignals}</div>
+                <div className="text-gray-400">BUY / SELL</div>
+                <div className="text-blue-400 font-bold">{debugInfo.activeBuySignals} / {debugInfo.activeSellSignals}</div>
               </div>
               <div>
-                <div className="text-gray-400">High Confidence</div>
-                <div className="text-blue-400 font-bold">{debugInfo.highConfidenceSignals}</div>
+                <div className="text-gray-400">Expired</div>
+                <div className="text-red-400 font-bold">{debugInfo.expiredSignals}</div>
               </div>
             </div>
             {debugInfo.activeSignals === 0 && debugInfo.expiredSignals > 0 && (
@@ -349,6 +395,14 @@ const TradingSignals = memo(() => {
                 <div className="text-red-400 text-sm font-medium">⚠️ All signals are expired - Time-based expiration likely active</div>
                 <div className="text-yellow-300 text-xs">
                   Recommendation: Run elimination plan, then generate new signals
+                </div>
+              </div>
+            )}
+            {Math.abs(debugInfo.activeBuySignals - debugInfo.activeSellSignals) >= 5 && (
+              <div className="mt-2">
+                <div className="text-amber-400 text-sm font-medium">⚠️ Significant signal type imbalance detected</div>
+                <div className="text-yellow-300 text-xs">
+                  Recommendation: Generate new signals for better balance
                 </div>
               </div>
             )}
@@ -413,7 +467,7 @@ const TradingSignals = memo(() => {
               </select>
             </div>
             <div className="text-sm text-gray-400">
-              ⭐ Pure outcome-based • Market validation • No time expiration
+              ⚖️ Balanced BUY/SELL • Market validation • No time expiration
             </div>
           </div>
         </div>
@@ -422,7 +476,10 @@ const TradingSignals = memo(() => {
       {/* Enhanced Active Signals Grid */}
       <div>
         <h3 className="text-white text-lg font-semibold mb-4">
-          {selectedPair === 'All' ? `Pure Outcome Signals (${filteredSignals.length}/${MAX_ACTIVE_SIGNALS})` : `${selectedPair} Signals (${filteredSignals.length})`}
+          {selectedPair === 'All' ? 
+            `Balanced Signals (${filteredSignals.length}/${MAX_ACTIVE_SIGNALS}) - BUY: ${signalDistribution.buy}, SELL: ${signalDistribution.sell}` : 
+            `${selectedPair} Signals (${filteredSignals.length})`
+          }
         </h3>
         
         {filteredSignals.length > 0 ? (
@@ -448,11 +505,11 @@ const TradingSignals = memo(() => {
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
               {selectedPair === 'All' 
-                ? `No pure outcome signals generated yet (0/${MAX_ACTIVE_SIGNALS})` 
+                ? `No balanced signals generated yet (0/${MAX_ACTIVE_SIGNALS})` 
                 : `No signals for ${selectedPair}`}
             </div>
             <div className="text-sm text-gray-500 mb-6">
-              ⭐ Signal limit: {MAX_ACTIVE_SIGNALS} • Pure market outcomes • No time expiration
+              ⚖️ Signal limit: {MAX_ACTIVE_SIGNALS} • Balanced BUY/SELL generation • No time expiration
             </div>
             <div className="space-x-4">
               <Button
@@ -468,7 +525,7 @@ const TradingSignals = memo(() => {
                 ) : (
                   <>
                     <Target className="h-4 w-4 mr-2" />
-                    Generate Pure Outcome Signals
+                    Generate Balanced Signals
                   </>
                 )}
               </Button>

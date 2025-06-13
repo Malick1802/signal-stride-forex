@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -31,6 +32,7 @@ export const useTradingSignals = () => {
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<string>('');
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [signalDistribution, setSignalDistribution] = useState({ buy: 0, sell: 0 });
   const { toast } = useToast();
 
   const fetchSignals = useCallback(async () => {
@@ -65,25 +67,32 @@ export const useTradingSignals = () => {
       if (!centralizedSignals || centralizedSignals.length === 0) {
         Logger.debug('signals', 'No signals found in database');
         setSignals([]);
+        setSignalDistribution({ buy: 0, sell: 0 });
         setLastUpdate(new Date().toLocaleTimeString());
         return;
       }
 
       const processedSignals = processSignals(centralizedSignals);
       
-      Logger.info('signals', `PROCESSED SIGNALS: ${processedSignals.length}/${centralizedSignals.length} signals passed processing`);
+      // Calculate signal type distribution
+      const buyCount = processedSignals.filter(s => s.type === 'BUY').length;
+      const sellCount = processedSignals.filter(s => s.type === 'SELL').length;
+      setSignalDistribution({ buy: buyCount, sell: sellCount });
+      
+      Logger.info('signals', `PROCESSED SIGNALS: ${processedSignals.length}/${centralizedSignals.length} signals passed processing (BUY: ${buyCount}, SELL: ${sellCount})`);
       
       setSignals(processedSignals);
       setLastUpdate(new Date().toLocaleTimeString());
       
       if (processedSignals.length > 0) {
-        Logger.info('signals', `Loaded ${processedSignals.length}/${MAX_ACTIVE_SIGNALS} practical signals`);
+        Logger.info('signals', `Loaded ${processedSignals.length}/${MAX_ACTIVE_SIGNALS} balanced signals (BUY: ${buyCount}, SELL: ${sellCount})`);
       }
       
     } catch (error) {
       Logger.error('signals', 'Error in fetchSignals:', error);
       if (isInitialLoad) {
         setSignals([]);
+        setSignalDistribution({ buy: 0, sell: 0 });
       }
     } finally {
       if (isInitialLoad) {
@@ -181,21 +190,21 @@ export const useTradingSignals = () => {
 
   const triggerSignalGeneration = useCallback(async () => {
     try {
-      Logger.info('signals', `Triggering signal generation with ${MAX_ACTIVE_SIGNALS}-signal limit...`);
+      Logger.info('signals', `Triggering balanced signal generation with ${MAX_ACTIVE_SIGNALS}-signal limit...`);
       
       const { data: signalResult, error: signalError } = await supabase.functions.invoke('generate-signals');
       
       if (signalError) {
-        Logger.error('signals', 'Signal generation failed:', signalError);
+        Logger.error('signals', 'Balanced signal generation failed:', signalError);
         toast({
           title: "Generation Failed",
-          description: "Failed to detect new quality trading opportunities",
+          description: "Failed to detect new balanced trading opportunities",
           variant: "destructive"
         });
         return;
       }
       
-      Logger.info('signals', 'Signal generation completed');
+      Logger.info('signals', 'Balanced signal generation completed');
       
       await new Promise(resolve => setTimeout(resolve, 1500));
       await fetchSignals();
@@ -203,17 +212,18 @@ export const useTradingSignals = () => {
       const signalsGenerated = signalResult?.stats?.signalsGenerated || 0;
       const totalActiveSignals = signalResult?.stats?.totalActiveSignals || 0;
       const signalLimit = signalResult?.stats?.signalLimit || MAX_ACTIVE_SIGNALS;
+      const distribution = signalResult?.stats?.signalDistribution || {};
       
       toast({
-        title: "🎯 Practical Signals Generated",
-        description: `${signalsGenerated} signals generated (${totalActiveSignals}/${signalLimit} total)`,
+        title: "🎯 Balanced Signals Generated",
+        description: `${signalsGenerated} signals generated (BUY: ${distribution.newBuySignals || 0}, SELL: ${distribution.newSellSignals || 0}) - ${totalActiveSignals}/${signalLimit} total`,
       });
       
     } catch (error) {
-      Logger.error('signals', 'Error in signal generation:', error);
+      Logger.error('signals', 'Error in balanced signal generation:', error);
       toast({
         title: "Generation Error",
-        description: "Failed to detect new quality trading opportunities",
+        description: "Failed to detect new balanced trading opportunities",
         variant: "destructive"
       });
     }
@@ -299,7 +309,7 @@ export const useTradingSignals = () => {
     
     // Optimized real-time subscriptions
     const signalsChannel = supabase
-      .channel(`practical-signals-${Date.now()}`)
+      .channel(`balanced-signals-${Date.now()}`)
       .on(
         'postgres_changes',
         {
@@ -316,7 +326,7 @@ export const useTradingSignals = () => {
       .subscribe((status) => {
         Logger.debug('signals', `Signals subscription status: ${status}`);
         if (status === 'SUBSCRIBED') {
-          Logger.info('signals', `Signal updates connected (up to ${MAX_ACTIVE_SIGNALS} signals)`);
+          Logger.info('signals', `Signal updates connected (up to ${MAX_ACTIVE_SIGNALS} balanced signals)`);
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           Logger.error('signals', 'Signal subscription failed, attempting to reconnect...');
           setTimeout(fetchSignals, 2000);
@@ -357,6 +367,7 @@ export const useTradingSignals = () => {
     signals,
     loading,
     lastUpdate,
+    signalDistribution,
     fetchSignals,
     triggerAutomaticSignalGeneration: triggerSignalGeneration,
     executeTimeBasedEliminationPlan,
