@@ -7,79 +7,39 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Enhanced market session characteristics
-const getMarketSession = () => {
-  const now = new Date();
-  const utcHour = now.getUTCHours();
-  
-  if (utcHour >= 22 || utcHour < 8) {
-    return { 
-      name: 'Asian', 
-      volatility: 0.3, 
-      trend: 0.1,
-      spreadMultiplier: 1.3
-    };
-  } else if (utcHour >= 8 && utcHour < 16) {
-    return { 
-      name: 'European', 
-      volatility: 0.6, 
-      trend: 0.25, 
-      spreadMultiplier: 1.0 
-    };
-  } else if (utcHour >= 13 && utcHour < 17) {
-    return { 
-      name: 'US-EU-Overlap', 
-      volatility: 0.9, 
-      trend: 0.35, 
-      spreadMultiplier: 0.8
-    };
-  } else {
-    return { 
-      name: 'US', 
-      volatility: 0.7, 
-      trend: 0.3, 
-      spreadMultiplier: 0.9 
-    };
-  }
-};
-
-const isMarketOpen = () => {
-  const now = new Date();
-  const utcHour = now.getUTCHours();
-  const utcDay = now.getUTCDay();
-  
-  const isFridayEvening = utcDay === 5 && utcHour >= 22;
-  const isSaturday = utcDay === 6;
-  const isSundayBeforeOpen = utcDay === 0 && utcHour < 22;
-  
-  return !(isFridayEvening || isSaturday || isSundayBeforeOpen);
-};
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log('🎯 Enhanced Tiingo-based real-time tick generator (1.5s realistic ticks)...');
+    console.log('🎯 Real-time tick generator using Tiingo baseline data...');
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const tiingoApiKey = Deno.env.get('TIINGO_API_KEY');
     
     if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error('Missing required Supabase environment variables');
+      throw new Error('Missing Supabase configuration');
     }
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Check if market is open
-    if (!isMarketOpen()) {
-      console.log('💤 Market closed - NO TICKING during market closure');
-      
+    // Check market hours
+    const now = new Date();
+    const utcHour = now.getUTCHours();
+    const utcDay = now.getUTCDay();
+    
+    const isFridayEvening = utcDay === 5 && utcHour >= 22;
+    const isSaturday = utcDay === 6;
+    const isSundayBeforeOpen = utcDay === 0 && utcHour < 22;
+    const isMarketClosed = isFridayEvening || isSaturday || isSundayBeforeOpen;
+
+    if (isMarketClosed) {
+      console.log('💤 Market closed - skipping tick generation');
       return new Response(
-        JSON.stringify({ 
-          message: 'Market closed - no price movements generated',
+        JSON.stringify({
+          success: true,
+          message: 'Market closed - no ticks generated',
           isMarketOpen: false,
           timestamp: new Date().toISOString()
         }),
@@ -87,241 +47,179 @@ serve(async (req) => {
       );
     }
 
-    // Market is open - generate enhanced realistic ticks from Tiingo baseline
-    const session = getMarketSession();
-    console.log(`📊 ${session.name} session (volatility: ${session.volatility.toFixed(1)})`);
-
-    // Get current Tiingo-based prices from centralized market state
-    const { data: marketStates, error: stateError } = await supabase
+    // Get fresh Tiingo baseline data from centralized market state
+    const { data: marketStates, error: marketError } = await supabase
       .from('centralized_market_state')
       .select('*')
+      .eq('is_market_open', true)
       .order('last_update', { ascending: false });
 
-    if (stateError || !marketStates || marketStates.length === 0) {
-      console.log('⚠️ No Tiingo baseline data found, requesting refresh...');
+    if (marketError) {
+      throw new Error(`Failed to fetch market state: ${marketError.message}`);
+    }
+
+    if (!marketStates || marketStates.length === 0) {
+      console.log('⚠️ No active market data found - triggering baseline update');
       
-      // Trigger the Tiingo baseline refresh
-      const { error: streamError } = await supabase.functions.invoke('centralized-market-stream');
-      if (streamError) {
-        console.error('❌ Error triggering Tiingo refresh:', streamError);
+      // Trigger centralized market stream to get fresh Tiingo data
+      const { error: triggerError } = await supabase.functions.invoke('centralized-market-stream');
+      if (triggerError) {
+        console.error('❌ Failed to trigger market update:', triggerError);
       }
       
       return new Response(
-        JSON.stringify({ 
-          message: 'No Tiingo baseline, triggered refresh',
+        JSON.stringify({
+          success: true,
+          message: 'No baseline data - triggered fresh Tiingo fetch',
           timestamp: new Date().toISOString()
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log(`📊 Generating enhanced ticks from Tiingo baseline for ${marketStates.length} pairs`);
+    console.log(`📊 Generating realistic ticks from ${marketStates.length} Tiingo baseline prices`);
 
     const tickUpdates = [];
-    const priceHistoryBatch = [];
     const timestamp = new Date().toISOString();
+    const tickTime = new Date().getTime();
 
-    // Use real Tiingo data with some minor pairs to get fresh quotes for major pairs
-    const majorPairs = ['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD'];
-    
-    // For major pairs, try to get fresh Tiingo data for more realistic ticks
-    if (tiingoApiKey) {
-      for (const pair of majorPairs.slice(0, 3)) { // Limit to 3 to avoid rate limits
-        try {
-          const tiingoPair = pair.toLowerCase();
-          const tiingoUrl = `https://api.tiingo.com/tiingo/fx/${tiingoPair}/top?token=${tiingoApiKey}`;
-          
-          const response = await fetch(tiingoUrl, {
-            method: 'GET',
-            headers: {
-              'Accept': 'application/json',
-              'Authorization': `Token ${tiingoApiKey}`
-            }
-          });
-          
-          if (response.ok) {
-            const data = await response.json();
-            if (Array.isArray(data) && data.length > 0) {
-              const tickerData = data[0];
-              const currentPrice = tickerData.midPrice || tickerData.close || tickerData.last;
-              
-              if (currentPrice && typeof currentPrice === 'number' && currentPrice > 0) {
-                // Update the market state with fresh Tiingo data
-                const marketState = marketStates.find(ms => ms.symbol === pair);
-                if (marketState) {
-                  marketState.current_price = currentPrice;
-                  marketState.bid = tickerData.bidPrice || (currentPrice * 0.9999);
-                  marketState.ask = tickerData.askPrice || (currentPrice * 1.0001);
-                  console.log(`🔥 Fresh Tiingo data for ${pair}: ${currentPrice.toFixed(5)}`);
-                }
-              }
-            }
-          }
-        } catch (error) {
-          console.warn(`⚠️ Could not get fresh Tiingo data for ${pair}:`, error.message);
-        }
-      }
-      
-      // Small delay to respect rate limits
-      await new Promise(resolve => setTimeout(resolve, 200));
-    }
-
-    for (const marketState of marketStates) {
+    // Generate realistic micro-movements based on Tiingo data
+    for (const state of marketStates) {
       try {
-        const basePrice = parseFloat(marketState.current_price.toString());
-        const isJpyPair = marketState.symbol.includes('JPY');
+        const basePrice = parseFloat(state.current_price.toString());
+        const baseBid = parseFloat(state.bid.toString());
+        const baseAsk = parseFloat(state.ask.toString());
         
-        // Enhanced volatility calculation anchored to Tiingo data
-        const baseVolatility = basePrice * 0.0002; // Realistic forex volatility for 1.5s ticks
-        const sessionVolatility = baseVolatility * session.volatility;
-        
-        // Advanced trend analysis from recent price history
-        let trendBias = 0;
-        
-        const { data: recentHistory } = await supabase
-          .from('live_price_history')
-          .select('price, timestamp')
-          .eq('symbol', marketState.symbol)
-          .order('timestamp', { ascending: false })
-          .limit(15);
-          
-        if (recentHistory && recentHistory.length >= 5) {
-          const prices = recentHistory.map(h => parseFloat(h.price.toString())).reverse();
-          
-          // Calculate short-term trend
-          const recentAvg = prices.slice(-3).reduce((a, b) => a + b, 0) / 3;
-          const olderAvg = prices.slice(-6, -3).reduce((a, b) => a + b, 0) / 3;
-          const shortTrend = recentAvg - olderAvg;
-          
-          // Apply trend bias with session influence
-          if (Math.random() < session.trend) {
-            trendBias = (shortTrend > 0 ? 1 : -1) * sessionVolatility * 0.3;
-          }
-          
-          // Mean reversion for extreme moves
-          const totalMove = prices[prices.length - 1] - prices[0];
-          const movePercent = Math.abs(totalMove / basePrice);
-          if (movePercent > 0.0008) {
-            trendBias *= 0.4; // Strong mean reversion after big moves
-          }
-        }
-        
-        // Generate realistic tick movement with microstructure noise
-        const randomWalk = (Math.random() - 0.5) * 2 * sessionVolatility;
-        const microNoise = (Math.random() - 0.5) * sessionVolatility * 0.15;
-        const tickMovement = randomWalk + trendBias + microNoise;
-        
-        const newPrice = basePrice + tickMovement;
-        
-        // Calculate realistic bid/ask spread
-        const pipValue = isJpyPair ? 0.01 : 0.0001;
-        const baseSpreadPips = isJpyPair ? 1.2 : 0.8;
-        const volatilitySpread = session.volatility * 0.3;
-        const spreadPips = (baseSpreadPips + volatilitySpread) * session.spreadMultiplier;
-        const spread = spreadPips * pipValue;
-        
-        const bid = parseFloat((newPrice - spread/2).toFixed(isJpyPair ? 3 : 5));
-        const ask = parseFloat((newPrice + spread/2).toFixed(isJpyPair ? 3 : 5));
-        const midPrice = parseFloat(((bid + ask) / 2).toFixed(isJpyPair ? 3 : 5));
+        if (!basePrice || basePrice <= 0) continue;
 
-        // Prepare enhanced tick update
-        const tickUpdate = {
-          symbol: marketState.symbol,
-          current_price: midPrice,
-          bid,
-          ask,
-          last_update: timestamp,
-          is_market_open: true,
-          source: `${session.name.toLowerCase()}-tiingo-tick`
-        };
+        // Generate realistic tick movement (0.001% to 0.01% of current price)
+        const volatility = getVolatilityForPair(state.symbol);
+        const maxMovement = basePrice * volatility;
+        const priceMovement = (Math.random() - 0.5) * maxMovement;
+        
+        // Apply movement to create new tick
+        const newPrice = basePrice + priceMovement;
+        const precision = state.symbol.includes('JPY') ? 3 : 5;
+        const tickPrice = parseFloat(newPrice.toFixed(precision));
+        
+        // Adjust bid/ask proportionally
+        const spread = baseAsk - baseBid;
+        const midAdjustment = tickPrice - basePrice;
+        const newBid = parseFloat((baseBid + midAdjustment).toFixed(precision));
+        const newAsk = parseFloat((baseAsk + midAdjustment).toFixed(precision));
 
-        tickUpdates.push(tickUpdate);
-
-        // Add to price history batch
-        priceHistoryBatch.push({
-          symbol: marketState.symbol,
-          price: midPrice,
-          bid,
-          ask,
-          timestamp,
-          source: `${session.name.toLowerCase()}-tiingo-tick`
+        tickUpdates.push({
+          symbol: state.symbol,
+          price: tickPrice,
+          bid: newBid,
+          ask: newAsk,
+          timestamp: timestamp,
+          source: `tiingo-tick-${getMarketSession()}`
         });
 
-        console.log(`📈 ${marketState.symbol}: ${basePrice.toFixed(isJpyPair ? 3 : 5)} → ${midPrice} (${session.name} Tiingo-based tick)`);
-
+        console.log(`📍 ${state.symbol}: ${basePrice} → ${tickPrice} (${priceMovement > 0 ? '+' : ''}${priceMovement.toFixed(6)})`);
       } catch (error) {
-        console.error(`❌ Error generating enhanced tick for ${marketState.symbol}:`, error);
+        console.error(`❌ Error generating tick for ${state.symbol}:`, error);
       }
     }
 
-    // Batch insert price history for performance
-    if (priceHistoryBatch.length > 0) {
-      const { error: historyError } = await supabase
-        .from('live_price_history')
-        .insert(priceHistoryBatch);
-
-      if (historyError) {
-        console.error('❌ Error batch inserting enhanced tick history:', historyError);
-      } else {
-        console.log(`📊 Batch inserted ${priceHistoryBatch.length} Tiingo-based tick records`);
-      }
+    if (tickUpdates.length === 0) {
+      console.log('⚠️ No valid ticks generated');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: 'No valid tick data generated',
+          timestamp
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Batch update market state
-    for (const update of tickUpdates) {
-      const { error } = await supabase
-        .from('centralized_market_state')
-        .upsert(update, { onConflict: 'symbol' });
-        
-      if (error) {
-        console.error(`❌ Error updating enhanced tick state for ${update.symbol}:`, error);
-      }
+    // Insert realistic tick data
+    const { error: insertError } = await supabase
+      .from('live_price_history')
+      .insert(tickUpdates);
+
+    if (insertError) {
+      console.error('❌ Error inserting tick data:', insertError);
+      throw new Error(`Failed to insert tick data: ${insertError.message}`);
     }
 
-    // Enhanced cleanup old price history (keep last 80 points per pair)
-    const cleanupPromises = marketStates.slice(0, 6).map(async (marketState) => {
-      const { data: oldRecords } = await supabase
+    // Cleanup old tick data (keep last 500 per pair)
+    for (const pair of [...new Set(tickUpdates.map(t => t.symbol))]) {
+      const { data: oldTicks } = await supabase
         .from('live_price_history')
         .select('id')
-        .eq('symbol', marketState.symbol)
+        .eq('symbol', pair)
         .order('timestamp', { ascending: false })
-        .range(80, 150);
+        .range(500, 2000);
         
-      if (oldRecords && oldRecords.length > 0) {
-        const idsToDelete = oldRecords.map(r => r.id);
+      if (oldTicks && oldTicks.length > 0) {
+        const idsToDelete = oldTicks.map(t => t.id);
         await supabase
           .from('live_price_history')
           .delete()
           .in('id', idsToDelete);
       }
-    });
+    }
 
-    await Promise.allSettled(cleanupPromises);
-
-    console.log(`✅ Generated ${tickUpdates.length} enhanced Tiingo-based ticks (${session.name} session)`);
+    console.log(`✅ Generated ${tickUpdates.length} realistic ticks from Tiingo baseline data`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Generated ${tickUpdates.length} enhanced Tiingo-based ticks`,
-        session: session.name,
-        volatility: session.volatility,
-        pairs: tickUpdates.map(u => u.symbol),
+        message: `Generated ${tickUpdates.length} realistic ticks`,
+        pairs: tickUpdates.map(t => t.symbol),
         timestamp,
-        isMarketOpen: true,
-        source: 'tiingo-enhanced'
+        source: 'tiingo-tick-generator',
+        isMarketOpen: true
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('💥 Enhanced Tiingo tick generator error:', error);
+    console.error('💥 Tick generator error:', error);
     return new Response(
       JSON.stringify({ 
         error: error.message,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        source: 'tick-generator-error'
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });
+
+// Get volatility factor for different currency pairs
+function getVolatilityForPair(symbol: string): number {
+  // Major pairs (lower volatility)
+  const majorPairs = ['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF'];
+  if (majorPairs.includes(symbol)) {
+    return 0.00005; // 0.005% max movement
+  }
+  
+  // Minor pairs (medium volatility)
+  const minorPairs = ['AUDUSD', 'USDCAD', 'NZDUSD'];
+  if (minorPairs.includes(symbol)) {
+    return 0.00008; // 0.008% max movement
+  }
+  
+  // Cross pairs (higher volatility)
+  return 0.00012; // 0.012% max movement
+}
+
+// Get current market session
+function getMarketSession(): string {
+  const now = new Date();
+  const utcHour = now.getUTCHours();
+  
+  if (utcHour >= 22 || utcHour < 8) {
+    return 'asian';
+  } else if (utcHour >= 8 && utcHour < 16) {
+    return 'european';
+  } else if (utcHour >= 13 && utcHour < 17) {
+    return 'overlap';
+  } else {
+    return 'us';
+  }
+}

@@ -14,19 +14,19 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🌊 FastForex baseline market stream (60s refresh cycle)...');
+    console.log('🚀 Tiingo centralized market stream (60s refresh cycle)...');
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const fastForexApiKey = Deno.env.get('FASTFOREX_API_KEY');
+    const tiingoApiKey = Deno.env.get('TIINGO_API_KEY');
     
-    if (!supabaseUrl || !supabaseServiceKey || !fastForexApiKey) {
+    if (!supabaseUrl || !supabaseServiceKey || !tiingoApiKey) {
       throw new Error('Missing required environment variables');
     }
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // EXPANDED currency pairs for centralized streaming - Now supports all 26 pairs
+    // EXPANDED currency pairs for centralized streaming - Now supports all 30 pairs
     const streamingPairs = [
       // Major pairs
       'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
@@ -34,10 +34,12 @@ serve(async (req) => {
       'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY',
       // Additional cross pairs
       'GBPNZD', 'AUDNZD', 'CADCHF', 'EURAUD', 'EURNZD', 'GBPCAD', 'NZDCAD',
-      'NZDCHF', 'NZDJPY', 'AUDJPY', 'CHFJPY', 'EURCAD', 'GBPAUD'
+      'NZDCHF', 'NZDJPY', 'AUDJPY', 'CHFJPY', 'EURCAD', 'GBPAUD',
+      // Extended pairs
+      'USDNOK', 'USDSEK', 'AUDSGD'
     ];
 
-    console.log(`📊 Fetching fresh FastForex data for ${streamingPairs.length} pairs (60s cycle)`);
+    console.log(`💱 Fetching Tiingo forex data for ${streamingPairs.length} pairs (60s cycle)`);
 
     // Check market hours
     const now = new Date();
@@ -103,87 +105,100 @@ serve(async (req) => {
       );
     }
 
-    // Market is open - fetch fresh FastForex data
-    const currencies = ['EUR', 'GBP', 'JPY', 'CHF', 'AUD', 'CAD', 'NZD'];
-    const fetchMultiUrl = `https://api.fastforex.io/fetch-multi?from=USD&to=${currencies.join(',')}&api_key=${fastForexApiKey}`;
+    // Market is open - fetch fresh Tiingo data using bulk endpoint
+    const tickerList = streamingPairs.map(pair => pair.toLowerCase()).join(',');
+    const tiingoUrl = `https://api.tiingo.com/tiingo/fx/top?tickers=${tickerList}&token=${tiingoApiKey}`;
     
-    console.log(`🔄 Fetching fresh FastForex data: ${fetchMultiUrl.replace(fastForexApiKey, '[API_KEY]')}`);
+    console.log(`🔄 Fetching fresh Tiingo data: ${tickerList.substring(0, 50)}...`);
     
-    const response = await fetch(fetchMultiUrl, {
+    const response = await fetch(tiingoUrl, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
-        'User-Agent': 'CentralizedMarketStream/2.0'
+        'User-Agent': 'CentralizedMarketStream/2.0',
+        'Authorization': `Token ${tiingoApiKey}`
       }
     });
     
     if (!response.ok) {
-      throw new Error(`FastForex API error: ${response.status} - ${response.statusText}`);
+      throw new Error(`Tiingo API error: ${response.status} - ${response.statusText}`);
     }
     
-    const data = await response.json();
+    const tiingoData = await response.json();
     
-    if (!data.results) {
-      throw new Error('Invalid FastForex response format');
+    if (!Array.isArray(tiingoData) || tiingoData.length === 0) {
+      throw new Error('Invalid Tiingo response format or no data returned');
     }
     
-    const baseRates = { USD: 1, ...data.results };
-    
-    console.log('💱 Fresh FastForex rates received:', Object.keys(baseRates));
+    console.log(`💱 Fresh Tiingo data received for ${tiingoData.length} pairs`);
 
-    // Calculate currency pair rates and update baseline state
+    // Process Tiingo data and update centralized state
     const marketUpdates = [];
     const priceHistory = [];
     const timestamp = new Date().toISOString();
 
-    for (const pair of streamingPairs) {
+    for (const tickerData of tiingoData) {
       try {
-        const baseCurrency = pair.substring(0, 3);
-        const quoteCurrency = pair.substring(3, 6);
-        
-        if (baseRates[baseCurrency] && baseRates[quoteCurrency]) {
-          const rate = baseRates[quoteCurrency] / baseRates[baseCurrency];
-          const price = parseFloat(rate.toFixed(pair.includes('JPY') ? 3 : 5));
-          
-          // Calculate realistic bid/ask spread based on market session
-          const session = getMarketSession();
-          const baseSpread = price * (pair.includes('JPY') ? 0.00003 : 0.00002);
-          const sessionSpread = baseSpread * session.spreadMultiplier;
-          
-          const bid = parseFloat((price - sessionSpread/2).toFixed(pair.includes('JPY') ? 3 : 5));
-          const ask = parseFloat((price + sessionSpread/2).toFixed(pair.includes('JPY') ? 3 : 5));
-
-          // Prepare fresh market state update
-          marketUpdates.push({
-            symbol: pair,
-            current_price: price,
-            bid,
-            ask,
-            last_update: timestamp,
-            is_market_open: true,
-            source: `fastforex-fresh-${session.name.toLowerCase()}`
-          });
-
-          // Prepare fresh price history entry
-          priceHistory.push({
-            symbol: pair,
-            price,
-            bid,
-            ask,
-            timestamp,
-            source: `fastforex-fresh-${session.name.toLowerCase()}`
-          });
-          
-          console.log(`📈 ${pair}: ${price} (fresh FastForex, ${session.name} session)`);
+        const symbol = tickerData.ticker ? tickerData.ticker.toUpperCase() : null;
+        if (!symbol || !streamingPairs.includes(symbol)) {
+          continue;
         }
+
+        // Use Tiingo's actual bid/ask data
+        const midPrice = tickerData.midPrice;
+        const bidPrice = tickerData.bidPrice;
+        const askPrice = tickerData.askPrice;
+        const quoteTimestamp = tickerData.quoteTimestamp;
+
+        if (!midPrice || typeof midPrice !== 'number' || midPrice <= 0) {
+          console.warn(`⚠️ Invalid price data for ${symbol}:`, tickerData);
+          continue;
+        }
+
+        // Use actual bid/ask if available, otherwise calculate realistic spreads
+        const actualBid = bidPrice && typeof bidPrice === 'number' ? bidPrice : 
+          midPrice - (midPrice * (symbol.includes('JPY') ? 0.00002 : 0.00001));
+        const actualAsk = askPrice && typeof askPrice === 'number' ? askPrice : 
+          midPrice + (midPrice * (symbol.includes('JPY') ? 0.00002 : 0.00001));
+
+        const precision = symbol.includes('JPY') ? 3 : 5;
+        const finalPrice = parseFloat(midPrice.toFixed(precision));
+        const finalBid = parseFloat(actualBid.toFixed(precision));
+        const finalAsk = parseFloat(actualAsk.toFixed(precision));
+
+        // Get current market session for data source labeling
+        const session = getMarketSession();
+
+        // Prepare fresh market state update with Tiingo data
+        marketUpdates.push({
+          symbol,
+          current_price: finalPrice,
+          bid: finalBid,
+          ask: finalAsk,
+          last_update: timestamp,
+          is_market_open: true,
+          source: `tiingo-${session.name.toLowerCase()}`
+        });
+
+        // Prepare fresh price history entry
+        priceHistory.push({
+          symbol,
+          price: finalPrice,
+          bid: finalBid,
+          ask: finalAsk,
+          timestamp: quoteTimestamp || timestamp,
+          source: `tiingo-${session.name.toLowerCase()}`
+        });
+        
+        console.log(`📈 ${symbol}: ${finalPrice} (bid: ${finalBid}, ask: ${finalAsk}) - Tiingo ${session.name}`);
       } catch (error) {
-        console.error(`❌ Error processing ${pair}:`, error);
+        console.error(`❌ Error processing ${tickerData.ticker || 'unknown'}:`, error);
       }
     }
 
-    console.log(`💾 Updating fresh market state for ${marketUpdates.length} pairs`);
+    console.log(`💾 Updating fresh market state for ${marketUpdates.length} pairs with Tiingo data`);
 
-    // Update centralized market state with fresh FastForex data
+    // Update centralized market state with fresh Tiingo data
     for (const update of marketUpdates) {
       const { error } = await supabase
         .from('centralized_market_state')
@@ -221,28 +236,29 @@ serve(async (req) => {
       }
     }
 
-    console.log('✅ Fresh FastForex market stream update completed (60s cycle)');
+    console.log('✅ Fresh Tiingo market stream update completed (60s cycle)');
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Fresh FastForex data updated for ${marketUpdates.length} pairs`,
+        message: `Fresh Tiingo data updated for ${marketUpdates.length} pairs`,
         pairs: marketUpdates.map(u => u.symbol),
         timestamp,
-        source: 'fastforex-fresh-60s',
+        source: 'tiingo-fresh-60s',
         isMarketOpen: true,
-        session: getMarketSession().name
+        session: getMarketSession().name,
+        dataQuality: 'institutional-grade'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('💥 FastForex market stream error:', error);
+    console.error('💥 Tiingo market stream error:', error);
     return new Response(
       JSON.stringify({ 
         error: error.message,
         timestamp: new Date().toISOString(),
-        source: 'fastforex-error'
+        source: 'tiingo-error'
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
