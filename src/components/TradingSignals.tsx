@@ -92,9 +92,9 @@ const TradingSignals = memo(() => {
       : 70;
   }, [validSignals]);
 
-  // Calculate signal type imbalance
-  const signalImbalance = Math.abs(signalDistribution.buy - signalDistribution.sell);
-  const isImbalanced = signalImbalance >= 3;
+  // Calculate signal type difference (for monitoring, not balancing)
+  const signalDifference = Math.abs(signalDistribution.buy - signalDistribution.sell);
+  const hasStrongBias = signalDifference >= 5;
 
   const handleInvestigateSignalExpiration = useCallback(async () => {
     try {
@@ -148,13 +148,6 @@ const TradingSignals = memo(() => {
         toast({
           title: "⚠️ Time-Based Expiration Detected",
           description: "All signals expired - recommend running elimination plan and generating new signals",
-          variant: "destructive"
-        });
-      } else if (Math.abs(activeBuyCount - activeSellCount) >= 5) {
-        Logger.warn('signals', `Signal imbalance detected: BUY: ${activeBuyCount}, SELL: ${activeSellCount}`);
-        toast({
-          title: "⚠️ Signal Type Imbalance",
-          description: `Heavy bias toward ${activeBuyCount > activeSellCount ?'SELL':'BUY'} signals - consider regenerating for balance`,
           variant: "destructive"
         });
       }
@@ -240,10 +233,10 @@ const TradingSignals = memo(() => {
     try {
       await triggerAutomaticSignalGeneration();
     } catch (error) {
-      Logger.error('signals', 'Error detecting balanced opportunities:', error);
+      Logger.error('signals', 'Error detecting pure market opportunities:', error);
       toast({
-        title: "Balanced Detection Error",
-        description: "Failed to detect new balanced opportunities. Please try again.",
+        title: "Market Detection Error",
+        description: "Failed to detect new market opportunities. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -298,7 +291,7 @@ const TradingSignals = memo(() => {
   if (loading && validSignals.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-white">Loading balanced signals (analyzing all currency pairs, limit: {MAX_ACTIVE_SIGNALS})...</div>
+        <div className="text-white">Loading pure market signals (analyzing all currency pairs, limit: {MAX_ACTIVE_SIGNALS})...</div>
       </div>
     );
   }
@@ -320,32 +313,30 @@ const TradingSignals = memo(() => {
         lastUpdate={lastUpdate || 'Never'}
       />
 
-      {/* Signal Type Distribution Display */}
+      {/* Natural Signal Type Distribution Display */}
       {hasSignalData && (
         <div className={`backdrop-blur-sm rounded-xl border p-4 ${
-          isImbalanced 
-            ? 'bg-amber-900/20 border-amber-500/30' 
+          hasStrongBias 
+            ? 'bg-blue-900/20 border-blue-500/30' 
             : 'bg-emerald-900/20 border-emerald-500/30'
         }`}>
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <BarChart3 className={`h-5 w-5 ${isImbalanced ? 'text-amber-400' : 'text-emerald-400'}`} />
+              <BarChart3 className={`h-5 w-5 ${hasStrongBias ? 'text-blue-400' : 'text-emerald-400'}`} />
               <div>
-                <h3 className="text-white font-medium">Signal Type Distribution</h3>
+                <h3 className="text-white font-medium">Natural Signal Distribution</h3>
                 <div className="flex items-center space-x-4 text-sm">
                   <span className="text-green-400">BUY: {signalDistribution.buy}</span>
                   <span className="text-red-400">SELL: {signalDistribution.sell}</span>
-                  <span className={`${isImbalanced ? 'text-amber-400' : 'text-emerald-400'}`}>
-                    {isImbalanced ? `Imbalanced (${signalImbalance} difference)` : 'Balanced'}
+                  <span className={`${hasStrongBias ? 'text-blue-400' : 'text-emerald-400'}`}>
+                    {hasStrongBias ? `Market bias: ${signalDistribution.buy > signalDistribution.sell ? 'Bullish' : 'Bearish'}` : 'Balanced market'}
                   </span>
                 </div>
               </div>
             </div>
-            {isImbalanced && (
-              <div className="text-xs text-amber-300">
-                ⚠️ Signal generation will auto-balance
-              </div>
-            )}
+            <div className="text-xs text-gray-300">
+              📊 Pure technical analysis • Market-driven distribution
+            </div>
           </div>
         </div>
       )}
@@ -357,7 +348,7 @@ const TradingSignals = memo(() => {
             <Bug className="h-5 w-5 text-amber-400" />
             <div>
               <h3 className="text-white font-medium">Signal Investigation</h3>
-              <p className="text-sm text-gray-400">Investigate signal status and type distribution</p>
+              <p className="text-sm text-gray-400">Investigate signal status and natural distribution</p>
             </div>
           </div>
           <Button
@@ -395,14 +386,6 @@ const TradingSignals = memo(() => {
                 <div className="text-red-400 text-sm font-medium">⚠️ All signals are expired - Time-based expiration likely active</div>
                 <div className="text-yellow-300 text-xs">
                   Recommendation: Run elimination plan, then generate new signals
-                </div>
-              </div>
-            )}
-            {Math.abs(debugInfo.activeBuySignals - debugInfo.activeSellSignals) >= 5 && (
-              <div className="mt-2">
-                <div className="text-amber-400 text-sm font-medium">⚠️ Significant signal type imbalance detected</div>
-                <div className="text-yellow-300 text-xs">
-                  Recommendation: Generate new signals for better balance
                 </div>
               </div>
             )}
@@ -467,7 +450,7 @@ const TradingSignals = memo(() => {
               </select>
             </div>
             <div className="text-sm text-gray-400">
-              ⚖️ Balanced BUY/SELL • Market validation • No time expiration
+              📊 Pure technical analysis • Natural distribution • No forced balancing
             </div>
           </div>
         </div>
@@ -477,7 +460,7 @@ const TradingSignals = memo(() => {
       <div>
         <h3 className="text-white text-lg font-semibold mb-4">
           {selectedPair === 'All' ? 
-            `Balanced Signals (${filteredSignals.length}/${MAX_ACTIVE_SIGNALS}) - BUY: ${signalDistribution.buy}, SELL: ${signalDistribution.sell}` : 
+            `Pure Market Signals (${filteredSignals.length}/${MAX_ACTIVE_SIGNALS}) - BUY: ${signalDistribution.buy}, SELL: ${signalDistribution.sell}` : 
             `${selectedPair} Signals (${filteredSignals.length})`
           }
         </h3>
@@ -505,11 +488,11 @@ const TradingSignals = memo(() => {
           <div className="text-center py-12">
             <div className="text-gray-400 mb-4">
               {selectedPair === 'All' 
-                ? `No balanced signals generated yet (0/${MAX_ACTIVE_SIGNALS})` 
+                ? `No pure market signals generated yet (0/${MAX_ACTIVE_SIGNALS})` 
                 : `No signals for ${selectedPair}`}
             </div>
             <div className="text-sm text-gray-500 mb-6">
-              ⚖️ Signal limit: {MAX_ACTIVE_SIGNALS} • Balanced BUY/SELL generation • No time expiration
+              📊 Signal limit: {MAX_ACTIVE_SIGNALS} • Pure technical analysis • Natural distribution • No forced balancing
             </div>
             <div className="space-x-4">
               <Button
@@ -520,12 +503,12 @@ const TradingSignals = memo(() => {
                 {detectingOpportunities ? (
                   <>
                     <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Analyzing Opportunities...
+                    Analyzing Market Opportunities...
                   </>
                 ) : (
                   <>
                     <Target className="h-4 w-4 mr-2" />
-                    Generate Balanced Signals
+                    Generate Pure Market Signals
                   </>
                 )}
               </Button>

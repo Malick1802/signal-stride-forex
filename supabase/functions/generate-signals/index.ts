@@ -240,10 +240,10 @@ const calculateFixedPipTakeProfits = (entryPrice: number, signalType: string, sy
 
 // Enhanced signal rotation with balanced selection criteria
 const rotateOldestSignals = async (supabase: any, slotsNeeded: number): Promise<number> => {
-  console.log(`🔄 BALANCED rotation: Selecting ${slotsNeeded} signals for rotation...`);
+  console.log(`🔄 Rotation: Selecting ${slotsNeeded} signals for rotation...`);
   
   try {
-    // Balanced selection: prioritize oldest signals with lower confidence
+    // Select oldest signals with lower confidence for rotation
     const { data: signalsToRotate, error: selectError } = await supabase
       .from('trading_signals')
       .select('id, symbol, created_at, confidence')
@@ -273,7 +273,7 @@ const rotateOldestSignals = async (supabase: any, slotsNeeded: number): Promise<
       return 0;
     }
 
-    console.log(`✅ Balanced rotation complete: ${signalsToRotate.length} signals rotated`);
+    console.log(`✅ Rotation complete: ${signalsToRotate.length} signals rotated`);
     return signalsToRotate.length;
 
   } catch (error) {
@@ -282,8 +282,8 @@ const rotateOldestSignals = async (supabase: any, slotsNeeded: number): Promise<
   }
 };
 
-// ENHANCED: Balanced AI analysis with explicit BUY/SELL opportunity detection
-const analyzeWithBalancedAI = async (pair: string, marketData: any, openAIApiKey: string, priceHistory: number[], technicalData: any, existingSignalTypes: string[]): Promise<any> => {
+// PURE MARKET ANALYSIS: AI analysis based purely on technical indicators and market conditions
+const analyzeWithPureMarketAnalysis = async (pair: string, marketData: any, openAIApiKey: string, priceHistory: number[], technicalData: any): Promise<any> => {
   const currentPrice = parseFloat(marketData.current_price.toString());
   
   // Enhanced technical indicators with realistic data
@@ -314,23 +314,7 @@ const analyzeWithBalancedAI = async (pair: string, marketData: any, openAIApiKey
     sessionAdvantage = ['EURUSD', 'GBPUSD', 'USDCAD', 'USDCHF'].includes(pair);
   }
 
-  // ENHANCED: Signal type balancing - encourage opposite signals if we have too many of one type
-  const sellSignalCount = existingSignalTypes.filter(type => type === 'SELL').length;
-  const buySignalCount = existingSignalTypes.filter(type => type === 'BUY').length;
-  const signalImbalance = Math.abs(sellSignalCount - buySignalCount);
-  
-  let signalBias = '';
-  if (signalImbalance >= 3) {
-    signalBias = sellSignalCount > buySignalCount ? 
-      'STRONGLY favor BUY opportunities to balance signal types' : 
-      'STRONGLY favor SELL opportunities to balance signal types';
-  } else if (signalImbalance >= 2) {
-    signalBias = sellSignalCount > buySignalCount ? 
-      'Prefer BUY opportunities for better balance' : 
-      'Prefer SELL opportunities for better balance';
-  }
-
-  // ENHANCED AI PROMPT: Balanced analysis focusing on both BUY and SELL opportunities
+  // PURE MARKET ANALYSIS AI PROMPT: No artificial balancing, pure technical analysis
   const aiAnalysisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -342,18 +326,23 @@ const analyzeWithBalancedAI = async (pair: string, marketData: any, openAIApiKey
       messages: [
         {
           role: 'system',
-          content: `You are a professional AI forex analyst specialized in BALANCED signal generation. Your task is to analyze forex market data and generate BOTH BUY and SELL signals based on technical indicators, sentiment data, and macroeconomic factors.
+          content: `You are a professional forex analyst specialized in PURE TECHNICAL ANALYSIS. Your task is to analyze forex market data and generate trading signals based SOLELY on technical indicators, market structure, and price action.
 
-CRITICAL: You must actively look for BOTH bullish AND bearish opportunities. Do not be biased toward one signal type.
+CRITICAL: Generate signals based PURELY on what the market is telling you. Do NOT force any artificial balance between BUY and SELL signals.
 
-BALANCED ANALYSIS FRAMEWORK:
+PURE TECHNICAL ANALYSIS FRAMEWORK:
 - Technical Indicators: RSI, MACD, Bollinger Bands, Moving Averages (50 & 200 EMA), ATR
-- Chart Patterns: Look for BOTH bullish (double bottoms, ascending triangles) AND bearish (double tops, descending triangles) patterns
-- Market Dynamics: Consider both trend continuation AND reversal opportunities
-- Economic Events: Analyze impact for both BUY and SELL scenarios
-- Risk Management: Fixed pip targets (15, 25, 40, 60, 80 pips) with 40+ pip stop loss
+- Chart Patterns: Double tops/bottoms, triangles, support/resistance levels
+- Market Structure: Trend analysis, momentum, volatility
+- Economic Events: Impact assessment for fundamental bias
+- Session Analysis: Market session advantages and timing
 
-SIGNAL BALANCING: ${signalBias || 'Generate signals based purely on technical merit'}
+SIGNAL GENERATION RULES:
+- Generate BUY signals when technical analysis supports bullish bias
+- Generate SELL signals when technical analysis supports bearish bias  
+- Generate NEUTRAL when conditions are unclear or conflicting
+- NEVER artificially balance signal types - let market conditions dictate
+- Quality over artificial distribution
 
 OUTPUT FORMAT:
 {
@@ -366,19 +355,14 @@ OUTPUT FORMAT:
   "market_structure": "bullish|bearish|neutral",
   "session_advantage": true|false,
   "key_levels": {"support": price, "resistance": price},
-  "analysis": "comprehensive balanced analysis including both bullish and bearish scenarios, with clear reasoning for the chosen signal direction",
+  "analysis": "comprehensive technical analysis with clear reasoning for signal direction",
   "quality_grade": "EXCELLENT|GOOD|FAIR",
-  "signal_reasoning": "specific explanation of why BUY or SELL was chosen over the alternative"
+  "signal_reasoning": "specific technical reasons for the chosen signal direction"
 }`
         },
         {
           role: 'user',
-          content: `BALANCED FOREX ANALYSIS for ${pair}:
-
-CURRENT SIGNAL DISTRIBUTION:
-- BUY signals: ${buySignalCount}
-- SELL signals: ${sellSignalCount}
-- Balance requirement: ${signalBias || 'None - analyze purely on technical merit'}
+          content: `PURE TECHNICAL ANALYSIS for ${pair}:
 
 PRICE DATA (OHLCV):
 - Current Price: ${currentPrice.toFixed(5)}
@@ -386,12 +370,15 @@ PRICE DATA (OHLCV):
 - Price History (last 20): [${priceHistory.slice(-20).map(p => p.toFixed(5)).join(', ')}]
 
 TECHNICAL INDICATORS:
-- RSI (14): ${rsi.toFixed(2)} ${rsi > 70 ? '(Overbought - potential SELL)' : rsi < 30 ? '(Oversold - potential BUY)' : '(Neutral)'}
+- RSI (14): ${rsi.toFixed(2)} ${rsi > 70 ? '(Overbought - potential SELL setup)' : rsi < 30 ? '(Oversold - potential BUY setup)' : '(Neutral zone)'}
 - MACD Line: ${macd.line.toFixed(6)}, Signal: ${macd.signal.toFixed(6)}, Histogram: ${macd.histogram.toFixed(6)}
+- MACD Status: ${macd.line > macd.signal ? 'Bullish crossover' : 'Bearish crossover'}
 - Bollinger Bands: Upper ${bollingerBands.upper.toFixed(5)}, Middle ${bollingerBands.middle.toFixed(5)}, Lower ${bollingerBands.lower.toFixed(5)}
+- Band Position: ${currentPrice > bollingerBands.upper ? 'Above upper band (overbought)' : currentPrice < bollingerBands.lower ? 'Below lower band (oversold)' : 'Within bands (normal)'}
 - EMA 50: ${ema50.toFixed(5)}, EMA 200: ${ema200.toFixed(5)}
-- Price vs EMA50: ${currentPrice > ema50 ? 'ABOVE (bullish)' : 'BELOW (bearish)'}
-- Price vs EMA200: ${currentPrice > ema200 ? 'ABOVE (long-term bullish)' : 'BELOW (long-term bearish)'}
+- Price vs EMA50: ${currentPrice > ema50 ? 'ABOVE (short-term bullish)' : 'BELOW (short-term bearish)'}
+- Price vs EMA200: ${currentPrice > ema200 ? 'ABOVE (long-term bullish trend)' : 'BELOW (long-term bearish trend)'}
+- EMA Alignment: ${ema50 > ema200 ? 'Bullish (50 > 200)' : 'Bearish (50 < 200)'}
 - ATR (14): ${atr.toFixed(5)} (${(atr/currentPrice*100).toFixed(3)}% volatility)
 
 CHART PATTERNS DETECTED:
@@ -402,17 +389,17 @@ ${economicEvents.map(e => `${e.title} (${e.impact} impact, ${e.time})`).join(', 
 
 MARKET CONDITIONS:
 - Trading Session: ${marketSession}
-- Session Advantage: ${sessionAdvantage ? 'Yes' : 'No'}
+- Session Advantage: ${sessionAdvantage ? 'Yes - favorable session for this pair' : 'No - neutral session'}
 - Current Time: ${new Date().toUTCString()}
 
-ANALYSIS REQUIREMENTS:
-1. Examine BOTH bullish and bearish scenarios equally
-2. Consider trend continuation AND reversal opportunities
-3. Look for oversold conditions (potential BUY) and overbought conditions (potential SELL)
-4. Analyze support/resistance levels for both directions
-5. Provide clear reasoning for the chosen signal type
+TECHNICAL ANALYSIS REQUIREMENTS:
+1. Analyze the overall trend (bullish, bearish, or sideways)
+2. Assess momentum indicators (RSI, MACD)
+3. Evaluate support/resistance levels
+4. Consider volatility and market structure
+5. Provide clear technical reasoning for signal direction
 
-Provide a comprehensive BALANCED forex analysis that actively considers both BUY and SELL opportunities. Include specific technical reasons for your signal choice and explain why you chose that direction over the alternative.`
+Generate a signal based PURELY on technical merit. If the analysis points to BUY conditions, generate BUY. If it points to SELL conditions, generate SELL. If conditions are mixed or unclear, generate NEUTRAL. Do NOT consider artificial balancing - let the market speak.`
         }
       ],
       max_tokens: 1000,
@@ -421,7 +408,7 @@ Provide a comprehensive BALANCED forex analysis that actively considers both BUY
   });
 
   if (!aiAnalysisResponse.ok) {
-    throw new Error(`Balanced AI analysis error: ${aiAnalysisResponse.status}`);
+    throw new Error(`Pure market analysis error: ${aiAnalysisResponse.status}`);
   }
 
   const aiData = await aiAnalysisResponse.json();
@@ -439,23 +426,14 @@ Provide a comprehensive BALANCED forex analysis that actively considers both BUY
   const result = JSON.parse(jsonMatch[0]);
   
   // Log signal type for monitoring
-  console.log(`🎯 AI Analysis Result for ${pair}: ${result.signal} (RSI: ${rsi.toFixed(1)}, Current signals - BUY: ${buySignalCount}, SELL: ${sellSignalCount})`);
+  console.log(`🎯 Pure Technical Analysis Result for ${pair}: ${result.signal} (RSI: ${rsi.toFixed(1)}, Confidence: ${result.confidence}%)`);
   
   return result;
 };
 
-// ENHANCED: Balanced signal processing with improved data and analysis
-const processBalancedQualitySignals = async (pairs: string[], latestPrices: Map<any, any>, openAIApiKey: string, supabase: any, maxSignals: number) => {
+// PURE MARKET-DRIVEN: Quality signal processing without artificial balancing
+const processPureMarketQualitySignals = async (pairs: string[], latestPrices: Map<any, any>, openAIApiKey: string, supabase: any, maxSignals: number) => {
   const results = [];
-  
-  // Get existing signal types for balancing
-  const { data: existingSignals } = await supabase
-    .from('trading_signals')
-    .select('type')
-    .eq('status', 'active')
-    .eq('is_centralized', true);
-  
-  const existingSignalTypes = existingSignals?.map(s => s.type) || [];
   
   for (let i = 0; i < pairs.length && results.length < maxSignals; i++) {
     const pair = pairs[i];
@@ -478,13 +456,13 @@ const processBalancedQualitySignals = async (pairs: string[], latestPrices: Map<
         priceHistory: priceHistory.slice(0, 50)
       };
 
-      console.log(`🧠 BALANCED AI analysis for ${pair} (Current price: ${currentPrice.toFixed(5)}, ATR: ${atr.toFixed(5)})...`);
+      console.log(`🧠 PURE TECHNICAL analysis for ${pair} (Current price: ${currentPrice.toFixed(5)}, ATR: ${atr.toFixed(5)})...`);
 
-      const aiSignal = await analyzeWithBalancedAI(pair, marketPoint, openAIApiKey, priceHistory, technicalData, existingSignalTypes);
+      const aiSignal = await analyzeWithPureMarketAnalysis(pair, marketPoint, openAIApiKey, priceHistory, technicalData);
 
       // Quality filters
       if (aiSignal.signal === 'NEUTRAL' || !['BUY', 'SELL'].includes(aiSignal.signal)) {
-        console.log(`⚪ No signal for ${pair} - NEUTRAL analysis`);
+        console.log(`⚪ No signal for ${pair} - NEUTRAL technical analysis`);
         continue;
       }
 
@@ -538,22 +516,19 @@ const processBalancedQualitySignals = async (pairs: string[], latestPrices: Map<
         status: 'active',
         is_centralized: true,
         user_id: null,
-        analysis_text: `BALANCED ${aiSignal.quality_grade} Analysis (${aiSignal.win_probability}% win probability): ${aiSignal.analysis}. ${aiSignal.signal_reasoning || ''}`,
+        analysis_text: `PURE TECHNICAL ${aiSignal.quality_grade} Analysis (${aiSignal.win_probability}% win probability): ${aiSignal.analysis}. ${aiSignal.signal_reasoning || ''}`,
         chart_data: chartData,
         pips: Math.round(Math.abs(entryPrice - stopLoss) / getPipValue(pair)),
         created_at: new Date().toISOString()
       };
 
-      console.log(`✅ BALANCED SIGNAL for ${pair}: ${aiSignal.signal} (${aiSignal.confidence}% confidence, ${signal.pips} pip stop)`);
+      console.log(`✅ PURE MARKET SIGNAL for ${pair}: ${aiSignal.signal} (${aiSignal.confidence}% confidence, ${signal.pips} pip stop)`);
       results.push(signal);
-      
-      // Update existing signal types for next iteration
-      existingSignalTypes.push(aiSignal.signal);
 
       await new Promise(resolve => setTimeout(resolve, 800));
 
     } catch (error) {
-      console.error(`❌ Error in balanced analysis for ${pair}:`, error);
+      console.error(`❌ Error in pure market analysis for ${pair}:`, error);
     }
   }
 
@@ -575,8 +550,8 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const isCronTriggered = body.trigger === 'cron';
     
-    console.log(`🎯 BALANCED signal generation starting (comprehensive forex analysis with BUY/SELL balance, MAX: ${MAX_ACTIVE_SIGNALS})...`);
-    console.log(`🛡️ Timeout protection: ${FUNCTION_TIMEOUT_MS/1000}s limit with BALANCED analysis`);
+    console.log(`🎯 PURE MARKET signal generation starting (natural distribution based on technical analysis, MAX: ${MAX_ACTIVE_SIGNALS})...`);
+    console.log(`🛡️ Timeout protection: ${FUNCTION_TIMEOUT_MS/1000}s limit with PURE MARKET analysis`);
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -588,7 +563,7 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Signal counting and type analysis
+    // Signal counting for monitoring (no balancing logic)
     const { data: existingSignals, error: existingError, count: totalCount } = await supabase
       .from('trading_signals')
       .select('symbol, type', { count: 'exact' })
@@ -603,12 +578,12 @@ serve(async (req) => {
     const buyCount = signalTypes.filter(type => type === 'BUY').length;
     const sellCount = signalTypes.filter(type => type === 'SELL').length;
     
-    console.log(`📊 Current signals: ${currentSignalCount}/${MAX_ACTIVE_SIGNALS} (BUY: ${buyCount}, SELL: ${sellCount})`);
+    console.log(`📊 Current signals: ${currentSignalCount}/${MAX_ACTIVE_SIGNALS} (BUY: ${buyCount}, SELL: ${sellCount}) - Natural distribution`);
 
     let availableSlots = MAX_ACTIVE_SIGNALS - currentSignalCount;
     
     if (availableSlots <= 0) {
-      console.log(`🔄 Signal limit reached - initiating balanced rotation...`);
+      console.log(`🔄 Signal limit reached - initiating rotation...`);
       
       const slotsNeeded = Math.min(MAX_NEW_SIGNALS_PER_RUN, 8);
       const rotatedCount = await rotateOldestSignals(supabase, slotsNeeded);
@@ -616,7 +591,7 @@ serve(async (req) => {
     }
 
     const maxNewSignals = Math.min(MAX_NEW_SIGNALS_PER_RUN, Math.max(availableSlots, 1));
-    console.log(`✅ BALANCED analysis will generate ${maxNewSignals} signals with BUY/SELL balance consideration`);
+    console.log(`✅ PURE MARKET analysis will generate up to ${maxNewSignals} signals based on technical merit`);
 
     // Get market data
     const { data: marketData, error: marketError } = await supabase
@@ -633,13 +608,13 @@ serve(async (req) => {
     // Prioritized pairs for analysis
     const prioritizedPairs = [
       'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD',
-      'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY'
+      'EURGBP', 'EURJPY', 'GBPJPY',chnf', 'GBPCHF', 'AUDCHF', 'CADJPY'
     ];
     
     const availablePairs = prioritizedPairs.filter(pair => !existingPairs.has(pair));
     const pairsToAnalyze = availablePairs.slice(0, maxNewSignals * 3);
     
-    console.log(`🔍 BALANCED analysis of ${pairsToAnalyze.length} pairs for ${maxNewSignals} slots`);
+    console.log(`🔍 PURE MARKET analysis of ${pairsToAnalyze.length} pairs for ${maxNewSignals} slots`);
     
     // Get latest prices
     const latestPrices = new Map();
@@ -656,7 +631,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: true,
-          message: 'No market data available for balanced analysis',
+          message: 'No market data available for pure market analysis',
           signals: [],
           stats: {
             opportunitiesAnalyzed: 0,
@@ -664,7 +639,7 @@ serve(async (req) => {
             totalActiveSignals: currentSignalCount,
             signalLimit: MAX_ACTIVE_SIGNALS,
             executionTime: `${Date.now() - startTime}ms`,
-            balancedAnalysis: true,
+            pureMarketAnalysis: true,
             buySignals: buyCount,
             sellSignals: sellCount
           }
@@ -673,10 +648,10 @@ serve(async (req) => {
       );
     }
 
-    // Balanced signal processing
-    console.log(`🚀 Starting BALANCED signal generation with BUY/SELL opportunity analysis...`);
+    // Pure market signal processing
+    console.log(`🚀 Starting PURE MARKET signal generation based on technical analysis...`);
     
-    const processingPromise = processBalancedQualitySignals(
+    const processingPromise = processPureMarketQualitySignals(
       Array.from(latestPrices.keys()), 
       latestPrices, 
       openAIApiKey, 
@@ -694,7 +669,7 @@ serve(async (req) => {
 
     for (const signal of signalsToInsert) {
       try {
-        console.log(`💾 Inserting BALANCED signal for ${signal.symbol}: ${signal.type}...`);
+        console.log(`💾 Inserting PURE MARKET signal for ${signal.symbol}: ${signal.type}...`);
         const { data: insertedSignal, error: insertError } = await supabase
           .from('trading_signals')
           .insert([signal])
@@ -712,7 +687,7 @@ serve(async (req) => {
         if (signal.type === 'BUY') newBuySignals++;
         if (signal.type === 'SELL') newSellSignals++;
         
-        console.log(`✅ BALANCED signal ${signalsGenerated}/${maxNewSignals}: ${signal.symbol} ${signal.type} (${signal.confidence}% confidence)`);
+        console.log(`✅ PURE MARKET signal ${signalsGenerated}/${maxNewSignals}: ${signal.symbol} ${signal.type} (${signal.confidence}% confidence)`);
 
       } catch (error) {
         console.error(`❌ Error inserting signal for ${signal.symbol}:`, error);
@@ -724,16 +699,16 @@ serve(async (req) => {
     const finalSellCount = sellCount + newSellSignals;
     const executionTime = Date.now() - startTime;
 
-    console.log(`📊 BALANCED SIGNAL GENERATION COMPLETE:`);
+    console.log(`📊 PURE MARKET SIGNAL GENERATION COMPLETE:`);
     console.log(`  - Execution time: ${executionTime}ms`);
-    console.log(`  - Balanced signals generated: ${signalsGenerated}/${maxNewSignals} (BUY: ${newBuySignals}, SELL: ${newSellSignals})`);
-    console.log(`  - Final distribution: BUY: ${finalBuyCount}, SELL: ${finalSellCount}`);
+    console.log(`  - Market-driven signals generated: ${signalsGenerated}/${maxNewSignals} (BUY: ${newBuySignals}, SELL: ${newSellSignals})`);
+    console.log(`  - Natural distribution: BUY: ${finalBuyCount}, SELL: ${finalSellCount}`);
     console.log(`  - Total active: ${finalActiveSignals}/${MAX_ACTIVE_SIGNALS}`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Generated ${signalsGenerated} BALANCED signals (BUY: ${newBuySignals}, SELL: ${newSellSignals}) in ${executionTime}ms`,
+        message: `Generated ${signalsGenerated} PURE MARKET signals (BUY: ${newBuySignals}, SELL: ${newSellSignals}) in ${executionTime}ms - Natural distribution`,
         signals: generatedSignals?.map(s => ({ 
           id: s.id, 
           symbol: s.symbol, 
@@ -750,7 +725,8 @@ serve(async (req) => {
           maxNewSignalsPerRun: MAX_NEW_SIGNALS_PER_RUN,
           executionTime: `${executionTime}ms`,
           timeoutProtection: `${FUNCTION_TIMEOUT_MS/1000}s`,
-          balancedAnalysis: true,
+          pureMarketAnalysis: true,
+          naturalDistribution: true,
           signalDistribution: {
             buySignals: finalBuyCount,
             sellSignals: finalSellCount,
@@ -760,7 +736,7 @@ serve(async (req) => {
           technicalIndicators: ['RSI', 'MACD', 'Bollinger Bands', 'EMA 50/200', 'ATR'],
           chartPatterns: ['Double Top/Bottom', 'Head & Shoulders', 'Support/Resistance'],
           economicEvents: true,
-          sentimentAnalysis: true,
+          marketSessionAnalysis: true,
           takeProfitLevels: [15, 25, 40, 60, 80],
           minimumStopLoss: 40,
           rotationUsed: availableSlots !== (MAX_ACTIVE_SIGNALS - currentSignalCount)
@@ -773,7 +749,7 @@ serve(async (req) => {
 
   } catch (error) {
     const executionTime = Date.now() - startTime;
-    console.error(`💥 BALANCED SIGNAL GENERATION ERROR (${executionTime}ms):`, error);
+    console.error(`💥 PURE MARKET SIGNAL GENERATION ERROR (${executionTime}ms):`, error);
     
     return new Response(
       JSON.stringify({ 
@@ -781,7 +757,7 @@ serve(async (req) => {
         error: error.message,
         executionTime: `${executionTime}ms`,
         timestamp: new Date().toISOString(),
-        balancedAnalysis: true
+        pureMarketAnalysis: true
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

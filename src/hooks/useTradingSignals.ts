@@ -74,18 +74,18 @@ export const useTradingSignals = () => {
 
       const processedSignals = processSignals(centralizedSignals);
       
-      // Calculate signal type distribution
+      // Calculate natural signal type distribution
       const buyCount = processedSignals.filter(s => s.type === 'BUY').length;
       const sellCount = processedSignals.filter(s => s.type === 'SELL').length;
       setSignalDistribution({ buy: buyCount, sell: sellCount });
       
-      Logger.info('signals', `PROCESSED SIGNALS: ${processedSignals.length}/${centralizedSignals.length} signals passed processing (BUY: ${buyCount}, SELL: ${sellCount})`);
+      Logger.info('signals', `PROCESSED SIGNALS: ${processedSignals.length}/${centralizedSignals.length} signals passed processing (BUY: ${buyCount}, SELL: ${sellCount}) - Natural distribution`);
       
       setSignals(processedSignals);
       setLastUpdate(new Date().toLocaleTimeString());
       
       if (processedSignals.length > 0) {
-        Logger.info('signals', `Loaded ${processedSignals.length}/${MAX_ACTIVE_SIGNALS} balanced signals (BUY: ${buyCount}, SELL: ${sellCount})`);
+        Logger.info('signals', `Loaded ${processedSignals.length}/${MAX_ACTIVE_SIGNALS} pure market signals (BUY: ${buyCount}, SELL: ${sellCount})`);
       }
       
     } catch (error) {
@@ -190,21 +190,21 @@ export const useTradingSignals = () => {
 
   const triggerSignalGeneration = useCallback(async () => {
     try {
-      Logger.info('signals', `Triggering balanced signal generation with ${MAX_ACTIVE_SIGNALS}-signal limit...`);
+      Logger.info('signals', `Triggering pure market signal generation...`);
       
       const { data: signalResult, error: signalError } = await supabase.functions.invoke('generate-signals');
       
       if (signalError) {
-        Logger.error('signals', 'Balanced signal generation failed:', signalError);
+        Logger.error('signals', 'Pure market signal generation failed:', signalError);
         toast({
           title: "Generation Failed",
-          description: "Failed to detect new balanced trading opportunities",
+          description: "Failed to detect new trading opportunities",
           variant: "destructive"
         });
         return;
       }
       
-      Logger.info('signals', 'Balanced signal generation completed');
+      Logger.info('signals', 'Pure market signal generation completed');
       
       await new Promise(resolve => setTimeout(resolve, 1500));
       await fetchSignals();
@@ -215,15 +215,15 @@ export const useTradingSignals = () => {
       const distribution = signalResult?.stats?.signalDistribution || {};
       
       toast({
-        title: "🎯 Balanced Signals Generated",
+        title: "🎯 Pure Market Signals Generated",
         description: `${signalsGenerated} signals generated (BUY: ${distribution.newBuySignals || 0}, SELL: ${distribution.newSellSignals || 0}) - ${totalActiveSignals}/${signalLimit} total`,
       });
       
     } catch (error) {
-      Logger.error('signals', 'Error in balanced signal generation:', error);
+      Logger.error('signals', 'Error in pure market signal generation:', error);
       toast({
         title: "Generation Error",
-        description: "Failed to detect new balanced trading opportunities",
+        description: "Failed to detect new trading opportunities",
         variant: "destructive"
       });
     }
@@ -309,7 +309,7 @@ export const useTradingSignals = () => {
     
     // Optimized real-time subscriptions
     const signalsChannel = supabase
-      .channel(`balanced-signals-${Date.now()}`)
+      .channel(`pure-market-signals-${Date.now()}`)
       .on(
         'postgres_changes',
         {
@@ -326,7 +326,7 @@ export const useTradingSignals = () => {
       .subscribe((status) => {
         Logger.debug('signals', `Signals subscription status: ${status}`);
         if (status === 'SUBSCRIBED') {
-          Logger.info('signals', `Signal updates connected (up to ${MAX_ACTIVE_SIGNALS} balanced signals)`);
+          Logger.info('signals', `Signal updates connected (up to ${MAX_ACTIVE_SIGNALS} pure market signals)`);
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
           Logger.error('signals', 'Signal subscription failed, attempting to reconnect...');
           setTimeout(fetchSignals, 2000);
