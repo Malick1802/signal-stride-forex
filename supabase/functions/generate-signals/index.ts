@@ -8,9 +8,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// ENHANCED: Increased signal limit for better market coverage and diversification
+// ENHANCED: More conservative signal parameters
 const MAX_ACTIVE_SIGNALS = 20;
-const MAX_NEW_SIGNALS_PER_RUN = 8;
+const MAX_NEW_SIGNALS_PER_RUN = 4; // Reduced from 8 for more selective generation
 const FUNCTION_TIMEOUT_MS = 180000;
 const CONCURRENT_ANALYSIS_LIMIT = 3;
 
@@ -57,7 +57,7 @@ const generateRealisticPriceHistory = (currentPrice: number, symbol: string, per
   return priceHistory.reverse(); // Most recent first
 };
 
-// Technical Analysis Functions with improved calculations
+// ENHANCED: Stricter RSI calculation with more conservative thresholds
 const calculateRSI = (prices: number[], period: number = 14): number => {
   if (prices.length < period + 1) return 50;
   
@@ -87,8 +87,9 @@ const calculateEMA = (prices: number[], period: number): number => {
   return ema;
 };
 
-const calculateMACD = (prices: number[]): { line: number; signal: number; histogram: number } => {
-  if (prices.length < 26) return { line: 0, signal: 0, histogram: 0 };
+// ENHANCED: Stricter MACD calculation with histogram confirmation
+const calculateMACD = (prices: number[]): { line: number; signal: number; histogram: number; strength: number } => {
+  if (prices.length < 26) return { line: 0, signal: 0, histogram: 0, strength: 0 };
   
   const ema12 = calculateEMA(prices, 12);
   const ema26 = calculateEMA(prices, 26);
@@ -96,7 +97,10 @@ const calculateMACD = (prices: number[]): { line: number; signal: number; histog
   const macdSignal = calculateEMA([macdLine], 9);
   const histogram = macdLine - macdSignal;
   
-  return { line: macdLine, signal: macdSignal, histogram };
+  // Calculate MACD strength (distance between line and signal)
+  const strength = Math.abs(macdLine - macdSignal);
+  
+  return { line: macdLine, signal: macdSignal, histogram, strength };
 };
 
 const calculateBollingerBands = (prices: number[], period: number = 20, stdDev: number = 2): { upper: number; middle: number; lower: number } => {
@@ -118,9 +122,9 @@ const calculateBollingerBands = (prices: number[], period: number = 20, stdDev: 
   };
 };
 
-// ENHANCED: Improved ATR calculation with realistic volatility
+// ENHANCED: Conservative ATR calculation
 const calculateImprovedATR = (prices: number[], periods: number = 14): number => {
-  if (prices.length < 2) return prices[0] * 0.002; // Fallback to 0.2% of price
+  if (prices.length < 2) return prices[0] * 0.002;
   
   const trueRanges = [];
   for (let i = 1; i < Math.min(prices.length, periods + 10); i++) {
@@ -137,7 +141,91 @@ const calculateImprovedATR = (prices: number[], periods: number = 14): number =>
   }
   
   const avgTR = trueRanges.reduce((sum, tr) => sum + tr, 0) / trueRanges.length;
-  return Math.max(avgTR, prices[0] * 0.001); // Minimum 0.1% of price
+  return Math.max(avgTR, prices[0] * 0.001);
+};
+
+// ENHANCED: Strict technical confirmation system
+const validateTechnicalConfirmation = (currentPrice: number, rsi: number, macd: any, ema50: number, ema200: number, bollingerBands: any, signalType: string): { isValid: boolean; score: number; confirmations: string[] } => {
+  const confirmations = [];
+  let score = 0;
+  
+  // STRICT RSI CONFIRMATION (25/75 levels)
+  if (signalType === 'BUY') {
+    if (rsi < 25) { // Extremely oversold
+      confirmations.push('RSI Extremely Oversold (<25)');
+      score += 2.5;
+    } else if (rsi < 30) { // Still oversold but less strict
+      confirmations.push('RSI Oversold (<30)');
+      score += 1;
+    }
+  } else if (signalType === 'SELL') {
+    if (rsi > 75) { // Extremely overbought
+      confirmations.push('RSI Extremely Overbought (>75)');
+      score += 2.5;
+    } else if (rsi > 70) { // Still overbought but less strict
+      confirmations.push('RSI Overbought (>70)');
+      score += 1;
+    }
+  }
+  
+  // STRICT MACD CONFIRMATION with histogram
+  if (signalType === 'BUY') {
+    if (macd.line > macd.signal && macd.histogram > 0 && macd.strength > 0.00001) {
+      confirmations.push('MACD Bullish Crossover with Strong Histogram');
+      score += 2.5;
+    } else if (macd.line > macd.signal) {
+      confirmations.push('MACD Bullish Crossover');
+      score += 1;
+    }
+  } else if (signalType === 'SELL') {
+    if (macd.line < macd.signal && macd.histogram < 0 && macd.strength > 0.00001) {
+      confirmations.push('MACD Bearish Crossover with Strong Histogram');
+      score += 2.5;
+    } else if (macd.line < macd.signal) {
+      confirmations.push('MACD Bearish Crossover');
+      score += 1;
+    }
+  }
+  
+  // STRICT TREND ALIGNMENT - All EMAs must align
+  if (signalType === 'BUY') {
+    if (currentPrice > ema50 && ema50 > ema200 && currentPrice > ema200) {
+      confirmations.push('Clear Bullish Trend Alignment (Price > EMA50 > EMA200)');
+      score += 2.5;
+    } else if (currentPrice > ema50 && currentPrice > ema200) {
+      confirmations.push('Price Above Both EMAs');
+      score += 1.5;
+    }
+  } else if (signalType === 'SELL') {
+    if (currentPrice < ema50 && ema50 < ema200 && currentPrice < ema200) {
+      confirmations.push('Clear Bearish Trend Alignment (Price < EMA50 < EMA200)');
+      score += 2.5;
+    } else if (currentPrice < ema50 && currentPrice < ema200) {
+      confirmations.push('Price Below Both EMAs');
+      score += 1.5;
+    }
+  }
+  
+  // BOLLINGER BAND CONFIRMATION
+  if (signalType === 'BUY' && currentPrice <= bollingerBands.lower) {
+    confirmations.push('Price at Lower Bollinger Band');
+    score += 1.5;
+  } else if (signalType === 'SELL' && currentPrice >= bollingerBands.upper) {
+    confirmations.push('Price at Upper Bollinger Band');
+    score += 1.5;
+  }
+  
+  // EMA SEPARATION (trend strength)
+  const emaSeparation = Math.abs(ema50 - ema200) / currentPrice;
+  if (emaSeparation > 0.005) { // 0.5% separation indicates strong trend
+    confirmations.push('Strong EMA Separation (Strong Trend)');
+    score += 1;
+  }
+  
+  // MINIMUM SCORE REQUIRED: 7 out of 10 (very strict)
+  const isValid = score >= 7 && confirmations.length >= 3;
+  
+  return { isValid, score, confirmations };
 };
 
 // Economic Events Data
@@ -200,18 +288,18 @@ const detectChartPatterns = (prices: number[], currentPrice: number): string[] =
   return patterns;
 };
 
-// IMPROVED: Enhanced stop loss with proper 40+ pip minimum
-const calculateImprovedStopLoss = (entryPrice: number, symbol: string, signalType: string, atrValue: number, volatilityMultiplier: number = 2.2): number => {
+// ENHANCED: Conservative stop loss with higher minimums
+const calculateImprovedStopLoss = (entryPrice: number, symbol: string, signalType: string, atrValue: number, volatilityMultiplier: number = 2.5): number => {
   const pipValue = getPipValue(symbol);
   const atrDistance = atrValue * volatilityMultiplier;
   
-  // ENHANCED: Improved minimum stop loss (40 pips for non-JPY, 50 pips for JPY)
-  const minimumPips = isJPYPair(symbol) ? 50 : 40;
+  // ENHANCED: Higher minimum stop loss (50 pips for non-JPY, 60 pips for JPY)
+  const minimumPips = isJPYPair(symbol) ? 60 : 50;
   const minimumDistance = minimumPips * pipValue;
   
   const stopDistance = Math.max(atrDistance, minimumDistance);
   
-  console.log(`📊 Stop Loss Calculation for ${symbol}:`, {
+  console.log(`📊 Conservative Stop Loss for ${symbol}:`, {
     atrValue: atrValue.toFixed(6),
     atrDistance: atrDistance.toFixed(6),
     minimumDistance: minimumDistance.toFixed(6),
@@ -225,7 +313,7 @@ const calculateImprovedStopLoss = (entryPrice: number, symbol: string, signalTyp
     : entryPrice + stopDistance;
 };
 
-// FIXED: Pip-based take profit levels (15, 25, 40, 60, 80 pips)
+// Fixed pip-based take profit levels
 const calculateFixedPipTakeProfits = (entryPrice: number, signalType: string, symbol: string): number[] => {
   const pipValue = getPipValue(symbol);
   const takeProfitPips = [15, 25, 40, 60, 80];
@@ -243,7 +331,6 @@ const rotateOldestSignals = async (supabase: any, slotsNeeded: number): Promise<
   console.log(`🔄 Rotation: Selecting ${slotsNeeded} signals for rotation...`);
   
   try {
-    // Select oldest signals with lower confidence for rotation
     const { data: signalsToRotate, error: selectError } = await supabase
       .from('trading_signals')
       .select('id, symbol, created_at, confidence')
@@ -282,11 +369,11 @@ const rotateOldestSignals = async (supabase: any, slotsNeeded: number): Promise<
   }
 };
 
-// PURE MARKET ANALYSIS: AI analysis based purely on technical indicators and market conditions
-const analyzeWithPureMarketAnalysis = async (pair: string, marketData: any, openAIApiKey: string, priceHistory: number[], technicalData: any): Promise<any> => {
+// ENHANCED: Conservative AI analysis with stricter requirements
+const analyzeWithConservativeMarketAnalysis = async (pair: string, marketData: any, openAIApiKey: string, priceHistory: number[], technicalData: any): Promise<any> => {
   const currentPrice = parseFloat(marketData.current_price.toString());
   
-  // Enhanced technical indicators with realistic data
+  // Enhanced technical indicators with strict validation
   const rsi = calculateRSI(priceHistory);
   const macd = calculateMACD(priceHistory);
   const bollingerBands = calculateBollingerBands(priceHistory);
@@ -314,7 +401,7 @@ const analyzeWithPureMarketAnalysis = async (pair: string, marketData: any, open
     sessionAdvantage = ['EURUSD', 'GBPUSD', 'USDCAD', 'USDCHF'].includes(pair);
   }
 
-  // PURE MARKET ANALYSIS AI PROMPT: No artificial balancing, pure technical analysis
+  // CONSERVATIVE AI ANALYSIS PROMPT with stricter requirements
   const aiAnalysisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -326,89 +413,81 @@ const analyzeWithPureMarketAnalysis = async (pair: string, marketData: any, open
       messages: [
         {
           role: 'system',
-          content: `You are a professional forex analyst specialized in PURE TECHNICAL ANALYSIS. Your task is to analyze forex market data and generate trading signals based SOLELY on technical indicators, market structure, and price action.
+          content: `You are an EXTREMELY CONSERVATIVE forex analyst. Your job is to identify only the HIGHEST QUALITY trading opportunities with MULTIPLE technical confirmations.
 
-CRITICAL: Generate signals based PURELY on what the market is telling you. Do NOT force any artificial balance between BUY and SELL signals.
+ULTRA-CONSERVATIVE ANALYSIS FRAMEWORK:
+- REQUIRE MULTIPLE indicator alignment (RSI + MACD + Trend + Bollinger Bands)
+- DEMAND strict RSI levels: BUY only if RSI < 25 (extreme oversold), SELL only if RSI > 75 (extreme overbought)
+- REQUIRE strong MACD confirmation: line, signal, and histogram must ALL align
+- DEMAND clear trend alignment: Price, EMA50, EMA200 must ALL align with signal direction
+- REQUIRE session advantage for pair timing
+- MINIMUM confidence: 75%+, win probability: 65%+, technical score: 7+/10
 
-PURE TECHNICAL ANALYSIS FRAMEWORK:
-- Technical Indicators: RSI, MACD, Bollinger Bands, Moving Averages (50 & 200 EMA), ATR
-- Chart Patterns: Double tops/bottoms, triangles, support/resistance levels
-- Market Structure: Trend analysis, momentum, volatility
-- Economic Events: Impact assessment for fundamental bias
-- Session Analysis: Market session advantages and timing
-
-SIGNAL GENERATION RULES:
-- Generate BUY signals when technical analysis supports bullish bias
-- Generate SELL signals when technical analysis supports bearish bias  
-- Generate NEUTRAL when conditions are unclear or conflicting
-- NEVER artificially balance signal types - let market conditions dictate
-- Quality over artificial distribution
+CONSERVATIVE SIGNAL GENERATION RULES:
+- Generate BUY signals ONLY when: RSI < 25 AND MACD bullish crossover with positive histogram AND Price > EMA50 > EMA200 AND price near lower Bollinger Band
+- Generate SELL signals ONLY when: RSI > 75 AND MACD bearish crossover with negative histogram AND Price < EMA50 < EMA200 AND price near upper Bollinger Band  
+- Generate NEUTRAL when ANY of the above conditions are not met
+- Quality over quantity - reject signals that don't meet ALL criteria
+- Only EXCELLENT quality signals accepted (no GOOD or FAIR)
 
 OUTPUT FORMAT:
 {
   "signal": "BUY|SELL|NEUTRAL",
-  "confidence": 65-85,
-  "win_probability": 55-75,
-  "technical_score": 5-10,
+  "confidence": 75-90,
+  "win_probability": 65-80,
+  "technical_score": 7-10,
   "confirmations": ["list", "of", "technical", "confirmations"],
-  "atr_multiplier": 2.0-2.5,
+  "atr_multiplier": 2.5,
   "market_structure": "bullish|bearish|neutral",
   "session_advantage": true|false,
   "key_levels": {"support": price, "resistance": price},
-  "analysis": "comprehensive technical analysis with clear reasoning for signal direction",
-  "quality_grade": "EXCELLENT|GOOD|FAIR",
-  "signal_reasoning": "specific technical reasons for the chosen signal direction"
+  "analysis": "detailed conservative analysis with ALL confirmations listed",
+  "quality_grade": "EXCELLENT|REJECT",
+  "signal_reasoning": "specific technical reasons with ALL indicators confirming signal direction",
+  "risk_assessment": "conservative risk evaluation"
 }`
         },
         {
           role: 'user',
-          content: `PURE TECHNICAL ANALYSIS for ${pair}:
+          content: `ULTRA-CONSERVATIVE TECHNICAL ANALYSIS for ${pair}:
 
-PRICE DATA (OHLCV):
+PRICE DATA:
 - Current Price: ${currentPrice.toFixed(5)}
-- 24H Price Range: ${Math.min(...priceHistory).toFixed(5)} - ${Math.max(...priceHistory).toFixed(5)}
-- Price History (last 20): [${priceHistory.slice(-20).map(p => p.toFixed(5)).join(', ')}]
+- 24H Range: ${Math.min(...priceHistory).toFixed(5)} - ${Math.max(...priceHistory).toFixed(5)}
 
-TECHNICAL INDICATORS:
-- RSI (14): ${rsi.toFixed(2)} ${rsi > 70 ? '(Overbought - potential SELL setup)' : rsi < 30 ? '(Oversold - potential BUY setup)' : '(Neutral zone)'}
-- MACD Line: ${macd.line.toFixed(6)}, Signal: ${macd.signal.toFixed(6)}, Histogram: ${macd.histogram.toFixed(6)}
-- MACD Status: ${macd.line > macd.signal ? 'Bullish crossover' : 'Bearish crossover'}
+STRICT TECHNICAL INDICATORS:
+- RSI (14): ${rsi.toFixed(2)} ${rsi > 75 ? '(EXTREME OVERBOUGHT - potential SELL)' : rsi < 25 ? '(EXTREME OVERSOLD - potential BUY)' : rsi > 70 ? '(Overbought)' : rsi < 30 ? '(Oversold)' : '(Neutral - REJECT)'}
+- MACD: Line ${macd.line.toFixed(6)}, Signal ${macd.signal.toFixed(6)}, Histogram ${macd.histogram.toFixed(6)}, Strength ${macd.strength.toFixed(6)}
+- MACD Status: ${macd.line > macd.signal ? 'Bullish' : 'Bearish'} crossover, Histogram ${macd.histogram > 0 ? 'Positive' : 'Negative'}
 - Bollinger Bands: Upper ${bollingerBands.upper.toFixed(5)}, Middle ${bollingerBands.middle.toFixed(5)}, Lower ${bollingerBands.lower.toFixed(5)}
-- Band Position: ${currentPrice > bollingerBands.upper ? 'Above upper band (overbought)' : currentPrice < bollingerBands.lower ? 'Below lower band (oversold)' : 'Within bands (normal)'}
+- Band Position: ${currentPrice > bollingerBands.upper ? 'ABOVE upper (extreme overbought)' : currentPrice < bollingerBands.lower ? 'BELOW lower (extreme oversold)' : 'WITHIN bands (neutral)'}
 - EMA 50: ${ema50.toFixed(5)}, EMA 200: ${ema200.toFixed(5)}
-- Price vs EMA50: ${currentPrice > ema50 ? 'ABOVE (short-term bullish)' : 'BELOW (short-term bearish)'}
-- Price vs EMA200: ${currentPrice > ema200 ? 'ABOVE (long-term bullish trend)' : 'BELOW (long-term bearish trend)'}
-- EMA Alignment: ${ema50 > ema200 ? 'Bullish (50 > 200)' : 'Bearish (50 < 200)'}
-- ATR (14): ${atr.toFixed(5)} (${(atr/currentPrice*100).toFixed(3)}% volatility)
+- Trend Alignment: Price ${currentPrice > ema50 ? '>' : '<'} EMA50 ${ema50 > ema200 ? '>' : '<'} EMA200
+- Clear Trend: ${(currentPrice > ema50 && ema50 > ema200) ? 'BULLISH ALIGNMENT' : (currentPrice < ema50 && ema50 < ema200) ? 'BEARISH ALIGNMENT' : 'NO CLEAR ALIGNMENT'}
+- ATR: ${atr.toFixed(5)} (${(atr/currentPrice*100).toFixed(3)}% volatility)
 
-CHART PATTERNS DETECTED:
-${chartPatterns.length > 0 ? chartPatterns.join(', ') : 'No significant patterns detected'}
+CHART PATTERNS: ${chartPatterns.join(', ') || 'None detected'}
+ECONOMIC EVENTS: ${economicEvents.map(e => `${e.title} (${e.impact})`).join(', ') || 'None'}
+MARKET SESSION: ${marketSession} (Advantage: ${sessionAdvantage ? 'YES' : 'NO'})
 
-ECONOMIC EVENTS:
-${economicEvents.map(e => `${e.title} (${e.impact} impact, ${e.time})`).join(', ') || 'No major events scheduled'}
+CONSERVATIVE REQUIREMENTS CHECKLIST:
+1. RSI: Must be < 25 for BUY or > 75 for SELL
+2. MACD: Line, signal, and histogram must ALL align with signal direction
+3. Trend: Price, EMA50, EMA200 must ALL align (complete trend alignment)
+4. Bollinger: Price should be near bands for reversal confirmation
+5. Session: Must have session advantage for the pair
+6. Multiple confirmations: Need at least 3+ strong confirmations
 
-MARKET CONDITIONS:
-- Trading Session: ${marketSession}
-- Session Advantage: ${sessionAdvantage ? 'Yes - favorable session for this pair' : 'No - neutral session'}
-- Current Time: ${new Date().toUTCString()}
-
-TECHNICAL ANALYSIS REQUIREMENTS:
-1. Analyze the overall trend (bullish, bearish, or sideways)
-2. Assess momentum indicators (RSI, MACD)
-3. Evaluate support/resistance levels
-4. Consider volatility and market structure
-5. Provide clear technical reasoning for signal direction
-
-Generate a signal based PURELY on technical merit. If the analysis points to BUY conditions, generate BUY. If it points to SELL conditions, generate SELL. If conditions are mixed or unclear, generate NEUTRAL. Do NOT consider artificial balancing - let the market speak.`
+ANALYZE STRICTLY: Only generate a signal if ALL conservative requirements are met. If any requirement fails, return NEUTRAL with explanation.`
         }
       ],
-      max_tokens: 1000,
-      temperature: 0.3
+      max_tokens: 1200,
+      temperature: 0.2 // Lower temperature for more conservative analysis
     }),
   });
 
   if (!aiAnalysisResponse.ok) {
-    throw new Error(`Pure market analysis error: ${aiAnalysisResponse.status}`);
+    throw new Error(`Conservative analysis error: ${aiAnalysisResponse.status}`);
   }
 
   const aiData = await aiAnalysisResponse.json();
@@ -425,14 +504,13 @@ Generate a signal based PURELY on technical merit. If the analysis points to BUY
 
   const result = JSON.parse(jsonMatch[0]);
   
-  // Log signal type for monitoring
-  console.log(`🎯 Pure Technical Analysis Result for ${pair}: ${result.signal} (RSI: ${rsi.toFixed(1)}, Confidence: ${result.confidence}%)`);
+  console.log(`🎯 Conservative Analysis Result for ${pair}: ${result.signal} (RSI: ${rsi.toFixed(1)}, Confidence: ${result.confidence}%, Score: ${result.technical_score})`);
   
   return result;
 };
 
-// PURE MARKET-DRIVEN: Quality signal processing without artificial balancing
-const processPureMarketQualitySignals = async (pairs: string[], latestPrices: Map<any, any>, openAIApiKey: string, supabase: any, maxSignals: number) => {
+// ENHANCED: Ultra-conservative signal processing with strict validation
+const processConservativeQualitySignals = async (pairs: string[], latestPrices: Map<any, any>, openAIApiKey: string, supabase: any, maxSignals: number) => {
   const results = [];
   
   for (let i = 0; i < pairs.length && results.length < maxSignals; i++) {
@@ -443,61 +521,83 @@ const processPureMarketQualitySignals = async (pairs: string[], latestPrices: Ma
       if (!marketPoint) continue;
 
       const currentPrice = parseFloat(marketPoint.current_price.toString());
-
-      // ENHANCED: Generate realistic price history with varied trends
       const priceHistory = generateRealisticPriceHistory(currentPrice, pair, 100);
-      
-      // Enhanced volatility and ATR calculation
       const atr = calculateImprovedATR(priceHistory);
 
-      const technicalData = {
-        volatility: (atr / currentPrice) * 100,
-        atr,
-        priceHistory: priceHistory.slice(0, 50)
-      };
+      console.log(`🧠 CONSERVATIVE analysis for ${pair} (Price: ${currentPrice.toFixed(5)}, ATR: ${atr.toFixed(5)})...`);
 
-      console.log(`🧠 PURE TECHNICAL analysis for ${pair} (Current price: ${currentPrice.toFixed(5)}, ATR: ${atr.toFixed(5)})...`);
+      const aiSignal = await analyzeWithConservativeMarketAnalysis(pair, marketPoint, openAIApiKey, priceHistory, {});
 
-      const aiSignal = await analyzeWithPureMarketAnalysis(pair, marketPoint, openAIApiKey, priceHistory, technicalData);
-
-      // Quality filters
+      // ULTRA-STRICT QUALITY FILTERS
       if (aiSignal.signal === 'NEUTRAL' || !['BUY', 'SELL'].includes(aiSignal.signal)) {
-        console.log(`⚪ No signal for ${pair} - NEUTRAL technical analysis`);
+        console.log(`⚪ REJECTED ${pair} - NEUTRAL or invalid signal`);
         continue;
       }
 
-      if (aiSignal.confidence < 65 || aiSignal.win_probability < 55 || aiSignal.technical_score < 5) {
-        console.log(`❌ QUALITY FILTER: Signal rejected for ${pair} (conf: ${aiSignal.confidence}%, prob: ${aiSignal.win_probability}%, score: ${aiSignal.technical_score})`);
+      // ENHANCED: Stricter thresholds
+      if (aiSignal.confidence < 75 || aiSignal.win_probability < 65 || aiSignal.technical_score < 7) {
+        console.log(`❌ QUALITY REJECTED: ${pair} (conf: ${aiSignal.confidence}%, prob: ${aiSignal.win_probability}%, score: ${aiSignal.technical_score})`);
         continue;
       }
 
-      if (!['EXCELLENT', 'GOOD', 'FAIR'].includes(aiSignal.quality_grade)) {
-        console.log(`❌ QUALITY GRADE FILTER: ${pair} rated: ${aiSignal.quality_grade}`);
+      // ONLY EXCELLENT quality accepted
+      if (aiSignal.quality_grade !== 'EXCELLENT') {
+        console.log(`❌ GRADE REJECTED: ${pair} rated ${aiSignal.quality_grade} (need EXCELLENT)`);
         continue;
       }
 
-      // ENHANCED: Signal generation with improved calculations
-      const entryPrice = currentPrice;
-      const atrMultiplier = aiSignal.atr_multiplier || 2.2;
+      // TECHNICAL CONFIRMATION VALIDATION
+      const rsi = calculateRSI(priceHistory);
+      const macd = calculateMACD(priceHistory);
+      const ema50 = calculateEMA(priceHistory, 50);
+      const ema200 = calculateEMA(priceHistory, 200);
+      const bollingerBands = calculateBollingerBands(priceHistory);
       
-      // Enhanced stop loss with proper 40+ pip minimum
+      const technicalValidation = validateTechnicalConfirmation(currentPrice, rsi, macd, ema50, ema200, bollingerBands, aiSignal.signal);
+      
+      if (!technicalValidation.isValid) {
+        console.log(`❌ TECHNICAL VALIDATION FAILED: ${pair} (score: ${technicalValidation.score}/10, confirmations: ${technicalValidation.confirmations.length})`);
+        continue;
+      }
+
+      // SESSION ADVANTAGE CHECK
+      const hour = new Date().getUTCHours();
+      let sessionAdvantage = false;
+      
+      if (hour >= 0 && hour < 8) {
+        sessionAdvantage = ['USDJPY', 'AUDJPY', 'NZDJPY', 'GBPJPY'].includes(pair);
+      } else if (hour >= 8 && hour < 16) {
+        sessionAdvantage = ['EURUSD', 'GBPUSD', 'EURGBP', 'EURCHF', 'GBPCHF'].includes(pair);
+      } else if (hour >= 16 && hour < 24) {
+        sessionAdvantage = ['EURUSD', 'GBPUSD', 'USDCAD', 'USDCHF'].includes(pair);
+      }
+
+      if (!sessionAdvantage) {
+        console.log(`❌ SESSION FILTER: ${pair} - no session advantage at hour ${hour}`);
+        continue;
+      }
+
+      // ENHANCED: Signal generation with conservative parameters
+      const entryPrice = currentPrice;
+      const atrMultiplier = 2.5; // More conservative
+      
+      // Conservative stop loss
       const stopLoss = calculateImprovedStopLoss(entryPrice, pair, aiSignal.signal, atr, atrMultiplier);
       
-      // Fixed pip-based take profits (15, 25, 40, 60, 80 pips)
+      // Fixed pip-based take profits
       const takeProfits = calculateFixedPipTakeProfits(entryPrice, aiSignal.signal, pair);
 
-      // Enhanced chart data generation with realistic price movements
+      // Enhanced chart data generation
       const chartData = [];
       const baseTime = Date.now() - (45 * 60 * 1000);
       
       for (let j = 0; j < 30; j++) {
         const timePoint = baseTime + (j * 90 * 1000);
         const historicalPrice = priceHistory[Math.min(j * 2, priceHistory.length - 1)] || currentPrice;
-        const chartPrice = historicalPrice;
         
         chartData.push({
           time: timePoint,
-          price: parseFloat(chartPrice.toFixed(isJPYPair(pair) ? 3 : 5))
+          price: parseFloat(historicalPrice.toFixed(isJPYPair(pair) ? 3 : 5))
         });
       }
 
@@ -516,19 +616,20 @@ const processPureMarketQualitySignals = async (pairs: string[], latestPrices: Ma
         status: 'active',
         is_centralized: true,
         user_id: null,
-        analysis_text: `PURE TECHNICAL ${aiSignal.quality_grade} Analysis (${aiSignal.win_probability}% win probability): ${aiSignal.analysis}. ${aiSignal.signal_reasoning || ''}`,
+        analysis_text: `CONSERVATIVE ${aiSignal.quality_grade} Analysis (${aiSignal.win_probability}% win probability): ${aiSignal.analysis}. Technical confirmations: ${technicalValidation.confirmations.join(', ')}. ${aiSignal.signal_reasoning || ''}`,
         chart_data: chartData,
         pips: Math.round(Math.abs(entryPrice - stopLoss) / getPipValue(pair)),
         created_at: new Date().toISOString()
       };
 
-      console.log(`✅ PURE MARKET SIGNAL for ${pair}: ${aiSignal.signal} (${aiSignal.confidence}% confidence, ${signal.pips} pip stop)`);
+      console.log(`✅ CONSERVATIVE SIGNAL for ${pair}: ${aiSignal.signal} (${aiSignal.confidence}% confidence, ${signal.pips} pip stop, ${technicalValidation.confirmations.length} confirmations)`);
       results.push(signal);
 
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Increased delay for more conservative generation
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
     } catch (error) {
-      console.error(`❌ Error in pure market analysis for ${pair}:`, error);
+      console.error(`❌ Error in conservative analysis for ${pair}:`, error);
     }
   }
 
@@ -550,8 +651,8 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const isCronTriggered = body.trigger === 'cron';
     
-    console.log(`🎯 PURE MARKET signal generation starting (natural distribution based on technical analysis, MAX: ${MAX_ACTIVE_SIGNALS})...`);
-    console.log(`🛡️ Timeout protection: ${FUNCTION_TIMEOUT_MS/1000}s limit with PURE MARKET analysis`);
+    console.log(`🎯 CONSERVATIVE signal generation starting (ultra-strict technical analysis, MAX: ${MAX_ACTIVE_SIGNALS})...`);
+    console.log(`🛡️ Conservative filters: RSI 25/75, MACD+histogram, trend alignment, 75%+ confidence, 7+ technical score`);
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -563,7 +664,7 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Signal counting for monitoring (no balancing logic)
+    // Signal counting
     const { data: existingSignals, error: existingError, count: totalCount } = await supabase
       .from('trading_signals')
       .select('symbol, type', { count: 'exact' })
@@ -578,20 +679,19 @@ serve(async (req) => {
     const buyCount = signalTypes.filter(type => type === 'BUY').length;
     const sellCount = signalTypes.filter(type => type === 'SELL').length;
     
-    console.log(`📊 Current signals: ${currentSignalCount}/${MAX_ACTIVE_SIGNALS} (BUY: ${buyCount}, SELL: ${sellCount}) - Natural distribution`);
+    console.log(`📊 Current signals: ${currentSignalCount}/${MAX_ACTIVE_SIGNALS} (BUY: ${buyCount}, SELL: ${sellCount})`);
 
     let availableSlots = MAX_ACTIVE_SIGNALS - currentSignalCount;
     
     if (availableSlots <= 0) {
       console.log(`🔄 Signal limit reached - initiating rotation...`);
-      
-      const slotsNeeded = Math.min(MAX_NEW_SIGNALS_PER_RUN, 8);
+      const slotsNeeded = Math.min(MAX_NEW_SIGNALS_PER_RUN, 4);
       const rotatedCount = await rotateOldestSignals(supabase, slotsNeeded);
       availableSlots = rotatedCount;
     }
 
     const maxNewSignals = Math.min(MAX_NEW_SIGNALS_PER_RUN, Math.max(availableSlots, 1));
-    console.log(`✅ PURE MARKET analysis will generate up to ${maxNewSignals} signals based on technical merit`);
+    console.log(`✅ CONSERVATIVE analysis will generate up to ${maxNewSignals} high-quality signals`);
 
     // Get market data
     const { data: marketData, error: marketError } = await supabase
@@ -608,13 +708,13 @@ serve(async (req) => {
     // Prioritized pairs for analysis
     const prioritizedPairs = [
       'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD',
-      'EURGBP', 'EURJPY', 'GBPJPY',chnf', 'GBPCHF', 'AUDCHF', 'CADJPY'
+      'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY'
     ];
     
     const availablePairs = prioritizedPairs.filter(pair => !existingPairs.has(pair));
-    const pairsToAnalyze = availablePairs.slice(0, maxNewSignals * 3);
+    const pairsToAnalyze = availablePairs.slice(0, maxNewSignals * 4); // More pairs to analyze for conservative selection
     
-    console.log(`🔍 PURE MARKET analysis of ${pairsToAnalyze.length} pairs for ${maxNewSignals} slots`);
+    console.log(`🔍 CONSERVATIVE analysis of ${pairsToAnalyze.length} pairs for ${maxNewSignals} slots`);
     
     // Get latest prices
     const latestPrices = new Map();
@@ -631,7 +731,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: true,
-          message: 'No market data available for pure market analysis',
+          message: 'No market data available for conservative analysis',
           signals: [],
           stats: {
             opportunitiesAnalyzed: 0,
@@ -639,7 +739,7 @@ serve(async (req) => {
             totalActiveSignals: currentSignalCount,
             signalLimit: MAX_ACTIVE_SIGNALS,
             executionTime: `${Date.now() - startTime}ms`,
-            pureMarketAnalysis: true,
+            conservativeAnalysis: true,
             buySignals: buyCount,
             sellSignals: sellCount
           }
@@ -648,10 +748,10 @@ serve(async (req) => {
       );
     }
 
-    // Pure market signal processing
-    console.log(`🚀 Starting PURE MARKET signal generation based on technical analysis...`);
+    // Conservative signal processing
+    console.log(`🚀 Starting CONSERVATIVE signal generation with strict technical requirements...`);
     
-    const processingPromise = processPureMarketQualitySignals(
+    const processingPromise = processConservativeQualitySignals(
       Array.from(latestPrices.keys()), 
       latestPrices, 
       openAIApiKey, 
@@ -661,7 +761,7 @@ serve(async (req) => {
 
     const signalsToInsert = await Promise.race([processingPromise, timeoutPromise]);
 
-    // Insert signals and track types
+    // Insert signals
     let signalsGenerated = 0;
     const generatedSignals = [];
     let newBuySignals = 0;
@@ -669,7 +769,7 @@ serve(async (req) => {
 
     for (const signal of signalsToInsert) {
       try {
-        console.log(`💾 Inserting PURE MARKET signal for ${signal.symbol}: ${signal.type}...`);
+        console.log(`💾 Inserting CONSERVATIVE signal for ${signal.symbol}: ${signal.type}...`);
         const { data: insertedSignal, error: insertError } = await supabase
           .from('trading_signals')
           .insert([signal])
@@ -687,7 +787,7 @@ serve(async (req) => {
         if (signal.type === 'BUY') newBuySignals++;
         if (signal.type === 'SELL') newSellSignals++;
         
-        console.log(`✅ PURE MARKET signal ${signalsGenerated}/${maxNewSignals}: ${signal.symbol} ${signal.type} (${signal.confidence}% confidence)`);
+        console.log(`✅ CONSERVATIVE signal ${signalsGenerated}/${maxNewSignals}: ${signal.symbol} ${signal.type} (${signal.confidence}% confidence)`);
 
       } catch (error) {
         console.error(`❌ Error inserting signal for ${signal.symbol}:`, error);
@@ -699,16 +799,16 @@ serve(async (req) => {
     const finalSellCount = sellCount + newSellSignals;
     const executionTime = Date.now() - startTime;
 
-    console.log(`📊 PURE MARKET SIGNAL GENERATION COMPLETE:`);
+    console.log(`📊 CONSERVATIVE SIGNAL GENERATION COMPLETE:`);
     console.log(`  - Execution time: ${executionTime}ms`);
-    console.log(`  - Market-driven signals generated: ${signalsGenerated}/${maxNewSignals} (BUY: ${newBuySignals}, SELL: ${newSellSignals})`);
-    console.log(`  - Natural distribution: BUY: ${finalBuyCount}, SELL: ${finalSellCount}`);
+    console.log(`  - High-quality signals generated: ${signalsGenerated}/${maxNewSignals} (BUY: ${newBuySignals}, SELL: ${newSellSignals})`);
+    console.log(`  - Conservative filters applied: RSI 25/75, MACD+histogram, trend alignment, 75%+ confidence`);
     console.log(`  - Total active: ${finalActiveSignals}/${MAX_ACTIVE_SIGNALS}`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Generated ${signalsGenerated} PURE MARKET signals (BUY: ${newBuySignals}, SELL: ${newSellSignals}) in ${executionTime}ms - Natural distribution`,
+        message: `Generated ${signalsGenerated} CONSERVATIVE signals (BUY: ${newBuySignals}, SELL: ${newSellSignals}) in ${executionTime}ms - Ultra-strict quality filters`,
         signals: generatedSignals?.map(s => ({ 
           id: s.id, 
           symbol: s.symbol, 
@@ -725,20 +825,34 @@ serve(async (req) => {
           maxNewSignalsPerRun: MAX_NEW_SIGNALS_PER_RUN,
           executionTime: `${executionTime}ms`,
           timeoutProtection: `${FUNCTION_TIMEOUT_MS/1000}s`,
-          pureMarketAnalysis: true,
-          naturalDistribution: true,
+          conservativeAnalysis: true,
+          strictRequirements: {
+            minConfidence: '75%',
+            minWinProbability: '65%',
+            minTechnicalScore: '7/10',
+            rsiThresholds: 'BUY<25, SELL>75',
+            macdConfirmation: 'line+signal+histogram',
+            trendAlignment: 'Price+EMA50+EMA200',
+            qualityGrade: 'EXCELLENT only',
+            sessionAdvantage: 'required',
+            minStopLoss: '50-60 pips'
+          },
           signalDistribution: {
             buySignals: finalBuyCount,
             sellSignals: finalSellCount,
             newBuySignals,
             newSellSignals
           },
-          technicalIndicators: ['RSI', 'MACD', 'Bollinger Bands', 'EMA 50/200', 'ATR'],
-          chartPatterns: ['Double Top/Bottom', 'Head & Shoulders', 'Support/Resistance'],
-          economicEvents: true,
-          marketSessionAnalysis: true,
-          takeProfitLevels: [15, 25, 40, 60, 80],
-          minimumStopLoss: 40,
+          technicalIndicators: ['RSI (25/75)', 'MACD+Histogram', 'EMA 50/200 Alignment', 'Bollinger Bands', 'ATR'],
+          conservativeFeatures: [
+            'Multiple indicator confirmation required',
+            'Strict RSI thresholds (25/75)',
+            'MACD with histogram confirmation', 
+            'Complete trend alignment (Price+EMA50+EMA200)',
+            'Session advantage requirement',
+            'Increased stop loss minimums',
+            'EXCELLENT quality grade only'
+          ],
           rotationUsed: availableSlots !== (MAX_ACTIVE_SIGNALS - currentSignalCount)
         },
         timestamp: new Date().toISOString(),
@@ -749,7 +863,7 @@ serve(async (req) => {
 
   } catch (error) {
     const executionTime = Date.now() - startTime;
-    console.error(`💥 PURE MARKET SIGNAL GENERATION ERROR (${executionTime}ms):`, error);
+    console.error(`💥 CONSERVATIVE SIGNAL GENERATION ERROR (${executionTime}ms):`, error);
     
     return new Response(
       JSON.stringify({ 
@@ -757,7 +871,7 @@ serve(async (req) => {
         error: error.message,
         executionTime: `${executionTime}ms`,
         timestamp: new Date().toISOString(),
-        pureMarketAnalysis: true
+        conservativeAnalysis: true
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
