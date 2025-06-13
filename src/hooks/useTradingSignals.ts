@@ -24,7 +24,6 @@ interface TradingSignal {
   targetsHit: number[];
 }
 
-// UPDATED: Increased signal limit for better market coverage and diversification
 const MAX_ACTIVE_SIGNALS = 20;
 
 export const useTradingSignals = () => {
@@ -37,12 +36,11 @@ export const useTradingSignals = () => {
 
   const fetchSignals = useCallback(async () => {
     try {
-      // Only show loading for initial load to prevent race conditions
       if (isInitialLoad) {
         setLoading(true);
       }
       
-      Logger.debug('signals', `Fetching active signals (limit: ${MAX_ACTIVE_SIGNALS})...`);
+      Logger.debug('signals', `Fetching active signals with enhanced error handling...`);
       
       const { data: centralizedSignals, error } = await supabase
         .from('trading_signals')
@@ -58,11 +56,12 @@ export const useTradingSignals = () => {
         Logger.error('signals', 'Error fetching signals:', error);
         if (isInitialLoad) {
           setSignals([]);
+          setSignalDistribution({ buy: 0, sell: 0 });
         }
         return;
       }
 
-      Logger.debug('signals', `RAW SIGNALS FETCHED: ${centralizedSignals?.length || 0} signals from database`);
+      Logger.debug('signals', `Fetched ${centralizedSignals?.length || 0} signals from database`);
 
       if (!centralizedSignals || centralizedSignals.length === 0) {
         Logger.debug('signals', 'No signals found in database');
@@ -74,19 +73,14 @@ export const useTradingSignals = () => {
 
       const processedSignals = processSignals(centralizedSignals);
       
-      // Calculate natural signal type distribution
       const buyCount = processedSignals.filter(s => s.type === 'BUY').length;
       const sellCount = processedSignals.filter(s => s.type === 'SELL').length;
       setSignalDistribution({ buy: buyCount, sell: sellCount });
       
-      Logger.info('signals', `PROCESSED SIGNALS: ${processedSignals.length}/${centralizedSignals.length} signals passed processing (BUY: ${buyCount}, SELL: ${sellCount}) - Natural distribution`);
+      Logger.info('signals', `Processed ${processedSignals.length}/${centralizedSignals.length} signals (BUY: ${buyCount}, SELL: ${sellCount})`);
       
       setSignals(processedSignals);
       setLastUpdate(new Date().toLocaleTimeString());
-      
-      if (processedSignals.length > 0) {
-        Logger.info('signals', `Loaded ${processedSignals.length}/${MAX_ACTIVE_SIGNALS} pure market signals (BUY: ${buyCount}, SELL: ${sellCount})`);
-      }
       
     } catch (error) {
       Logger.error('signals', 'Error in fetchSignals:', error);
@@ -102,45 +96,52 @@ export const useTradingSignals = () => {
     }
   }, [isInitialLoad]);
 
-  // Memoized signal processing to prevent unnecessary recalculations
   const processSignals = useMemo(() => {
     return (activeSignals: any[]) => {
-      Logger.debug('signals', `Processing ${activeSignals.length}/${MAX_ACTIVE_SIGNALS} signals`);
+      Logger.debug('signals', `Processing ${activeSignals.length} signals with enhanced validation`);
 
       const transformedSignals = activeSignals
         .map((signal, index) => {
           try {
+            // Enhanced null checks
             if (!signal) {
               Logger.debug('signals', `Signal ${index + 1} is null/undefined`);
               return null;
             }
 
             if (!signal?.id || !signal?.symbol || !signal?.type) {
-              Logger.debug('signals', `Signal ${index + 1} missing required fields`);
+              Logger.debug('signals', `Signal ${index + 1} missing required fields: id=${!!signal?.id}, symbol=${!!signal?.symbol}, type=${!!signal?.type}`);
               return null;
             }
 
-            const storedEntryPrice = safeParseFloat(signal.price, 1.0);
-            
+            // Enhanced price validation
+            const storedEntryPrice = safeParseFloat(signal.price, 0);
             if (storedEntryPrice <= 0) {
-              Logger.debug('signals', `Invalid stored price for ${signal.symbol}: ${storedEntryPrice}`);
+              Logger.debug('signals', `Invalid price for ${signal.symbol}: ${signal.price} -> ${storedEntryPrice}`);
               return null;
             }
 
-            // Enhanced chart data handling with better fallback
+            // Enhanced chart data handling with null safety
             let chartData = [];
-            if (signal.chart_data && Array.isArray(signal.chart_data)) {
-              chartData = signal.chart_data
-                .filter(point => point && typeof point === 'object')
-                .map(point => ({
-                  time: point.time || 0,
-                  price: safeParseFloat(point.price, storedEntryPrice)
-                }))
-                .filter(point => point.time > 0 && point.price > 0);
-              
-              Logger.debug('signals', `Using chart data for ${signal.symbol}: ${chartData.length} points`);
-            } else {
-              // Better fallback chart data
+            try {
+              if (signal.chart_data && Array.isArray(signal.chart_data)) {
+                chartData = signal.chart_data
+                  .filter(point => point && typeof point === 'object' && point.time && point.price)
+                  .map(point => ({
+                    time: point.time || 0,
+                    price: safeParseFloat(point.price, storedEntryPrice)
+                  }))
+                  .filter(point => point.time > 0 && point.price > 0);
+                
+                Logger.debug('signals', `Chart data for ${signal.symbol}: ${chartData.length} valid points`);
+              }
+            } catch (chartError) {
+              Logger.error('signals', `Chart data processing error for ${signal.symbol}:`, chartError);
+              chartData = [];
+            }
+
+            // Fallback chart data if none available
+            if (chartData.length === 0) {
               const now = Date.now();
               const variation = storedEntryPrice * 0.0001;
               chartData = [
@@ -151,7 +152,7 @@ export const useTradingSignals = () => {
               Logger.debug('signals', `Using fallback chart data for ${signal.symbol}`);
             }
 
-            // Enhanced take profits handling
+            // Enhanced take profits handling with validation
             const takeProfits = safeParseArray(signal.take_profits);
             const targetsHit = safeParseArray(signal.targets_hit);
 
@@ -174,14 +175,14 @@ export const useTradingSignals = () => {
               targetsHit: targetsHit
             };
 
-            Logger.debug('signals', `Successfully processed signal: ${transformedSignal.pair} ${transformedSignal.type} (${transformedSignal.confidence}%)`);
+            Logger.debug('signals', `Successfully processed: ${transformedSignal.pair} ${transformedSignal.type} (${transformedSignal.confidence}%)`);
             return transformedSignal;
           } catch (error) {
             Logger.error('signals', `Error transforming signal ${index + 1} for ${signal?.symbol}:`, error);
             return null;
           }
         })
-        .filter(Boolean) as TradingSignal[];
+        .filter((signal): signal is TradingSignal => signal !== null);
 
       Logger.info('signals', `Successfully processed ${transformedSignals.length}/${MAX_ACTIVE_SIGNALS} signals`);
       return transformedSignals;
@@ -190,40 +191,46 @@ export const useTradingSignals = () => {
 
   const triggerSignalGeneration = useCallback(async () => {
     try {
-      Logger.info('signals', `Triggering pure market signal generation...`);
+      Logger.info('signals', `Triggering enhanced signal generation...`);
       
       const { data: signalResult, error: signalError } = await supabase.functions.invoke('generate-signals');
       
       if (signalError) {
-        Logger.error('signals', 'Pure market signal generation failed:', signalError);
+        Logger.error('signals', 'Signal generation failed:', signalError);
         toast({
           title: "Generation Failed",
-          description: "Failed to detect new trading opportunities",
+          description: "Failed to generate new trading signals. Please check market data availability.",
           variant: "destructive"
         });
         return;
       }
       
-      Logger.info('signals', 'Pure market signal generation completed');
+      Logger.info('signals', 'Signal generation completed:', signalResult);
       
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      await new Promise(resolve => setTimeout(resolve, 2000));
       await fetchSignals();
       
       const signalsGenerated = signalResult?.stats?.signalsGenerated || 0;
       const totalActiveSignals = signalResult?.stats?.totalActiveSignals || 0;
-      const signalLimit = signalResult?.stats?.signalLimit || MAX_ACTIVE_SIGNALS;
       const distribution = signalResult?.stats?.signalDistribution || {};
       
-      toast({
-        title: "🎯 Pure Market Signals Generated",
-        description: `${signalsGenerated} signals generated (BUY: ${distribution.newBuySignals || 0}, SELL: ${distribution.newSellSignals || 0}) - ${totalActiveSignals}/${signalLimit} total`,
-      });
+      if (signalsGenerated > 0) {
+        toast({
+          title: "🎯 Signals Generated",
+          description: `${signalsGenerated} new signals generated (BUY: ${distribution.newBuySignals || 0}, SELL: ${distribution.newSellSignals || 0}) - ${totalActiveSignals}/${MAX_ACTIVE_SIGNALS} total`,
+        });
+      } else {
+        toast({
+          title: "📊 Analysis Complete",
+          description: "Market analysis completed. No new high-quality opportunities detected at this time.",
+        });
+      }
       
     } catch (error) {
-      Logger.error('signals', 'Error in pure market signal generation:', error);
+      Logger.error('signals', 'Error in signal generation:', error);
       toast({
         title: "Generation Error",
-        description: "Failed to detect new trading opportunities",
+        description: "Failed to generate signals due to technical error",
         variant: "destructive"
       });
     }
@@ -231,28 +238,28 @@ export const useTradingSignals = () => {
 
   const executeTimeBasedEliminationPlan = useCallback(async () => {
     try {
-      Logger.info('signals', 'Executing time-based expiration elimination plan...');
+      Logger.info('signals', 'Executing time-based expiration elimination...');
       
       const { data: cleanupResult, error: cleanupError } = await supabase.functions.invoke('cleanup-crons');
       
       if (cleanupError) {
         Logger.error('signals', 'Elimination plan error:', cleanupError);
         toast({
-          title: "❌ Elimination Plan Failed",
-          description: "Failed to eliminate time-based expiration. Check console for details.",
+          title: "❌ Elimination Failed",
+          description: "Failed to eliminate time-based expiration. Check logs for details.",
           variant: "destructive"
         });
         return false;
       }
 
-      Logger.info('signals', 'Elimination plan result:', cleanupResult);
+      Logger.info('signals', 'Elimination plan completed:', cleanupResult);
       
       await new Promise(resolve => setTimeout(resolve, 3000));
       await fetchSignals();
       
       toast({
         title: "🎯 TIME-BASED EXPIRATION ELIMINATED",
-        description: `${cleanupResult?.removedJobsByName?.length || 0} time-based jobs removed. Signals now expire ONLY on SL/TP hits + 72h safety net.`,
+        description: `Time-based jobs removed. Signals now expire ONLY on SL/TP hits + 72h safety net.`,
       });
 
       return true;
@@ -260,8 +267,8 @@ export const useTradingSignals = () => {
     } catch (error) {
       Logger.error('signals', 'Elimination plan error:', error);
       toast({
-        title: "Elimination Plan Error",
-        description: "Failed to execute time-based expiration elimination plan",
+        title: "Elimination Error",
+        description: "Failed to execute time-based expiration elimination",
         variant: "destructive"
       });
       return false;
@@ -270,35 +277,37 @@ export const useTradingSignals = () => {
 
   const triggerRealTimeUpdates = useCallback(async () => {
     try {
-      Logger.info('signals', 'Triggering market data update...');
+      Logger.info('signals', 'Triggering enhanced market data update...');
       
-      const { data: marketResult, error: marketDataError } = await supabase.functions.invoke('fetch-market-data');
+      const { data: marketResult, error: marketDataError } = await supabase.functions.invoke('centralized-market-stream');
       
       if (marketDataError) {
         Logger.error('signals', 'Market data update failed:', marketDataError);
         toast({
           title: "Update Failed",
-          description: "Failed to fetch market data",
+          description: "Failed to fetch fresh market data",
           variant: "destructive"
         });
         return;
       }
       
-      Logger.info('signals', 'Market data updated');
+      Logger.info('signals', 'Market data updated:', marketResult);
       
       await new Promise(resolve => setTimeout(resolve, 2000));
       await fetchSignals();
       
+      const pairsUpdated = marketResult?.pairsUpdated || 0;
+      
       toast({
-        title: "🎯 Real-time Updates Active",
-        description: "Market data refreshed, signals updating live",
+        title: "🎯 Market Data Updated",
+        description: `Fresh data fetched for ${pairsUpdated} currency pairs using Tiingo institutional feeds`,
       });
       
     } catch (error) {
-      Logger.error('signals', 'Error in real-time updates:', error);
+      Logger.error('signals', 'Error in market data update:', error);
       toast({
         title: "Update Error",
-        description: "Failed to activate real-time updates",
+        description: "Failed to update market data",
         variant: "destructive"
       });
     }
@@ -307,9 +316,9 @@ export const useTradingSignals = () => {
   useEffect(() => {
     fetchSignals();
     
-    // Optimized real-time subscriptions
+    // Enhanced real-time subscriptions with error handling
     const signalsChannel = supabase
-      .channel(`pure-market-signals-${Date.now()}`)
+      .channel(`enhanced-signals-${Date.now()}`)
       .on(
         'postgres_changes',
         {
@@ -320,45 +329,45 @@ export const useTradingSignals = () => {
         },
         (payload) => {
           Logger.debug('signals', `Signal update detected:`, payload.eventType);
-          setTimeout(fetchSignals, 300);
+          setTimeout(fetchSignals, 500);
         }
       )
       .subscribe((status) => {
-        Logger.debug('signals', `Signals subscription status: ${status}`);
+        Logger.debug('signals', `Enhanced signals subscription status: ${status}`);
         if (status === 'SUBSCRIBED') {
-          Logger.info('signals', `Signal updates connected (up to ${MAX_ACTIVE_SIGNALS} pure market signals)`);
+          Logger.info('signals', `Enhanced signal monitoring active (up to ${MAX_ACTIVE_SIGNALS} signals)`);
         } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          Logger.error('signals', 'Signal subscription failed, attempting to reconnect...');
-          setTimeout(fetchSignals, 2000);
+          Logger.error('signals', 'Signal subscription failed, reconnecting...');
+          setTimeout(fetchSignals, 3000);
         }
       });
 
-    // Subscribe to signal outcomes
-    const outcomesChannel = supabase
-      .channel(`signal-outcomes-${Date.now()}`)
+    // Enhanced market data subscription
+    const marketChannel = supabase
+      .channel(`enhanced-market-${Date.now()}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'signal_outcomes'
+          table: 'centralized_market_state'
         },
         (payload) => {
-          Logger.debug('signals', 'Signal outcome detected, refreshing signals:', payload.new);
-          setTimeout(fetchSignals, 500);
+          Logger.debug('signals', 'Market data update detected');
+          setTimeout(fetchSignals, 1000);
         }
       )
       .subscribe();
 
-    // Optimized monitoring interval (2.5 minutes for balanced performance)
+    // Enhanced monitoring interval
     const updateInterval = setInterval(async () => {
-      Logger.debug('signals', 'Periodic signal refresh...');
+      Logger.debug('signals', 'Periodic enhanced signal refresh...');
       await fetchSignals();
-    }, 2.5 * 60 * 1000);
+    }, 3 * 60 * 1000); // 3 minutes
 
     return () => {
       supabase.removeChannel(signalsChannel);
-      supabase.removeChannel(outcomesChannel);
+      supabase.removeChannel(marketChannel);
       clearInterval(updateInterval);
     };
   }, [fetchSignals]);

@@ -35,37 +35,73 @@ interface SignalCardProps {
 const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
   const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
 
-  // Enhanced validation with comprehensive null checks
+  // Enhanced null safety checks
   if (!signal) {
-    console.warn('SignalCard: Null signal provided, skipping render');
-    return null;
+    console.warn('SignalCard: Null signal provided, rendering fallback');
+    return (
+      <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
+        <div className="text-white/60 text-center">
+          Signal data unavailable
+        </div>
+      </div>
+    );
   }
 
-  // Check for all required properties before validation
+  // Enhanced validation with detailed logging
   if (!signal.id || !signal.pair || !signal.type || !signal.entryPrice) {
     console.warn('SignalCard: Signal missing required properties:', {
       hasId: !!signal.id,
       hasPair: !!signal.pair,
       hasType: !!signal.type,
-      hasEntryPrice: !!signal.entryPrice
+      hasEntryPrice: !!signal.entryPrice,
+      signal: signal
     });
-    return null;
+    return (
+      <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
+        <div className="text-white/60 text-center">
+          Invalid signal data for {signal.pair || 'unknown pair'}
+        </div>
+      </div>
+    );
   }
 
   if (!validateSignal(signal)) {
     console.warn('SignalCard: Signal failed validation:', signal);
-    return null;
+    return (
+      <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
+        <div className="text-white/60 text-center">
+          Signal validation failed for {signal.pair}
+        </div>
+      </div>
+    );
   }
 
-  const safeSignal = createSafeSignal(signal);
+  let safeSignal;
+  try {
+    safeSignal = createSafeSignal(signal);
+  } catch (error) {
+    console.error('SignalCard: Error creating safe signal:', error);
+    return (
+      <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
+        <div className="text-white/60 text-center">
+          Error processing signal for {signal.pair}
+        </div>
+      </div>
+    );
+  }
 
-  // Additional safety check after safe signal creation
   if (!safeSignal || !safeSignal.id || !safeSignal.pair || !safeSignal.type) {
     console.error('SignalCard: Safe signal creation failed for:', signal.id);
-    return null;
+    return (
+      <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
+        <div className="text-white/60 text-center">
+          Failed to process signal for {signal.pair}
+        </div>
+      </div>
+    );
   }
 
-  // Get live centralized real-time market data with error handling
+  // Enhanced market data fetching with error handling
   const {
     currentPrice: liveCurrentPrice,
     getPriceChange,
@@ -80,31 +116,75 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
     entryPrice: safeSignal.entryPrice
   });
 
-  // Fixed signal entry price (never changes) with validation
-  const signalEntryPrice = parseFloat(safeSignal.entryPrice);
-  if (isNaN(signalEntryPrice) || signalEntryPrice <= 0) {
-    console.error('SignalCard: Invalid entry price after validation:', safeSignal.entryPrice);
-    return null;
+  // Enhanced price validation
+  let signalEntryPrice;
+  try {
+    signalEntryPrice = parseFloat(safeSignal.entryPrice);
+    if (isNaN(signalEntryPrice) || signalEntryPrice <= 0) {
+      throw new Error(`Invalid entry price: ${safeSignal.entryPrice}`);
+    }
+  } catch (error) {
+    console.error('SignalCard: Invalid entry price after validation:', error);
+    return (
+      <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
+        <div className="text-white/60 text-center">
+          Invalid price data for {safeSignal.pair}
+        </div>
+      </div>
+    );
   }
   
-  // Use live current price for real-time updates, fallback to entry price only if no live data
-  const currentPrice = liveCurrentPrice || signalEntryPrice;
+  // Enhanced current price handling
+  const currentPrice = liveCurrentPrice && liveCurrentPrice > 0 ? liveCurrentPrice : signalEntryPrice;
   
-  // Get live price change data (this will be market data, not signal performance)
-  const { change, percentage } = getPriceChange();
+  // Enhanced price change calculation with null safety
+  let change = 0;
+  let percentage = 0;
+  try {
+    const priceChangeData = getPriceChange();
+    change = priceChangeData?.change || 0;
+    percentage = priceChangeData?.percentage || 0;
+  } catch (error) {
+    console.error('SignalCard: Error getting price change:', error);
+  }
 
-  // Use ONLY centralized chart data for real-time updates with safety checks
-  const chartDataToDisplay = Array.isArray(centralizedChartData) 
-    ? centralizedChartData
-        .filter(point => point && typeof point === 'object' && point.timestamp && point.price)
+  // Enhanced chart data processing with validation
+  let chartDataToDisplay = [];
+  try {
+    if (Array.isArray(centralizedChartData) && centralizedChartData.length > 0) {
+      chartDataToDisplay = centralizedChartData
+        .filter(point => {
+          if (!point || typeof point !== 'object') return false;
+          if (!point.timestamp || !point.price) return false;
+          if (typeof point.price !== 'number' || point.price <= 0) return false;
+          return true;
+        })
         .map(point => ({
           timestamp: point.timestamp,
-          time: point.time,
+          time: point.time || new Date(point.timestamp).toLocaleTimeString(),
           price: point.price
-        }))
-    : [];
+        }));
+    }
+  } catch (error) {
+    console.error('SignalCard: Error processing chart data:', error);
+    chartDataToDisplay = [];
+  }
 
-  // Enhanced connection status
+  // Fallback chart data if needed
+  if (chartDataToDisplay.length === 0 && safeSignal.chartData && Array.isArray(safeSignal.chartData)) {
+    try {
+      chartDataToDisplay = safeSignal.chartData
+        .filter(point => point && point.time && point.price && point.price > 0)
+        .map(point => ({
+          timestamp: point.time,
+          time: new Date(point.time).toLocaleTimeString(),
+          price: point.price
+        }));
+    } catch (error) {
+      console.error('SignalCard: Error using fallback chart data:', error);
+    }
+  }
+
   const connectionStatus = isConnected && chartDataToDisplay.length > 0;
 
   return (
