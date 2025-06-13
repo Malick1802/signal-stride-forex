@@ -181,9 +181,9 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
         </div>
       )}
 
-      <div className="h-48 p-4">
-        <ChartContainer config={chartConfig}>
-          <ResponsiveContainer width="100%" height="100%">
+      <div className="w-full h-48 p-4">
+        <ChartContainer config={chartConfig} className="w-full h-full">
+          <ResponsiveContainer>
             <LineChart data={chartData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
               <XAxis 
