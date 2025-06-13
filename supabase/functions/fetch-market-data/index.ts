@@ -14,10 +14,10 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🔧 Initializing fetch-market-data function...');
+    console.log('🔧 Initializing Tiingo market data fetch...');
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const fastForexApiKey = Deno.env.get('FASTFOREX_API_KEY');
+    const tiingoApiKey = Deno.env.get('TIINGO_API_KEY');
     
     if (!supabaseUrl || !supabaseServiceKey) {
       console.error('❌ Missing required Supabase environment variables');
@@ -27,10 +27,10 @@ serve(async (req) => {
       );
     }
     
-    if (!fastForexApiKey) {
-      console.error('❌ FastForex API key not configured');
+    if (!tiingoApiKey) {
+      console.error('❌ Tiingo API key not configured');
       return new Response(
-        JSON.stringify({ error: 'FastForex API key not configured' }),
+        JSON.stringify({ error: 'Tiingo API key not configured' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -49,7 +49,7 @@ serve(async (req) => {
 
     console.log(`📊 Market status: ${isMarketOpen ? 'OPEN' : 'CLOSED'} (UTC Day: ${utcDay}, Hour: ${utcHour})`);
 
-    // Currency pairs that we need to support
+    // Currency pairs supported by Tiingo
     const supportedPairs = [
       'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
       'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY', 
@@ -57,50 +57,7 @@ serve(async (req) => {
       'AUDNZD', 'AUDCAD', 'NZDCAD', 'AUDSGD', 'NZDCHF', 'USDNOK', 'USDSEK'
     ];
 
-    console.log(`💱 Processing ${supportedPairs.length} currency pairs...`);
-
-    let baseRates: Record<string, number> = {};
-    let dataSource = 'unknown';
-    
-    try {
-      const currencies = ['EUR', 'GBP', 'JPY', 'CHF', 'AUD', 'CAD', 'NZD', 'NOK', 'SEK', 'SGD'];
-      const fetchMultiUrl = `https://api.fastforex.io/fetch-multi?from=USD&to=${currencies.join(',')}&api_key=${fastForexApiKey}`;
-      
-      console.log('🌐 Calling FastForex API...');
-      console.log(`📡 API URL: ${fetchMultiUrl.replace(fastForexApiKey, 'API_KEY_HIDDEN')}`);
-      
-      const response = await fetch(fetchMultiUrl, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'ForexSignalApp/1.0'
-        }
-      });
-      
-      console.log(`📡 FastForex API response status: ${response.status}`);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`❌ FastForex API error: ${response.status} - ${errorText}`);
-        throw new Error(`API responded with ${response.status}: ${errorText}`);
-      }
-      
-      const data = await response.json();
-      console.log(`📋 FastForex API response keys: ${Object.keys(data).join(', ')}`);
-      
-      if (data.results && typeof data.results === 'object') {
-        console.log('✅ Processing USD-based rates...');
-        baseRates = { USD: 1, ...data.results };
-        dataSource = 'fastforex-api';
-        console.log(`💾 Base rates for: ${Object.keys(baseRates).join(', ')}`);
-      } else {
-        console.error('❌ Invalid API response structure:', data);
-        throw new Error('Invalid API response structure');
-      }
-    } catch (error) {
-      console.error(`❌ FastForex API error: ${error.message}`);
-      throw error;
-    }
+    console.log(`💱 Fetching Tiingo forex data for ${supportedPairs.length} currency pairs...`);
 
     // Clean old data before inserting new data
     console.log('🧹 Cleaning old market data...');
@@ -120,73 +77,115 @@ serve(async (req) => {
       console.warn('⚠️ Cleanup error:', error);
     }
 
-    // Calculate all currency pairs with better error handling
-    console.log('🧮 Calculating currency pairs...');
-    const marketData: Record<string, number> = {};
-    let calculatedCount = 0;
+    const marketData: Record<string, any> = {};
+    let successfulPairs = 0;
     const failedPairs: string[] = [];
 
-    for (const pair of supportedPairs) {
-      try {
-        const baseCurrency = pair.substring(0, 3);
-        const quoteCurrency = pair.substring(3, 6);
-        
-        if (baseRates[baseCurrency] && baseRates[quoteCurrency]) {
-          const rate = baseRates[quoteCurrency] / baseRates[baseCurrency];
+    // Process pairs in batches to avoid rate limits
+    const batchSize = 5;
+    for (let i = 0; i < supportedPairs.length; i += batchSize) {
+      const batch = supportedPairs.slice(i, i + batchSize);
+      
+      await Promise.allSettled(batch.map(async (pair) => {
+        try {
+          // Convert pair format for Tiingo (e.g., EURUSD -> eurusd)
+          const tiingoPair = pair.toLowerCase();
+          const tiingoUrl = `https://api.tiingo.com/tiingo/fx/${tiingoPair}/top?token=${tiingoApiKey}`;
           
-          if (rate > 0 && isFinite(rate)) {
-            marketData[pair] = rate;
-            calculatedCount++;
-            console.log(`✅ ${pair}: ${rate.toFixed(5)}`);
+          console.log(`📡 Fetching ${pair} from Tiingo...`);
+          
+          const response = await fetch(tiingoUrl, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+              'User-Agent': 'ForexSignalApp/2.0',
+              'Authorization': `Token ${tiingoApiKey}`
+            }
+          });
+          
+          if (!response.ok) {
+            const errorText = await response.text();
+            console.error(`❌ Tiingo API error for ${pair}: ${response.status} - ${errorText}`);
+            failedPairs.push(pair);
+            return;
+          }
+          
+          const data = await response.json();
+          console.log(`📋 Tiingo response for ${pair}:`, JSON.stringify(data).substring(0, 200));
+          
+          if (Array.isArray(data) && data.length > 0) {
+            const tickerData = data[0];
+            
+            // Extract price data from Tiingo response
+            const midPrice = tickerData.midPrice || tickerData.close || tickerData.last;
+            const bidPrice = tickerData.bidPrice || (midPrice * 0.9999); // Fallback with small spread
+            const askPrice = tickerData.askPrice || (midPrice * 1.0001); // Fallback with small spread
+            
+            if (midPrice && typeof midPrice === 'number' && midPrice > 0) {
+              marketData[pair] = {
+                price: midPrice,
+                bid: bidPrice,
+                ask: askPrice,
+                timestamp: tickerData.timestamp || new Date().toISOString(),
+                source: 'tiingo-api'
+              };
+              successfulPairs++;
+              console.log(`✅ ${pair}: ${midPrice.toFixed(5)} (bid: ${bidPrice.toFixed(5)}, ask: ${askPrice.toFixed(5)})`);
+            } else {
+              console.warn(`⚠️ Invalid price data for ${pair}:`, tickerData);
+              failedPairs.push(pair);
+            }
           } else {
-            console.warn(`⚠️ Invalid rate calculated for ${pair}: ${rate}`);
+            console.warn(`⚠️ No data returned for ${pair}`);
             failedPairs.push(pair);
           }
-        } else {
-          console.warn(`⚠️ Missing base rates for ${pair} (${baseCurrency}=${baseRates[baseCurrency]}, ${quoteCurrency}=${baseRates[quoteCurrency]})`);
+        } catch (error) {
+          console.error(`❌ Error fetching ${pair}:`, error.message);
           failedPairs.push(pair);
         }
-      } catch (error) {
-        console.error(`❌ Error calculating ${pair}:`, error.message);
-        failedPairs.push(pair);
+      }));
+      
+      // Rate limiting - wait between batches
+      if (i + batchSize < supportedPairs.length) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
 
-    console.log(`📊 Successfully calculated ${calculatedCount}/${supportedPairs.length} pairs`);
+    console.log(`📊 Successfully fetched ${successfulPairs}/${supportedPairs.length} pairs from Tiingo`);
     if (failedPairs.length > 0) {
       console.log(`⚠️ Failed pairs: ${failedPairs.join(', ')}`);
     }
 
-    if (calculatedCount === 0) {
-      throw new Error('No currency pairs could be calculated');
+    if (successfulPairs === 0) {
+      throw new Error('No currency pairs could be fetched from Tiingo');
     }
 
-    // Prepare market data for insertion with better validation
-    console.log('💾 Preparing market data for database insertion...');
+    // Prepare market data for insertion
+    console.log('💾 Preparing Tiingo market data for database insertion...');
     const marketDataBatch = [];
     const timestamp = new Date().toISOString();
 
-    for (const [symbol, rate] of Object.entries(marketData)) {
+    for (const [symbol, data] of Object.entries(marketData)) {
       try {
-        const price = parseFloat(rate.toString());
+        const price = parseFloat(data.price.toString());
+        const bid = parseFloat(data.bid.toString());
+        const ask = parseFloat(data.ask.toString());
         
         if (isNaN(price) || price <= 0 || !isFinite(price)) {
-          console.warn(`❌ Invalid price for ${symbol}: ${rate}`);
+          console.warn(`❌ Invalid price for ${symbol}: ${data.price}`);
           continue;
         }
         
-        // Calculate realistic spread (0.002% for JPY pairs, 0.002% for others)
-        const spread = price * (symbol.includes('JPY') ? 0.00002 : 0.00002);
-        const bid = parseFloat((price - spread/2).toFixed(symbol.includes('JPY') ? 3 : 5));
-        const ask = parseFloat((price + spread/2).toFixed(symbol.includes('JPY') ? 3 : 5));
+        const isJpyPair = symbol.includes('JPY');
+        const precision = isJpyPair ? 3 : 5;
 
         marketDataBatch.push({
           symbol,
-          price: parseFloat(price.toFixed(symbol.includes('JPY') ? 3 : 5)),
-          bid,
-          ask,
-          source: dataSource,
-          timestamp,
+          price: parseFloat(price.toFixed(precision)),
+          bid: parseFloat(bid.toFixed(precision)),
+          ask: parseFloat(ask.toFixed(precision)),
+          source: data.source,
+          timestamp: data.timestamp,
           created_at: timestamp
         });
       } catch (error) {
@@ -194,14 +193,14 @@ serve(async (req) => {
       }
     }
 
-    console.log(`📊 Prepared ${marketDataBatch.length} records for database insertion`);
+    console.log(`📊 Prepared ${marketDataBatch.length} Tiingo records for database insertion`);
 
     if (marketDataBatch.length === 0) {
-      throw new Error('No valid market data to insert');
+      throw new Error('No valid Tiingo market data to insert');
     }
 
-    // Insert with explicit error handling and verification
-    console.log('🚀 Inserting data into database...');
+    // Insert with explicit error handling
+    console.log('🚀 Inserting Tiingo data into database...');
     
     const { data: insertData, error: insertError } = await supabase
       .from('live_market_data')
@@ -213,12 +212,12 @@ serve(async (req) => {
       throw new Error(`Database insertion failed: ${insertError.message}`);
     }
 
-    console.log('✅ Database insertion successful!');
+    console.log('✅ Tiingo database insertion successful!');
     console.log(`📊 Records inserted: ${insertData?.length || 0}`);
     
-    // Enhanced verification with longer wait
-    console.log('🔍 Verifying data availability...');
-    await new Promise(resolve => setTimeout(resolve, 3000)); // Wait for DB consistency
+    // Enhanced verification
+    console.log('🔍 Verifying Tiingo data availability...');
+    await new Promise(resolve => setTimeout(resolve, 2000));
     
     const { data: verifyData, error: verifyError } = await supabase
       .from('live_market_data')
@@ -235,7 +234,7 @@ serve(async (req) => {
       }
     }
 
-    // NEW: Automatically trigger signal generation after successful market data fetch
+    // Trigger signal generation after successful market data fetch
     console.log('🤖 Triggering automatic signal generation...');
     try {
       const { data: signalGenResult, error: signalGenError } = await supabase.functions.invoke('generate-signals');
@@ -251,21 +250,21 @@ serve(async (req) => {
     
     const responseData = { 
       success: true, 
-      message: `Updated ${marketDataBatch.length} currency pairs with real-time data and triggered signal generation`,
+      message: `Updated ${marketDataBatch.length} currency pairs with Tiingo real-time data and triggered signal generation`,
       pairs: marketDataBatch.map(item => item.symbol),
-      marketOpen: true,
+      marketOpen: isMarketOpen,
       timestamp,
-      source: dataSource,
+      source: 'tiingo-api',
       dataType: 'real-time',
       recordsInserted: insertData?.length || marketDataBatch.length,
       verificationCount: verifyData?.length || 0,
-      calculatedPairs: calculatedCount,
+      successfulPairs,
       failedPairs: failedPairs.length,
       signalGenerationTriggered: true
     };
     
-    console.log('🎉 Function completed successfully with signal generation');
-    console.log(`📊 Final stats: ${calculatedCount} calculated, ${marketDataBatch.length} inserted, ${verifyData?.length || 0} verified`);
+    console.log('🎉 Tiingo integration completed successfully with signal generation');
+    console.log(`📊 Final stats: ${successfulPairs} successful, ${marketDataBatch.length} inserted, ${verifyData?.length || 0} verified`);
     
     return new Response(
       JSON.stringify(responseData),
@@ -273,14 +272,14 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('💥 CRITICAL ERROR in fetch-market-data:', error.message);
+    console.error('💥 CRITICAL ERROR in Tiingo market data fetch:', error.message);
     console.error('📍 Error stack:', error.stack);
     
     return new Response(
       JSON.stringify({ 
         error: error.message,
         timestamp: new Date().toISOString(),
-        function: 'fetch-market-data'
+        function: 'fetch-market-data-tiingo'
       }),
       { 
         status: 500, 
