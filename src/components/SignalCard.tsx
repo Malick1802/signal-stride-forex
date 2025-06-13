@@ -68,17 +68,7 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
   // At this point, TypeScript knows signal is not null and has required properties
   const validatedSignal = signal;
 
-  if (!validateSignal(validatedSignal)) {
-    console.warn('SignalCard: Signal failed validation:', validatedSignal);
-    return (
-      <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 p-4">
-        <div className="text-white/60 text-center">
-          Signal validation failed for {validatedSignal.pair}
-        </div>
-      </div>
-    );
-  }
-
+  // Create safe signal directly since we've already validated the required properties
   let safeSignal;
   try {
     safeSignal = createSafeSignal(validatedSignal);
