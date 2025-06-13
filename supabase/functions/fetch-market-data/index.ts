@@ -8,13 +8,44 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Circuit breaker implementation
+class CircuitBreaker {
+  private failures = 0;
+  private lastFailTime = 0;
+  private readonly threshold = 5;
+  private readonly timeout = 300000; // 5 minutes
+
+  canProceed(): boolean {
+    if (this.failures >= this.threshold) {
+      if (Date.now() - this.lastFailTime > this.timeout) {
+        this.failures = 0;
+        return true;
+      }
+      return false;
+    }
+    return true;
+  }
+
+  recordFailure() {
+    this.failures++;
+    this.lastFailTime = Date.now();
+  }
+
+  recordSuccess() {
+    this.failures = 0;
+  }
+}
+
+const circuitBreaker = new CircuitBreaker();
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    console.log('🔧 Initializing Tiingo market data fetch...');
+    console.log('🔧 Phase 1: Initializing enhanced Tiingo market data fetch with comprehensive error handling...');
+    
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const tiingoApiKey = Deno.env.get('TIINGO_API_KEY');
@@ -35,35 +66,68 @@ serve(async (req) => {
       );
     }
     
-    console.log('✅ Creating Supabase client...');
+    console.log('✅ Phase 1: All environment variables validated');
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    console.log('🕐 Checking market status...');
+    // Phase 2: Enhanced market hours check with proper timezone handling
+    console.log('📅 Phase 2: Performing comprehensive market hours validation...');
     const now = new Date();
     const utcHour = now.getUTCHours();
     const utcDay = now.getUTCDay();
     
-    const isMarketOpen = (utcDay >= 1 && utcDay <= 4) || 
-                        (utcDay === 0 && utcHour >= 22) || 
-                        (utcDay === 5 && utcHour < 22);
+    console.log(`📊 Current time: ${now.toISOString()}, UTC Day: ${utcDay}, UTC Hour: ${utcHour}`);
+    
+    // More precise market hours logic
+    const isFridayEvening = utcDay === 5 && utcHour >= 22;
+    const isSaturday = utcDay === 6;
+    const isSundayBeforeOpen = utcDay === 0 && utcHour < 22;
+    const isMarketClosed = isFridayEvening || isSaturday || isSundayBeforeOpen;
 
-    console.log(`📊 Market status: ${isMarketOpen ? 'OPEN' : 'CLOSED'} (UTC Day: ${utcDay}, Hour: ${utcHour})`);
+    console.log(`📈 Market status analysis: Friday evening: ${isFridayEvening}, Saturday: ${isSaturday}, Sunday before open: ${isSundayBeforeOpen}`);
+    console.log(`🏪 Market is: ${isMarketClosed ? 'CLOSED' : 'OPEN'}`);
 
-    // Currency pairs supported by Tiingo
+    if (isMarketClosed) {
+      console.log('📴 Phase 2: Market definitively closed - no API calls will be made');
+      
+      // Return success without making any API calls
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: 'Market closed - no data fetching performed',
+          marketStatus: 'CLOSED',
+          timestamp: now.toISOString(),
+          pairs: [],
+          source: 'market-hours-check'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Phase 1: Circuit breaker check
+    if (!circuitBreaker.canProceed()) {
+      console.log('🚫 Circuit breaker active - too many recent failures');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          message: 'Circuit breaker active - service temporarily unavailable',
+          timestamp: now.toISOString()
+        }),
+        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Currency pairs supported by Tiingo (reduced set for testing)
     const supportedPairs = [
-      'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
-      'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY', 
-      'CHFJPY', 'EURAUD', 'EURNZD', 'EURCAD', 'GBPAUD', 'GBPNZD', 'GBPCAD', 
-      'AUDNZD', 'AUDCAD', 'NZDCAD', 'AUDSGD', 'NZDCHF', 'USDNOK', 'USDSEK'
+      'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD'
     ];
 
-    console.log(`💱 Fetching Tiingo forex data for ${supportedPairs.length} currency pairs...`);
+    console.log(`💱 Phase 1: Testing Tiingo API with ${supportedPairs.length} major pairs first...`);
 
     // Clean old data before inserting new data
     console.log('🧹 Cleaning old market data...');
     try {
       const sixHoursAgo = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString();
-      const { error: deleteError, count: deletedCount } = await supabase
+      const { error: deleteError } = await supabase
         .from('live_market_data')
         .delete()
         .lt('created_at', sixHoursAgo);
@@ -71,7 +135,7 @@ serve(async (req) => {
       if (deleteError) {
         console.warn('⚠️ Cleanup warning:', deleteError);
       } else {
-        console.log(`✅ Cleaned ${deletedCount || 0} old records`);
+        console.log(`✅ Old data cleanup completed`);
       }
     } catch (error) {
       console.warn('⚠️ Cleanup error:', error);
@@ -80,96 +144,119 @@ serve(async (req) => {
     const marketData: Record<string, any> = {};
     let successfulPairs = 0;
     const failedPairs: string[] = [];
+    const apiErrors: string[] = [];
 
-    // Process pairs in batches to avoid rate limits
-    const batchSize = 5;
-    for (let i = 0; i < supportedPairs.length; i += batchSize) {
-      const batch = supportedPairs.slice(i, i + batchSize);
-      
-      await Promise.allSettled(batch.map(async (pair) => {
-        try {
-          // Convert pair format for Tiingo (e.g., EURUSD -> eurusd)
-          const tiingoPair = pair.toLowerCase();
-          const tiingoUrl = `https://api.tiingo.com/tiingo/fx/${tiingoPair}/top?token=${tiingoApiKey}`;
-          
-          console.log(`📡 Fetching ${pair} from Tiingo...`);
-          
-          const response = await fetch(tiingoUrl, {
-            method: 'GET',
-            headers: {
-              'Accept': 'application/json',
-              'User-Agent': 'ForexSignalApp/2.0',
-              'Authorization': `Token ${tiingoApiKey}`
-            }
-          });
-          
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`❌ Tiingo API error for ${pair}: ${response.status} - ${errorText}`);
-            failedPairs.push(pair);
-            return;
+    // Process pairs one by one with detailed error tracking
+    for (const pair of supportedPairs) {
+      try {
+        const tiingoPair = pair.toLowerCase();
+        const tiingoUrl = `https://api.tiingo.com/tiingo/fx/${tiingoPair}/top?token=${tiingoApiKey}`;
+        
+        console.log(`📡 Phase 1: Testing ${pair} with URL: ${tiingoUrl.replace(tiingoApiKey, 'HIDDEN')}`);
+        
+        const response = await fetch(tiingoUrl, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'User-Agent': 'ForexSignalApp/2.0',
+            'Authorization': `Token ${tiingoApiKey}`
           }
+        });
+        
+        console.log(`📊 ${pair} response status: ${response.status}`);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`❌ Tiingo API error for ${pair}: ${response.status} - ${errorText}`);
+          apiErrors.push(`${pair}: ${response.status} - ${errorText}`);
+          failedPairs.push(pair);
           
-          const data = await response.json();
-          console.log(`📋 Tiingo response for ${pair}:`, JSON.stringify(data).substring(0, 200));
+          // If we get 422, it might be API key or permissions issue
+          if (response.status === 422) {
+            console.error(`🚨 HTTP 422 for ${pair} - possible API key or permissions issue`);
+          }
+          continue;
+        }
+        
+        const data = await response.json();
+        console.log(`📋 ${pair} data structure:`, JSON.stringify(data, null, 2));
+        
+        if (Array.isArray(data) && data.length > 0) {
+          const tickerData = data[0];
           
-          if (Array.isArray(data) && data.length > 0) {
-            const tickerData = data[0];
-            
-            // Extract price data from Tiingo response
-            const midPrice = tickerData.midPrice || tickerData.close || tickerData.last;
-            const bidPrice = tickerData.bidPrice || (midPrice * 0.9999); // Fallback with small spread
-            const askPrice = tickerData.askPrice || (midPrice * 1.0001); // Fallback with small spread
-            
-            if (midPrice && typeof midPrice === 'number' && midPrice > 0) {
-              marketData[pair] = {
-                price: midPrice,
-                bid: bidPrice,
-                ask: askPrice,
-                timestamp: tickerData.timestamp || new Date().toISOString(),
-                source: 'tiingo-api'
-              };
-              successfulPairs++;
-              console.log(`✅ ${pair}: ${midPrice.toFixed(5)} (bid: ${bidPrice.toFixed(5)}, ask: ${askPrice.toFixed(5)})`);
-            } else {
-              console.warn(`⚠️ Invalid price data for ${pair}:`, tickerData);
-              failedPairs.push(pair);
-            }
+          // Extract price data from Tiingo response
+          const midPrice = tickerData.midPrice || tickerData.close || tickerData.last;
+          const bidPrice = tickerData.bidPrice || (midPrice ? midPrice * 0.9999 : null);
+          const askPrice = tickerData.askPrice || (midPrice ? midPrice * 1.0001 : null);
+          
+          console.log(`💰 ${pair} prices: mid=${midPrice}, bid=${bidPrice}, ask=${askPrice}`);
+          
+          if (midPrice && typeof midPrice === 'number' && midPrice > 0) {
+            marketData[pair] = {
+              price: midPrice,
+              bid: bidPrice,
+              ask: askPrice,
+              timestamp: tickerData.timestamp || new Date().toISOString(),
+              source: 'tiingo-api'
+            };
+            successfulPairs++;
+            console.log(`✅ ${pair}: ${midPrice.toFixed(5)} successfully processed`);
           } else {
-            console.warn(`⚠️ No data returned for ${pair}`);
+            console.warn(`⚠️ Invalid price data for ${pair}:`, tickerData);
             failedPairs.push(pair);
           }
-        } catch (error) {
-          console.error(`❌ Error fetching ${pair}:`, error.message);
+        } else {
+          console.warn(`⚠️ No data returned for ${pair}:`, data);
           failedPairs.push(pair);
         }
-      }));
-      
-      // Rate limiting - wait between batches
-      if (i + batchSize < supportedPairs.length) {
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Small delay between requests to respect rate limits
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+      } catch (error) {
+        console.error(`❌ Error fetching ${pair}:`, error.message);
+        apiErrors.push(`${pair}: ${error.message}`);
+        failedPairs.push(pair);
       }
     }
 
-    console.log(`📊 Successfully fetched ${successfulPairs}/${supportedPairs.length} pairs from Tiingo`);
+    console.log(`📊 Phase 1 Results: Successfully fetched ${successfulPairs}/${supportedPairs.length} pairs`);
     if (failedPairs.length > 0) {
       console.log(`⚠️ Failed pairs: ${failedPairs.join(', ')}`);
     }
-
-    if (successfulPairs === 0) {
-      throw new Error('No currency pairs could be fetched from Tiingo');
+    if (apiErrors.length > 0) {
+      console.log(`🚨 API Errors:`, apiErrors);
     }
 
-    // Prepare market data for insertion
-    console.log('💾 Preparing Tiingo market data for database insertion...');
+    if (successfulPairs === 0) {
+      circuitBreaker.recordFailure();
+      console.error('❌ Phase 1: All API calls failed - circuit breaker activated');
+      
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'All Tiingo API calls failed',
+          apiErrors,
+          failedPairs,
+          timestamp: now.toISOString()
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Record success for circuit breaker
+    circuitBreaker.recordSuccess();
+
+    // Phase 3: Prepare market data for insertion with validation
+    console.log('💾 Phase 3: Preparing validated market data for database insertion...');
     const marketDataBatch = [];
     const timestamp = new Date().toISOString();
 
     for (const [symbol, data] of Object.entries(marketData)) {
       try {
         const price = parseFloat(data.price.toString());
-        const bid = parseFloat(data.bid.toString());
-        const ask = parseFloat(data.ask.toString());
+        const bid = parseFloat(data.bid?.toString() || price.toString());
+        const ask = parseFloat(data.ask?.toString() || price.toString());
         
         if (isNaN(price) || price <= 0 || !isFinite(price)) {
           console.warn(`❌ Invalid price for ${symbol}: ${data.price}`);
@@ -188,19 +275,28 @@ serve(async (req) => {
           timestamp: data.timestamp,
           created_at: timestamp
         });
+        
+        console.log(`✅ Prepared ${symbol}: ${price.toFixed(precision)}`);
       } catch (error) {
         console.error(`❌ Error preparing data for ${symbol}:`, error);
       }
     }
 
-    console.log(`📊 Prepared ${marketDataBatch.length} Tiingo records for database insertion`);
+    console.log(`📊 Phase 3: Prepared ${marketDataBatch.length} validated records for insertion`);
 
     if (marketDataBatch.length === 0) {
-      throw new Error('No valid Tiingo market data to insert');
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'No valid market data to insert after validation',
+          timestamp: now.toISOString()
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    // Insert with explicit error handling
-    console.log('🚀 Inserting Tiingo data into database...');
+    // Insert with detailed error handling
+    console.log('🚀 Phase 3: Inserting validated data into database...');
     
     const { data: insertData, error: insertError } = await supabase
       .from('live_market_data')
@@ -209,62 +305,35 @@ serve(async (req) => {
 
     if (insertError) {
       console.error('❌ Database insertion failed:', insertError);
-      throw new Error(`Database insertion failed: ${insertError.message}`);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: `Database insertion failed: ${insertError.message}`,
+          timestamp: now.toISOString()
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    console.log('✅ Tiingo database insertion successful!');
+    console.log('✅ Phase 3: Database insertion successful!');
     console.log(`📊 Records inserted: ${insertData?.length || 0}`);
-    
-    // Enhanced verification
-    console.log('🔍 Verifying Tiingo data availability...');
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    const { data: verifyData, error: verifyError } = await supabase
-      .from('live_market_data')
-      .select('symbol, price, created_at')
-      .eq('timestamp', timestamp)
-      .order('created_at', { ascending: false });
-      
-    if (verifyError) {
-      console.error('⚠️ Verification query failed:', verifyError);
-    } else {
-      console.log(`✅ Verification successful: ${verifyData?.length || 0} records confirmed in database`);
-      if (verifyData && verifyData.length > 0) {
-        console.log(`📋 Sample verified records: ${verifyData.slice(0, 3).map(r => `${r.symbol}:${r.price}`).join(', ')}`);
-      }
-    }
 
-    // Trigger signal generation after successful market data fetch
-    console.log('🤖 Triggering automatic signal generation...');
-    try {
-      const { data: signalGenResult, error: signalGenError } = await supabase.functions.invoke('generate-signals');
-      
-      if (signalGenError) {
-        console.error('⚠️ Signal generation failed:', signalGenError);
-      } else {
-        console.log('✅ Signal generation triggered successfully:', signalGenResult);
-      }
-    } catch (error) {
-      console.error('❌ Error triggering signal generation:', error);
-    }
-    
     const responseData = { 
       success: true, 
-      message: `Updated ${marketDataBatch.length} currency pairs with Tiingo real-time data and triggered signal generation`,
+      message: `Successfully processed ${marketDataBatch.length} currency pairs with Tiingo data`,
       pairs: marketDataBatch.map(item => item.symbol),
-      marketOpen: isMarketOpen,
+      marketOpen: !isMarketClosed,
       timestamp,
       source: 'tiingo-api',
       dataType: 'real-time',
       recordsInserted: insertData?.length || marketDataBatch.length,
-      verificationCount: verifyData?.length || 0,
       successfulPairs,
       failedPairs: failedPairs.length,
-      signalGenerationTriggered: true
+      apiErrors: apiErrors.length > 0 ? apiErrors : undefined
     };
     
-    console.log('🎉 Tiingo integration completed successfully with signal generation');
-    console.log(`📊 Final stats: ${successfulPairs} successful, ${marketDataBatch.length} inserted, ${verifyData?.length || 0} verified`);
+    console.log('🎉 Phase 3: Tiingo integration completed successfully');
+    console.log('📊 Final stats:', responseData);
     
     return new Response(
       JSON.stringify(responseData),
@@ -272,14 +341,17 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('💥 CRITICAL ERROR in Tiingo market data fetch:', error.message);
+    console.error('💥 CRITICAL ERROR in enhanced Tiingo integration:', error.message);
     console.error('📍 Error stack:', error.stack);
+    
+    circuitBreaker.recordFailure();
     
     return new Response(
       JSON.stringify({ 
         error: error.message,
         timestamp: new Date().toISOString(),
-        function: 'fetch-market-data-tiingo'
+        function: 'fetch-market-data-enhanced',
+        phase: 'error-handling'
       }),
       { 
         status: 500, 
