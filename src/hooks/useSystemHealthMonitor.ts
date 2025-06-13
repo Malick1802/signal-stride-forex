@@ -59,7 +59,7 @@ export const useSystemHealthMonitor = () => {
         .limit(10);
 
       if (!expiredError && recentExpired) {
-        const expiredWithoutOutcomes = recentExpired.filter(s => !s.signal_outcomes || s.signal_outcomes.length === 0);
+        const expiredWithoutOutcomes = recentExpired.filter(s => !s.signal_outcomes || (Array.isArray(s.signal_outcomes) && s.signal_outcomes.length === 0));
         
         if (expiredWithoutOutcomes.length === 0) {
           console.log('✅ HEALTH CHECK: All recent expired signals have proper outcomes - pure system working');
