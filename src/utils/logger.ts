@@ -8,14 +8,14 @@ interface LogConfig {
 
 const config: LogConfig = {
   level: 'info',
-  enabledCategories: ['signals', 'monitoring', 'chart', 'realtime', 'api', 'market']
+  enabledCategories: ['signals', 'monitoring', 'chart', 'realtime', 'api', 'market', 'fallback', 'testing']
 };
 
 const logLevels = { debug: 0, info: 1, warn: 2, error: 3 };
 
 class Logger {
   private static lastLog: Record<string, number> = {};
-  private static debounceTime = 2000; // Increased to 2 seconds for less noise
+  private static debounceTime = 2000;
 
   static debug(category: string, message: string, ...args: any[]) {
     this.log('debug', category, message, ...args);
@@ -33,14 +33,24 @@ class Logger {
     this.log('error', category, message, ...args);
   }
 
-  // New method for API-specific logging
+  // Enhanced API logging
   static api(message: string, ...args: any[]) {
     this.log('info', 'api', message, ...args);
   }
 
-  // New method for market-specific logging
+  // Market data logging
   static market(message: string, ...args: any[]) {
     this.log('info', 'market', message, ...args);
+  }
+
+  // Fallback system logging
+  static fallback(message: string, ...args: any[]) {
+    this.log('info', 'fallback', message, ...args);
+  }
+
+  // Testing mode logging
+  static testing(message: string, ...args: any[]) {
+    this.log('info', 'testing', message, ...args);
   }
 
   private static log(level: LogLevel, category: string, message: string, ...args: any[]) {
@@ -74,6 +84,13 @@ class Logger {
       config.enabledCategories.push(category);
       console.log(`📝 Added logging category: ${category}`);
     }
+  }
+
+  // Method to enable testing mode logging
+  static enableTestingMode() {
+    this.addCategory('testing');
+    this.addCategory('fallback');
+    console.log('🧪 Testing mode logging enabled');
   }
 }
 
