@@ -8,14 +8,14 @@ interface LogConfig {
 
 const config: LogConfig = {
   level: 'info',
-  enabledCategories: ['signals', 'monitoring', 'chart', 'realtime', 'api', 'market', 'fallback', 'testing']
+  enabledCategories: ['signals', 'monitoring', 'chart', 'realtime']
 };
 
 const logLevels = { debug: 0, info: 1, warn: 2, error: 3 };
 
 class Logger {
   private static lastLog: Record<string, number> = {};
-  private static debounceTime = 2000;
+  private static debounceTime = 1000; // 1 second debounce
 
   static debug(category: string, message: string, ...args: any[]) {
     this.log('debug', category, message, ...args);
@@ -33,31 +33,11 @@ class Logger {
     this.log('error', category, message, ...args);
   }
 
-  // Enhanced API logging
-  static api(message: string, ...args: any[]) {
-    this.log('info', 'api', message, ...args);
-  }
-
-  // Market data logging
-  static market(message: string, ...args: any[]) {
-    this.log('info', 'market', message, ...args);
-  }
-
-  // Fallback system logging
-  static fallback(message: string, ...args: any[]) {
-    this.log('info', 'fallback', message, ...args);
-  }
-
-  // Testing mode logging
-  static testing(message: string, ...args: any[]) {
-    this.log('info', 'testing', message, ...args);
-  }
-
   private static log(level: LogLevel, category: string, message: string, ...args: any[]) {
     if (logLevels[level] < logLevels[config.level]) return;
     if (!config.enabledCategories.includes(category)) return;
 
-    // Enhanced debounce for repetitive messages
+    // Debounce identical messages
     const key = `${category}:${message}`;
     const now = Date.now();
     if (this.lastLog[key] && (now - this.lastLog[key]) < this.debounceTime) {
@@ -66,31 +46,7 @@ class Logger {
     this.lastLog[key] = now;
 
     const emoji = { debug: '🔍', info: 'ℹ️', warn: '⚠️', error: '❌' }[level];
-    const timestamp = new Date().toLocaleTimeString();
-    
-    // Enhanced logging format with timestamp
-    console.log(`${emoji} [${timestamp}] [${category.toUpperCase()}] ${message}`, ...args);
-  }
-
-  // Method to temporarily enable debug logging
-  static enableDebug() {
-    config.level = 'debug';
-    console.log('🔧 Debug logging enabled');
-  }
-
-  // Method to add new categories
-  static addCategory(category: string) {
-    if (!config.enabledCategories.includes(category)) {
-      config.enabledCategories.push(category);
-      console.log(`📝 Added logging category: ${category}`);
-    }
-  }
-
-  // Method to enable testing mode logging
-  static enableTestingMode() {
-    this.addCategory('testing');
-    this.addCategory('fallback');
-    console.log('🧪 Testing mode logging enabled');
+    console.log(`${emoji} [${category.toUpperCase()}] ${message}`, ...args);
   }
 }
 

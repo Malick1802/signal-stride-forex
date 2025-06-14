@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -13,105 +14,82 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🚀 Tiingo centralized market stream with enhanced debugging...');
+    console.log('🌊 FastForex baseline market stream (60s refresh cycle)...');
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const tiingoApiKey = Deno.env.get('TIINGO_API_KEY');
+    const fastForexApiKey = Deno.env.get('FASTFOREX_API_KEY');
     
-    if (!supabaseUrl || !supabaseServiceKey) {
-      console.error('❌ Missing Supabase configuration');
-      throw new Error('Missing Supabase configuration');
+    if (!supabaseUrl || !supabaseServiceKey || !fastForexApiKey) {
+      throw new Error('Missing required environment variables');
     }
     
-    if (!tiingoApiKey) {
-      console.error('❌ Missing Tiingo API key');
-      throw new Error('Missing Tiingo API key - check environment variables');
-    }
-    
-    console.log('✅ All environment variables present');
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Enhanced market hours check with better logging
+    // EXPANDED currency pairs for centralized streaming - Now supports all 26 pairs
+    const streamingPairs = [
+      // Major pairs
+      'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
+      // Major crosses
+      'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY',
+      // Additional cross pairs
+      'GBPNZD', 'AUDNZD', 'CADCHF', 'EURAUD', 'EURNZD', 'GBPCAD', 'NZDCAD',
+      'NZDCHF', 'NZDJPY', 'AUDJPY', 'CHFJPY', 'EURCAD', 'GBPAUD'
+    ];
+
+    console.log(`📊 Fetching fresh FastForex data for ${streamingPairs.length} pairs (60s cycle)`);
+
+    // Check market hours
     const now = new Date();
     const utcHour = now.getUTCHours();
     const utcDay = now.getUTCDay();
-    
-    console.log(`📅 Market hours check: UTC Day ${utcDay}, Hour ${utcHour}`);
     
     const isFridayEvening = utcDay === 5 && utcHour >= 22;
     const isSaturday = utcDay === 6;
     const isSundayBeforeOpen = utcDay === 0 && utcHour < 22;
     const isMarketClosed = isFridayEvening || isSaturday || isSundayBeforeOpen;
 
-    // Currency pairs for Tiingo
-    const streamingPairs = [
-      'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
-      'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY',
-      'GBPNZD', 'AUDNZD', 'CADCHF', 'EURAUD', 'EURNZD', 'GBPCAD', 'NZDCAD',
-      'NZDCHF', 'NZDJPY', 'AUDJPY', 'CHFJPY', 'EURCAD', 'GBPAUD',
-      'USDNOK', 'USDSEK', 'AUDSGD'
-    ];
-
     if (isMarketClosed) {
-      console.log('📴 Market closed - running weekend/closure simulation');
+      console.log('📴 Market closed - generating minimal weekend movement');
       
-      // Get existing market state for weekend simulation
+      // During market close, make small random adjustments to existing prices
       const { data: existingStates, error: existingError } = await supabase
         .from('centralized_market_state')
         .select('*')
         .limit(streamingPairs.length);
         
-      if (existingError) {
-        console.error('❌ Error fetching existing market state:', existingError);
-      }
-        
-      if (existingStates && existingStates.length > 0) {
-        console.log(`🔄 Updating ${existingStates.length} pairs with weekend simulation`);
-        
+      if (!existingError && existingStates?.length > 0) {
         const weekendUpdates = [];
         const timestamp = new Date().toISOString();
         
         for (const state of existingStates) {
-          try {
-            const basePrice = parseFloat(state.current_price.toString());
-            if (!basePrice || basePrice <= 0) continue;
-            
-            // Very small weekend movement (0.003% max)
-            const weekendMovement = (Math.random() - 0.5) * basePrice * 0.00003;
-            const newPrice = parseFloat((basePrice + weekendMovement).toFixed(state.symbol.includes('JPY') ? 3 : 5));
-            
-            const spread = newPrice * (state.symbol.includes('JPY') ? 0.00005 : 0.00003);
-            const bid = parseFloat((newPrice - spread/2).toFixed(state.symbol.includes('JPY') ? 3 : 5));
-            const ask = parseFloat((newPrice + spread/2).toFixed(state.symbol.includes('JPY') ? 3 : 5));
-            
-            weekendUpdates.push({
-              symbol: state.symbol,
-              current_price: newPrice,
-              bid,
-              ask,
-              last_update: timestamp,
-              is_market_open: false,
-              source: 'weekend-simulation'
-            });
-          } catch (error) {
-            console.error(`❌ Error processing weekend update for ${state.symbol}:`, error);
-          }
+          const basePrice = parseFloat(state.current_price.toString());
+          const weekendMovement = (Math.random() - 0.5) * basePrice * 0.00003; // Very small 0.003% movement
+          const newPrice = parseFloat((basePrice + weekendMovement).toFixed(state.symbol.includes('JPY') ? 3 : 5));
+          
+          const spread = newPrice * (state.symbol.includes('JPY') ? 0.00005 : 0.00003);
+          const bid = parseFloat((newPrice - spread/2).toFixed(state.symbol.includes('JPY') ? 3 : 5));
+          const ask = parseFloat((newPrice + spread/2).toFixed(state.symbol.includes('JPY') ? 3 : 5));
+          
+          weekendUpdates.push({
+            symbol: state.symbol,
+            current_price: newPrice,
+            bid,
+            ask,
+            last_update: timestamp,
+            is_market_open: false,
+            source: 'weekend-simulation'
+          });
         }
         
-        // Update market state with weekend simulation
-        if (weekendUpdates.length > 0) {
-          for (const update of weekendUpdates) {
-            const { error: updateError } = await supabase
-              .from('centralized_market_state')
-              .upsert(update, { onConflict: 'symbol' });
-              
-            if (updateError) {
-              console.error(`❌ Weekend update error for ${update.symbol}:`, updateError);
-            }
-          }
-          console.log(`✅ Weekend simulation completed for ${weekendUpdates.length} pairs`);
+        // Update market state
+        for (const update of weekendUpdates) {
+          await supabase
+            .from('centralized_market_state')
+            .upsert(update, { onConflict: 'symbol' });
         }
+        
+        console.log(`✅ Weekend simulation updated ${weekendUpdates.length} pairs`);
       }
       
       return new Response(
@@ -119,198 +97,152 @@ serve(async (req) => {
           success: true,
           message: 'Weekend market simulation completed',
           isMarketOpen: false,
-          timestamp: new Date().toISOString(),
-          pairsUpdated: existingStates?.length || 0
+          timestamp: new Date().toISOString()
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Market is open - fetch fresh Tiingo data
-    console.log(`💱 Market OPEN - Fetching Tiingo data for ${streamingPairs.length} pairs`);
+    // Market is open - fetch fresh FastForex data
+    const currencies = ['EUR', 'GBP', 'JPY', 'CHF', 'AUD', 'CAD', 'NZD'];
+    const fetchMultiUrl = `https://api.fastforex.io/fetch-multi?from=USD&to=${currencies.join(',')}&api_key=${fastForexApiKey}`;
     
-    const tickerList = streamingPairs.map(pair => pair.toLowerCase()).join(',');
-    const tiingoUrl = `https://api.tiingo.com/tiingo/fx/top?tickers=${tickerList}&token=${tiingoApiKey}`;
+    console.log(`🔄 Fetching fresh FastForex data: ${fetchMultiUrl.replace(fastForexApiKey, '[API_KEY]')}`);
     
-    console.log(`🔄 Tiingo API call: ${tiingoUrl.replace(tiingoApiKey, '***API_KEY***')}`);
-    
-    const response = await fetch(tiingoUrl, {
+    const response = await fetch(fetchMultiUrl, {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
-        'User-Agent': 'TradingSignalApp/2.0',
-        'Authorization': `Token ${tiingoApiKey}`
+        'User-Agent': 'CentralizedMarketStream/2.0'
       }
     });
     
-    console.log(`📡 Tiingo API response status: ${response.status}`);
-    
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`❌ Tiingo API error: ${response.status} - ${errorText}`);
-      throw new Error(`Tiingo API error: ${response.status} - ${errorText}`);
+      throw new Error(`FastForex API error: ${response.status} - ${response.statusText}`);
     }
     
-    const tiingoData = await response.json();
-    console.log(`📊 Tiingo response: ${Array.isArray(tiingoData) ? tiingoData.length : 'non-array'} items`);
+    const data = await response.json();
     
-    if (!Array.isArray(tiingoData) || tiingoData.length === 0) {
-      console.error('❌ Invalid Tiingo response format:', tiingoData);
-      throw new Error('Invalid Tiingo response format or no data returned');
+    if (!data.results) {
+      throw new Error('Invalid FastForex response format');
     }
     
-    console.log(`✅ Processing ${tiingoData.length} Tiingo forex pairs`);
+    const baseRates = { USD: 1, ...data.results };
+    
+    console.log('💱 Fresh FastForex rates received:', Object.keys(baseRates));
 
-    // Process Tiingo data
+    // Calculate currency pair rates and update baseline state
     const marketUpdates = [];
     const priceHistory = [];
     const timestamp = new Date().toISOString();
 
-    for (const tickerData of tiingoData) {
-      try {
-        const symbol = tickerData.ticker ? tickerData.ticker.toUpperCase() : null;
-        if (!symbol || !streamingPairs.includes(symbol)) {
-          console.warn(`⚠️ Skipping unsupported symbol: ${symbol}`);
-          continue;
-        }
-
-        // Extract Tiingo price data with validation
-        const midPrice = tickerData.midPrice;
-        const bidPrice = tickerData.bidPrice;
-        const askPrice = tickerData.askPrice;
-        const quoteTimestamp = tickerData.quoteTimestamp;
-
-        if (!midPrice || typeof midPrice !== 'number' || midPrice <= 0) {
-          console.warn(`⚠️ Invalid price data for ${symbol}:`, { midPrice, bidPrice, askPrice });
-          continue;
-        }
-
-        // Use actual bid/ask if available, otherwise calculate realistic spreads
-        const actualBid = bidPrice && typeof bidPrice === 'number' && bidPrice > 0 ? bidPrice : 
-          midPrice - (midPrice * (symbol.includes('JPY') ? 0.00002 : 0.00001));
-        const actualAsk = askPrice && typeof askPrice === 'number' && askPrice > 0 ? askPrice : 
-          midPrice + (midPrice * (symbol.includes('JPY') ? 0.00002 : 0.00001));
-
-        const precision = symbol.includes('JPY') ? 3 : 5;
-        const finalPrice = parseFloat(midPrice.toFixed(precision));
-        const finalBid = parseFloat(actualBid.toFixed(precision));
-        const finalAsk = parseFloat(actualAsk.toFixed(precision));
-
-        // Market state update
-        marketUpdates.push({
-          symbol,
-          current_price: finalPrice,
-          bid: finalBid,
-          ask: finalAsk,
-          last_update: timestamp,
-          is_market_open: true,
-          source: 'tiingo-live'
-        });
-
-        // Price history entry
-        priceHistory.push({
-          symbol,
-          price: finalPrice,
-          bid: finalBid,
-          ask: finalAsk,
-          timestamp: quoteTimestamp || timestamp,
-          source: 'tiingo-live'
-        });
-        
-        console.log(`📈 ${symbol}: ${finalPrice} (${finalBid}/${finalAsk}) - Tiingo Live`);
-      } catch (error) {
-        console.error(`❌ Error processing ${tickerData.ticker || 'unknown'}:`, error);
-      }
-    }
-
-    if (marketUpdates.length === 0) {
-      console.error('❌ No valid market updates processed from Tiingo data');
-      throw new Error('No valid market data could be processed from Tiingo');
-    }
-
-    console.log(`💾 Updating market state for ${marketUpdates.length} pairs`);
-
-    // Update centralized market state
-    let updateSuccessCount = 0;
-    for (const update of marketUpdates) {
-      try {
-        const { error } = await supabase
-          .from('centralized_market_state')
-          .upsert(update, { onConflict: 'symbol' });
-          
-        if (error) {
-          console.error(`❌ Error updating market state for ${update.symbol}:`, error);
-        } else {
-          updateSuccessCount++;
-        }
-      } catch (error) {
-        console.error(`❌ Exception updating ${update.symbol}:`, error);
-      }
-    }
-
-    console.log(`✅ Successfully updated ${updateSuccessCount}/${marketUpdates.length} market states`);
-
-    // Insert price history
-    if (priceHistory.length > 0) {
-      const { error: historyError } = await supabase
-        .from('live_price_history')
-        .insert(priceHistory);
-        
-      if (historyError) {
-        console.error('❌ Error inserting price history:', historyError);
-      } else {
-        console.log(`✅ Inserted ${priceHistory.length} price history records`);
-      }
-    }
-
-    // Cleanup old price history (keep last 200 per pair)
     for (const pair of streamingPairs) {
       try {
-        const { data: oldRecords } = await supabase
-          .from('live_price_history')
-          .select('id')
-          .eq('symbol', pair)
-          .order('timestamp', { ascending: false })
-          .range(200, 1000);
+        const baseCurrency = pair.substring(0, 3);
+        const quoteCurrency = pair.substring(3, 6);
+        
+        if (baseRates[baseCurrency] && baseRates[quoteCurrency]) {
+          const rate = baseRates[quoteCurrency] / baseRates[baseCurrency];
+          const price = parseFloat(rate.toFixed(pair.includes('JPY') ? 3 : 5));
           
-        if (oldRecords && oldRecords.length > 0) {
-          const idsToDelete = oldRecords.map(r => r.id);
-          await supabase
-            .from('live_price_history')
-            .delete()
-            .in('id', idsToDelete);
+          // Calculate realistic bid/ask spread based on market session
+          const session = getMarketSession();
+          const baseSpread = price * (pair.includes('JPY') ? 0.00003 : 0.00002);
+          const sessionSpread = baseSpread * session.spreadMultiplier;
+          
+          const bid = parseFloat((price - sessionSpread/2).toFixed(pair.includes('JPY') ? 3 : 5));
+          const ask = parseFloat((price + sessionSpread/2).toFixed(pair.includes('JPY') ? 3 : 5));
+
+          // Prepare fresh market state update
+          marketUpdates.push({
+            symbol: pair,
+            current_price: price,
+            bid,
+            ask,
+            last_update: timestamp,
+            is_market_open: true,
+            source: `fastforex-fresh-${session.name.toLowerCase()}`
+          });
+
+          // Prepare fresh price history entry
+          priceHistory.push({
+            symbol: pair,
+            price,
+            bid,
+            ask,
+            timestamp,
+            source: `fastforex-fresh-${session.name.toLowerCase()}`
+          });
+          
+          console.log(`📈 ${pair}: ${price} (fresh FastForex, ${session.name} session)`);
         }
       } catch (error) {
-        console.error(`❌ Cleanup error for ${pair}:`, error);
+        console.error(`❌ Error processing ${pair}:`, error);
       }
     }
 
-    console.log('✅ Tiingo market stream update completed successfully');
+    console.log(`💾 Updating fresh market state for ${marketUpdates.length} pairs`);
+
+    // Update centralized market state with fresh FastForex data
+    for (const update of marketUpdates) {
+      const { error } = await supabase
+        .from('centralized_market_state')
+        .upsert(update, { onConflict: 'symbol' });
+        
+      if (error) {
+        console.error(`❌ Error updating fresh market state for ${update.symbol}:`, error);
+      }
+    }
+
+    // Insert fresh price history
+    const { error: historyError } = await supabase
+      .from('live_price_history')
+      .insert(priceHistory);
+      
+    if (historyError) {
+      console.error('❌ Error inserting fresh price history:', historyError);
+    }
+
+    // Efficient cleanup: keep only last 200 points per pair
+    for (const pair of streamingPairs) {
+      const { data: oldRecords } = await supabase
+        .from('live_price_history')
+        .select('id')
+        .eq('symbol', pair)
+        .order('timestamp', { ascending: false })
+        .range(200, 1000);
+        
+      if (oldRecords && oldRecords.length > 0) {
+        const idsToDelete = oldRecords.map(r => r.id);
+        await supabase
+          .from('live_price_history')
+          .delete()
+          .in('id', idsToDelete);
+      }
+    }
+
+    console.log('✅ Fresh FastForex market stream update completed (60s cycle)');
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Successfully updated ${updateSuccessCount} pairs with Tiingo data`,
+        message: `Fresh FastForex data updated for ${marketUpdates.length} pairs`,
         pairs: marketUpdates.map(u => u.symbol),
-        pairsUpdated: updateSuccessCount,
         timestamp,
-        source: 'tiingo-live',
+        source: 'fastforex-fresh-60s',
         isMarketOpen: true,
-        dataQuality: 'institutional-grade'
+        session: getMarketSession().name
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('💥 Critical error in Tiingo market stream:', error);
-    console.error('📍 Error stack:', error.stack);
-    
+    console.error('💥 FastForex market stream error:', error);
     return new Response(
       JSON.stringify({ 
         error: error.message,
         timestamp: new Date().toISOString(),
-        source: 'tiingo-error',
-        details: error.stack
+        source: 'fastforex-error'
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

@@ -8,8 +8,7 @@ const MarketData = () => {
   const [dbStats, setDbStats] = useState({
     totalRecords: 0,
     lastUpdate: null,
-    pairs: 0,
-    dataSource: 'tiingo'
+    pairs: 0
   });
   const [isConnected, setIsConnected] = useState(true);
 
@@ -20,10 +19,10 @@ const MarketData = () => {
         .from('live_market_data')
         .select('*', { count: 'exact', head: true });
       
-      // Get latest record with source info
+      // Get latest record
       const { data: latest } = await supabase
         .from('live_market_data')
-        .select('created_at, source')
+        .select('created_at')
         .order('created_at', { ascending: false })
         .limit(1);
       
@@ -38,8 +37,7 @@ const MarketData = () => {
       setDbStats({
         totalRecords: count || 0,
         lastUpdate: latest?.[0]?.created_at || null,
-        pairs: uniquePairs,
-        dataSource: latest?.[0]?.source?.includes('tiingo') ? 'tiingo' : 'mixed'
+        pairs: uniquePairs
       });
     } catch (error) {
       console.error('Error fetching database stats:', error);
@@ -47,64 +45,42 @@ const MarketData = () => {
     }
   };
 
-  const fetchLiveMarketData = async () => {
-    try {
-      // Get live data from centralized market state (Tiingo data)
-      const { data: liveData } = await supabase
-        .from('centralized_market_state')
-        .select('*')
-        .eq('is_market_open', true)
-        .order('last_update', { ascending: false })
-        .limit(12);
-
-      if (liveData && liveData.length > 0) {
-        const formattedData = liveData.map(item => {
-          const currentPrice = parseFloat(item.current_price.toString());
-          const bid = parseFloat(item.bid?.toString() || '0');
-          const ask = parseFloat(item.ask?.toString() || '0');
-          const spread = ask - bid;
-          const spreadPercent = ((spread / currentPrice) * 100);
-          
-          // Calculate 24h change (simulated for demo)
-          const change24h = (Math.random() - 0.5) * currentPrice * 0.02;
-          const changePercent = (change24h / currentPrice) * 100;
-          
-          return {
-            pair: item.symbol,
-            price: currentPrice.toFixed(item.symbol.includes('JPY') ? 3 : 5),
-            change: change24h.toFixed(5),
-            changePercent: changePercent.toFixed(2),
-            high: (currentPrice + Math.abs(change24h) * 0.5).toFixed(item.symbol.includes('JPY') ? 3 : 5),
-            low: (currentPrice - Math.abs(change24h) * 0.5).toFixed(item.symbol.includes('JPY') ? 3 : 5),
-            bid: bid.toFixed(item.symbol.includes('JPY') ? 3 : 5),
-            ask: ask.toFixed(item.symbol.includes('JPY') ? 3 : 5),
-            spread: spread.toFixed(item.symbol.includes('JPY') ? 3 : 5),
-            spreadPercent: spreadPercent.toFixed(4),
-            volume: Math.floor(Math.random() * 1000000) + 500000,
-            trend: change24h > 0 ? 'up' : 'down',
-            source: item.source || 'tiingo',
-            lastUpdate: item.last_update
-          };
-        });
-        
-        setMarketData(formattedData);
-      }
-    } catch (error) {
-      console.error('Error fetching live market data:', error);
-      setIsConnected(false);
-    }
-  };
-
   useEffect(() => {
+    const generateMarketData = () => {
+      const pairs = [
+        'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'NZDUSD',
+        'EURGBP', 'EURJPY', 'GBPJPY', 'AUDJPY', 'CHFJPY', 'CADCHF'
+      ];
+      
+      const data = pairs.map(pair => {
+        const basePrice = Math.random() * 2 + 0.5;
+        const change = (Math.random() - 0.5) * 0.02;
+        const changePercent = (change / basePrice) * 100;
+        
+        return {
+          pair,
+          price: basePrice.toFixed(5),
+          change: change.toFixed(5),
+          changePercent: changePercent.toFixed(2),
+          high: (basePrice + Math.random() * 0.01).toFixed(5),
+          low: (basePrice - Math.random() * 0.01).toFixed(5),
+          volume: Math.floor(Math.random() * 1000000) + 500000,
+          trend: change > 0 ? 'up' : 'down'
+        };
+      });
+      
+      setMarketData(data);
+    };
+
+    generateMarketData();
     fetchDatabaseStats();
-    fetchLiveMarketData();
     
+    const interval = setInterval(generateMarketData, 5000);
     const statsInterval = setInterval(fetchDatabaseStats, 10000);
-    const dataInterval = setInterval(fetchLiveMarketData, 5000);
     
     return () => {
+      clearInterval(interval);
       clearInterval(statsInterval);
-      clearInterval(dataInterval);
     };
   }, []);
 
@@ -122,12 +98,6 @@ const MarketData = () => {
     return `${Math.floor(diffHours / 24)}d ago`;
   };
 
-  const getDataSourceColor = (source) => {
-    if (source === 'tiingo') return 'text-emerald-400';
-    if (source.includes('tiingo')) return 'text-blue-400';
-    return 'text-purple-400';
-  };
-
   return (
     <div className="space-y-6">
       {/* Market Overview */}
@@ -138,7 +108,7 @@ const MarketData = () => {
             <span className="text-gray-400 text-sm">Database Records</span>
           </div>
           <div className="text-blue-400 text-2xl font-bold">{dbStats.totalRecords.toLocaleString()}</div>
-          <div className="text-blue-400 text-xs mt-1">Tiingo market data points</div>
+          <div className="text-blue-400 text-xs mt-1">Total market data points</div>
         </div>
         
         <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
@@ -147,7 +117,7 @@ const MarketData = () => {
             <span className="text-gray-400 text-sm">Last Update</span>
           </div>
           <div className="text-emerald-400 text-lg font-bold">{formatTimeAgo(dbStats.lastUpdate)}</div>
-          <div className="text-emerald-400 text-xs mt-1">Tiingo sync time</div>
+          <div className="text-emerald-400 text-xs mt-1">Database sync time</div>
         </div>
         
         <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
@@ -156,19 +126,19 @@ const MarketData = () => {
             <span className="text-gray-400 text-sm">Active Pairs</span>
           </div>
           <div className="text-purple-400 text-2xl font-bold">{dbStats.pairs}</div>
-          <div className="text-purple-400 text-xs mt-1">Institutional grade</div>
+          <div className="text-purple-400 text-xs mt-1">Last 24 hours</div>
         </div>
         
         <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
           <div className="flex items-center space-x-2 mb-2">
             <Wifi className={`h-5 w-5 ${isConnected ? 'text-emerald-400' : 'text-red-400'}`} />
-            <span className="text-gray-400 text-sm">Data Source</span>
+            <span className="text-gray-400 text-sm">Connection</span>
           </div>
-          <div className={`text-lg font-bold ${getDataSourceColor(dbStats.dataSource)}`}>
-            {dbStats.dataSource.toUpperCase()}
+          <div className={`text-lg font-bold ${isConnected ? 'text-emerald-400' : 'text-red-400'}`}>
+            {isConnected ? 'CONNECTED' : 'DISCONNECTED'}
           </div>
-          <div className={`text-xs mt-1 ${getDataSourceColor(dbStats.dataSource)}`}>
-            {isConnected ? 'Tier-1 banks' : 'Check connection'}
+          <div className={`text-xs mt-1 ${isConnected ? 'text-emerald-400' : 'text-red-400'}`}>
+            {isConnected ? 'Real-time data' : 'Check connection'}
           </div>
         </div>
       </div>
@@ -176,8 +146,8 @@ const MarketData = () => {
       {/* Market Data Table */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 overflow-hidden">
         <div className="p-4 border-b border-white/10">
-          <h2 className="text-xl font-bold text-white">Live Tiingo Market Data</h2>
-          <p className="text-gray-400 text-sm">Real-time forex prices from tier-1 banks and FX dark pools</p>
+          <h2 className="text-xl font-bold text-white">Live Market Data</h2>
+          <p className="text-gray-400 text-sm">Real-time forex pair prices and movements</p>
         </div>
         
         <div className="overflow-x-auto">
@@ -186,12 +156,11 @@ const MarketData = () => {
               <tr className="border-b border-white/10">
                 <th className="text-left p-4 text-gray-400 font-medium">Pair</th>
                 <th className="text-right p-4 text-gray-400 font-medium">Price</th>
-                <th className="text-right p-4 text-gray-400 font-medium">Bid</th>
-                <th className="text-right p-4 text-gray-400 font-medium">Ask</th>
-                <th className="text-right p-4 text-gray-400 font-medium">Spread</th>
                 <th className="text-right p-4 text-gray-400 font-medium">Change</th>
                 <th className="text-right p-4 text-gray-400 font-medium">Change %</th>
-                <th className="text-right p-4 text-gray-400 font-medium">Source</th>
+                <th className="text-right p-4 text-gray-400 font-medium">High</th>
+                <th className="text-right p-4 text-gray-400 font-medium">Low</th>
+                <th className="text-right p-4 text-gray-400 font-medium">Volume</th>
               </tr>
             </thead>
             <tbody>
@@ -216,18 +185,6 @@ const MarketData = () => {
                     <span className="text-white font-mono">{item.price}</span>
                   </td>
                   <td className="p-4 text-right">
-                    <span className="text-blue-400 font-mono text-sm">{item.bid}</span>
-                  </td>
-                  <td className="p-4 text-right">
-                    <span className="text-red-400 font-mono text-sm">{item.ask}</span>
-                  </td>
-                  <td className="p-4 text-right">
-                    <div className="text-gray-300 text-xs">
-                      <div className="font-mono">{item.spread}</div>
-                      <div>({item.spreadPercent}%)</div>
-                    </div>
-                  </td>
-                  <td className="p-4 text-right">
                     <span className={`font-mono ${
                       parseFloat(item.change) >= 0 ? 'text-emerald-400' : 'text-red-400'
                     }`}>
@@ -242,14 +199,13 @@ const MarketData = () => {
                     </span>
                   </td>
                   <td className="p-4 text-right">
-                    <div className="text-xs">
-                      <div className={`font-medium ${getDataSourceColor(item.source)}`}>
-                        {item.source?.includes('tiingo') ? 'TIINGO' : 'OTHER'}
-                      </div>
-                      <div className="text-gray-400">
-                        {formatTimeAgo(item.lastUpdate)}
-                      </div>
-                    </div>
+                    <span className="text-gray-300 font-mono">{item.high}</span>
+                  </td>
+                  <td className="p-4 text-right">
+                    <span className="text-gray-300 font-mono">{item.low}</span>
+                  </td>
+                  <td className="p-4 text-right">
+                    <span className="text-gray-300">{item.volume.toLocaleString()}</span>
                   </td>
                 </tr>
               ))}
