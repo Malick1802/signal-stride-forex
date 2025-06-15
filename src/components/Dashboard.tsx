@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, RefreshCw, Settings, User, LogOut, Bell } from 'lucide-react';
 import TradingSignals from './TradingSignals';
@@ -12,6 +11,10 @@ const Dashboard = ({ user, onLogout }) => {
     setRefreshing(true);
     await new Promise(resolve => setTimeout(resolve, 1000));
     setRefreshing(false);
+  };
+
+  const handleLogout = async () => {
+    onLogout();
   };
 
   return (
@@ -50,7 +53,7 @@ const Dashboard = ({ user, onLogout }) => {
                 <div className="text-emerald-400 text-sm">{user.subscription}</div>
               </div>
               <button
-                onClick={onLogout}
+                onClick={handleLogout}
                 className="p-2 text-gray-400 hover:text-red-400 transition-colors"
               >
                 <LogOut className="h-5 w-5" />
