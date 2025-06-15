@@ -24,7 +24,7 @@ on:
 jobs:
   generate-signals:
     runs-on: ubuntu-latest
-    timeout-minutes: 8  # Increased timeout for optimized function
+    timeout-minutes: 8
     
     steps:
     - name: Checkout repository
@@ -42,40 +42,8 @@ jobs:
     - name: Enhanced Market Hours Check
       id: market-check
       run: |
-        # Get current time in UTC
-        current_hour=$(date -u +%H)
-        current_day=$(date -u +%u)  # 1=Monday, 7=Sunday
-        current_minute=$(date -u +%M)
-        
-        echo "📊 Market Hours Analysis:"
-        echo "Current UTC time: $(date -u)"
-        echo "Hour: $current_hour, Day: $current_day, Minute: $current_minute"
-        
-        # Enhanced market hours logic (Sunday-Friday, 00:00-22:00 UTC covers most forex sessions)
-        # Note: Sunday evening often has limited activity until Asian markets open
-        market_open=false
-        if [ "$current_day" -eq 7 ]; then
-          # Sunday: Only late evening when some markets start to open (21:00-23:59 UTC)
-          if [ "$current_hour" -ge 21 ]; then
-            market_open=true
-            echo "✅ Forex market is OPEN (Sunday evening, Asian session prep)"
-          else
-            echo "🛑 Market CLOSED (Sunday, before Asian session)"
-          fi
-        elif [ "$current_day" -ge 1 ] && [ "$current_day" -le 5 ]; then
-          # Monday-Friday: Normal business hours
-          if [ "$current_hour" -ge 0 ] && [ "$current_hour" -le 22 ]; then
-            market_open=true
-            echo "✅ Forex market is OPEN (weekday, business hours)"
-          else
-            echo "🛑 Market CLOSED (outside business hours)"
-          fi
-        else
-          echo "🛑 Market CLOSED (Saturday)"
-        fi
-        
-        echo "market_open=$market_open" >> $GITHUB_OUTPUT
-        echo "current_time=$(date -u)" >> $GITHUB_OUTPUT
+        chmod +x .github/scripts/check-market-hours.sh
+        ./.github/scripts/check-market-hours.sh
 
     - name: Generate Trading Signals (Optimized)
       if: steps.market-check.outputs.market_open == 'true' || github.event.inputs.force_generation == 'true'
@@ -84,116 +52,18 @@ jobs:
         SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVndGFvZHJ2YnBmZXloZGdtaXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQwNjA2MTUsImV4cCI6MjA0OTYzNjYxNX0.Z-71hRCpHB0YivrsTb2kZQdObcF42BQVYIQ8_yMb_JM' }}
         DEBUG_MODE: ${{ github.event.inputs.debug_mode || 'false' }}
       run: |
-        echo "🤖 Starting OPTIMIZED GitHub Actions signal generation..."
-        echo "✨ NEW FEATURES:"
-        echo "  - 120-second timeout protection"
-        echo "  - Maximum 8 signals per run (prevents overload)"
-        echo "  - Concurrent processing (3 pairs simultaneously)"
-        echo "  - Optimized AI prompts (-50% token usage)"
-        echo "  - Prioritized major currency pairs"
-        echo "  - Enhanced error handling and recovery"
-        echo "Workflow: ${{ github.workflow }}"
-        echo "Run number: ${{ github.run_number }}"
-        
-        start_time=$(date +%s)
-        
-        # Enhanced signal generation with optimized retry logic
-        max_retries=3
-        retry_count=0
-        success=false
-        
-        while [ $retry_count -lt $max_retries ] && [ "$success" = false ]; do
-          echo "🔄 Optimized attempt $((retry_count + 1)) of $max_retries"
-          
-          response=$(curl -s -w "\n%{http_code}" -X POST \
-            "${{ env.SUPABASE_URL }}/functions/v1/generate-signals" \
-            -H "Authorization: Bearer ${{ env.SUPABASE_ANON_KEY }}" \
-            -H "Content-Type: application/json" \
-            -H "apikey: ${{ env.SUPABASE_ANON_KEY }}" \
-            -H "X-GitHub-Run-ID: ${{ github.run_id }}" \
-            -H "X-Optimized-Mode: true" \
-            -d "{\"trigger\": \"github_actions\", \"run_id\": \"${{ github.run_id }}\", \"attempt\": $((retry_count + 1)), \"optimized\": true}" \
-            --max-time 150)  # Increased timeout for optimized function
-          
-          # Extract HTTP status code and response
-          http_code=$(echo "$response" | tail -n1)
-          response_body=$(echo "$response" | head -n -1)
-          
-          echo "HTTP Status: $http_code"
-          if [ "${{ env.DEBUG_MODE }}" = "true" ]; then
-            echo "Response body: $response_body"
-          fi
-          
-          if [ "$http_code" -eq 200 ]; then
-            success=true
-            end_time=$(date +%s)
-            duration=$((end_time - start_time))
-            echo "✅ OPTIMIZED signal generation successful in ${duration}s"
-            
-            # Extract enhanced metrics from response
-            signals_count=$(echo "$response_body" | jq -r '.stats.signalsGenerated // 0' 2>/dev/null || echo "0")
-            execution_time=$(echo "$response_body" | jq -r '.stats.executionTime // "unknown"' 2>/dev/null || echo "unknown")
-            concurrent_limit=$(echo "$response_body" | jq -r '.stats.concurrentLimit // 3' 2>/dev/null || echo "3")
-            max_per_run=$(echo "$response_body" | jq -r '.stats.maxNewSignalsPerRun // 8' 2>/dev/null || echo "8")
-            
-            echo "📊 OPTIMIZED METRICS:"
-            echo "  - Signals generated: $signals_count"
-            echo "  - Function execution time: $execution_time"
-            echo "  - Concurrent processing limit: $concurrent_limit"
-            echo "  - Max signals per run: $max_per_run"
-            echo "  - Total workflow time: ${duration}s"
-          else
-            retry_count=$((retry_count + 1))
-            if [ $retry_count -lt $max_retries ]; then
-              echo "⚠️ Optimized attempt failed (status $http_code), retrying in 15 seconds..."
-              echo "Response: $response_body"
-              sleep 15  # Longer delay for optimized retries
-            else
-              echo "❌ All optimized attempts failed. Final status: $http_code"
-              echo "Response: $response_body"
-              
-              # Check for specific timeout error
-              if [ "$http_code" -eq 504 ] || echo "$response_body" | grep -q "timeout"; then
-                echo "🔧 TIMEOUT DETECTED: The optimization should have prevented this."
-                echo "This may indicate a temporary issue. The next run should succeed with optimizations."
-              fi
-              
-              exit 1
-            fi
-          fi
-        done
+        chmod +x .github/scripts/generate-signals.sh
+        ./.github/scripts/generate-signals.sh
 
     - name: Update Market Data
       if: steps.market-check.outputs.market_open == 'true' || github.event.inputs.force_generation == 'true'
       env:
         SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://ugtaodrvbpfeyhdgmisn.supabase.co' }}
         SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVndGFvZHJ2YnBmZXloZGdtaXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQwNjA2MTUsImV4cCI6MjA0OTYzNjYxNX0.Z-71hRCpHB0YivrsTb2kZQdObcF42BQVYIQ8_yMb_JM' }}
+        DEBUG_MODE: ${{ github.event.inputs.debug_mode || 'false' }}
       run: |
-        echo "📊 Updating centralized market data..."
-        
-        response=$(curl -s -w "\n%{http_code}" -X POST \
-          "${{ env.SUPABASE_URL }}/functions/v1/centralized-market-stream" \
-          -H "Authorization: Bearer ${{ env.SUPABASE_ANON_KEY }}" \
-          -H "Content-Type: application/json" \
-          -H "apikey: ${{ env.SUPABASE_ANON_KEY }}" \
-          -H "X-GitHub-Run-ID: ${{ github.run_id }}")
-        
-        http_code=$(echo "$response" | tail -n1)
-        response_body=$(echo "$response" | head -n -1)
-        
-        echo "HTTP Status: $http_code"
-        
-        if [ "$http_code" -eq 200 ]; then
-          echo "✅ Market data update successful"
-          # Extract market pairs count if available
-          pairs_count=$(echo "$response_body" | jq -r '.pairsUpdated // "unknown"' 2>/dev/null || echo "unknown")
-          echo "📈 Market pairs updated: $pairs_count"
-        else
-          echo "⚠️ Market data update failed with status $http_code (continuing...)"
-          if [ "${{ github.event.inputs.debug_mode }}" = "true" ]; then
-            echo "Response: $response_body"
-          fi
-        fi
+        chmod +x .github/scripts/update-market-data.sh
+        ./.github/scripts/update-market-data.sh
 
     - name: Market Closed Notice
       if: steps.market-check.outputs.market_open == 'false' && github.event.inputs.force_generation != 'true'
@@ -206,7 +76,23 @@ jobs:
         echo "  - Maintained quality (AI analysis required for every signal)"
         echo "Automatic generation will resume during market hours (Sunday 21:00+ and Monday-Friday 00:00-22:00 UTC)"
 
-    # ... keep existing code (Enhanced Repository Activity Tracking)
+    - name: Enhanced Repository Activity Tracking
+      if: always()
+      run: |
+        echo "🔄 Keeping repository active with enhanced tracking..."
+        
+        # Create activity log
+        mkdir -p .github/activity
+        echo "$(date -u): Workflow ${{ github.workflow }} executed (Run #${{ github.run_number }})" >> .github/activity/workflow-log.txt
+        
+        # Ensure we don't accumulate too many log entries (keep last 50)
+        if [ -f .github/activity/workflow-log.txt ]; then
+          tail -n 50 .github/activity/workflow-log.txt > .github/activity/workflow-log.tmp
+          mv .github/activity/workflow-log.tmp .github/activity/workflow-log.txt
+        fi
+        
+        echo "✅ Repository activity tracking completed"
+        echo "📝 Workflow logs maintained for monitoring"
 
     - name: Enhanced Workflow Summary
       if: always()
