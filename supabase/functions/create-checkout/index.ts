@@ -86,11 +86,22 @@ serve(async (req) => {
       }
     });
 
-    // Update subscriber record with customer ID
+    // Update subscriber record with customer ID and set trial end date if new user
+    const { data: existingSubscriber } = await supabaseClient
+      .from("subscribers")
+      .select("*")
+      .eq("user_id", user.id)
+      .single();
+
+    const trialEndDate = new Date();
+    trialEndDate.setDate(trialEndDate.getDate() + 7); // 7-day trial
+
     await supabaseClient.from("subscribers").upsert({
       user_id: user.id,
       email: user.email,
       stripe_customer_id: customerId,
+      trial_end: existingSubscriber?.trial_end || trialEndDate.toISOString(),
+      is_trial_active: existingSubscriber ? existingSubscriber.is_trial_active : true,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id' });
 
