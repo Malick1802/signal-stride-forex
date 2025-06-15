@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { TrendingUp, Check, Clock, CreditCard, Settings, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { getTimeRemaining, formatDate } from '../utils/subscriptionUtils';
 
 interface SubscriptionPageProps {
   onNavigate: (view: string) => void;
@@ -58,25 +59,14 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ onNavigate }) => {
     setIsLoading(false);
   };
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'N/A';
-    return new Date(dateString).toLocaleDateString();
+  const getTrialTimeRemaining = () => {
+    if (!subscription?.trial_end) return null;
+    return getTimeRemaining(subscription.trial_end);
   };
 
-  const getTimeRemaining = (endDate: string | null) => {
-    if (!endDate) return null;
-    
-    const now = new Date();
-    const end = new Date(endDate);
-    const diff = end.getTime() - now.getTime();
-    
-    if (diff <= 0) return 'Expired';
-    
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-    
-    if (days > 0) return `${days} days remaining`;
-    return `${hours} hours remaining`;
+  const getSubscriptionTimeRemaining = () => {
+    if (!subscription?.subscription_end) return null;
+    return getTimeRemaining(subscription.subscription_end);
   };
 
   return (
@@ -84,9 +74,20 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ onNavigate }) => {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
-          <div className="flex items-center space-x-2">
-            <TrendingUp className="h-8 w-8 text-emerald-400" />
-            <h1 className="text-3xl font-bold text-white">Subscription</h1>
+          <div className="flex items-center space-x-4">
+            {subscription?.has_access && (
+              <button
+                onClick={() => onNavigate('dashboard')}
+                className="p-2 text-gray-400 hover:text-white transition-colors"
+                aria-label="Back to Dashboard"
+              >
+                <ArrowLeft className="h-6 w-6" />
+              </button>
+            )}
+            <div className="flex items-center space-x-2">
+              <TrendingUp className="h-8 w-8 text-emerald-400" />
+              <h1 className="text-3xl font-bold text-white">Subscription</h1>
+            </div>
           </div>
           <div className="flex items-center space-x-4">
             <button
@@ -125,8 +126,13 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ onNavigate }) => {
                   Ends: {formatDate(subscription.trial_end)}
                 </div>
                 <div className="text-gray-300 text-sm">
-                  {getTimeRemaining(subscription.trial_end)}
+                  {getTrialTimeRemaining()?.text || 'Calculating...'}
                 </div>
+                {getTrialTimeRemaining()?.urgency === 'high' && (
+                  <div className="mt-3 p-2 bg-red-500/20 border border-red-500/30 rounded text-red-300 text-sm">
+                    ⚠ Trial ending soon! Upgrade now to avoid losing access.
+                  </div>
+                )}
               </div>
             ) : (
               <div className="text-gray-400">
@@ -145,6 +151,9 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ onNavigate }) => {
                 <div className="text-emerald-400 font-semibold mb-2">✓ {subscription.subscription_tier}</div>
                 <div className="text-gray-300 text-sm">
                   Renews: {formatDate(subscription.subscription_end)}
+                </div>
+                <div className="text-gray-300 text-sm">
+                  {getSubscriptionTimeRemaining()?.text || 'Active'}
                 </div>
                 <button
                   onClick={handleManageSubscription}

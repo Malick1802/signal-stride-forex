@@ -61,6 +61,16 @@ const AppContent = () => {
     }
   }, [user, loading, subscription, currentView]);
 
+  // Listen for navigation events from Dashboard
+  useEffect(() => {
+    const handleNavigateToSubscription = () => {
+      setCurrentView('subscription');
+    };
+
+    window.addEventListener('navigate-to-subscription', handleNavigateToSubscription);
+    return () => window.removeEventListener('navigate-to-subscription', handleNavigateToSubscription);
+  }, []);
+
   // Reduced refresh interval - only refresh every 2 minutes for logged in users
   useEffect(() => {
     if (!user) return;

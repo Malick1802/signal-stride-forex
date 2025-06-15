@@ -1,16 +1,21 @@
 
 import React, { useState } from 'react';
-import { TrendingUp, RefreshCw, Bell, Settings, LogOut } from 'lucide-react';
+import { TrendingUp, RefreshCw, Bell, Settings, LogOut, CreditCard } from 'lucide-react';
 import TradingSignals from './TradingSignals';
 import ExpiredSignals from './ExpiredSignals';
 import UserProfile from './UserProfile';
+import SubscriptionStatusWidget from './SubscriptionStatusWidget';
+import TrialExpirationBanner from './TrialExpirationBanner';
 import { useProfile } from '@/hooks/useProfile';
+import { useAuth } from '../contexts/AuthContext';
 
 const Dashboard = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('signals');
   const [refreshing, setRefreshing] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
   const { profile } = useProfile();
+  const { subscription, createCheckout, openCustomerPortal } = useAuth();
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -20,6 +25,37 @@ const Dashboard = ({ user, onLogout }) => {
 
   const handleLogout = async () => {
     onLogout();
+  };
+
+  const handleUpgrade = async () => {
+    try {
+      const result = await createCheckout();
+      if (result.error) {
+        console.error('Checkout error:', result.error);
+      } else if (result.url) {
+        window.open(result.url, '_blank');
+      }
+    } catch (error) {
+      console.error('Failed to create checkout:', error);
+    }
+  };
+
+  const handleManageSubscription = async () => {
+    try {
+      const result = await openCustomerPortal();
+      if (result.error) {
+        console.error('Portal error:', result.error);
+      } else if (result.url) {
+        window.open(result.url, '_blank');
+      }
+    } catch (error) {
+      console.error('Failed to open portal:', error);
+    }
+  };
+
+  const navigateToSubscription = () => {
+    // This will trigger the parent component to show subscription page
+    window.dispatchEvent(new CustomEvent('navigate-to-subscription'));
   };
 
   return (
@@ -39,6 +75,13 @@ const Dashboard = ({ user, onLogout }) => {
           </div>
 
           <div className="flex items-center space-x-4">
+            {/* Subscription Status Widget */}
+            <SubscriptionStatusWidget
+              subscription={subscription}
+              onUpgrade={handleUpgrade}
+              onManageSubscription={handleManageSubscription}
+            />
+            
             <button
               onClick={handleRefresh}
               disabled={refreshing}
@@ -104,18 +147,26 @@ const Dashboard = ({ user, onLogout }) => {
           <div className="flex space-x-8">
             {[
               { id: 'signals', label: 'Active Signals' },
-              { id: 'expired', label: 'Expired Signals' }
+              { id: 'expired', label: 'Expired Signals' },
+              { id: 'subscription', label: 'Subscription', icon: CreditCard }
             ].map(tab => (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`py-4 px-2 border-b-2 font-medium transition-colors ${
+                onClick={() => {
+                  if (tab.id === 'subscription') {
+                    navigateToSubscription();
+                  } else {
+                    setActiveTab(tab.id);
+                  }
+                }}
+                className={`py-4 px-2 border-b-2 font-medium transition-colors flex items-center space-x-2 ${
                   activeTab === tab.id
                     ? 'border-emerald-400 text-emerald-400'
                     : 'border-transparent text-gray-400 hover:text-white'
                 }`}
               >
-                {tab.label}
+                {tab.icon && <tab.icon className="h-4 w-4" />}
+                <span>{tab.label}</span>
               </button>
             ))}
           </div>
@@ -124,6 +175,15 @@ const Dashboard = ({ user, onLogout }) => {
 
       {/* Content Area */}
       <div className="p-6">
+        {/* Trial Expiration Banner */}
+        {!bannerDismissed && (
+          <TrialExpirationBanner
+            subscription={subscription}
+            onUpgrade={handleUpgrade}
+            onDismiss={() => setBannerDismissed(true)}
+          />
+        )}
+
         {activeTab === 'signals' && <TradingSignals />}
         {activeTab === 'expired' && <ExpiredSignals />}
       </div>
