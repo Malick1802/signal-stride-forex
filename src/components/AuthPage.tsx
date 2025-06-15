@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { TrendingUp, ArrowLeft, Eye, EyeOff } from 'lucide-react';
+import { TrendingUp, ArrowLeft, Eye, EyeOff, CheckCircle, Mail } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 interface AuthPageProps {
@@ -15,6 +15,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+  const [signupSuccess, setSignupSuccess] = useState(false);
 
   const { signIn, signUp } = useAuth();
 
@@ -22,12 +23,19 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
+    setSignupSuccess(false);
 
     try {
       if (isLogin) {
         const { error } = await signIn(email, password);
         if (error) {
-          setError(error.message);
+          if (error.message.includes('Email not confirmed')) {
+            setError('Please check your email and click the confirmation link before signing in.');
+          } else if (error.message.includes('Invalid login credentials')) {
+            setError('Invalid email or password. Please check your credentials.');
+          } else {
+            setError(error.message);
+          }
         }
       } else {
         if (password !== confirmPassword) {
@@ -36,9 +44,13 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
         }
         const { error } = await signUp(email, password);
         if (error) {
-          setError(error.message);
+          if (error.message.includes('User already registered')) {
+            setError('An account with this email already exists. Please sign in instead.');
+          } else {
+            setError(error.message);
+          }
         } else {
-          setError('Check your email for the confirmation link');
+          setSignupSuccess(true);
         }
       }
     } catch (err) {
@@ -47,6 +59,51 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
       setIsLoading(false);
     }
   };
+
+  if (signupSuccess) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center p-6">
+        <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 w-full max-w-md border border-white/20">
+          <div className="text-center">
+            <CheckCircle className="h-16 w-16 text-emerald-400 mx-auto mb-6" />
+            <h2 className="text-2xl font-bold text-white mb-4">Account Created!</h2>
+            <div className="space-y-4 text-gray-300">
+              <div className="flex items-center justify-center space-x-2 bg-blue-500/20 p-3 rounded-lg">
+                <Mail className="h-5 w-5 text-blue-400" />
+                <span className="text-sm">Check your email for a confirmation link</span>
+              </div>
+              <p className="text-sm">
+                We've sent a confirmation email to <strong className="text-white">{email}</strong>
+              </p>
+              <p className="text-sm">
+                Click the link in the email to activate your account, then return here to sign in.
+              </p>
+            </div>
+            <div className="mt-6 space-y-3">
+              <button
+                onClick={() => {
+                  setSignupSuccess(false);
+                  setIsLogin(true);
+                  setEmail('');
+                  setPassword('');
+                  setConfirmPassword('');
+                }}
+                className="w-full py-3 bg-gradient-to-r from-emerald-500 to-blue-500 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-emerald-500/25 transition-all"
+              >
+                Go to Sign In
+              </button>
+              <button
+                onClick={() => onNavigate('landing')}
+                className="w-full py-3 bg-white/5 border border-white/20 text-white font-semibold rounded-lg hover:bg-white/10 transition-all"
+              >
+                Back to Home
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center p-6">
@@ -97,7 +154,8 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-emerald-500 transition-colors pr-12"
-                placeholder={isLogin ? "Enter your password" : "Create a password"}
+                placeholder={isLogin ? "Enter your password" : "Create a password (min 6 characters)"}
+                minLength={isLogin ? undefined : 6}
                 required
               />
               <button
@@ -121,6 +179,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-emerald-500 transition-colors"
                 placeholder="Confirm your password"
+                minLength={6}
                 required
               />
             </div>
@@ -140,7 +199,11 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
             </span>
             <button
               type="button"
-              onClick={() => setIsLogin(!isLogin)}
+              onClick={() => {
+                setIsLogin(!isLogin);
+                setError('');
+                setSignupSuccess(false);
+              }}
               className="text-emerald-400 hover:text-emerald-300 transition-colors"
             >
               {isLogin ? 'Sign up' : 'Sign in'}
