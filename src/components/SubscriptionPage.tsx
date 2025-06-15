@@ -22,6 +22,10 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ onNavigate }) => {
         setError(result.error);
       } else if (result.url) {
         window.open(result.url, '_blank');
+        // Refresh subscription status after a delay to catch returning users
+        setTimeout(() => {
+          checkSubscription();
+        }, 5000);
       }
     } catch (err) {
       setError('Failed to create checkout session');
@@ -90,7 +94,7 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ onNavigate }) => {
               disabled={isLoading}
               className="px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors disabled:opacity-50"
             >
-              Refresh Status
+              {isLoading ? 'Refreshing...' : 'Refresh Status'}
             </button>
             <button
               onClick={() => signOut()}
@@ -125,7 +129,9 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ onNavigate }) => {
                 </div>
               </div>
             ) : (
-              <div className="text-gray-400">Trial period ended</div>
+              <div className="text-gray-400">
+                {subscription ? 'Trial period ended' : 'Loading...'}
+              </div>
             )}
           </div>
 
@@ -150,13 +156,15 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ onNavigate }) => {
                 </button>
               </div>
             ) : (
-              <div className="text-gray-400">No active subscription</div>
+              <div className="text-gray-400">
+                {subscription ? 'No active subscription' : 'Loading...'}
+              </div>
             )}
           </div>
         </div>
 
         {/* Pricing Plan */}
-        {!subscription?.subscribed && (
+        {subscription && !subscription.subscribed && (
           <div className="bg-white/10 backdrop-blur-lg rounded-xl p-8 border border-white/20">
             <div className="text-center mb-8">
               <h2 className="text-3xl font-bold text-white mb-4">Unlimited Plan</h2>
@@ -205,9 +213,13 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ onNavigate }) => {
             <div className="text-emerald-400 font-semibold">
               ✓ You have access to all features
             </div>
-          ) : (
+          ) : subscription ? (
             <div className="text-red-400 font-semibold">
               ⚠ Subscribe to continue using the service
+            </div>
+          ) : (
+            <div className="text-gray-400">
+              Loading subscription status...
             </div>
           )}
         </div>

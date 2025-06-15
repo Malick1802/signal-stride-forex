@@ -29,7 +29,6 @@ serve(async (req) => {
 
     const stripeKey = Deno.env.get("STRIPE_SECRET_KEY");
     if (!stripeKey) throw new Error("STRIPE_SECRET_KEY is not set");
-    logStep("Stripe key verified");
 
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) throw new Error("No authorization header provided");
@@ -41,12 +40,12 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
-    // Check if subscriber record exists
+    // Check if subscriber record exists first
     const { data: existingSubscriber } = await supabaseClient
       .from("subscribers")
       .select("*")
       .eq("user_id", user.id)
-      .single();
+      .maybeSingle(); // Use maybeSingle to avoid errors when no record exists
 
     const now = new Date();
     let isTrialActive = false;
@@ -64,7 +63,7 @@ serve(async (req) => {
       
       logStep("New user detected, creating 7-day trial", { trialEnd });
       
-      await supabaseClient.from("subscribers").insert({
+      const { error: insertError } = await supabaseClient.from("subscribers").insert({
         user_id: user.id,
         email: user.email,
         trial_end: trialEnd,
@@ -72,6 +71,11 @@ serve(async (req) => {
         subscribed: false,
         updated_at: now.toISOString(),
       });
+
+      if (insertError) {
+        logStep("Error creating subscriber record", { error: insertError });
+        throw new Error(`Failed to create subscriber record: ${insertError.message}`);
+      }
 
       return new Response(JSON.stringify({
         subscribed: false,
@@ -93,38 +97,54 @@ serve(async (req) => {
       trialEnd = existingSubscriber.trial_end;
     }
 
-    const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
-    
-    // Check Stripe subscription if user has a customer ID
+    // Only check Stripe if user has a customer ID - this saves API calls
     if (existingSubscriber.stripe_customer_id) {
-      const subscriptions = await stripe.subscriptions.list({
-        customer: existingSubscriber.stripe_customer_id,
-        status: "active",
-        limit: 1,
-      });
+      const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
+      
+      try {
+        const subscriptions = await stripe.subscriptions.list({
+          customer: existingSubscriber.stripe_customer_id,
+          status: "active",
+          limit: 1,
+        });
 
-      if (subscriptions.data.length > 0) {
-        const subscription = subscriptions.data[0];
-        subscribed = true;
-        subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
-        subscriptionTier = "Unlimited";
-        isTrialActive = false; // Active subscription overrides trial
-        logStep("Active subscription found", { subscriptionId: subscription.id, endDate: subscriptionEnd });
+        if (subscriptions.data.length > 0) {
+          const subscription = subscriptions.data[0];
+          subscribed = true;
+          subscriptionEnd = new Date(subscription.current_period_end * 1000).toISOString();
+          subscriptionTier = "Unlimited";
+          isTrialActive = false; // Active subscription overrides trial
+          logStep("Active subscription found", { subscriptionId: subscription.id, endDate: subscriptionEnd });
+        }
+      } catch (stripeError) {
+        logStep("Stripe API error", { error: stripeError });
+        // Continue with existing data if Stripe fails - don't block the user
+        subscribed = existingSubscriber.subscribed || false;
+        subscriptionTier = existingSubscriber.subscription_tier;
+        subscriptionEnd = existingSubscriber.subscription_end;
       }
+    } else {
+      // No Stripe customer ID, use existing data
+      subscribed = existingSubscriber.subscribed || false;
+      subscriptionTier = existingSubscriber.subscription_tier;
+      subscriptionEnd = existingSubscriber.subscription_end;
+      logStep("No Stripe customer ID, using existing data");
     }
 
-    // Update subscriber record
-    await supabaseClient.from("subscribers").upsert({
-      user_id: user.id,
-      email: user.email,
-      stripe_customer_id: existingSubscriber.stripe_customer_id || null,
+    // Update subscriber record with current status
+    const { error: updateError } = await supabaseClient.from("subscribers").update({
       subscribed,
       subscription_tier: subscriptionTier,
       subscription_end: subscriptionEnd,
       trial_end: trialEnd,
       is_trial_active: isTrialActive,
       updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id' });
+    }).eq('user_id', user.id);
+
+    if (updateError) {
+      logStep("Error updating subscriber record", { error: updateError });
+      // Continue anyway - don't fail the request for update errors
+    }
 
     logStep("Updated database with subscription info", { 
       subscribed, 

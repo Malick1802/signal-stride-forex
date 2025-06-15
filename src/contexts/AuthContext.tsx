@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -34,17 +35,87 @@ export const useAuth = () => {
   return context;
 };
 
+// Cache management
+const CACHE_KEY = 'subscription_cache';
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+const getCachedSubscription = (userId: string): SubscriptionData | null => {
+  try {
+    const cached = localStorage.getItem(`${CACHE_KEY}_${userId}`);
+    if (cached) {
+      const { data, timestamp } = JSON.parse(cached);
+      if (Date.now() - timestamp < CACHE_DURATION) {
+        console.log('AuthContext: Using cached subscription data');
+        return data;
+      }
+    }
+  } catch (error) {
+    console.error('AuthContext: Error reading cache:', error);
+  }
+  return null;
+};
+
+const setCachedSubscription = (userId: string, data: SubscriptionData) => {
+  try {
+    localStorage.setItem(`${CACHE_KEY}_${userId}`, JSON.stringify({
+      data,
+      timestamp: Date.now()
+    }));
+  } catch (error) {
+    console.error('AuthContext: Error writing cache:', error);
+  }
+};
+
+const clearSubscriptionCache = (userId?: string) => {
+  try {
+    if (userId) {
+      localStorage.removeItem(`${CACHE_KEY}_${userId}`);
+    } else {
+      // Clear all subscription caches
+      Object.keys(localStorage).forEach(key => {
+        if (key.startsWith(CACHE_KEY)) {
+          localStorage.removeItem(key);
+        }
+      });
+    }
+  } catch (error) {
+    console.error('AuthContext: Error clearing cache:', error);
+  }
+};
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isCheckingSubscription, setIsCheckingSubscription] = useState(false);
 
-  const checkSubscription = async () => {
-    if (!session) {
+  const checkSubscription = async (forceRefresh: boolean = false) => {
+    if (!session?.user) {
       console.log('AuthContext: No session, skipping subscription check');
       return;
     }
+    
+    // Prevent multiple concurrent calls
+    if (isCheckingSubscription) {
+      console.log('AuthContext: Subscription check already in progress');
+      return;
+    }
+
+    const userId = session.user.id;
+    
+    // Try cache first unless forced refresh
+    if (!forceRefresh) {
+      const cached = getCachedSubscription(userId);
+      if (cached) {
+        setSubscription(cached);
+        // Start background refresh but don't wait for it
+        setTimeout(() => checkSubscription(true), 100);
+        return;
+      }
+    }
+    
+    setIsCheckingSubscription(true);
     
     try {
       console.log('AuthContext: Checking subscription for user', session.user.email);
@@ -61,8 +132,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       console.log('AuthContext: Subscription data received:', data);
       setSubscription(data);
+      setCachedSubscription(userId, data);
     } catch (error) {
       console.error('AuthContext: Error checking subscription:', error);
+    } finally {
+      setIsCheckingSubscription(false);
     }
   };
 
@@ -77,6 +151,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (error) return { error: error.message };
+      
+      // Clear cache after checkout to force refresh
+      clearSubscriptionCache(session.user.id);
+      
       return { url: data.url };
     } catch (error) {
       return { error: 'Failed to create checkout session' };
@@ -108,16 +186,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Check subscription immediately when user logs in or session changes
         if (session?.user && event === 'SIGNED_IN') {
           console.log('AuthContext: User signed in, checking subscription');
-          // Use a small delay to ensure the session is fully established
-          setTimeout(() => {
-            checkSubscription();
-          }, 100);
+          // Check subscription immediately with cache
+          checkSubscription(false);
         } else if (!session) {
           console.log('AuthContext: No session, clearing subscription');
           setSubscription(null);
+          clearSubscriptionCache();
         }
       }
     );
@@ -130,10 +206,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (session?.user) {
         console.log('AuthContext: Existing session found, checking subscription');
-        // Check subscription for existing session
-        setTimeout(() => {
-          checkSubscription();
-        }, 100);
+        // Check subscription with cache first
+        checkSubscription(false);
       } else {
         console.log('AuthContext: No existing session');
       }
@@ -178,6 +252,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = async () => {
     const { error } = await supabase.auth.signOut();
     setSubscription(null);
+    clearSubscriptionCache();
     return { error };
   };
 
@@ -189,7 +264,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signUp,
     signIn,
     signOut,
-    checkSubscription,
+    checkSubscription: () => checkSubscription(true), // Expose force refresh
     createCheckout,
     openCustomerPortal,
   };
