@@ -27,8 +27,10 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
 
     try {
       if (isLogin) {
+        console.log('Attempting to sign in with:', email);
         const { error } = await signIn(email, password);
         if (error) {
+          console.error('Sign in error:', error);
           if (error.message.includes('Email not confirmed')) {
             setError('Please check your email and click the confirmation link before signing in.');
           } else if (error.message.includes('Invalid login credentials')) {
@@ -36,24 +38,30 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
           } else {
             setError(error.message);
           }
+        } else {
+          console.log('Sign in successful');
         }
       } else {
         if (password !== confirmPassword) {
           setError('Passwords do not match');
           return;
         }
+        console.log('Attempting to sign up with:', email);
         const { error } = await signUp(email, password);
         if (error) {
+          console.error('Sign up error:', error);
           if (error.message.includes('User already registered')) {
             setError('An account with this email already exists. Please sign in instead.');
           } else {
             setError(error.message);
           }
         } else {
+          console.log('Sign up successful - showing confirmation message');
           setSignupSuccess(true);
         }
       }
     } catch (err) {
+      console.error('Unexpected error:', err);
       setError('An unexpected error occurred');
     } finally {
       setIsLoading(false);
@@ -87,6 +95,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
                   setEmail('');
                   setPassword('');
                   setConfirmPassword('');
+                  setError('');
                 }}
                 className="w-full py-3 bg-gradient-to-r from-emerald-500 to-blue-500 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-emerald-500/25 transition-all"
               >
