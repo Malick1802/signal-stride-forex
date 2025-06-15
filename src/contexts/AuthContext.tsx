@@ -41,9 +41,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   const checkSubscription = async () => {
-    if (!session) return;
+    if (!session) {
+      console.log('AuthContext: No session, skipping subscription check');
+      return;
+    }
     
     try {
+      console.log('AuthContext: Checking subscription for user', session.user.email);
       const { data, error } = await supabase.functions.invoke('check-subscription', {
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -51,13 +55,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
 
       if (error) {
-        console.error('Error checking subscription:', error);
+        console.error('AuthContext: Error checking subscription:', error);
         return;
       }
 
+      console.log('AuthContext: Subscription data received:', data);
       setSubscription(data);
     } catch (error) {
-      console.error('Error checking subscription:', error);
+      console.error('AuthContext: Error checking subscription:', error);
     }
   };
 
@@ -99,17 +104,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event, session?.user?.email);
+        console.log('AuthContext: Auth state changed:', event, session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
         
         // Check subscription immediately when user logs in or session changes
         if (session?.user && event === 'SIGNED_IN') {
+          console.log('AuthContext: User signed in, checking subscription');
           // Use a small delay to ensure the session is fully established
           setTimeout(() => {
             checkSubscription();
           }, 100);
         } else if (!session) {
+          console.log('AuthContext: No session, clearing subscription');
           setSubscription(null);
         }
       }
@@ -117,15 +124,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('Initial session check:', session?.user?.email);
+      console.log('AuthContext: Initial session check:', session?.user?.email);
       setSession(session);
       setUser(session?.user ?? null);
       
       if (session?.user) {
+        console.log('AuthContext: Existing session found, checking subscription');
         // Check subscription for existing session
         setTimeout(() => {
           checkSubscription();
         }, 100);
+      } else {
+        console.log('AuthContext: No existing session');
       }
       
       setLoading(false);

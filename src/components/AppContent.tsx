@@ -11,15 +11,35 @@ const AppContent = () => {
   const [currentView, setCurrentView] = useState('landing');
 
   useEffect(() => {
+    console.log('AppContent: Auth state changed', { 
+      user: user?.email, 
+      loading, 
+      subscription: subscription ? {
+        subscribed: subscription.subscribed,
+        is_trial_active: subscription.is_trial_active,
+        has_access: subscription.has_access,
+        trial_end: subscription.trial_end
+      } : null 
+    });
+
     if (!loading) {
       if (user) {
-        // Check if user has access (subscription or trial)
-        if (subscription?.has_access) {
-          setCurrentView('dashboard');
+        // Wait a moment for subscription to be loaded
+        if (subscription) {
+          // Check if user has access (subscription or trial)
+          if (subscription.has_access) {
+            console.log('AppContent: User has access, showing dashboard');
+            setCurrentView('dashboard');
+          } else {
+            console.log('AppContent: User has no access, showing subscription page');
+            setCurrentView('subscription');
+          }
         } else {
-          setCurrentView('subscription');
+          // If subscription is null but user exists, wait for it to load
+          console.log('AppContent: User exists but subscription not loaded yet, staying on current view');
         }
       } else {
+        console.log('AppContent: No user, showing landing page');
         setCurrentView('landing');
       }
     }
@@ -40,6 +60,15 @@ const AppContent = () => {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center">
         <div className="text-white text-xl">Loading...</div>
+      </div>
+    );
+  }
+
+  // Show loading if user exists but subscription hasn't been checked yet
+  if (user && !subscription) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center">
+        <div className="text-white text-xl">Checking subscription status...</div>
       </div>
     );
   }
