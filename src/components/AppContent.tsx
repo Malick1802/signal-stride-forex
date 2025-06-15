@@ -9,6 +9,7 @@ import SubscriptionPage from './SubscriptionPage';
 const AppContent = () => {
   const { user, loading, subscription, checkSubscription } = useAuth();
   const [currentView, setCurrentView] = useState('landing');
+  const [manualNavigation, setManualNavigation] = useState(false);
 
   // Set currentView based on auth and subscription state
   useEffect(() => {
@@ -24,6 +25,7 @@ const AppContent = () => {
           }
         : null,
       currentView,
+      manualNavigation,
     });
 
     if (loading) {
@@ -39,7 +41,11 @@ const AppContent = () => {
     // The dashboard itself will handle subscription-specific features
     if (subscription) {
       if (subscription.has_access) {
-        if (currentView !== 'dashboard') {
+        // Don't redirect if user manually navigated to subscription page
+        if (currentView !== 'dashboard' && currentView !== 'subscription') {
+          console.log('AppContent: User has access, go to dashboard.');
+          setCurrentView('dashboard');
+        } else if (currentView === 'subscription' && !manualNavigation) {
           console.log('AppContent: User has access, go to dashboard.');
           setCurrentView('dashboard');
         }
@@ -54,22 +60,30 @@ const AppContent = () => {
     } else {
       // If subscription is null but user exists, show dashboard with loading state
       // This prevents blocking the UI while subscription loads
-      if (currentView !== 'dashboard') {
+      if (currentView !== 'dashboard' && currentView !== 'subscription') {
         console.log('AppContent: User exists but subscription loading, show dashboard.');
         setCurrentView('dashboard');
       }
     }
-  }, [user, loading, subscription, currentView]);
+  }, [user, loading, subscription, currentView, manualNavigation]);
 
   // Listen for navigation events from Dashboard
   useEffect(() => {
     const handleNavigateToSubscription = () => {
+      setManualNavigation(true);
       setCurrentView('subscription');
     };
 
     window.addEventListener('navigate-to-subscription', handleNavigateToSubscription);
     return () => window.removeEventListener('navigate-to-subscription', handleNavigateToSubscription);
   }, []);
+
+  // Reset manual navigation flag when view changes to non-subscription views
+  useEffect(() => {
+    if (currentView !== 'subscription') {
+      setManualNavigation(false);
+    }
+  }, [currentView]);
 
   // Reduced refresh interval - only refresh every 2 minutes for logged in users
   useEffect(() => {
