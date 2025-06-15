@@ -41,8 +41,8 @@ serve(async (req) => {
     if (!user?.email) throw new Error("User not authenticated or email not available");
     logStep("User authenticated", { userId: user.id, email: user.email });
 
-    // Check current trial/subscription status
-    const { data: subscriber } = await supabaseClient
+    // Check if subscriber record exists
+    const { data: existingSubscriber } = await supabaseClient
       .from("subscribers")
       .select("*")
       .eq("user_id", user.id)
@@ -55,19 +55,50 @@ serve(async (req) => {
     let subscriptionEnd = null;
     let trialEnd = null;
 
-    // Check trial status
-    if (subscriber?.trial_end) {
-      const trialEndDate = new Date(subscriber.trial_end);
-      isTrialActive = now < trialEndDate && !subscriber.subscribed;
-      trialEnd = subscriber.trial_end;
+    // If no subscriber record exists, create one with a 7-day trial
+    if (!existingSubscriber) {
+      const trialEndDate = new Date();
+      trialEndDate.setDate(trialEndDate.getDate() + 7); // 7-day trial
+      trialEnd = trialEndDate.toISOString();
+      isTrialActive = true;
+      
+      logStep("New user detected, creating 7-day trial", { trialEnd });
+      
+      await supabaseClient.from("subscribers").insert({
+        user_id: user.id,
+        email: user.email,
+        trial_end: trialEnd,
+        is_trial_active: true,
+        subscribed: false,
+        updated_at: now.toISOString(),
+      });
+
+      return new Response(JSON.stringify({
+        subscribed: false,
+        subscription_tier: null,
+        subscription_end: null,
+        trial_end: trialEnd,
+        is_trial_active: true,
+        has_access: true
+      }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    // Check existing trial status
+    if (existingSubscriber.trial_end) {
+      const trialEndDate = new Date(existingSubscriber.trial_end);
+      isTrialActive = now < trialEndDate && !existingSubscriber.subscribed;
+      trialEnd = existingSubscriber.trial_end;
     }
 
     const stripe = new Stripe(stripeKey, { apiVersion: "2023-10-16" });
     
     // Check Stripe subscription if user has a customer ID
-    if (subscriber?.stripe_customer_id) {
+    if (existingSubscriber.stripe_customer_id) {
       const subscriptions = await stripe.subscriptions.list({
-        customer: subscriber.stripe_customer_id,
+        customer: existingSubscriber.stripe_customer_id,
         status: "active",
         limit: 1,
       });
@@ -86,7 +117,7 @@ serve(async (req) => {
     await supabaseClient.from("subscribers").upsert({
       user_id: user.id,
       email: user.email,
-      stripe_customer_id: subscriber?.stripe_customer_id || null,
+      stripe_customer_id: existingSubscriber.stripe_customer_id || null,
       subscribed,
       subscription_tier: subscriptionTier,
       subscription_end: subscriptionEnd,

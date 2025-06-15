@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -104,12 +103,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Check subscription when user logs in
-        if (session?.user) {
+        // Check subscription immediately when user logs in or session changes
+        if (session?.user && event === 'SIGNED_IN') {
+          // Use a small delay to ensure the session is fully established
           setTimeout(() => {
             checkSubscription();
           }, 100);
-        } else {
+        } else if (!session) {
           setSubscription(null);
         }
       }
@@ -122,6 +122,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(session?.user ?? null);
       
       if (session?.user) {
+        // Check subscription for existing session
         setTimeout(() => {
           checkSubscription();
         }, 100);
