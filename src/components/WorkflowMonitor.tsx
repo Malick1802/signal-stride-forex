@@ -186,7 +186,7 @@ const WorkflowMonitor = () => {
 
       <div className="mt-3 p-2 bg-blue-500/10 rounded-lg border border-blue-500/20">
         <div className="text-xs text-blue-400">
-          <strong>Schedule:</strong> Every 5 minutes during market hours (Mon-Fri, 00:00-22:00 UTC) 
+          <strong>Schedule:</strong> Every 5 minutes during market hours (Sun 21:00+ and Mon-Fri 00:00-22:00 UTC) 
           with triple redundancy for maximum reliability. GitHub Actions now handles signal generation exclusively.
         </div>
       </div>

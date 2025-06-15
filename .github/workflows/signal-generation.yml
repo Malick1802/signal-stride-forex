@@ -3,11 +3,11 @@ name: Optimized Trading Signal Generation
 
 on:
   schedule:
-    # Primary schedule: every 5 minutes during market hours
-    - cron: '*/5 * * * 1-5'
+    # Primary schedule: every 5 minutes during market hours (including Sunday)
+    - cron: '*/5 * * * 0,1-5'
     # Backup schedules for redundancy (offset by 1-2 minutes)
-    - cron: '1,6,11,16,21,26,31,36,41,46,51,56 * * * 1-5'
-    - cron: '2,7,12,17,22,27,32,37,42,47,52,57 * * * 1-5'
+    - cron: '1,6,11,16,21,26,31,36,41,46,51,56 * * * 0,1-5'
+    - cron: '2,7,12,17,22,27,32,37,42,47,52,57 * * * 0,1-5'
   workflow_dispatch:
     inputs:
       force_generation:
@@ -51,9 +51,19 @@ jobs:
         echo "Current UTC time: $(date -u)"
         echo "Hour: $current_hour, Day: $current_day, Minute: $current_minute"
         
-        # Enhanced market hours logic (Monday-Friday, 00:00-22:00 UTC covers most forex sessions)
+        # Enhanced market hours logic (Sunday-Friday, 00:00-22:00 UTC covers most forex sessions)
+        # Note: Sunday evening often has limited activity until Asian markets open
         market_open=false
-        if [ "$current_day" -ge 1 ] && [ "$current_day" -le 5 ]; then
+        if [ "$current_day" -eq 7 ]; then
+          # Sunday: Only late evening when some markets start to open (21:00-23:59 UTC)
+          if [ "$current_hour" -ge 21 ]; then
+            market_open=true
+            echo "✅ Forex market is OPEN (Sunday evening, Asian session prep)"
+          else
+            echo "🛑 Market CLOSED (Sunday, before Asian session)"
+          fi
+        elif [ "$current_day" -ge 1 ] && [ "$current_day" -le 5 ]; then
+          # Monday-Friday: Normal business hours
           if [ "$current_hour" -ge 0 ] && [ "$current_hour" -le 22 ]; then
             market_open=true
             echo "✅ Forex market is OPEN (weekday, business hours)"
@@ -61,7 +71,7 @@ jobs:
             echo "🛑 Market CLOSED (outside business hours)"
           fi
         else
-          echo "🛑 Market CLOSED (weekend)"
+          echo "🛑 Market CLOSED (Saturday)"
         fi
         
         echo "market_open=$market_open" >> $GITHUB_OUTPUT
@@ -194,7 +204,7 @@ jobs:
         echo "  - Faster execution (120s timeout protection)"
         echo "  - Better reliability (concurrent processing)"
         echo "  - Maintained quality (AI analysis required for every signal)"
-        echo "Automatic generation will resume during market hours (Monday-Friday, 00:00-22:00 UTC)"
+        echo "Automatic generation will resume during market hours (Sunday 21:00+ and Monday-Friday 00:00-22:00 UTC)"
 
     # ... keep existing code (Enhanced Repository Activity Tracking)
 

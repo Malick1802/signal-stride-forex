@@ -7,7 +7,7 @@
 
 ## Automated Trading Signal Generation
 
-🤖 **Status**: Active GitHub Actions automation running every 5 minutes during market hours (Monday-Friday, 00:00-22:00 UTC)
+🤖 **Status**: Active GitHub Actions automation running every 5 minutes during market hours (Sunday 21:00+ and Monday-Friday 00:00-22:00 UTC)
 
 📊 **Last Updated**: January 28, 2025 - Repository reactivated for automated signal generation
 
@@ -71,7 +71,7 @@ This project is built with:
 
 🚀 **GitHub Actions Workflow**: Fully automated trading signal generation
 - ⏰ **Schedule**: Every 5 minutes during market hours
-- 🌍 **Market Hours**: Monday-Friday, 00:00-22:00 UTC  
+- 🌍 **Market Hours**: Sunday 21:00+ and Monday-Friday 00:00-22:00 UTC  
 - 🤖 **AI-Powered**: Uses OpenAI GPT-4o-mini for intelligent signal analysis
 - 📊 **Real-time Data**: FastForex API integration for live market data
 - 🔄 **Auto-sync**: Signals automatically appear in the trading dashboard
