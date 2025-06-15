@@ -1,11 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { TrendingUp, RefreshCw, Settings, User, LogOut, Bell } from 'lucide-react';
+
+import React, { useState } from 'react';
+import { TrendingUp, RefreshCw, Bell, Settings, LogOut } from 'lucide-react';
 import TradingSignals from './TradingSignals';
 import ExpiredSignals from './ExpiredSignals';
+import UserProfile from './UserProfile';
+import { useProfile } from '@/hooks/useProfile';
 
 const Dashboard = ({ user, onLogout }) => {
   const [activeTab, setActiveTab] = useState('signals');
   const [refreshing, setRefreshing] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const { profile } = useProfile();
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -38,23 +43,50 @@ const Dashboard = ({ user, onLogout }) => {
               onClick={handleRefresh}
               disabled={refreshing}
               className="p-2 text-gray-400 hover:text-white transition-colors"
+              aria-label="Refresh"
             >
               <RefreshCw className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
             </button>
-            <button className="p-2 text-gray-400 hover:text-white transition-colors">
+            <button className="p-2 text-gray-400 hover:text-white transition-colors" aria-label="Notifications">
               <Bell className="h-5 w-5" />
             </button>
-            <button className="p-2 text-gray-400 hover:text-white transition-colors">
+            <button
+              className="p-2 text-gray-400 hover:text-white transition-colors"
+              aria-label="Profile"
+              onClick={() => setProfileOpen(true)}
+            >
               <Settings className="h-5 w-5" />
             </button>
             <div className="flex items-center space-x-3">
-              <div className="text-right">
-                <div className="text-white font-medium">{user.name}</div>
-                <div className="text-emerald-400 text-sm">{user.subscription}</div>
+              <div className="flex items-center">
+                <div className="mr-2">
+                  {profile?.avatar_url ? (
+                    <img
+                      src={profile.avatar_url}
+                      alt="Avatar"
+                      className="h-8 w-8 rounded-full object-cover border"
+                    />
+                  ) : (
+                    <div className="h-8 w-8 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold">
+                      {profile?.full_name
+                        ? profile.full_name
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")
+                            .slice(0, 2)
+                        : 'U'}
+                    </div>
+                  )}
+                </div>
+                <div className="text-right">
+                  <div className="text-white font-medium truncate max-w-[120px]">{profile?.full_name || user.email}</div>
+                  <div className="text-emerald-400 text-xs truncate">{user.email}</div>
+                </div>
               </div>
               <button
                 onClick={handleLogout}
                 className="p-2 text-gray-400 hover:text-red-400 transition-colors"
+                aria-label="Log out"
               >
                 <LogOut className="h-5 w-5" />
               </button>
@@ -62,6 +94,9 @@ const Dashboard = ({ user, onLogout }) => {
           </div>
         </div>
       </nav>
+
+      {/* UserProfile Modal */}
+      <UserProfile open={profileOpen} onOpenChange={setProfileOpen} />
 
       {/* Tab Navigation */}
       <div className="bg-black/10 backdrop-blur-sm border-b border-white/10">
