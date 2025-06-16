@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useReferralTracking } from '@/hooks/useReferralTracking';
@@ -81,7 +80,7 @@ const AppContent = () => {
     case 'auth':
       return <AuthPage onNavigate={(view: string) => handleNavigation(view)} />;
     case 'affiliate':
-      return <AffiliatePage />;
+      return <AffiliatePage onNavigate={(view: string) => handleNavigation(view)} />;
     case 'dashboard':
       return user ? (
         <Dashboard 

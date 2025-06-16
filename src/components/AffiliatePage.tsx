@@ -2,8 +2,12 @@
 import React from 'react';
 import { AffiliateDashboard } from './affiliate/AffiliateDashboard';
 
-const AffiliatePage = () => {
-  return <AffiliateDashboard />;
+interface AffiliatePageProps {
+  onNavigate?: (view: string) => void;
+}
+
+const AffiliatePage = ({ onNavigate }: AffiliatePageProps) => {
+  return <AffiliateDashboard onNavigate={onNavigate} />;
 };
 
 export default AffiliatePage;
