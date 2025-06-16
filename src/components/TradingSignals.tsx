@@ -1,3 +1,4 @@
+
 import React, { useState, memo, useMemo, useCallback } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useEnhancedSignalMonitoring } from '@/hooks/useEnhancedSignalMonitoring';
@@ -34,7 +35,7 @@ interface SystemDiagnostics {
 }
 
 const TradingSignals = memo(() => {
-  const { signals, loading, lastUpdate, signalDistribution, triggerAutomaticSignalGeneration, executeTimeBasedEliminationPlan } = useTradingSignals();
+  const { signals, loading, lastUpdate, signalDistribution, triggerAutomaticSignalGeneration, executeTimeBasedEliminationPlan, fetchSignals } = useTradingSignals();
   const { toast } = useToast();
   
   // Enhanced monitoring systems
@@ -161,14 +162,14 @@ const TradingSignals = memo(() => {
         Logger.info('recovery', '📊 Step 2: Verifying market data pipeline...');
         const { data: marketData, error: marketError } = await supabase
           .from('centralized_market_state')
-          .select('symbol, current_price, updated_at')
-          .order('updated_at', { ascending: false })
+          .select('symbol, current_price, last_update')
+          .order('last_update', { ascending: false })
           .limit(10);
 
         if (marketError || !marketData || marketData.length === 0) {
           recoverySteps.push(`❌ Market data pipeline: No data available`);
         } else {
-          const latestUpdate = new Date(marketData[0].updated_at);
+          const latestUpdate = new Date(marketData[0].last_update);
           const minutesOld = (Date.now() - latestUpdate.getTime()) / (1000 * 60);
           
           if (minutesOld > 10) {
