@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TrendingUp, RefreshCw, Bell, Settings, LogOut, CreditCard } from 'lucide-react';
+import { TrendingUp, RefreshCw, Bell, Settings, LogOut, CreditCard, Users } from 'lucide-react';
 import TradingSignals from './TradingSignals';
 import ExpiredSignals from './ExpiredSignals';
 import UserProfile from './UserProfile';
@@ -74,6 +74,10 @@ const Dashboard = ({ user, onLogout }) => {
   const navigateToSubscription = () => {
     // This will trigger the parent component to show subscription page
     window.dispatchEvent(new CustomEvent('navigate-to-subscription'));
+  };
+
+  const navigateToAffiliate = () => {
+    window.dispatchEvent(new CustomEvent('navigate-to-affiliate'));
   };
 
   return (
@@ -167,13 +171,16 @@ const Dashboard = ({ user, onLogout }) => {
             {[
               { id: 'signals', label: 'Active Signals' },
               { id: 'expired', label: 'Expired Signals' },
-              { id: 'subscription', label: 'Subscription', icon: CreditCard }
+              { id: 'subscription', label: 'Subscription', icon: CreditCard },
+              { id: 'affiliate', label: 'Affiliate Program', icon: Users }
             ].map(tab => (
               <button
                 key={tab.id}
                 onClick={() => {
                   if (tab.id === 'subscription') {
                     navigateToSubscription();
+                  } else if (tab.id === 'affiliate') {
+                    navigateToAffiliate();
                   } else {
                     setActiveTab(tab.id);
                   }
