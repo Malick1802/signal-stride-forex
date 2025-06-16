@@ -412,6 +412,12 @@ export type Database = {
           full_name: string | null
           id: string
           last_name: string | null
+          phone_number: string | null
+          sms_new_signals: boolean | null
+          sms_notifications_enabled: boolean | null
+          sms_stop_loss: boolean | null
+          sms_targets_hit: boolean | null
+          sms_verified: boolean | null
           updated_at: string | null
         }
         Insert: {
@@ -422,6 +428,12 @@ export type Database = {
           full_name?: string | null
           id: string
           last_name?: string | null
+          phone_number?: string | null
+          sms_new_signals?: boolean | null
+          sms_notifications_enabled?: boolean | null
+          sms_stop_loss?: boolean | null
+          sms_targets_hit?: boolean | null
+          sms_verified?: boolean | null
           updated_at?: string | null
         }
         Update: {
@@ -432,6 +444,12 @@ export type Database = {
           full_name?: string | null
           id?: string
           last_name?: string | null
+          phone_number?: string | null
+          sms_new_signals?: boolean | null
+          sms_notifications_enabled?: boolean | null
+          sms_stop_loss?: boolean | null
+          sms_targets_hit?: boolean | null
+          sms_verified?: boolean | null
           updated_at?: string | null
         }
         Relationships: []
