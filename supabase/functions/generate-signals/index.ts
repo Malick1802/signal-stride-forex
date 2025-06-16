@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
@@ -23,6 +24,8 @@ interface TechnicalIndicators {
   support: number;
   resistance: number;
   trend: 'bullish' | 'bearish' | 'sideways';
+  validationScore: number;
+  confirmations: string[];
 }
 
 interface SignalData {
@@ -36,6 +39,20 @@ interface SignalData {
   analysisText: string;
   technicalIndicators: TechnicalIndicators;
   chartData: Array<{ time: number; price: number }>;
+}
+
+interface PricePoint {
+  timestamp: number;
+  price: number;
+}
+
+interface OHLCVData {
+  timestamp: number;
+  open: number;
+  high: number;
+  low: number;
+  close: number;
+  volume?: number;
 }
 
 serve(async (req) => {
@@ -199,13 +216,27 @@ serve(async (req) => {
 
           console.log(`📊 Analyzing ${symbol} - Price: ${pair.current_price}`);
 
-          // Generate technical analysis
-          const technicalIndicators = generateTechnicalIndicators(pair, marketData);
-          const signal = await generateSignalWithAI(pair, technicalIndicators, openAIApiKey, optimized);
+          // Get real historical price data
+          const historicalData = await getHistoricalPriceData(supabase, symbol);
+          if (!historicalData || historicalData.length < 50) {
+            console.log(`⚠️ Insufficient historical data for ${symbol}: ${historicalData?.length || 0} points`);
+            return;
+          }
+
+          // Generate real technical analysis
+          const technicalIndicators = await generateRealTechnicalIndicators(historicalData, pair.current_price);
+          
+          // Only proceed if technical analysis is valid
+          if (technicalIndicators.validationScore < 3) {
+            console.log(`❌ ${symbol} failed technical validation (score: ${technicalIndicators.validationScore})`);
+            return;
+          }
+
+          const signal = await generateRealSignal(pair, technicalIndicators, historicalData);
 
           if (signal && signal.confidence >= 70) {
             generatedSignals.push(signal);
-            console.log(`✅ Generated ${signal.type} signal for ${symbol} (${signal.confidence}% confidence)`);
+            console.log(`✅ Generated ${signal.type} signal for ${symbol} (${signal.confidence}% confidence, validation: ${technicalIndicators.validationScore})`);
           }
         } catch (error) {
           console.error(`❌ Error generating signal for ${symbol}:`, error);
@@ -303,92 +334,251 @@ serve(async (req) => {
   }
 });
 
-function generateTechnicalIndicators(pair: any, marketData: any[]): TechnicalIndicators {
-  const price = pair.current_price;
-  const volatility = Math.random() * 0.02; // 2% max volatility
+// Get real historical price data from the database
+async function getHistoricalPriceData(supabase: any, symbol: string): Promise<PricePoint[] | null> {
+  try {
+    const { data, error } = await supabase
+      .from('live_price_history')
+      .select('timestamp, price')
+      .eq('symbol', symbol)
+      .order('timestamp', { ascending: true })
+      .limit(200);
+
+    if (error) {
+      console.error(`Error fetching historical data for ${symbol}:`, error);
+      return null;
+    }
+
+    if (!data || data.length < 50) {
+      console.log(`Insufficient historical data for ${symbol}: ${data?.length || 0} points`);
+      return null;
+    }
+
+    return data.map((point: any) => ({
+      timestamp: new Date(point.timestamp).getTime(),
+      price: parseFloat(point.price)
+    }));
+  } catch (error) {
+    console.error(`Error in getHistoricalPriceData for ${symbol}:`, error);
+    return null;
+  }
+}
+
+// Convert price points to OHLCV data
+function generateOHLCVFromPrices(priceData: PricePoint[]): OHLCVData[] {
+  if (priceData.length === 0) return [];
   
+  // Group prices by hour to create candlesticks
+  const hourlyData: { [key: string]: number[] } = {};
+  
+  priceData.forEach(point => {
+    const hourKey = Math.floor(point.timestamp / (60 * 60 * 1000)) * 60 * 60 * 1000;
+    if (!hourlyData[hourKey]) hourlyData[hourKey] = [];
+    hourlyData[hourKey].push(point.price);
+  });
+  
+  return Object.entries(hourlyData).map(([timestamp, prices]) => ({
+    timestamp: parseInt(timestamp),
+    open: prices[0],
+    high: Math.max(...prices),
+    low: Math.min(...prices),
+    close: prices[prices.length - 1],
+    volume: prices.length
+  })).sort((a, b) => a.timestamp - b.timestamp);
+}
+
+// Real technical analysis using actual price data
+async function generateRealTechnicalIndicators(historicalData: PricePoint[], currentPrice: number): Promise<TechnicalIndicators> {
+  const closes = historicalData.map(d => d.price);
+  const ohlcvData = generateOHLCVFromPrices(historicalData);
+  
+  // Calculate real RSI
+  const rsi = calculateRSI(closes, 14);
+  
+  // Calculate real MACD
+  const macdData = calculateMACD(closes);
+  
+  // Calculate real Bollinger Bands
+  const bbData = calculateBollingerBands(closes, 20, 2);
+  
+  // Calculate real moving averages
+  const ema20 = calculateEMA(closes, 20);
+  const sma20 = calculateSMA(closes, 20);
+  const sma50 = calculateSMA(closes, 50);
+  
+  // Calculate real support and resistance from price action
+  const { support, resistance } = calculateSupportResistance(closes);
+  
+  // Determine trend based on moving averages
+  const trend = currentPrice > sma20 && sma20 > sma50 ? 'bullish' : 
+               currentPrice < sma20 && sma20 < sma50 ? 'bearish' : 'sideways';
+  
+  // Calculate validation score based on technical confluence
+  let validationScore = 0;
+  const confirmations: string[] = [];
+  
+  // RSI validation
+  if (rsi < 30) {
+    validationScore += 2;
+    confirmations.push('RSI Oversold');
+  } else if (rsi > 70) {
+    validationScore += 2;
+    confirmations.push('RSI Overbought');
+  } else if (rsi > 40 && rsi < 60) {
+    validationScore += 1;
+    confirmations.push('RSI Neutral');
+  }
+  
+  // MACD validation
+  if (macdData.value > macdData.signal && macdData.histogram > 0) {
+    validationScore += 2;
+    confirmations.push('MACD Bullish');
+  } else if (macdData.value < macdData.signal && macdData.histogram < 0) {
+    validationScore += 2;
+    confirmations.push('MACD Bearish');
+  }
+  
+  // Bollinger Bands validation
+  if (currentPrice < bbData.lower) {
+    validationScore += 1.5;
+    confirmations.push('Below BB Lower');
+  } else if (currentPrice > bbData.upper) {
+    validationScore += 1.5;
+    confirmations.push('Above BB Upper');
+  }
+  
+  // Trend validation
+  if (trend !== 'sideways') {
+    validationScore += 1;
+    confirmations.push(`${trend} trend`);
+  }
+  
+  // Support/Resistance validation
+  const priceNearSupport = Math.abs(currentPrice - support) / currentPrice < 0.005;
+  const priceNearResistance = Math.abs(currentPrice - resistance) / currentPrice < 0.005;
+  
+  if (priceNearSupport) {
+    validationScore += 1;
+    confirmations.push('Near Support');
+  } else if (priceNearResistance) {
+    validationScore += 1;
+    confirmations.push('Near Resistance');
+  }
+
   return {
-    rsi: 30 + Math.random() * 40, // RSI between 30-70
+    rsi,
     macd: {
-      value: (Math.random() - 0.5) * 0.001,
-      signal: (Math.random() - 0.5) * 0.001,
-      histogram: (Math.random() - 0.5) * 0.0005
+      value: macdData.value,
+      signal: macdData.signal,
+      histogram: macdData.histogram
     },
     bollingerBands: {
-      upper: price * (1 + volatility),
-      middle: price,
-      lower: price * (1 - volatility)
+      upper: bbData.upper,
+      middle: bbData.middle,
+      lower: bbData.lower
     },
     movingAverages: {
-      sma20: price * (0.998 + Math.random() * 0.004),
-      sma50: price * (0.995 + Math.random() * 0.01),
-      ema20: price * (0.999 + Math.random() * 0.002)
+      sma20,
+      sma50,
+      ema20
     },
-    support: price * (0.995 - Math.random() * 0.01),
-    resistance: price * (1.005 + Math.random() * 0.01),
-    trend: Math.random() > 0.5 ? 'bullish' : 'bearish'
+    support,
+    resistance,
+    trend,
+    validationScore,
+    confirmations
   };
 }
 
-async function generateSignalWithAI(
+// Generate real signals based on technical analysis
+async function generateRealSignal(
   pair: any, 
   indicators: TechnicalIndicators, 
-  openAIApiKey: string | undefined,
-  optimized: boolean = false
+  historicalData: PricePoint[]
 ): Promise<SignalData | null> {
   const price = pair.current_price;
   const symbol = pair.symbol;
   
-  // Determine signal type based on technical analysis
-  const rsiSignal = indicators.rsi < 40 ? 'BUY' : indicators.rsi > 60 ? 'SELL' : null;
-  const trendSignal = indicators.trend === 'bullish' ? 'BUY' : 'SELL';
-  const macdSignal = indicators.macd.value > indicators.macd.signal ? 'BUY' : 'SELL';
+  // Determine signal type based on real technical analysis
+  let signalType: 'BUY' | 'SELL' | null = null;
+  let signalStrength = 0;
   
-  // Combine signals for final decision
-  const signals = [rsiSignal, trendSignal, macdSignal].filter(s => s !== null);
-  const buyCount = signals.filter(s => s === 'BUY').length;
-  const sellCount = signals.filter(s => s === 'SELL').length;
+  // RSI-based signals
+  if (indicators.rsi < 30 && indicators.trend === 'bullish') {
+    signalType = 'BUY';
+    signalStrength += 3;
+  } else if (indicators.rsi > 70 && indicators.trend === 'bearish') {
+    signalType = 'SELL';
+    signalStrength += 3;
+  }
   
-  if (buyCount === sellCount) return null; // No clear signal
+  // MACD confirmation
+  if (signalType === 'BUY' && indicators.macd.value > indicators.macd.signal) {
+    signalStrength += 2;
+  } else if (signalType === 'SELL' && indicators.macd.value < indicators.macd.signal) {
+    signalStrength += 2;
+  }
   
-  const signalType: 'BUY' | 'SELL' = buyCount > sellCount ? 'BUY' : 'SELL';
-  const confidence = Math.min(95, 65 + Math.abs(buyCount - sellCount) * 10 + Math.random() * 10);
+  // Bollinger Bands confirmation
+  if (signalType === 'BUY' && price < indicators.bollingerBands.lower) {
+    signalStrength += 2;
+  } else if (signalType === 'SELL' && price > indicators.bollingerBands.upper) {
+    signalStrength += 2;
+  }
   
-  // Calculate stop loss and take profits
-  const volatilityFactor = 0.001 + Math.random() * 0.002; // 0.1% to 0.3%
+  // Support/Resistance confirmation
+  const nearSupport = Math.abs(price - indicators.support) / price < 0.005;
+  const nearResistance = Math.abs(price - indicators.resistance) / price < 0.005;
+  
+  if (signalType === 'BUY' && nearSupport) {
+    signalStrength += 1;
+  } else if (signalType === 'SELL' && nearResistance) {
+    signalStrength += 1;
+  }
+  
+  // Need minimum signal strength
+  if (!signalType || signalStrength < 4) {
+    return null;
+  }
+  
+  // Calculate confidence based on signal strength and validation score
+  const confidence = Math.min(95, 60 + (signalStrength * 5) + (indicators.validationScore * 2));
+  
+  // Calculate real ATR for proper stop loss and take profit levels
+  const atr = calculateATR(generateOHLCVFromPrices(historicalData));
+  const atrMultiplier = 2; // Conservative ATR multiplier
   
   let stopLoss: number;
   let takeProfits: number[];
   
   if (signalType === 'BUY') {
-    stopLoss = price * (1 - volatilityFactor * 2);
+    stopLoss = Math.max(price - (atr * atrMultiplier), indicators.support * 0.999);
     takeProfits = [
-      price * (1 + volatilityFactor * 1.5),
-      price * (1 + volatilityFactor * 2.5),
-      price * (1 + volatilityFactor * 3.5),
-      price * (1 + volatilityFactor * 5),
-      price * (1 + volatilityFactor * 7)
+      Math.min(price + (atr * 1.5), indicators.resistance * 0.999),
+      Math.min(price + (atr * 2.5), indicators.resistance * 1.001),
+      price + (atr * 3.5),
+      price + (atr * 5),
+      price + (atr * 7)
     ];
   } else {
-    stopLoss = price * (1 + volatilityFactor * 2);
+    stopLoss = Math.min(price + (atr * atrMultiplier), indicators.resistance * 1.001);
     takeProfits = [
-      price * (1 - volatilityFactor * 1.5),
-      price * (1 - volatilityFactor * 2.5),
-      price * (1 - volatilityFactor * 3.5),
-      price * (1 - volatilityFactor * 5),
-      price * (1 - volatilityFactor * 7)
+      Math.max(price - (atr * 1.5), indicators.support * 1.001),
+      Math.max(price - (atr * 2.5), indicators.support * 0.999),
+      price - (atr * 3.5),
+      price - (atr * 5),
+      price - (atr * 7)
     ];
   }
   
-  // Generate analysis text
-  let analysisText = `${signalType} signal for ${symbol} based on technical analysis. `;
-  analysisText += `RSI: ${indicators.rsi.toFixed(1)} (${indicators.rsi < 40 ? 'oversold' : indicators.rsi > 60 ? 'overbought' : 'neutral'}), `;
+  // Generate analysis text with real technical context
+  let analysisText = `${signalType} signal for ${symbol} based on technical confluence. `;
+  analysisText += `RSI: ${indicators.rsi.toFixed(1)} (${indicators.rsi < 30 ? 'oversold' : indicators.rsi > 70 ? 'overbought' : 'neutral'}), `;
+  analysisText += `MACD: ${indicators.macd.value > indicators.macd.signal ? 'bullish' : 'bearish'}, `;
   analysisText += `Trend: ${indicators.trend}, `;
-  analysisText += `MACD: ${indicators.macd.value > indicators.macd.signal ? 'bullish' : 'bearish'} crossover. `;
+  analysisText += `Price vs BB: ${price < indicators.bollingerBands.lower ? 'below lower' : price > indicators.bollingerBands.upper ? 'above upper' : 'within bands'}. `;
+  analysisText += `Confirmations: ${indicators.confirmations.join(', ')}. `;
   analysisText += `Entry: ${price.toFixed(5)}, SL: ${stopLoss.toFixed(5)}, TP1: ${takeProfits[0].toFixed(5)}`;
-  
-  // Generate chart data
-  const chartData = generateChartData(price, 20);
   
   return {
     symbol,
@@ -400,32 +590,116 @@ async function generateSignalWithAI(
     confidence: Math.round(confidence),
     analysisText,
     technicalIndicators: indicators,
-    chartData
+    chartData: historicalData.slice(-50).map(point => ({
+      time: point.timestamp,
+      price: point.price
+    }))
   };
 }
 
-function generateChartData(currentPrice: number, points: number = 20): Array<{ time: number; price: number }> {
-  const data = [];
-  const now = Date.now();
-  const interval = 5 * 60 * 1000; // 5 minutes
+// Technical analysis utility functions
+function calculateRSI(prices: number[], period: number = 14): number {
+  if (prices.length < period + 1) return 50;
   
-  let price = currentPrice * (0.999 + Math.random() * 0.002); // Start slightly different
+  const changes = prices.slice(1).map((price, i) => price - prices[i]);
+  const gains = changes.map(change => change > 0 ? change : 0);
+  const losses = changes.map(change => change < 0 ? -change : 0);
   
-  for (let i = points - 1; i >= 0; i--) {
-    const time = now - (i * interval);
-    
-    // Add some realistic price movement
-    const change = (Math.random() - 0.5) * 0.001; // ±0.1% change
-    price = price * (1 + change);
-    
-    data.push({
-      time,
-      price: parseFloat(price.toFixed(5))
-    });
+  const avgGain = gains.slice(-period).reduce((sum, gain) => sum + gain, 0) / period;
+  const avgLoss = losses.slice(-period).reduce((sum, loss) => sum + loss, 0) / period;
+  
+  if (avgLoss === 0) return 100;
+  const rs = avgGain / avgLoss;
+  return 100 - (100 / (1 + rs));
+}
+
+function calculateMACD(prices: number[]): { value: number; signal: number; histogram: number } {
+  if (prices.length < 26) return { value: 0, signal: 0, histogram: 0 };
+  
+  const ema12 = calculateEMA(prices, 12);
+  const ema26 = calculateEMA(prices, 26);
+  const macdLine = ema12 - ema26;
+  
+  // For simplicity, use a basic signal calculation
+  const macdSignal = calculateEMA([macdLine], 9);
+  const histogram = macdLine - macdSignal;
+  
+  return { value: macdLine, signal: macdSignal, histogram };
+}
+
+function calculateEMA(prices: number[], period: number): number {
+  if (prices.length === 0) return 0;
+  if (prices.length < period) return prices[prices.length - 1];
+  
+  const multiplier = 2 / (period + 1);
+  let ema = prices.slice(0, period).reduce((sum, price) => sum + price, 0) / period;
+  
+  for (let i = period; i < prices.length; i++) {
+    ema = (prices[i] * multiplier) + (ema * (1 - multiplier));
   }
   
-  // Ensure the last point is close to current price
-  data[data.length - 1].price = currentPrice;
+  return ema;
+}
+
+function calculateSMA(prices: number[], period: number): number {
+  if (prices.length < period) return prices[prices.length - 1];
   
-  return data;
+  const recentPrices = prices.slice(-period);
+  return recentPrices.reduce((sum, price) => sum + price, 0) / period;
+}
+
+function calculateBollingerBands(prices: number[], period: number = 20, stdDev: number = 2): { upper: number; middle: number; lower: number } {
+  if (prices.length < period) {
+    const avg = prices.reduce((sum, price) => sum + price, 0) / prices.length;
+    return { upper: avg, middle: avg, lower: avg };
+  }
+  
+  const recentPrices = prices.slice(-period);
+  const middle = recentPrices.reduce((sum, price) => sum + price, 0) / period;
+  
+  const variance = recentPrices.reduce((sum, price) => sum + Math.pow(price - middle, 2), 0) / period;
+  const standardDeviation = Math.sqrt(variance);
+  
+  const upper = middle + (standardDeviation * stdDev);
+  const lower = middle - (standardDeviation * stdDev);
+  
+  return { upper, middle, lower };
+}
+
+function calculateSupportResistance(prices: number[]): { support: number; resistance: number } {
+  if (prices.length < 20) {
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+    return { support: min, resistance: max };
+  }
+  
+  // Simple support/resistance calculation based on recent highs and lows
+  const recentPrices = prices.slice(-50);
+  const sortedPrices = [...recentPrices].sort((a, b) => a - b);
+  
+  // Support: around 20th percentile
+  const supportIndex = Math.floor(sortedPrices.length * 0.2);
+  const support = sortedPrices[supportIndex];
+  
+  // Resistance: around 80th percentile
+  const resistanceIndex = Math.floor(sortedPrices.length * 0.8);
+  const resistance = sortedPrices[resistanceIndex];
+  
+  return { support, resistance };
+}
+
+function calculateATR(ohlcvData: OHLCVData[], period: number = 14): number {
+  if (ohlcvData.length < 2) return 0.001; // Default small ATR
+  
+  const trueRanges = ohlcvData.slice(1).map((candle, i) => {
+    const prevClose = ohlcvData[i].close;
+    const highLow = candle.high - candle.low;
+    const highClose = Math.abs(candle.high - prevClose);
+    const lowClose = Math.abs(candle.low - prevClose);
+    
+    return Math.max(highLow, highClose, lowClose);
+  });
+  
+  const recentTR = trueRanges.slice(-period);
+  return recentTR.reduce((sum, tr) => sum + tr, 0) / recentTR.length;
 }
