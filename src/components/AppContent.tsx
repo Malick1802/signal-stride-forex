@@ -10,7 +10,24 @@ const AppContent = () => {
   const { user, loading, subscription, checkSubscription } = useAuth();
   const [currentView, setCurrentView] = useState('landing');
   const [manualNavigation, setManualNavigation] = useState(false);
-  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
+  const [explicitAuthNavigation, setExplicitAuthNavigation] = useState(false);
+
+  // Handle navigation with special handling for auth page
+  const handleNavigation = (view: string) => {
+    console.log('Navigation requested to:', view);
+    
+    if (view === 'auth') {
+      setExplicitAuthNavigation(true);
+      setManualNavigation(true);
+    } else {
+      setExplicitAuthNavigation(false);
+      if (view === 'subscription') {
+        setManualNavigation(true);
+      }
+    }
+    
+    setCurrentView(view);
+  };
 
   // Set currentView based on auth and subscription state
   useEffect(() => {
@@ -27,14 +44,23 @@ const AppContent = () => {
         : null,
       currentView,
       manualNavigation,
+      explicitAuthNavigation,
     });
 
     if (loading) {
       return;
     }
 
+    // If user explicitly wants to go to auth, let them (even if logged in)
+    if (explicitAuthNavigation && currentView === 'auth') {
+      console.log('AppContent: Explicit auth navigation, staying on auth page');
+      return;
+    }
+
     if (!user) {
-      if (currentView !== 'landing') setCurrentView('landing');
+      if (currentView !== 'landing' && currentView !== 'auth') {
+        setCurrentView('landing');
+      }
       return;
     }
 
@@ -63,7 +89,7 @@ const AppContent = () => {
       console.log('AppContent: User lacks access, go to subscription page.');
       setCurrentView('subscription');
     }
-  }, [user, loading, subscription, currentView, manualNavigation]);
+  }, [user, loading, subscription, currentView, manualNavigation, explicitAuthNavigation]);
 
   // Listen for navigation events from Dashboard
   useEffect(() => {
@@ -80,6 +106,9 @@ const AppContent = () => {
   useEffect(() => {
     if (currentView !== 'subscription') {
       setManualNavigation(false);
+    }
+    if (currentView !== 'auth') {
+      setExplicitAuthNavigation(false);
     }
   }, [currentView]);
 
@@ -114,20 +143,20 @@ const AppContent = () => {
   }
 
   if (currentView === 'landing') {
-    return <LandingPage onNavigate={setCurrentView} />;
+    return <LandingPage onNavigate={handleNavigation} />;
   }
   if (currentView === 'auth') {
-    return <AuthPage onNavigate={setCurrentView} />;
+    return <AuthPage onNavigate={handleNavigation} />;
   }
   if (currentView === 'subscription') {
-    return <SubscriptionPage onNavigate={setCurrentView} />;
+    return <SubscriptionPage onNavigate={handleNavigation} />;
   }
   if (currentView === 'dashboard' && user) {
-    return <Dashboard user={user} onLogout={() => setCurrentView('landing')} />;
+    return <Dashboard user={user} onLogout={() => handleNavigation('landing')} />;
   }
   
   // Fallback
-  return <LandingPage onNavigate={setCurrentView} />;
+  return <LandingPage onNavigate={handleNavigation} />;
 };
 
 export default AppContent;

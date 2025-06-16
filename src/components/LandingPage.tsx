@@ -1,5 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { TrendingUp } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 interface Stat {
   label: string;
@@ -8,6 +10,7 @@ interface Stat {
 }
 
 const LandingPage = ({ onNavigate }) => {
+  const { user, signOut } = useAuth();
   const [stats, setStats] = useState<Stat[]>([
     { label: 'Accuracy', value: '85-95%', description: 'Signal Win Rate' },
     { label: 'Signals Sent', value: '100+', description: 'Per Month' },
@@ -25,6 +28,16 @@ const LandingPage = ({ onNavigate }) => {
     }, 3000);
   }, []);
 
+  const handleAuthNavigation = async () => {
+    // If user is already logged in, sign them out first to show fresh auth page
+    if (user) {
+      console.log('User already logged in, signing out to show fresh auth page');
+      await signOut();
+    }
+    // Navigate to auth page
+    onNavigate('auth');
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
       {/* Header */}
@@ -35,18 +48,37 @@ const LandingPage = ({ onNavigate }) => {
             <span className="text-2xl font-bold text-white">ForexSignals</span>
           </div>
           <div className="space-x-4">
-            <button
-              onClick={() => onNavigate('auth')}
-              className="px-6 py-2 text-white hover:text-emerald-400 transition-colors"
-            >
-              Sign In
-            </button>
-            <button
-              onClick={() => onNavigate('auth')}
-              className="px-6 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
-            >
-              Get Started
-            </button>
+            {user ? (
+              <>
+                <button
+                  onClick={() => onNavigate('dashboard')}
+                  className="px-6 py-2 text-white hover:text-emerald-400 transition-colors"
+                >
+                  Dashboard
+                </button>
+                <button
+                  onClick={handleAuthNavigation}
+                  className="px-6 py-2 text-white hover:text-emerald-400 transition-colors"
+                >
+                  Switch Account
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={handleAuthNavigation}
+                  className="px-6 py-2 text-white hover:text-emerald-400 transition-colors"
+                >
+                  Sign In
+                </button>
+                <button
+                  onClick={handleAuthNavigation}
+                  className="px-6 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
+                >
+                  Get Started
+                </button>
+              </>
+            )}
           </div>
         </div>
       </header>
@@ -60,12 +92,22 @@ const LandingPage = ({ onNavigate }) => {
           <p className="text-xl text-gray-300 mb-12">
             Get high-probability forex signals, backed by advanced AI analysis, delivered straight to your inbox.
           </p>
-          <button
-            onClick={() => onNavigate('auth')}
-            className="px-8 py-4 bg-gradient-to-r from-emerald-500 to-blue-500 text-white font-semibold rounded-lg text-lg hover:shadow-lg hover:shadow-emerald-500/25 transition-all"
-          >
-            Start Free Trial
-          </button>
+          {!user && (
+            <button
+              onClick={handleAuthNavigation}
+              className="px-8 py-4 bg-gradient-to-r from-emerald-500 to-blue-500 text-white font-semibold rounded-lg text-lg hover:shadow-lg hover:shadow-emerald-500/25 transition-all"
+            >
+              Start Free Trial
+            </button>
+          )}
+          {user && (
+            <button
+              onClick={() => onNavigate('dashboard')}
+              className="px-8 py-4 bg-gradient-to-r from-emerald-500 to-blue-500 text-white font-semibold rounded-lg text-lg hover:shadow-lg hover:shadow-emerald-500/25 transition-all"
+            >
+              Go to Dashboard
+            </button>
+          )}
         </div>
       </section>
 
@@ -138,12 +180,22 @@ const LandingPage = ({ onNavigate }) => {
           <p className="text-xl text-gray-300 mb-8">
             Get unlimited access to premium forex signals. No credit card required.
           </p>
-          <button
-            onClick={() => onNavigate('auth')}
-            className="px-8 py-4 bg-gradient-to-r from-emerald-500 to-blue-500 text-white font-semibold rounded-lg text-lg hover:shadow-lg hover:shadow-emerald-500/25 transition-all"
-          >
-            Start Free Trial
-          </button>
+          {!user && (
+            <button
+              onClick={handleAuthNavigation}
+              className="px-8 py-4 bg-gradient-to-r from-emerald-500 to-blue-500 text-white font-semibold rounded-lg text-lg hover:shadow-lg hover:shadow-emerald-500/25 transition-all"
+            >
+              Start Free Trial
+            </button>
+          )}
+          {user && (
+            <button
+              onClick={() => onNavigate('dashboard')}
+              className="px-8 py-4 bg-gradient-to-r from-emerald-500 to-blue-500 text-white font-semibold rounded-lg text-lg hover:shadow-lg hover:shadow-emerald-500/25 transition-all"
+            >
+              Go to Dashboard
+            </button>
+          )}
         </div>
       </section>
     </div>
