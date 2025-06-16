@@ -51,14 +51,22 @@ const AppContent = () => {
       return;
     }
 
-    // If user explicitly wants to go to auth, let them (even if logged in)
-    if (explicitAuthNavigation && currentView === 'auth') {
-      console.log('AppContent: Explicit auth navigation, staying on auth page');
+    // If user is authenticated and was on auth page, clear the explicit navigation flag
+    if (user && explicitAuthNavigation && currentView === 'auth') {
+      console.log('AppContent: User authenticated, clearing explicit auth navigation');
+      setExplicitAuthNavigation(false);
+      // Don't return here, let the normal flow handle navigation
+    }
+
+    // If user explicitly wants to go to auth and is NOT authenticated, let them stay
+    if (explicitAuthNavigation && currentView === 'auth' && !user) {
+      console.log('AppContent: Explicit auth navigation for unauthenticated user, staying on auth page');
       return;
     }
 
     if (!user) {
       if (currentView !== 'landing' && currentView !== 'auth') {
+        console.log('AppContent: No user, redirecting to landing');
         setCurrentView('landing');
       }
       return;
