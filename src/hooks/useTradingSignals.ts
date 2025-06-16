@@ -108,6 +108,7 @@ export const useTradingSignals = () => {
 
       // First pass: Filter out completely null/undefined signals
       const validRawSignals = activeSignals.filter((signal, index) => {
+        // Enhanced null and type validation
         if (!signal) {
           Logger.debug('signals', `Signal ${index + 1} is null/undefined - filtering out`);
           return false;
@@ -118,9 +119,25 @@ export const useTradingSignals = () => {
           return false;
         }
 
-        // Check for absolutely required fields
-        if (!signal.id || !signal.symbol || !signal.type) {
-          Logger.debug('signals', `Signal ${index + 1} missing critical fields - id: ${!!signal.id}, symbol: ${!!signal.symbol}, type: ${!!signal.type}`);
+        // Check for absolutely required fields with proper null/undefined checks
+        if (!signal.id || typeof signal.id !== 'string') {
+          Logger.debug('signals', `Signal ${index + 1} missing or invalid ID - id: ${signal.id} (type: ${typeof signal.id})`);
+          return false;
+        }
+
+        if (!signal.symbol || typeof signal.symbol !== 'string') {
+          Logger.debug('signals', `Signal ${index + 1} missing or invalid symbol - symbol: ${signal.symbol} (type: ${typeof signal.symbol})`);
+          return false;
+        }
+
+        if (!signal.type || typeof signal.type !== 'string') {
+          Logger.debug('signals', `Signal ${index + 1} missing or invalid type - type: ${signal.type} (type: ${typeof signal.type})`);
+          return false;
+        }
+
+        // Validate signal type values
+        if (signal.type !== 'BUY' && signal.type !== 'SELL') {
+          Logger.debug('signals', `Signal ${index + 1} has invalid type value: ${signal.type}`);
           return false;
         }
 
@@ -132,19 +149,24 @@ export const useTradingSignals = () => {
       const transformedSignals = validRawSignals
         .map((signal, index) => {
           try {
-            // Additional safety checks during transformation
+            // Additional safety checks during transformation with explicit null handling
             if (!signal?.id || typeof signal.id !== 'string') {
-              Logger.debug('signals', `Signal ${index + 1} has invalid ID: ${signal?.id}`);
+              Logger.debug('signals', `Signal ${index + 1} has invalid ID during transformation: ${signal?.id}`);
               return null;
             }
 
             if (!signal?.symbol || typeof signal.symbol !== 'string') {
-              Logger.debug('signals', `Signal ${index + 1} has invalid symbol: ${signal?.symbol}`);
+              Logger.debug('signals', `Signal ${index + 1} has invalid symbol during transformation: ${signal?.symbol}`);
               return null;
             }
 
-            if (!signal?.type || (signal.type !== 'BUY' && signal.type !== 'SELL')) {
-              Logger.debug('signals', `Signal ${index + 1} has invalid type: ${signal?.type}`);
+            if (!signal?.type || typeof signal.type !== 'string') {
+              Logger.debug('signals', `Signal ${index + 1} has invalid type during transformation: ${signal?.type}`);
+              return null;
+            }
+
+            if (signal.type !== 'BUY' && signal.type !== 'SELL') {
+              Logger.debug('signals', `Signal ${index + 1} has invalid type value during transformation: ${signal.type}`);
               return null;
             }
 
@@ -183,7 +205,7 @@ export const useTradingSignals = () => {
             const takeProfits = safeParseArray(signal.take_profits);
             const targetsHit = safeParseArray(signal.targets_hit);
 
-            const transformedSignal = {
+            const transformedSignal: TradingSignal = {
               id: signal.id,
               pair: signal.symbol,
               type: signal.type,
@@ -202,9 +224,19 @@ export const useTradingSignals = () => {
               targetsHit: targetsHit
             };
 
-            // Final validation of transformed signal
-            if (!transformedSignal.id || !transformedSignal.pair || !transformedSignal.type) {
-              Logger.error('signals', `Transformation failed for signal ${signal.id}: missing required fields after transformation`);
+            // Final validation of transformed signal with comprehensive checks
+            if (!transformedSignal.id || typeof transformedSignal.id !== 'string') {
+              Logger.error('signals', `Transformation failed for signal ${signal.id}: invalid ID after transformation`);
+              return null;
+            }
+
+            if (!transformedSignal.pair || typeof transformedSignal.pair !== 'string') {
+              Logger.error('signals', `Transformation failed for signal ${signal.id}: invalid pair after transformation`);
+              return null;
+            }
+
+            if (!transformedSignal.type || typeof transformedSignal.type !== 'string') {
+              Logger.error('signals', `Transformation failed for signal ${signal.id}: invalid type after transformation`);
               return null;
             }
 
@@ -221,9 +253,31 @@ export const useTradingSignals = () => {
           }
         })
         .filter((signal): signal is TradingSignal => {
-          if (!signal) return false;
-          if (!signal.id || !signal.pair || !signal.type) return false;
-          if (signal.type !== 'BUY' && signal.type !== 'SELL') return false;
+          if (!signal) {
+            return false;
+          }
+          
+          // Additional type safety checks for the filter predicate
+          if (typeof signal !== 'object') {
+            return false;
+          }
+          
+          if (!signal.id || typeof signal.id !== 'string') {
+            return false;
+          }
+          
+          if (!signal.pair || typeof signal.pair !== 'string') {
+            return false;
+          }
+          
+          if (!signal.type || typeof signal.type !== 'string') {
+            return false;
+          }
+          
+          if (signal.type !== 'BUY' && signal.type !== 'SELL') {
+            return false;
+          }
+          
           return true;
         });
 
