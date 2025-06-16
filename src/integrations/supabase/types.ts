@@ -403,6 +403,39 @@ export type Database = {
         }
         Relationships: []
       }
+      phone_verification_codes: {
+        Row: {
+          attempts: number
+          created_at: string
+          expires_at: string
+          id: string
+          phone_number: string
+          user_id: string
+          verification_code: string
+          verified: boolean
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          expires_at?: string
+          id?: string
+          phone_number: string
+          user_id: string
+          verification_code: string
+          verified?: boolean
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          expires_at?: string
+          id?: string
+          phone_number?: string
+          user_id?: string
+          verification_code?: string
+          verified?: boolean
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -895,6 +928,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      cleanup_expired_verification_codes: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       cleanup_old_signals: {
         Args: Record<PropertyKey, never>
         Returns: undefined
