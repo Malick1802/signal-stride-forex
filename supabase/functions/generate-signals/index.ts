@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
@@ -102,7 +101,7 @@ serve(async (req) => {
       optimized = false
     } = requestBody;
 
-    console.log(`🎯 Request params - Test: ${test}, Skip: ${skipGeneration}, Force: ${force}, Trigger: ${trigger}`);
+    console.log(`🎯 Request params - Test: ${test}, Skip: ${skipGeneration}, Force: ${force}, Trigger: ${trigger}, Optimized: ${optimized}`);
 
     // Test mode - just verify function is working
     if (test && skipGeneration) {
@@ -161,10 +160,12 @@ serve(async (req) => {
     }
 
     const currentSignalCount = existingSignals?.length || 0;
-    const maxSignals = optimized ? 8 : 20;
+    // FIXED: Always use 20 as the maximum signal limit regardless of optimization mode
+    const maxSignals = 20;
+    // Keep optimized maxNewSignals per run to maintain performance benefits
     const maxNewSignals = optimized ? Math.min(8, maxSignals - currentSignalCount) : Math.min(10, maxSignals - currentSignalCount);
 
-    console.log(`📋 Signal status - Current: ${currentSignalCount}/${maxSignals}, Can generate: ${maxNewSignals}`);
+    console.log(`📋 Signal status - Current: ${currentSignalCount}/${maxSignals}, Can generate: ${maxNewSignals}, Optimized mode: ${optimized}`);
 
     if (maxNewSignals <= 0 && !force) {
       console.log('⚠️ Signal limit reached, skipping generation');
@@ -174,7 +175,8 @@ serve(async (req) => {
         stats: {
           signalsGenerated: 0,
           totalActiveSignals: currentSignalCount,
-          signalLimit: maxSignals
+          signalLimit: maxSignals,
+          maxNewSignalsPerRun: optimized ? 8 : 10
         }
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
