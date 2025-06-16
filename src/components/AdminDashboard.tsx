@@ -3,6 +3,8 @@ import React, { useState } from 'react';
 import { TrendingUp, Users, Activity, DollarSign, Shield, Database, BarChart3, Settings } from 'lucide-react';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { useAuth } from '@/contexts/AuthContext';
+import UserManagement from './admin/UserManagement';
+import SignalManagement from './admin/SignalManagement';
 
 interface AdminDashboardProps {
   onNavigate: (view: string) => void;
@@ -104,8 +106,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
       {/* Content Area */}
       <div className="p-6">
         {activeTab === 'overview' && <AdminOverview />}
-        {activeTab === 'users' && <div className="text-white">User Management - Coming Soon</div>}
-        {activeTab === 'signals' && <div className="text-white">Signal Management - Coming Soon</div>}
+        {activeTab === 'users' && <UserManagement />}
+        {activeTab === 'signals' && <SignalManagement />}
         {activeTab === 'financial' && <div className="text-white">Financial Management - Coming Soon</div>}
         {activeTab === 'system' && <div className="text-white">System Administration - Coming Soon</div>}
         {activeTab === 'settings' && <div className="text-white">Settings - Coming Soon</div>}
