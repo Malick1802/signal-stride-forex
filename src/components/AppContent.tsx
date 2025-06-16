@@ -79,7 +79,7 @@ const AppContent = () => {
   // Render based on current view
   switch (currentView) {
     case 'auth':
-      return <AuthPage />;
+      return <AuthPage onNavigate={(view: string) => handleNavigation(view)} />;
     case 'affiliate':
       return <AffiliatePage />;
     case 'dashboard':
