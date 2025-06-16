@@ -23,7 +23,7 @@ import UserProfile from './UserProfile';
 import SubscriptionPage from './SubscriptionPage';
 import { SMSSettings } from './SMSSettings';
 import { SystemHealthIndicator } from './SystemHealthIndicator';
-import { SubscriptionStatusWidget } from './SubscriptionStatusWidget';
+import SubscriptionStatusWidget from './SubscriptionStatusWidget';
 
 interface DashboardProps {
   user: User;
@@ -33,13 +33,29 @@ interface DashboardProps {
 }
 
 const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin }: DashboardProps) => {
-  const { signOut } = useAuth();
+  const { signOut, subscription } = useAuth();
   const { isAdmin } = useAdminCheck();
   const [activeTab, setActiveTab] = useState('signals');
 
   const handleLogout = async () => {
     await signOut();
     onLogout();
+  };
+
+  const handleUpgrade = () => {
+    setActiveTab('subscription');
+  };
+
+  const handleManageSubscription = () => {
+    setActiveTab('subscription');
+  };
+
+  const handleNavigate = (view: string) => {
+    if (view === 'dashboard') {
+      setActiveTab('signals');
+    } else {
+      setActiveTab(view);
+    }
   };
 
   return (
@@ -55,7 +71,11 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin }:
             </div>
             
             <div className="flex items-center space-x-4">
-              <SubscriptionStatusWidget />
+              <SubscriptionStatusWidget 
+                subscription={subscription}
+                onUpgrade={handleUpgrade}
+                onManageSubscription={handleManageSubscription}
+              />
               
               {onNavigateToAffiliate && (
                 <Button
@@ -132,7 +152,7 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin }:
           </TabsContent>
 
           <TabsContent value="subscription" className="space-y-6">
-            <SubscriptionPage />
+            <SubscriptionPage onNavigate={handleNavigate} />
           </TabsContent>
 
           <TabsContent value="sms" className="space-y-6">
