@@ -203,16 +203,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    // Set up auth state listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    console.log('AuthContext: Initializing auth state');
+    
+    // Set up auth state listener FIRST
+    const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('AuthContext: Auth state changed:', event, session?.user?.email);
+        console.log('AuthContext: Auth state changed:', event, session?.user?.email || 'no user');
+        
+        // Update state immediately
         setSession(session);
         setUser(session?.user ?? null);
         
+        // Handle subscription check after state update
         if (session?.user && event === 'SIGNED_IN') {
           console.log('AuthContext: User signed in, checking subscription');
-          // Use a small delay to ensure session is fully established
+          // Use setTimeout to avoid blocking the auth state change
           setTimeout(() => {
             checkSubscription(false);
           }, 100);
@@ -221,12 +226,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setSubscription(null);
           clearSubscriptionCache();
         }
+        
+        // Set loading to false after first auth state change
+        setLoading(false);
       }
     );
 
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log('AuthContext: Initial session check:', session?.user?.email);
+    // THEN check for existing session
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('AuthContext: Error getting initial session:', error);
+      }
+      
+      console.log('AuthContext: Initial session check:', session?.user?.email || 'no user');
       setSession(session);
       setUser(session?.user ?? null);
       
@@ -243,10 +255,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      console.log('AuthContext: Cleaning up auth subscription');
+      authSubscription.unsubscribe();
+    };
   }, []);
 
   const signUp = async (email: string, password: string) => {
+    console.log('AuthContext: Attempting signup for:', email);
     const redirectUrl = `${window.location.origin}/`;
     
     const { error } = await supabase.auth.signUp({
@@ -258,27 +274,40 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
     
     if (error) {
-      console.error('Signup error:', error);
+      console.error('AuthContext: Signup error:', error);
+    } else {
+      console.log('AuthContext: Signup successful');
     }
     
     return { error };
   };
 
   const signIn = async (email: string, password: string) => {
+    console.log('AuthContext: Attempting signin for:', email);
     const { error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
     
     if (error) {
-      console.error('Signin error:', error);
+      console.error('AuthContext: Signin error:', error);
+    } else {
+      console.log('AuthContext: Signin successful');
     }
     
     return { error };
   };
 
   const signOut = async () => {
+    console.log('AuthContext: Attempting signout');
     const { error } = await supabase.auth.signOut();
+    
+    if (error) {
+      console.error('AuthContext: Signout error:', error);
+    } else {
+      console.log('AuthContext: Signout successful');
+    }
+    
     setSubscription(null);
     clearSubscriptionCache();
     return { error };

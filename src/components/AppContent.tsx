@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useReferralTracking } from '@/hooks/useReferralTracking';
@@ -9,9 +10,7 @@ import AffiliatePage from './AffiliatePage';
 const AppContent = () => {
   const { user, loading, subscription } = useAuth();
   const { trackSignup, trackSubscription } = useReferralTracking();
-  const [currentView, setCurrentView] = useState('dashboard');
-  const [manualNavigation, setManualNavigation] = useState(false);
-  const [explicitAuthNavigation, setExplicitAuthNavigation] = useState(false);
+  const [currentView, setCurrentView] = useState('landing');
 
   // Initialize referral tracking
   useReferralTracking();
@@ -21,36 +20,32 @@ const AppContent = () => {
       user: user?.email || 'none',
       loading,
       subscription,
-      currentView,
-      manualNavigation,
-      explicitAuthNavigation
+      currentView
     });
 
     if (loading) return;
 
-    // Handle authenticated users
+    // Simple navigation logic based on auth state
     if (user) {
-      // If user just signed up, track the signup
-      if (!manualNavigation && !explicitAuthNavigation) {
+      // Track signup for new users (only once)
+      if (currentView !== 'dashboard') {
         trackSignup(user.id);
       }
       
-      // Default to dashboard for authenticated users
-      if (!manualNavigation) {
-        setCurrentView('dashboard');
-      }
+      // Show dashboard for authenticated users
+      setCurrentView('dashboard');
     } else {
       // Show landing page for unauthenticated users
-      if (!explicitAuthNavigation) {
+      if (currentView === 'dashboard') {
         setCurrentView('landing');
       }
     }
-  }, [user, loading, subscription, manualNavigation, explicitAuthNavigation, trackSignup]);
+  }, [user, loading, trackSignup]);
 
   // Handle subscription events for commission tracking
   useEffect(() => {
     if (user && subscription?.subscribed) {
-      // Estimate subscription amount based on tier (you might want to get this from Stripe)
+      // Estimate subscription amount based on tier
       const subscriptionAmount = subscription.subscription_tier === 'premium' ? 99 : 49;
       trackSubscription(user.id, subscriptionAmount);
     }
@@ -64,36 +59,30 @@ const AppContent = () => {
     );
   }
 
-  const handleNavigation = (view: string, manual = true) => {
-    setManualNavigation(manual);
-    setExplicitAuthNavigation(view === 'auth');
+  const handleNavigation = (view: string) => {
+    console.log('AppContent: Navigating to:', view);
     setCurrentView(view);
-  };
-
-  const handleLogout = () => {
-    // This will be handled by the Dashboard component itself
-    console.log('Logout requested');
   };
 
   // Render based on current view
   switch (currentView) {
     case 'auth':
-      return <AuthPage onNavigate={(view: string) => handleNavigation(view)} />;
+      return <AuthPage onNavigate={handleNavigation} />;
     case 'affiliate':
-      return <AffiliatePage onNavigate={(view: string) => handleNavigation(view)} />;
+      return <AffiliatePage onNavigate={handleNavigation} />;
     case 'dashboard':
       return user ? (
         <Dashboard 
           user={user} 
-          onLogout={handleLogout}
+          onLogout={() => {}} // Will be handled by Dashboard component
           onNavigateToAffiliate={() => handleNavigation('affiliate')} 
         />
       ) : (
-        <LandingPage onNavigate={(view: string) => handleNavigation(view)} />
+        <LandingPage onNavigate={handleNavigation} />
       );
     case 'landing':
     default:
-      return <LandingPage onNavigate={(view: string) => handleNavigation(view)} />;
+      return <LandingPage onNavigate={handleNavigation} />;
   }
 };
 

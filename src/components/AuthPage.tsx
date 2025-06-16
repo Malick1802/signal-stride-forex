@@ -27,10 +27,10 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
 
     try {
       if (isLogin) {
-        console.log('Attempting to sign in with:', email);
+        console.log('AuthPage: Attempting to sign in with:', email);
         const { error } = await signIn(email, password);
         if (error) {
-          console.error('Sign in error:', error);
+          console.error('AuthPage: Sign in error:', error);
           if (error.message.includes('Email not confirmed')) {
             setError('Please check your email and click the confirmation link before signing in.');
           } else if (error.message.includes('Invalid login credentials')) {
@@ -39,30 +39,36 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
             setError(error.message);
           }
         } else {
-          console.log('Sign in successful');
+          console.log('AuthPage: Sign in successful - navigation will be handled by AuthContext');
+          // No need to manually navigate - AuthContext will handle this
         }
       } else {
         if (password !== confirmPassword) {
           setError('Passwords do not match');
           return;
         }
-        console.log('Attempting to sign up with:', email);
+        if (password.length < 6) {
+          setError('Password must be at least 6 characters long');
+          return;
+        }
+        
+        console.log('AuthPage: Attempting to sign up with:', email);
         const { error } = await signUp(email, password);
         if (error) {
-          console.error('Sign up error:', error);
+          console.error('AuthPage: Sign up error:', error);
           if (error.message.includes('User already registered')) {
             setError('An account with this email already exists. Please sign in instead.');
           } else {
             setError(error.message);
           }
         } else {
-          console.log('Sign up successful - showing confirmation message');
+          console.log('AuthPage: Sign up successful - showing confirmation message');
           setSignupSuccess(true);
         }
       }
     } catch (err) {
-      console.error('Unexpected error:', err);
-      setError('An unexpected error occurred');
+      console.error('AuthPage: Unexpected error:', err);
+      setError('An unexpected error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -170,7 +176,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white transition-colors"
               >
                 {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
               </button>
@@ -212,6 +218,9 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
                 setIsLogin(!isLogin);
                 setError('');
                 setSignupSuccess(false);
+                setEmail('');
+                setPassword('');
+                setConfirmPassword('');
               }}
               className="text-emerald-400 hover:text-emerald-300 transition-colors"
             >
