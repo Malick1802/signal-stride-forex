@@ -68,7 +68,14 @@ export const useAffiliate = () => {
         return;
       }
 
-      setAffiliateData(data);
+      if (data) {
+        // Type assertion to ensure proper types
+        setAffiliateData({
+          ...data,
+          status: data.status as AffiliateData['status'],
+          tier: data.tier as AffiliateData['tier']
+        });
+      }
     } catch (error) {
       console.error('Error fetching affiliate data:', error);
     } finally {
@@ -92,7 +99,15 @@ export const useAffiliate = () => {
         return;
       }
 
-      setCommissions(data || []);
+      if (data) {
+        // Type assertion to ensure proper types
+        const typedCommissions = data.map(commission => ({
+          ...commission,
+          commission_type: commission.commission_type as AffiliateCommission['commission_type'],
+          status: commission.status as AffiliateCommission['status']
+        }));
+        setCommissions(typedCommissions);
+      }
     } catch (error) {
       console.error('Error fetching commissions:', error);
     }
@@ -139,7 +154,14 @@ export const useAffiliate = () => {
         return false;
       }
 
-      setAffiliateData(data.affiliate);
+      if (data?.affiliate) {
+        setAffiliateData({
+          ...data.affiliate,
+          status: data.affiliate.status as AffiliateData['status'],
+          tier: data.affiliate.tier as AffiliateData['tier']
+        });
+      }
+      
       toast({
         title: "Success!",
         description: "You've been registered as an affiliate. Your application is pending approval.",
