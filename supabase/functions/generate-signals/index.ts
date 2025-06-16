@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
@@ -104,12 +103,12 @@ serve(async (req) => {
       });
     }
 
-    // Get current market data
+    // Get current market data - FIXED: Use correct column name 'last_update'
     console.log('📊 Fetching current market data...');
     const { data: marketData, error: marketError } = await supabase
       .from('centralized_market_state')
       .select('*')
-      .order('updated_at', { ascending: false })
+      .order('last_update', { ascending: false })
       .limit(30);
 
     if (marketError) {
