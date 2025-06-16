@@ -19,12 +19,12 @@ const SignalManagement = () => {
     }
   };
 
-  const getOutcomeBadge = (outcome: any) => {
-    if (!outcome || outcome.length === 0) {
+  const getOutcomeBadge = (outcomes: any) => {
+    if (!outcomes || !Array.isArray(outcomes) || outcomes.length === 0) {
       return <Badge variant="outline" className="text-yellow-400 border-yellow-500/30">Pending</Badge>;
     }
     
-    const result = outcome[0];
+    const result = outcomes[0];
     if (result.hit_target) {
       return <Badge className="bg-green-500/20 text-green-400 border-green-500/30">Success</Badge>;
     } else {
@@ -119,7 +119,7 @@ const SignalManagement = () => {
                   <TableCell>{getStatusBadge(signal.status)}</TableCell>
                   <TableCell>{getOutcomeBadge(signal.signal_outcomes)}</TableCell>
                   <TableCell className="text-gray-300">
-                    {signal.signal_outcomes && signal.signal_outcomes.length > 0 
+                    {signal.signal_outcomes && Array.isArray(signal.signal_outcomes) && signal.signal_outcomes.length > 0 
                       ? signal.signal_outcomes[0].pnl_pips || 'N/A'
                       : 'Pending'}
                   </TableCell>

@@ -25,12 +25,14 @@ const UserManagement = () => {
     }
   };
 
-  const getUserRole = (userRoles: any[]) => {
-    return userRoles?.some(role => role.role === 'admin') ? 'admin' : 'user';
+  const getUserRole = (userRoles: any) => {
+    if (!userRoles || !Array.isArray(userRoles)) return 'user';
+    return userRoles.some(role => role.role === 'admin') ? 'admin' : 'user';
   };
 
-  const getSubscriptionStatus = (subscribers: any[]) => {
-    const sub = subscribers?.[0];
+  const getSubscriptionStatus = (subscribers: any) => {
+    if (!subscribers || !Array.isArray(subscribers)) return 'No subscription';
+    const sub = subscribers[0];
     if (!sub) return 'No subscription';
     if (sub.subscribed) return `Active (${sub.subscription_tier || 'Unknown'})`;
     if (sub.trial_end && new Date(sub.trial_end) > new Date()) return 'Trial';
@@ -123,9 +125,9 @@ const UserManagement = () => {
             </TableHeader>
             <TableBody>
               {filteredUsers.map((user) => {
-                const userRole = getUserRole(user.user_roles || []);
+                const userRole = getUserRole(user.user_roles);
                 const isAdmin = userRole === 'admin';
-                const subscriptionStatus = getSubscriptionStatus(user.subscribers || []);
+                const subscriptionStatus = getSubscriptionStatus(user.subscribers);
                 
                 return (
                   <TableRow key={user.id} className="border-white/10 hover:bg-white/5">
