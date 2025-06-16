@@ -10,6 +10,7 @@ const AppContent = () => {
   const { user, loading, subscription, checkSubscription } = useAuth();
   const [currentView, setCurrentView] = useState('landing');
   const [manualNavigation, setManualNavigation] = useState(false);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
 
   // Set currentView based on auth and subscription state
   useEffect(() => {
@@ -37,33 +38,30 @@ const AppContent = () => {
       return;
     }
 
-    // For logged in users, allow access to dashboard even while subscription is loading
-    // The dashboard itself will handle subscription-specific features
-    if (subscription) {
-      if (subscription.has_access) {
-        // Don't redirect if user manually navigated to subscription page
-        if (currentView !== 'dashboard' && currentView !== 'subscription') {
-          console.log('AppContent: User has access, go to dashboard.');
-          setCurrentView('dashboard');
-        } else if (currentView === 'subscription' && !manualNavigation) {
-          console.log('AppContent: User has access, go to dashboard.');
-          setCurrentView('dashboard');
-        }
-        return;
-      }
+    // For logged in users, we need to wait for subscription data
+    if (subscription === null) {
+      // Show loading state while subscription is being fetched
+      console.log('AppContent: Waiting for subscription data to load');
+      return;
+    }
 
-      // No access: show subscription page
-      if (currentView !== 'subscription') {
-        console.log('AppContent: User lacks access, go to subscription page.');
-        setCurrentView('subscription');
-      }
-    } else {
-      // If subscription is null but user exists, show dashboard with loading state
-      // This prevents blocking the UI while subscription loads
+    // Now we have subscription data, decide where to go
+    if (subscription.has_access) {
+      // Don't redirect if user manually navigated to subscription page
       if (currentView !== 'dashboard' && currentView !== 'subscription') {
-        console.log('AppContent: User exists but subscription loading, show dashboard.');
+        console.log('AppContent: User has access, go to dashboard.');
+        setCurrentView('dashboard');
+      } else if (currentView === 'subscription' && !manualNavigation) {
+        console.log('AppContent: User has access, go to dashboard.');
         setCurrentView('dashboard');
       }
+      return;
+    }
+
+    // No access: show subscription page
+    if (currentView !== 'subscription') {
+      console.log('AppContent: User lacks access, go to subscription page.');
+      setCurrentView('subscription');
     }
   }, [user, loading, subscription, currentView, manualNavigation]);
 
@@ -90,15 +88,27 @@ const AppContent = () => {
     if (!user) return;
     const interval = setInterval(() => {
       checkSubscription();
-    }, 120000); // 2 minutes instead of 30 seconds
+    }, 120000); // 2 minutes
     return () => clearInterval(interval);
   }, [user, checkSubscription]);
 
-  // Always show loading state while auth is loading
+  // Show loading state while auth is loading
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center">
         <div className="text-white text-xl">Loading...</div>
+      </div>
+    );
+  }
+
+  // Show subscription loading state for logged in users without subscription data
+  if (user && subscription === null) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-white text-xl mb-4">Loading subscription status...</div>
+          <div className="text-gray-400">Please wait while we verify your account</div>
+        </div>
       </div>
     );
   }

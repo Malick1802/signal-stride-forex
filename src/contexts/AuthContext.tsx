@@ -91,8 +91,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isCheckingSubscription, setIsCheckingSubscription] = useState(false);
 
   const checkSubscription = async (forceRefresh: boolean = false) => {
-    if (!session?.user) {
-      console.log('AuthContext: No session, skipping subscription check');
+    // Get the current session directly instead of relying on state
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    
+    if (!currentSession?.user) {
+      console.log('AuthContext: No current session, skipping subscription check');
+      setSubscription(null);
       return;
     }
     
@@ -102,7 +106,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    const userId = session.user.id;
+    const userId = currentSession.user.id;
     
     // Try cache first unless forced refresh
     if (!forceRefresh) {
@@ -118,15 +122,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsCheckingSubscription(true);
     
     try {
-      console.log('AuthContext: Checking subscription for user', session.user.email);
+      console.log('AuthContext: Checking subscription for user', currentSession.user.email);
       const { data, error } = await supabase.functions.invoke('check-subscription', {
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${currentSession.access_token}`,
         },
       });
 
       if (error) {
         console.error('AuthContext: Error checking subscription:', error);
+        // Set a fallback subscription state instead of leaving it null
+        setSubscription({
+          subscribed: false,
+          subscription_tier: null,
+          subscription_end: null,
+          trial_end: null,
+          is_trial_active: false,
+          has_access: false
+        });
         return;
       }
 
@@ -135,25 +148,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCachedSubscription(userId, data);
     } catch (error) {
       console.error('AuthContext: Error checking subscription:', error);
+      // Set fallback state on error
+      setSubscription({
+        subscribed: false,
+        subscription_tier: null,
+        subscription_end: null,
+        trial_end: null,
+        is_trial_active: false,
+        has_access: false
+      });
     } finally {
       setIsCheckingSubscription(false);
     }
   };
 
   const createCheckout = async () => {
-    if (!session) return { error: 'Not authenticated' };
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    if (!currentSession) return { error: 'Not authenticated' };
 
     try {
       const { data, error } = await supabase.functions.invoke('create-checkout', {
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${currentSession.access_token}`,
         },
       });
 
       if (error) return { error: error.message };
       
       // Clear cache after checkout to force refresh
-      clearSubscriptionCache(session.user.id);
+      clearSubscriptionCache(currentSession.user.id);
       
       return { url: data.url };
     } catch (error) {
@@ -162,12 +185,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const openCustomerPortal = async () => {
-    if (!session) return { error: 'Not authenticated' };
+    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    if (!currentSession) return { error: 'Not authenticated' };
 
     try {
       const { data, error } = await supabase.functions.invoke('customer-portal', {
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${currentSession.access_token}`,
         },
       });
 
@@ -188,8 +212,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (session?.user && event === 'SIGNED_IN') {
           console.log('AuthContext: User signed in, checking subscription');
-          // Check subscription immediately with cache
-          checkSubscription(false);
+          // Use a small delay to ensure session is fully established
+          setTimeout(() => {
+            checkSubscription(false);
+          }, 100);
         } else if (!session) {
           console.log('AuthContext: No session, clearing subscription');
           setSubscription(null);
@@ -206,8 +232,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (session?.user) {
         console.log('AuthContext: Existing session found, checking subscription');
-        // Check subscription with cache first
-        checkSubscription(false);
+        // Use a small delay to ensure everything is initialized
+        setTimeout(() => {
+          checkSubscription(false);
+        }, 200);
       } else {
         console.log('AuthContext: No existing session');
       }
