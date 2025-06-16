@@ -10,7 +10,7 @@ import RealTimeStatus from './RealTimeStatus';
 import GlobalRefreshIndicator from './GlobalRefreshIndicator';
 import SignalDebuggingDashboard from './SignalDebuggingDashboard';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, Activity, Brain, Shield, Zap, Target, TrendingUp, Bug, Star, Award, AlertTriangle, CheckCircle, BarChart3 } from 'lucide-react';
+import { RefreshCw, Activity, Brain, Shield, Zap, Target, TrendingUp, Bug, Star, Award, AlertTriangle, CheckCircle, BarChart3, Wrench, TestTube } from 'lucide-react';
 import { useMarketActivation } from '@/hooks/useMarketActivation';
 import Logger from '@/utils/logger';
 
@@ -32,6 +32,9 @@ const TradingSignals = memo(() => {
   const [eliminatingTimeBased, setEliminatingTimeBased] = useState(false);
   const [showDebugDashboard, setShowDebugDashboard] = useState(false);
   const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [testingEdgeFunction, setTestingEdgeFunction] = useState(false);
+  const [testingMarketData, setTestingMarketData] = useState(false);
+  const [systemDiagnostics, setSystemDiagnostics] = useState<any>(null);
 
   const { activateMarket } = useMarketActivation();
 
@@ -109,6 +112,199 @@ const TradingSignals = memo(() => {
   // Calculate signal type difference (for monitoring, not balancing)
   const signalDifference = Math.abs(signalDistribution.buy - signalDistribution.sell);
   const hasStrongBias = signalDifference >= 5;
+
+  // NEW: Enhanced system diagnostics function
+  const handleSystemDiagnostics = useCallback(async () => {
+    try {
+      setTestingSystem(true);
+      Logger.info('diagnostics', 'Starting comprehensive system diagnostics...');
+      
+      const diagnostics = {
+        timestamp: new Date().toISOString(),
+        tests: {},
+        errors: [],
+        recommendations: []
+      };
+
+      // Test 1: Database connectivity
+      try {
+        const { data: dbTest, error: dbError } = await supabase
+          .from('trading_signals')
+          .select('count(*)')
+          .limit(1);
+        
+        diagnostics.tests.database = dbError ? 'FAILED' : 'PASSED';
+        if (dbError) diagnostics.errors.push(`Database: ${dbError.message}`);
+      } catch (error) {
+        diagnostics.tests.database = 'FAILED';
+        diagnostics.errors.push(`Database connection failed: ${error}`);
+      }
+
+      // Test 2: Market data availability
+      try {
+        const { data: marketData, error: marketError } = await supabase
+          .from('centralized_market_state')
+          .select('*')
+          .limit(5);
+        
+        diagnostics.tests.marketData = marketError ? 'FAILED' : 'PASSED';
+        diagnostics.tests.marketDataCount = marketData?.length || 0;
+        if (marketError) diagnostics.errors.push(`Market Data: ${marketError.message}`);
+      } catch (error) {
+        diagnostics.tests.marketData = 'FAILED';
+        diagnostics.errors.push(`Market data fetch failed: ${error}`);
+      }
+
+      // Test 3: Signal generation function availability
+      try {
+        const { data: functionTest, error: functionError } = await supabase.functions.invoke('generate-signals', {
+          body: { test: true, skipGeneration: true }
+        });
+        
+        diagnostics.tests.edgeFunction = functionError ? 'FAILED' : 'PASSED';
+        if (functionError) diagnostics.errors.push(`Edge Function: ${functionError.message}`);
+      } catch (error) {
+        diagnostics.tests.edgeFunction = 'FAILED';
+        diagnostics.errors.push(`Edge function test failed: ${error}`);
+      }
+
+      // Test 4: Check signal distribution and age
+      try {
+        const { data: signalStats, error: statsError } = await supabase
+          .from('trading_signals')
+          .select('status, created_at, confidence, symbol, type')
+          .order('created_at', { ascending: false })
+          .limit(50);
+
+        if (!statsError && signalStats) {
+          const activeSignals = signalStats.filter(s => s.status === 'active');
+          const expiredSignals = signalStats.filter(s => s.status === 'expired');
+          const recentSignals = signalStats.filter(s => 
+            new Date(s.created_at) > new Date(Date.now() - 24 * 60 * 60 * 1000)
+          );
+
+          diagnostics.tests.activeSignals = activeSignals.length;
+          diagnostics.tests.expiredSignals = expiredSignals.length;
+          diagnostics.tests.recentSignals = recentSignals.length;
+          diagnostics.tests.signalAge = signalStats.length > 0 ? 
+            Math.round((Date.now() - new Date(signalStats[0].created_at).getTime()) / (1000 * 60 * 60)) : 0;
+
+          // Generate recommendations
+          if (activeSignals.length === 0) {
+            diagnostics.recommendations.push('No active signals found - signal generation may have stopped');
+          }
+          if (recentSignals.length === 0) {
+            diagnostics.recommendations.push('No signals generated in last 24 hours - check edge function and market data');
+          }
+          if (diagnostics.tests.signalAge > 72) {
+            diagnostics.recommendations.push('Latest signal is very old - signal generation pipeline needs attention');
+          }
+        }
+      } catch (error) {
+        diagnostics.errors.push(`Signal analysis failed: ${error}`);
+      }
+
+      setSystemDiagnostics(diagnostics);
+      
+      const passedTests = Object.values(diagnostics.tests).filter(result => result === 'PASSED').length;
+      const totalTests = Object.keys(diagnostics.tests).length;
+      
+      toast({
+        title: "🔍 System Diagnostics Complete",
+        description: `${passedTests}/${totalTests} tests passed. ${diagnostics.errors.length} errors found.`,
+        variant: diagnostics.errors.length === 0 ? "default" : "destructive"
+      });
+
+      Logger.info('diagnostics', 'System diagnostics completed:', diagnostics);
+      
+    } catch (error) {
+      Logger.error('diagnostics', 'Error in system diagnostics:', error);
+      toast({
+        title: "Diagnostics Error",
+        description: "Failed to run system diagnostics. Check console for details.",
+        variant: "destructive"
+      });
+    } finally {
+      setTestingSystem(false);
+    }
+  }, [toast]);
+
+  // NEW: Test edge function directly
+  const handleTestEdgeFunction = useCallback(async () => {
+    setTestingEdgeFunction(true);
+    try {
+      Logger.info('testing', 'Testing edge function directly...');
+      
+      const { data, error } = await supabase.functions.invoke('generate-signals', {
+        body: { 
+          test: true, 
+          force: true,
+          skipLimits: true,
+          debug: true
+        }
+      });
+      
+      if (error) {
+        Logger.error('testing', 'Edge function test failed:', error);
+        toast({
+          title: "❌ Edge Function Test Failed",
+          description: `Error: ${error.message}`,
+          variant: "destructive"
+        });
+      } else {
+        Logger.info('testing', 'Edge function test result:', data);
+        toast({
+          title: "✅ Edge Function Test Passed",
+          description: `Function responded successfully. Check console for details.`,
+        });
+      }
+    } catch (error) {
+      Logger.error('testing', 'Error testing edge function:', error);
+      toast({
+        title: "Edge Function Test Error",
+        description: "Failed to test edge function. Check console for details.",
+        variant: "destructive"
+      });
+    } finally {
+      setTestingEdgeFunction(false);
+    }
+  }, [toast]);
+
+  // NEW: Test market data pipeline
+  const handleTestMarketData = useCallback(async () => {
+    setTestingMarketData(true);
+    try {
+      Logger.info('testing', 'Testing market data pipeline...');
+      
+      const { data, error } = await supabase.functions.invoke('fetch-market-data', {
+        body: { test: true, force: true }
+      });
+      
+      if (error) {
+        Logger.error('testing', 'Market data test failed:', error);
+        toast({
+          title: "❌ Market Data Test Failed",
+          description: `Error: ${error.message}`,
+          variant: "destructive"
+        });
+      } else {
+        Logger.info('testing', 'Market data test result:', data);
+        toast({
+          title: "✅ Market Data Test Passed",
+          description: `Market data pipeline responded successfully.`,
+        });
+      }
+    } catch (error) {
+      Logger.error('testing', 'Error testing market data:', error);
+      toast({
+        title: "Market Data Test Error",
+        description: "Failed to test market data pipeline. Check console for details.",
+        variant: "destructive"
+      });
+    } finally {
+      setTestingMarketData(false);
+    }
+  }, [toast]);
 
   const handleInvestigateSignalExpiration = useCallback(async () => {
     try {
@@ -533,6 +729,147 @@ const TradingSignals = memo(() => {
                 )}
               </Button>
             </div>
+          </div>
+        )}
+      </div>
+
+      {/* NEW: System Recovery Control Panel */}
+      <div className="bg-gradient-to-r from-red-900/20 to-orange-900/20 backdrop-blur-sm rounded-xl border border-red-500/30 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center space-x-3">
+            <Wrench className="h-6 w-6 text-red-400" />
+            <div>
+              <h3 className="text-white font-bold text-lg">🚨 Signal Generation Recovery</h3>
+              <p className="text-sm text-gray-300">No active signals detected - System needs immediate attention</p>
+            </div>
+          </div>
+          <div className="text-xs text-red-300 bg-red-900/30 px-3 py-1 rounded-full">
+            CRITICAL: 0/{MAX_ACTIVE_SIGNALS} active signals
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Button
+            onClick={handleSystemDiagnostics}
+            disabled={testingSystem}
+            className="bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center"
+          >
+            {testingSystem ? (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                Diagnosing...
+              </>
+            ) : (
+              <>
+                <Bug className="h-4 w-4 mr-2" />
+                System Diagnostics
+              </>
+            )}
+          </Button>
+
+          <Button
+            onClick={handleTestEdgeFunction}
+            disabled={testingEdgeFunction}
+            className="bg-purple-600 hover:bg-purple-700 text-white flex items-center justify-center"
+          >
+            {testingEdgeFunction ? (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                Testing...
+              </>
+            ) : (
+              <>
+                <TestTube className="h-4 w-4 mr-2" />
+                Test Edge Function
+              </>
+            )}
+          </Button>
+
+          <Button
+            onClick={handleTestMarketData}
+            disabled={testingMarketData}
+            className="bg-green-600 hover:bg-green-700 text-white flex items-center justify-center"
+          >
+            {testingMarketData ? (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                Testing...
+              </>
+            ) : (
+              <>
+                <BarChart3 className="h-4 w-4 mr-2" />
+                Test Market Data
+              </>
+            )}
+          </Button>
+
+          <Button
+            onClick={handleDetectOpportunities}
+            disabled={detectingOpportunities}
+            className="bg-orange-600 hover:bg-orange-700 text-white flex items-center justify-center"
+          >
+            {detectingOpportunities ? (
+              <>
+                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <Zap className="h-4 w-4 mr-2" />
+                Force Generate
+              </>
+            )}
+          </Button>
+        </div>
+
+        {/* System Diagnostics Results */}
+        {systemDiagnostics && (
+          <div className="mt-6 bg-black/20 rounded-lg p-4">
+            <h4 className="text-white font-medium mb-3">🔍 System Diagnostics Results</h4>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-4">
+              <div>
+                <div className="text-gray-400">Database</div>
+                <div className={`font-bold ${systemDiagnostics.tests.database === 'PASSED' ? 'text-green-400' : 'text-red-400'}`}>
+                  {systemDiagnostics.tests.database}
+                </div>
+              </div>
+              <div>
+                <div className="text-gray-400">Market Data</div>
+                <div className={`font-bold ${systemDiagnostics.tests.marketData === 'PASSED' ? 'text-green-400' : 'text-red-400'}`}>
+                  {systemDiagnostics.tests.marketData} ({systemDiagnostics.tests.marketDataCount})
+                </div>
+              </div>
+              <div>
+                <div className="text-gray-400">Edge Function</div>
+                <div className={`font-bold ${systemDiagnostics.tests.edgeFunction === 'PASSED' ? 'text-green-400' : 'text-red-400'}`}>
+                  {systemDiagnostics.tests.edgeFunction}
+                </div>
+              </div>
+              <div>
+                <div className="text-gray-400">Active Signals</div>
+                <div className={`font-bold ${systemDiagnostics.tests.activeSignals > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  {systemDiagnostics.tests.activeSignals}/{MAX_ACTIVE_SIGNALS}
+                </div>
+              </div>
+            </div>
+            
+            {systemDiagnostics.errors.length > 0 && (
+              <div className="mb-4">
+                <div className="text-red-400 font-medium mb-2">🚨 Errors Found:</div>
+                {systemDiagnostics.errors.map((error, index) => (
+                  <div key={index} className="text-red-300 text-sm ml-4">• {error}</div>
+                ))}
+              </div>
+            )}
+            
+            {systemDiagnostics.recommendations.length > 0 && (
+              <div>
+                <div className="text-yellow-400 font-medium mb-2">💡 Recommendations:</div>
+                {systemDiagnostics.recommendations.map((rec, index) => (
+                  <div key={index} className="text-yellow-300 text-sm ml-4">• {rec}</div>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>
