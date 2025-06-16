@@ -2,6 +2,8 @@
 import { useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useSMSNotifications } from './useSMSNotifications';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface SignalToMonitor {
   id: string;
@@ -13,12 +15,30 @@ interface SignalToMonitor {
   status: string;
   createdAt: string;
   targetsHit: number[];
+  confidence?: number;
 }
 
 export const useSignalMonitoring = () => {
   const { toast } = useToast();
+  const { user } = useAuth();
+  const { sendNewSignalSMS, sendTargetHitSMS, sendStopLossSMS, sendSignalCompleteSMS } = useSMSNotifications();
+
+  // Get user profile for SMS notifications
+  const getUserProfile = useCallback(async () => {
+    if (!user) return null;
+    
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('phone_number, sms_notifications_enabled, sms_verified')
+      .eq('id', user.id)
+      .single();
+    
+    return profile;
+  }, [user]);
 
   const checkSignalOutcomes = useCallback(async (signals: SignalToMonitor[], currentPrices: Record<string, number>) => {
+    const userProfile = await getUserProfile();
+    
     for (const signal of signals) {
       if (signal.status !== 'active') continue;
       
@@ -64,6 +84,21 @@ export const useSignalMonitoring = () => {
               description: `${signal.symbol} ${signal.type} reached TP${targetNumber} at ${tpPrice.toFixed(5)} (Pure outcome-based)`,
               duration: 6000,
             });
+
+            // Send SMS notification for target hit
+            if (userProfile?.phone_number && userProfile.sms_notifications_enabled && userProfile.sms_verified) {
+              const pnlPips = signal.type === 'BUY' 
+                ? Math.round((tpPrice - signal.entryPrice) * 10000)
+                : Math.round((signal.entryPrice - tpPrice) * 10000);
+              
+              await sendTargetHitSMS(userProfile.phone_number, {
+                symbol: signal.symbol,
+                type: signal.type,
+                price: tpPrice,
+                targetLevel: targetNumber,
+                pnlPips
+              });
+            }
           }
         }
       }
@@ -183,12 +218,30 @@ export const useSignalMonitoring = () => {
             duration: 8000,
           });
 
+          // Send SMS notification for signal completion
+          if (userProfile?.phone_number && userProfile.sms_notifications_enabled && userProfile.sms_verified) {
+            if (isSuccessful) {
+              await sendSignalCompleteSMS(userProfile.phone_number, {
+                symbol: signal.symbol,
+                type: signal.type,
+                pnlPips
+              });
+            } else {
+              await sendStopLossSMS(userProfile.phone_number, {
+                symbol: signal.symbol,
+                type: signal.type,
+                price: finalExitPrice,
+                pnlPips
+              });
+            }
+          }
+
         } catch (error) {
           console.error('❌ Error processing pure outcome-based signal expiration:', error);
         }
       }
     }
-  }, [toast]);
+  }, [toast, getUserProfile, sendTargetHitSMS, sendStopLossSMS, sendSignalCompleteSMS]);
 
   const monitorActiveSignals = useCallback(async () => {
     try {
@@ -233,7 +286,8 @@ export const useSignalMonitoring = () => {
         takeProfits: signal.take_profits?.map((tp: any) => parseFloat(tp.toString())) || [],
         status: signal.status,
         createdAt: signal.created_at,
-        targetsHit: signal.targets_hit || []
+        targetsHit: signal.targets_hit || [],
+        confidence: signal.confidence
       }));
 
       // Check for outcomes using ONLY pure market conditions (NO time component)
