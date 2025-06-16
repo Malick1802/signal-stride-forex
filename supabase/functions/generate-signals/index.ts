@@ -29,6 +29,7 @@ interface SignalData {
   symbol: string;
   type: 'BUY' | 'SELL';
   price: number;
+  pips: number;
   stopLoss: number;
   takeProfits: number[];
   confidence: number;
@@ -232,6 +233,7 @@ serve(async (req) => {
             symbol: signal.symbol,
             type: signal.type,
             price: signal.price,
+            pips: signal.pips,
             stop_loss: signal.stopLoss,
             take_profits: signal.takeProfits,
             confidence: signal.confidence,
@@ -392,6 +394,7 @@ async function generateSignalWithAI(
     symbol,
     type: signalType,
     price,
+    pips: 0, // New signals start with 0 pips since they're at entry price
     stopLoss,
     takeProfits,
     confidence: Math.round(confidence),
