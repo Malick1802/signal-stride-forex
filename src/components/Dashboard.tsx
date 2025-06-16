@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { TrendingUp, RefreshCw, Bell, Settings, LogOut, CreditCard, Users } from 'lucide-react';
+import { TrendingUp, RefreshCw, Bell, Settings, LogOut, CreditCard, Users, Shield } from 'lucide-react';
 import TradingSignals from './TradingSignals';
 import ExpiredSignals from './ExpiredSignals';
 import UserProfile from './UserProfile';
@@ -8,14 +8,16 @@ import SubscriptionStatusWidget from './SubscriptionStatusWidget';
 import TrialExpirationBanner from './TrialExpirationBanner';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '../contexts/AuthContext';
+import { useAdminAccess } from '@/hooks/useAdminAccess';
 
 interface DashboardProps {
   user: any;
   onLogout: () => void;
   onNavigateToAffiliate?: () => void;
+  onNavigateToAdmin?: () => void;
 }
 
-const Dashboard = ({ user, onLogout, onNavigateToAffiliate }: DashboardProps) => {
+const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin }: DashboardProps) => {
   const [activeTab, setActiveTab] = useState('signals');
   const [refreshing, setRefreshing] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -23,6 +25,9 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate }: DashboardProps) =>
   const [loggingOut, setLoggingOut] = useState(false);
   const { profile } = useProfile();
   const { subscription, createCheckout, openCustomerPortal, signOut } = useAuth();
+  const { isAdmin } = useAdminAccess();
+
+  console.log('Dashboard: User is admin:', isAdmin);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -91,6 +96,12 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate }: DashboardProps) =>
     }
   };
 
+  const navigateToAdmin = () => {
+    if (onNavigateToAdmin) {
+      onNavigateToAdmin();
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
       {/* Top Navigation */}
@@ -105,6 +116,12 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate }: DashboardProps) =>
               <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
               <span className="text-emerald-400 text-sm font-medium">Live</span>
             </div>
+            {isAdmin && (
+              <div className="flex items-center space-x-1 bg-red-500/20 px-3 py-1 rounded-full">
+                <Shield className="w-3 h-3 text-red-400" />
+                <span className="text-red-400 text-xs font-medium">Admin</span>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center space-x-4">
@@ -183,7 +200,8 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate }: DashboardProps) =>
               { id: 'signals', label: 'Active Signals' },
               { id: 'expired', label: 'Expired Signals' },
               { id: 'subscription', label: 'Subscription', icon: CreditCard },
-              { id: 'affiliate', label: 'Affiliate Program', icon: Users }
+              { id: 'affiliate', label: 'Affiliate Program', icon: Users },
+              ...(isAdmin ? [{ id: 'admin', label: 'Admin Dashboard', icon: Shield }] : [])
             ].map(tab => (
               <button
                 key={tab.id}
@@ -192,6 +210,8 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate }: DashboardProps) =>
                     navigateToSubscription();
                   } else if (tab.id === 'affiliate') {
                     navigateToAffiliate();
+                  } else if (tab.id === 'admin') {
+                    navigateToAdmin();
                   } else {
                     setActiveTab(tab.id);
                   }

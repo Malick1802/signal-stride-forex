@@ -2,14 +2,17 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useReferralTracking } from '@/hooks/useReferralTracking';
+import { useAdminAccess } from '@/hooks/useAdminAccess';
 import Dashboard from './Dashboard';
 import LandingPage from './LandingPage';
 import AuthPage from './AuthPage';
 import AffiliatePage from './AffiliatePage';
+import AdminDashboard from './AdminDashboard';
 
 const AppContent = () => {
   const { user, loading, subscription } = useAuth();
   const { trackSignup, trackSubscription } = useReferralTracking();
+  const { isAdmin } = useAdminAccess();
   const [currentView, setCurrentView] = useState('landing');
 
   // Initialize referral tracking
@@ -20,7 +23,8 @@ const AppContent = () => {
       user: user?.email || 'none',
       loading,
       subscription,
-      currentView
+      currentView,
+      isAdmin
     });
 
     if (loading) return;
@@ -28,19 +32,21 @@ const AppContent = () => {
     // Simple navigation logic based on auth state
     if (user) {
       // Track signup for new users (only once)
-      if (currentView !== 'dashboard') {
+      if (currentView !== 'dashboard' && currentView !== 'admin') {
         trackSignup(user.id);
       }
       
-      // Show dashboard for authenticated users
-      setCurrentView('dashboard');
+      // Show dashboard for authenticated users (maintain current view if already on admin)
+      if (currentView !== 'admin' && currentView !== 'affiliate') {
+        setCurrentView('dashboard');
+      }
     } else {
       // Show landing page for unauthenticated users
-      if (currentView === 'dashboard') {
+      if (currentView === 'dashboard' || currentView === 'admin') {
         setCurrentView('landing');
       }
     }
-  }, [user, loading, trackSignup]);
+  }, [user, loading, trackSignup, isAdmin]);
 
   // Handle subscription events for commission tracking
   useEffect(() => {
@@ -70,12 +76,15 @@ const AppContent = () => {
       return <AuthPage onNavigate={handleNavigation} />;
     case 'affiliate':
       return <AffiliatePage onNavigate={handleNavigation} />;
+    case 'admin':
+      return <AdminDashboard onNavigate={handleNavigation} />;
     case 'dashboard':
       return user ? (
         <Dashboard 
           user={user} 
           onLogout={() => {}} // Will be handled by Dashboard component
-          onNavigateToAffiliate={() => handleNavigation('affiliate')} 
+          onNavigateToAffiliate={() => handleNavigation('affiliate')}
+          onNavigateToAdmin={() => handleNavigation('admin')}
         />
       ) : (
         <LandingPage onNavigate={handleNavigation} />
