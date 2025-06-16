@@ -17,6 +17,22 @@ import Logger from '@/utils/logger';
 // UPDATED: Increased signal limit for better market coverage and diversification
 const MAX_ACTIVE_SIGNALS = 20;
 
+interface SystemDiagnostics {
+  timestamp: string;
+  tests: {
+    database?: string;
+    marketData?: string;
+    edgeFunction?: string;
+    activeSignals?: number;
+    expiredSignals?: number;
+    recentSignals?: number;
+    signalAge?: number;
+    marketDataCount?: number;
+  };
+  errors: string[];
+  recommendations: string[];
+}
+
 const TradingSignals = memo(() => {
   const { signals, loading, lastUpdate, signalDistribution, triggerAutomaticSignalGeneration, executeTimeBasedEliminationPlan } = useTradingSignals();
   const { toast } = useToast();
@@ -34,7 +50,7 @@ const TradingSignals = memo(() => {
   const [debugInfo, setDebugInfo] = useState<any>(null);
   const [testingEdgeFunction, setTestingEdgeFunction] = useState(false);
   const [testingMarketData, setTestingMarketData] = useState(false);
-  const [systemDiagnostics, setSystemDiagnostics] = useState<any>(null);
+  const [systemDiagnostics, setSystemDiagnostics] = useState<SystemDiagnostics | null>(null);
 
   const { activateMarket } = useMarketActivation();
 
@@ -119,7 +135,7 @@ const TradingSignals = memo(() => {
       setTestingSystem(true);
       Logger.info('diagnostics', 'Starting comprehensive system diagnostics...');
       
-      const diagnostics = {
+      const diagnostics: SystemDiagnostics = {
         timestamp: new Date().toISOString(),
         tests: {},
         errors: [],
@@ -196,7 +212,7 @@ const TradingSignals = memo(() => {
           if (recentSignals.length === 0) {
             diagnostics.recommendations.push('No signals generated in last 24 hours - check edge function and market data');
           }
-          if (diagnostics.tests.signalAge > 72) {
+          if ((diagnostics.tests.signalAge || 0) > 72) {
             diagnostics.recommendations.push('Latest signal is very old - signal generation pipeline needs attention');
           }
         }
@@ -847,7 +863,7 @@ const TradingSignals = memo(() => {
               </div>
               <div>
                 <div className="text-gray-400">Active Signals</div>
-                <div className={`font-bold ${systemDiagnostics.tests.activeSignals > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                <div className={`font-bold ${(systemDiagnostics.tests.activeSignals || 0) > 0 ? 'text-green-400' : 'text-red-400'}`}>
                   {systemDiagnostics.tests.activeSignals}/{MAX_ACTIVE_SIGNALS}
                 </div>
               </div>
