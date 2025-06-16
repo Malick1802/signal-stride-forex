@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { TrendingUp } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -9,7 +8,11 @@ interface Stat {
   description: string;
 }
 
-const LandingPage = ({ onNavigate }) => {
+interface LandingPageProps {
+  onNavigate: (view: string) => void;
+}
+
+const LandingPage = ({ onNavigate }: LandingPageProps) => {
   const { user, signOut } = useAuth();
   const [stats, setStats] = useState<Stat[]>([
     { label: 'Accuracy', value: '85-95%', description: 'Signal Win Rate' },

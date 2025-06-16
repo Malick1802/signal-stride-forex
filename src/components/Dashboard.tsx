@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { TrendingUp, RefreshCw, Bell, Settings, LogOut, CreditCard, Users } from 'lucide-react';
 import TradingSignals from './TradingSignals';
@@ -8,7 +9,13 @@ import TrialExpirationBanner from './TrialExpirationBanner';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '../contexts/AuthContext';
 
-const Dashboard = ({ user, onLogout }) => {
+interface DashboardProps {
+  user: any;
+  onLogout: () => void;
+  onNavigateToAffiliate?: () => void;
+}
+
+const Dashboard = ({ user, onLogout, onNavigateToAffiliate }: DashboardProps) => {
   const [activeTab, setActiveTab] = useState('signals');
   const [refreshing, setRefreshing] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -77,7 +84,11 @@ const Dashboard = ({ user, onLogout }) => {
   };
 
   const navigateToAffiliate = () => {
-    window.dispatchEvent(new CustomEvent('navigate-to-affiliate'));
+    if (onNavigateToAffiliate) {
+      onNavigateToAffiliate();
+    } else {
+      window.dispatchEvent(new CustomEvent('navigate-to-affiliate'));
+    }
   };
 
   return (
@@ -144,8 +155,8 @@ const Dashboard = ({ user, onLogout }) => {
                   )}
                 </div>
                 <div className="text-right">
-                  <div className="text-white font-medium truncate max-w-[120px]">{profile?.full_name || user.email}</div>
-                  <div className="text-emerald-400 text-xs truncate">{user.email}</div>
+                  <div className="text-white font-medium truncate max-w-[120px]">{profile?.full_name || user?.email}</div>
+                  <div className="text-emerald-400 text-xs truncate">{user?.email}</div>
                 </div>
               </div>
               <button

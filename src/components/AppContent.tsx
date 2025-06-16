@@ -71,21 +71,30 @@ const AppContent = () => {
     setCurrentView(view);
   };
 
+  const handleLogout = () => {
+    // This will be handled by the Dashboard component itself
+    console.log('Logout requested');
+  };
+
   // Render based on current view
   switch (currentView) {
     case 'auth':
-      return <AuthPage onBack={() => handleNavigation('landing')} />;
+      return <AuthPage />;
     case 'affiliate':
       return <AffiliatePage />;
     case 'dashboard':
       return user ? (
-        <Dashboard onNavigateToAffiliate={() => handleNavigation('affiliate')} />
+        <Dashboard 
+          user={user} 
+          onLogout={handleLogout}
+          onNavigateToAffiliate={() => handleNavigation('affiliate')} 
+        />
       ) : (
-        <LandingPage onNavigateToAuth={() => handleNavigation('auth')} />
+        <LandingPage onNavigate={(view: string) => handleNavigation(view)} />
       );
     case 'landing':
     default:
-      return <LandingPage onNavigateToAuth={() => handleNavigation('auth')} />;
+      return <LandingPage onNavigate={(view: string) => handleNavigation(view)} />;
   }
 };
 
