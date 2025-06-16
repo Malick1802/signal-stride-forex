@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { TrendingUp, RefreshCw, Bell, Settings, LogOut, CreditCard } from 'lucide-react';
 import TradingSignals from './TradingSignals';
@@ -14,8 +13,9 @@ const Dashboard = ({ user, onLogout }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const { profile } = useProfile();
-  const { subscription, createCheckout, openCustomerPortal } = useAuth();
+  const { subscription, createCheckout, openCustomerPortal, signOut } = useAuth();
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -24,7 +24,25 @@ const Dashboard = ({ user, onLogout }) => {
   };
 
   const handleLogout = async () => {
-    onLogout();
+    if (loggingOut) return;
+    
+    setLoggingOut(true);
+    console.log('Dashboard: Starting logout process');
+    
+    try {
+      const { error } = await signOut();
+      if (error) {
+        console.error('Dashboard: Logout error:', error);
+        // You could add a toast notification here for error handling
+      } else {
+        console.log('Dashboard: Logout successful');
+        // Auth state change will handle navigation automatically
+      }
+    } catch (error) {
+      console.error('Dashboard: Logout failed:', error);
+    } finally {
+      setLoggingOut(false);
+    }
   };
 
   const handleUpgrade = async () => {
@@ -128,10 +146,11 @@ const Dashboard = ({ user, onLogout }) => {
               </div>
               <button
                 onClick={handleLogout}
-                className="p-2 text-gray-400 hover:text-red-400 transition-colors"
+                disabled={loggingOut}
+                className="p-2 text-gray-400 hover:text-red-400 transition-colors disabled:opacity-50"
                 aria-label="Log out"
               >
-                <LogOut className="h-5 w-5" />
+                <LogOut className={`h-5 w-5 ${loggingOut ? 'animate-spin' : ''}`} />
               </button>
             </div>
           </div>
