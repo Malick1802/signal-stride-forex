@@ -1,4 +1,4 @@
-// ENHANCED: Conservative technical indicators for ultra-strict forex analysis
+// RELAXED: Conservative technical indicators for more flexible forex analysis
 export interface OHLCVData {
   timestamp: number;
   open: number;
@@ -32,7 +32,7 @@ export interface TechnicalIndicators {
   };
 }
 
-// ENHANCED: Conservative RSI calculation with stricter thresholds
+// RELAXED: RSI calculation with more flexible thresholds
 export const calculateRSI = (prices: number[], period: number = 14): number => {
   if (prices.length < period + 1) return 50;
   
@@ -48,22 +48,22 @@ export const calculateRSI = (prices: number[], period: number = 14): number => {
   return 100 - (100 / (1 + rs));
 };
 
-// ENHANCED: Conservative RSI signal validation
+// RELAXED: RSI signal validation with wider thresholds
 export const validateRSISignal = (rsi: number, signalType: 'BUY' | 'SELL'): { isValid: boolean; strength: 'weak' | 'moderate' | 'strong' | 'extreme' } => {
   if (signalType === 'BUY') {
     if (rsi < 25) return { isValid: true, strength: 'extreme' };
     if (rsi < 30) return { isValid: true, strength: 'strong' };
-    if (rsi < 35) return { isValid: true, strength: 'moderate' };
+    if (rsi < 40) return { isValid: true, strength: 'moderate' }; // RELAXED: was 35
     return { isValid: false, strength: 'weak' };
   } else {
     if (rsi > 75) return { isValid: true, strength: 'extreme' };
     if (rsi > 70) return { isValid: true, strength: 'strong' };
-    if (rsi > 65) return { isValid: true, strength: 'moderate' };
+    if (rsi > 60) return { isValid: true, strength: 'moderate' }; // RELAXED: was 65
     return { isValid: false, strength: 'weak' };
   }
 };
 
-// ENHANCED: MACD with histogram strength calculation
+// RELAXED: MACD with histogram strength calculation
 export const calculateMACD = (prices: number[]): { line: number; signal: number; histogram: number; strength: number } => {
   if (prices.length < 26) return { line: 0, signal: 0, histogram: 0, strength: 0 };
   
@@ -80,22 +80,22 @@ export const calculateMACD = (prices: number[]): { line: number; signal: number;
   return { line: macdLine, signal: macdSignal, histogram, strength };
 };
 
-// ENHANCED: Conservative MACD signal validation
+// RELAXED: More flexible MACD signal validation
 export const validateMACDSignal = (macd: { line: number; signal: number; histogram: number; strength: number }, signalType: 'BUY' | 'SELL'): { isValid: boolean; confirmations: string[] } => {
   const confirmations: string[] = [];
   
   if (signalType === 'BUY') {
     if (macd.line > macd.signal) confirmations.push('MACD Bullish Crossover');
     if (macd.histogram > 0) confirmations.push('Positive Histogram');
-    if (macd.strength > 0.00001) confirmations.push('Strong MACD Signal');
+    if (macd.strength > 0.000005) confirmations.push('Strong MACD Signal'); // RELAXED: lowered threshold
   } else {
     if (macd.line < macd.signal) confirmations.push('MACD Bearish Crossover');
     if (macd.histogram < 0) confirmations.push('Negative Histogram');
-    if (macd.strength > 0.00001) confirmations.push('Strong MACD Signal');
+    if (macd.strength > 0.000005) confirmations.push('Strong MACD Signal'); // RELAXED: lowered threshold
   }
   
-  // For conservative analysis, require at least 2 confirmations
-  return { isValid: confirmations.length >= 2, confirmations };
+  // RELAXED: require only 1 confirmation instead of 2
+  return { isValid: confirmations.length >= 1, confirmations };
 };
 
 // EMA Calculation (unchanged but optimized)
@@ -113,7 +113,7 @@ export const calculateEMA = (prices: number[], period: number): number => {
   return ema;
 };
 
-// ENHANCED: Trend alignment validation
+// RELAXED: More flexible trend alignment validation
 export const validateTrendAlignment = (currentPrice: number, ema50: number, ema200: number, signalType: 'BUY' | 'SELL'): { isAligned: boolean; direction: 'bullish' | 'bearish' | 'neutral'; strength: number; confirmations: string[] } => {
   const confirmations: string[] = [];
   let strength = 0;
@@ -122,27 +122,28 @@ export const validateTrendAlignment = (currentPrice: number, ema50: number, ema2
   const emaSeparation = Math.abs(ema50 - ema200) / currentPrice;
   
   if (signalType === 'BUY') {
-    // For BUY signals: Price > EMA50 > EMA200
+    // RELAXED: Accept partial alignment
     if (currentPrice > ema50) {
       confirmations.push('Price Above EMA50');
-      strength += 0.33;
+      strength += 0.5; // RELAXED: increased weight
     }
     if (currentPrice > ema200) {
       confirmations.push('Price Above EMA200');
-      strength += 0.33;
+      strength += 0.3;
     }
     if (ema50 > ema200) {
       confirmations.push('EMA50 Above EMA200');
-      strength += 0.33;
-    }
-    
-    // Bonus for strong trend (EMA separation > 0.5%)
-    if (emaSeparation > 0.005 && ema50 > ema200) {
-      confirmations.push('Strong Bullish EMA Separation');
       strength += 0.2;
     }
     
-    const isAligned = currentPrice > ema50 && ema50 > ema200 && currentPrice > ema200;
+    // RELAXED: Lower separation threshold (0.3% vs 0.5%)
+    if (emaSeparation > 0.003 && ema50 > ema200) {
+      confirmations.push('Good Bullish EMA Separation');
+      strength += 0.1;
+    }
+    
+    // RELAXED: Accept any confirmation as valid
+    const isAligned = confirmations.length > 0;
     return { 
       isAligned, 
       direction: isAligned ? 'bullish' : 'neutral', 
@@ -151,27 +152,28 @@ export const validateTrendAlignment = (currentPrice: number, ema50: number, ema2
     };
     
   } else {
-    // For SELL signals: Price < EMA50 < EMA200
+    // RELAXED: Accept partial alignment for SELL
     if (currentPrice < ema50) {
       confirmations.push('Price Below EMA50');
-      strength += 0.33;
+      strength += 0.5; // RELAXED: increased weight
     }
     if (currentPrice < ema200) {
       confirmations.push('Price Below EMA200');
-      strength += 0.33;
+      strength += 0.3;
     }
     if (ema50 < ema200) {
       confirmations.push('EMA50 Below EMA200');
-      strength += 0.33;
-    }
-    
-    // Bonus for strong trend (EMA separation > 0.5%)
-    if (emaSeparation > 0.005 && ema50 < ema200) {
-      confirmations.push('Strong Bearish EMA Separation');
       strength += 0.2;
     }
     
-    const isAligned = currentPrice < ema50 && ema50 < ema200 && currentPrice < ema200;
+    // RELAXED: Lower separation threshold
+    if (emaSeparation > 0.003 && ema50 < ema200) {
+      confirmations.push('Good Bearish EMA Separation');
+      strength += 0.1;
+    }
+    
+    // RELAXED: Accept any confirmation as valid
+    const isAligned = confirmations.length > 0;
     return { 
       isAligned, 
       direction: isAligned ? 'bearish' : 'neutral', 
@@ -181,7 +183,7 @@ export const validateTrendAlignment = (currentPrice: number, ema50: number, ema2
   }
 };
 
-// ENHANCED: Bollinger Bands with position analysis
+// RELAXED: Bollinger Bands with position analysis
 export const calculateBollingerBands = (prices: number[], period: number = 20, stdDev: number = 2): { upper: number; middle: number; lower: number; position: 'above' | 'below' | 'within' } => {
   if (prices.length < period) {
     const avg = prices.reduce((sum, price) => sum + price, 0) / prices.length;
@@ -207,15 +209,17 @@ export const calculateBollingerBands = (prices: number[], period: number = 20, s
   return { upper, middle, lower, position };
 };
 
-// ENHANCED: Conservative Bollinger Band signal validation
+// RELAXED: More flexible Bollinger Band signal validation
 export const validateBollingerBandSignal = (bands: { upper: number; middle: number; lower: number; position: 'above' | 'below' | 'within' }, signalType: 'BUY' | 'SELL'): { isValid: boolean; strength: 'weak' | 'moderate' | 'strong' } => {
   if (signalType === 'BUY') {
-    // For BUY signals, prefer price at or below lower band (oversold)
+    // RELAXED: Accept both below and within bands as potential BUY signals
     if (bands.position === 'below') return { isValid: true, strength: 'strong' };
+    if (bands.position === 'within') return { isValid: true, strength: 'moderate' }; // RELAXED: added
     return { isValid: false, strength: 'weak' };
   } else {
-    // For SELL signals, prefer price at or above upper band (overbought)
+    // RELAXED: Accept both above and within bands as potential SELL signals
     if (bands.position === 'above') return { isValid: true, strength: 'strong' };
+    if (bands.position === 'within') return { isValid: true, strength: 'moderate' }; // RELAXED: added
     return { isValid: false, strength: 'weak' };
   }
 };
@@ -260,7 +264,7 @@ export const generateOHLCVFromPrices = (priceData: Array<{ timestamp: number; pr
   })).sort((a, b) => a.timestamp - b.timestamp);
 };
 
-// ENHANCED: Conservative comprehensive technical analysis
+// RELAXED: More flexible comprehensive technical analysis
 export const calculateConservativeTechnicalIndicators = (ohlcvData: OHLCVData[], signalType?: 'BUY' | 'SELL'): TechnicalIndicators & { validationScore: number; confirmations: string[] } => {
   const closes = ohlcvData.map(d => d.close);
   const currentPrice = closes[closes.length - 1];
@@ -273,36 +277,36 @@ export const calculateConservativeTechnicalIndicators = (ohlcvData: OHLCVData[],
   const ema200 = calculateEMA(closes, 200);
   const atr = calculateATR(ohlcvData);
   
-  // Perform conservative validations if signal type provided
+  // RELAXED: More flexible validations
   let validationScore = 0;
   const allConfirmations: string[] = [];
   
   if (signalType) {
-    // RSI validation
+    // RSI validation with relaxed thresholds
     const rsiValidation = validateRSISignal(rsi, signalType);
     if (rsiValidation.isValid) {
-      validationScore += rsiValidation.strength === 'extreme' ? 3 : rsiValidation.strength === 'strong' ? 2 : 1;
+      validationScore += rsiValidation.strength === 'extreme' ? 3 : rsiValidation.strength === 'strong' ? 2.5 : rsiValidation.strength === 'moderate' ? 2 : 1; // RELAXED: increased moderate scoring
       allConfirmations.push(`RSI ${rsiValidation.strength} ${signalType.toLowerCase()} signal`);
     }
     
-    // MACD validation
+    // MACD validation with relaxed requirements
     const macdValidation = validateMACDSignal(macd, signalType);
     if (macdValidation.isValid) {
-      validationScore += macdValidation.confirmations.length;
+      validationScore += macdValidation.confirmations.length * 1.5; // RELAXED: increased scoring
       allConfirmations.push(...macdValidation.confirmations);
     }
     
-    // Trend alignment validation
+    // Trend alignment validation with relaxed requirements
     const trendValidation = validateTrendAlignment(currentPrice, ema50, ema200, signalType);
     if (trendValidation.isAligned) {
-      validationScore += Math.round(trendValidation.strength * 3);
+      validationScore += Math.round(trendValidation.strength * 2.5); // RELAXED: increased multiplier
       allConfirmations.push(...trendValidation.confirmations);
     }
     
-    // Bollinger Band validation
+    // Bollinger Band validation with relaxed criteria
     const bbValidation = validateBollingerBandSignal(bollingerBands, signalType);
     if (bbValidation.isValid) {
-      validationScore += bbValidation.strength === 'strong' ? 2 : 1;
+      validationScore += bbValidation.strength === 'strong' ? 2 : 1.5; // RELAXED: increased scoring
       allConfirmations.push(`Bollinger Band ${bbValidation.strength} confirmation`);
     }
   }
@@ -331,31 +335,31 @@ export const calculateConservativeTechnicalIndicators = (ohlcvData: OHLCVData[],
   };
 };
 
-// ENHANCED: Conservative signal quality scoring
+// RELAXED: More flexible signal quality scoring
 export const calculateConservativeSignalScore = (indicators: TechnicalIndicators & { validationScore: number; confirmations: string[] }, signalType: 'BUY' | 'SELL'): { score: number; grade: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR'; isConservativeQuality: boolean } => {
   let score = indicators.validationScore;
   
-  // Bonus points for multiple confirmations
-  if (indicators.confirmations.length >= 5) score += 2;
-  else if (indicators.confirmations.length >= 3) score += 1;
+  // RELAXED: Lower bonus requirements
+  if (indicators.confirmations.length >= 3) score += 2; // RELAXED: was 5
+  else if (indicators.confirmations.length >= 2) score += 1; // RELAXED: was 3
   
-  // Bonus for strong trend alignment
-  if (indicators.trendAlignment.isAligned && indicators.trendAlignment.strength > 0.005) {
-    score += 1;
+  // Bonus for trend alignment (relaxed threshold)
+  if (indicators.trendAlignment.isAligned && indicators.trendAlignment.strength > 0.003) { // RELAXED: was 0.005
+    score += 0.5; // RELAXED: reduced bonus
   }
   
   // Normalize score to 0-10 scale
   const normalizedScore = Math.min(score, 10);
   
-  // Conservative grading (stricter thresholds)
+  // RELAXED: More lenient grading thresholds
   let grade: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR';
-  if (normalizedScore >= 8) grade = 'EXCELLENT';
-  else if (normalizedScore >= 6) grade = 'GOOD';
-  else if (normalizedScore >= 4) grade = 'FAIR';
+  if (normalizedScore >= 7) grade = 'EXCELLENT'; // RELAXED: was 8
+  else if (normalizedScore >= 5) grade = 'GOOD'; // RELAXED: was 6
+  else if (normalizedScore >= 3) grade = 'FAIR'; // RELAXED: was 4
   else grade = 'POOR';
   
-  // Conservative quality requires EXCELLENT grade AND at least 3 confirmations
-  const isConservativeQuality = grade === 'EXCELLENT' && indicators.confirmations.length >= 3;
+  // RELAXED: Accept GOOD, FAIR grades AND reduce confirmation requirement
+  const isConservativeQuality = (grade === 'EXCELLENT' || grade === 'GOOD' || grade === 'FAIR') && indicators.confirmations.length >= 2; // RELAXED: was 3
   
   return { score: normalizedScore, grade, isConservativeQuality };
 };

@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -8,8 +7,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// UPDATED: Recalibrated signal parameters - no forced generation
-const MAX_ACTIVE_SIGNALS = 20;
+// RELAXED: Updated signal parameters for more flexible generation
+const MAX_ACTIVE_SIGNALS = 25; // RELAXED: increased from 20
 const FUNCTION_TIMEOUT_MS = 180000;
 const CONCURRENT_ANALYSIS_LIMIT = 3;
 
@@ -56,7 +55,7 @@ const generateRealisticPriceHistory = (currentPrice: number, symbol: string, per
   return priceHistory.reverse(); // Most recent first
 };
 
-// UPDATED: Relaxed RSI calculation with 30/70 thresholds
+// RELAXED: RSI calculation with more flexible thresholds (40/60)
 const calculateRSI = (prices: number[], period: number = 14): number => {
   if (prices.length < period + 1) return 50;
   
@@ -144,46 +143,46 @@ const calculateImprovedATR = (prices: number[], periods: number = 14): number =>
   return Math.max(avgTR, prices[0] * 0.001);
 };
 
-// UPDATED: Recalibrated technical confirmation system (3 out of 4 confirmations)
+// RELAXED: Updated technical confirmation system (2 out of 4 confirmations)
 const validateTechnicalConfirmation = (currentPrice: number, rsi: number, macd: any, ema50: number, ema200: number, bollingerBands: any, signalType: string): { isValid: boolean; score: number; confirmations: string[] } => {
   const confirmations = [];
   let score = 0;
   
-  // UPDATED: Relaxed RSI CONFIRMATION (30/70 levels instead of 25/75)
+  // RELAXED: RSI CONFIRMATION (40/60 levels instead of 30/70)
   if (signalType === 'BUY') {
     if (rsi < 25) { // Extremely oversold (bonus)
       confirmations.push('RSI Extremely Oversold (<25)');
-      score += 2.5;
+      score += 3;
     } else if (rsi < 30) { // Oversold
       confirmations.push('RSI Oversold (<30)');
-      score += 2;
-    } else if (rsi < 35) { // Moderately oversold
-      confirmations.push('RSI Moderately Oversold (<35)');
-      score += 1;
+      score += 2.5;
+    } else if (rsi < 40) { // RELAXED: was 35
+      confirmations.push('RSI Moderately Oversold (<40)');
+      score += 2; // RELAXED: increased from 1
     }
   } else if (signalType === 'SELL') {
     if (rsi > 75) { // Extremely overbought (bonus)
       confirmations.push('RSI Extremely Overbought (>75)');
-      score += 2.5;
+      score += 3;
     } else if (rsi > 70) { // Overbought
       confirmations.push('RSI Overbought (>70)');
-      score += 2;
-    } else if (rsi > 65) { // Moderately overbought
-      confirmations.push('RSI Moderately Overbought (>65)');
-      score += 1;
+      score += 2.5;
+    } else if (rsi > 60) { // RELAXED: was 65
+      confirmations.push('RSI Moderately Overbought (>60)');
+      score += 2; // RELAXED: increased from 1
     }
   }
   
-  // UPDATED: Flexible MACD CONFIRMATION (line + signal required, histogram bonus)
+  // RELAXED: More flexible MACD CONFIRMATION
   if (signalType === 'BUY') {
     if (macd.line > macd.signal) {
       confirmations.push('MACD Bullish Crossover');
-      score += 1.5;
+      score += 2; // RELAXED: increased from 1.5
       if (macd.histogram > 0) {
         confirmations.push('MACD Positive Histogram');
         score += 1;
       }
-      if (macd.strength > 0.00001) {
+      if (macd.strength > 0.000005) { // RELAXED: lowered threshold
         confirmations.push('Strong MACD Signal');
         score += 0.5;
       }
@@ -191,63 +190,75 @@ const validateTechnicalConfirmation = (currentPrice: number, rsi: number, macd: 
   } else if (signalType === 'SELL') {
     if (macd.line < macd.signal) {
       confirmations.push('MACD Bearish Crossover');
-      score += 1.5;
+      score += 2; // RELAXED: increased from 1.5
       if (macd.histogram < 0) {
         confirmations.push('MACD Negative Histogram');
         score += 1;
       }
-      if (macd.strength > 0.00001) {
+      if (macd.strength > 0.000005) { // RELAXED: lowered threshold
         confirmations.push('Strong MACD Signal');
         score += 0.5;
       }
     }
   }
   
-  // UPDATED: Flexible TREND ALIGNMENT (price vs EMAs, not all required)
+  // RELAXED: More flexible TREND ALIGNMENT (partial alignment acceptable)
   if (signalType === 'BUY') {
-    if (currentPrice > ema50 && currentPrice > ema200) {
-      confirmations.push('Price Above Both EMAs');
-      score += 2;
-      if (ema50 > ema200) {
-        confirmations.push('EMA Bullish Alignment');
-        score += 1;
-      }
-    } else if (currentPrice > ema50 || currentPrice > ema200) {
-      confirmations.push('Price Above At Least One EMA');
+    if (currentPrice > ema50) {
+      confirmations.push('Price Above EMA50');
+      score += 1.5; // RELAXED: increased from 1
+    }
+    if (currentPrice > ema200) {
+      confirmations.push('Price Above EMA200');
+      score += 1.5; // RELAXED: increased
+    }
+    if (ema50 > ema200) {
+      confirmations.push('EMA Bullish Alignment');
       score += 1;
     }
   } else if (signalType === 'SELL') {
-    if (currentPrice < ema50 && currentPrice < ema200) {
-      confirmations.push('Price Below Both EMAs');
-      score += 2;
-      if (ema50 < ema200) {
-        confirmations.push('EMA Bearish Alignment');
-        score += 1;
-      }
-    } else if (currentPrice < ema50 || currentPrice < ema200) {
-      confirmations.push('Price Below At Least One EMA');
+    if (currentPrice < ema50) {
+      confirmations.push('Price Below EMA50');
+      score += 1.5; // RELAXED: increased from 1
+    }
+    if (currentPrice < ema200) {
+      confirmations.push('Price Below EMA200');
+      score += 1.5; // RELAXED: increased
+    }
+    if (ema50 < ema200) {
+      confirmations.push('EMA Bearish Alignment');
       score += 1;
     }
   }
   
-  // BOLLINGER BAND CONFIRMATION (bonus points)
-  if (signalType === 'BUY' && currentPrice <= bollingerBands.lower) {
-    confirmations.push('Price at Lower Bollinger Band');
-    score += 1.5;
-  } else if (signalType === 'SELL' && currentPrice >= bollingerBands.upper) {
-    confirmations.push('Price at Upper Bollinger Band');
-    score += 1.5;
+  // RELAXED: More flexible BOLLINGER BAND CONFIRMATION
+  if (signalType === 'BUY') {
+    if (currentPrice <= bollingerBands.lower) {
+      confirmations.push('Price at Lower Bollinger Band');
+      score += 2;
+    } else if (currentPrice <= bollingerBands.middle) { // RELAXED: added middle band support
+      confirmations.push('Price Near Lower Bollinger Area');
+      score += 1;
+    }
+  } else if (signalType === 'SELL') {
+    if (currentPrice >= bollingerBands.upper) {
+      confirmations.push('Price at Upper Bollinger Band');
+      score += 2;
+    } else if (currentPrice >= bollingerBands.middle) { // RELAXED: added middle band resistance
+      confirmations.push('Price Near Upper Bollinger Area');
+      score += 1;
+    }
   }
   
   // EMA SEPARATION (trend strength bonus)
   const emaSeparation = Math.abs(ema50 - ema200) / currentPrice;
-  if (emaSeparation > 0.005) { // 0.5% separation indicates strong trend
-    confirmations.push('Strong EMA Separation (Strong Trend)');
+  if (emaSeparation > 0.003) { // RELAXED: lowered from 0.005
+    confirmations.push('Good EMA Separation (Trend Present)');
     score += 1;
   }
   
-  // UPDATED: Require 3 confirmations AND score >= 6 (lowered from 7)
-  const isValid = score >= 6 && confirmations.length >= 3;
+  // RELAXED: Require 2 confirmations AND score >= 5 (lowered from 6)
+  const isValid = score >= 5 && confirmations.length >= 2;
   
   return { isValid, score, confirmations };
 };
@@ -312,18 +323,18 @@ const detectChartPatterns = (prices: number[], currentPrice: number): string[] =
   return patterns;
 };
 
-// ENHANCED: Conservative stop loss with higher minimums
-const calculateImprovedStopLoss = (entryPrice: number, symbol: string, signalType: string, atrValue: number, volatilityMultiplier: number = 2.5): number => {
+// RELAXED: Reduced stop loss requirements (30-40 pips vs 50-60)
+const calculateImprovedStopLoss = (entryPrice: number, symbol: string, signalType: string, atrValue: number, volatilityMultiplier: number = 2.0): number => { // RELAXED: reduced multiplier
   const pipValue = getPipValue(symbol);
   const atrDistance = atrValue * volatilityMultiplier;
   
-  // ENHANCED: Higher minimum stop loss (50 pips for non-JPY, 60 pips for JPY)
-  const minimumPips = isJPYPair(symbol) ? 60 : 50;
+  // RELAXED: Lower minimum stop loss (30-40 pips vs 50-60)
+  const minimumPips = isJPYPair(symbol) ? 40 : 30; // RELAXED: reduced from 60/50
   const minimumDistance = minimumPips * pipValue;
   
   const stopDistance = Math.max(atrDistance, minimumDistance);
   
-  console.log(`📊 Conservative Stop Loss for ${symbol}:`, {
+  console.log(`📊 RELAXED Stop Loss for ${symbol}:`, {
     atrValue: atrValue.toFixed(6),
     atrDistance: atrDistance.toFixed(6),
     minimumDistance: minimumDistance.toFixed(6),
@@ -393,8 +404,8 @@ const rotateOldestSignals = async (supabase: any, slotsNeeded: number): Promise<
   }
 };
 
-// UPDATED: Recalibrated AI analysis with relaxed requirements
-const analyzeWithRecalibratedMarketAnalysis = async (pair: string, marketData: any, openAIApiKey: string, priceHistory: number[], technicalData: any): Promise<any> => {
+// RELAXED: AI analysis with more flexible requirements
+const analyzeWithRelaxedMarketAnalysis = async (pair: string, marketData: any, openAIApiKey: string, priceHistory: number[], technicalData: any): Promise<any> => {
   const currentPrice = parseFloat(marketData.current_price.toString());
   
   // Enhanced technical indicators with relaxed validation
@@ -409,23 +420,12 @@ const analyzeWithRecalibratedMarketAnalysis = async (pair: string, marketData: a
   const economicEvents = getEconomicEvents(pair);
   const chartPatterns = detectChartPatterns(priceHistory, currentPrice);
   
-  // Market session detection (now optional bonus)
+  // RELAXED: Remove session timing requirements
   const hour = new Date().getUTCHours();
-  let marketSession = 'OVERLAP';
-  let sessionAdvantage = false;
-  
-  if (hour >= 0 && hour < 8) {
-    marketSession = 'ASIAN';
-    sessionAdvantage = ['USDJPY', 'AUDJPY', 'NZDJPY', 'GBPJPY'].includes(pair);
-  } else if (hour >= 8 && hour < 16) {
-    marketSession = 'EUROPEAN';
-    sessionAdvantage = ['EURUSD', 'GBPUSD', 'EURGBP', 'EURCHF', 'GBPCHF'].includes(pair);
-  } else if (hour >= 16 && hour < 24) {
-    marketSession = 'US';
-    sessionAdvantage = ['EURUSD', 'GBPUSD', 'USDCAD', 'USDCHF'].includes(pair);
-  }
+  let marketSession = 'GLOBAL'; // RELAXED: always allow
+  let sessionAdvantage = true; // RELAXED: always consider advantageous
 
-  // UPDATED: Recalibrated AI analysis prompt with relaxed requirements
+  // RELAXED: AI analysis prompt with more flexible requirements
   const aiAnalysisResponse = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -437,50 +437,50 @@ const analyzeWithRecalibratedMarketAnalysis = async (pair: string, marketData: a
       messages: [
         {
           role: 'system',
-          content: `You are a BALANCED forex analyst. Your job is to identify QUALITY trading opportunities with MULTIPLE technical confirmations while being realistic about market conditions.
+          content: `You are a FLEXIBLE forex analyst. Your job is to identify REALISTIC trading opportunities with RELAXED technical requirements to capture more market moves.
 
-RECALIBRATED ANALYSIS FRAMEWORK:
-- REQUIRE 3 out of 4 major confirmations (RSI + MACD + Trend/Bollinger + Session bonus)
-- RSI levels: BUY if RSI < 35 (prefer < 30), SELL if RSI > 65 (prefer > 70)
+RELAXED ANALYSIS FRAMEWORK:
+- REQUIRE 2 out of 4 major confirmations (RSI + MACD + Trend/Bollinger)
+- RSI levels: BUY if RSI < 40 (prefer < 30), SELL if RSI > 60 (prefer > 70)
 - MACD confirmation: Line vs signal crossover (histogram bonus)
 - Trend alignment: Price vs EMAs (partial alignment acceptable)
-- Session advantage: Bonus points but not mandatory
-- MINIMUM thresholds: 70%+ confidence, 60%+ win probability, 6+ technical score
+- Session timing: Removed (24/7 generation allowed)
+- MINIMUM thresholds: 65%+ confidence, 55%+ win probability, 5+ technical score
 
-BALANCED SIGNAL GENERATION RULES:
-- Generate BUY signals when: RSI < 35 AND (MACD bullish OR trend support) AND 3+ confirmations
-- Generate SELL signals when: RSI > 65 AND (MACD bearish OR trend resistance) AND 3+ confirmations
-- Generate NEUTRAL when fewer than 3 confirmations or insufficient quality
-- Focus on realistic opportunities - not perfect setups
-- Accept both EXCELLENT and GOOD quality signals
+RELAXED SIGNAL GENERATION RULES:
+- Generate BUY signals when: RSI < 40 AND (MACD bullish OR trend support) AND 2+ confirmations
+- Generate SELL signals when: RSI > 60 AND (MACD bearish OR trend resistance) AND 2+ confirmations
+- Generate NEUTRAL when fewer than 2 confirmations or insufficient quality
+- Focus on capturing more opportunities - flexibility over perfection
+- Accept EXCELLENT, GOOD, and FAIR quality signals
 
 OUTPUT FORMAT:
 {
   "signal": "BUY|SELL|NEUTRAL",
-  "confidence": 70-90,
-  "win_probability": 60-80,
-  "technical_score": 6-10,
+  "confidence": 65-85,
+  "win_probability": 55-75,
+  "technical_score": 5-10,
   "confirmations": ["list", "of", "technical", "confirmations"],
-  "atr_multiplier": 2.5,
+  "atr_multiplier": 2.0,
   "market_structure": "bullish|bearish|neutral",
-  "session_advantage": true|false,
+  "session_advantage": true,
   "key_levels": {"support": price, "resistance": price},
-  "analysis": "detailed balanced analysis with confirmations listed",
-  "quality_grade": "EXCELLENT|GOOD|REJECT",
+  "analysis": "detailed flexible analysis with confirmations listed",
+  "quality_grade": "EXCELLENT|GOOD|FAIR|REJECT",
   "signal_reasoning": "specific technical reasons with confirmation count",
   "risk_assessment": "balanced risk evaluation"
 }`
         },
         {
           role: 'user',
-          content: `RECALIBRATED TECHNICAL ANALYSIS for ${pair}:
+          content: `RELAXED TECHNICAL ANALYSIS for ${pair}:
 
 PRICE DATA:
 - Current Price: ${currentPrice.toFixed(5)}
 - 24H Range: ${Math.min(...priceHistory).toFixed(5)} - ${Math.max(...priceHistory).toFixed(5)}
 
-BALANCED TECHNICAL INDICATORS:
-- RSI (14): ${rsi.toFixed(2)} ${rsi > 70 ? '(OVERBOUGHT - potential SELL)' : rsi < 30 ? '(OVERSOLD - potential BUY)' : rsi > 65 ? '(Moderately overbought)' : rsi < 35 ? '(Moderately oversold)' : '(Neutral)'}
+RELAXED TECHNICAL INDICATORS:
+- RSI (14): ${rsi.toFixed(2)} ${rsi > 70 ? '(OVERBOUGHT - potential SELL)' : rsi < 30 ? '(OVERSOLD - potential BUY)' : rsi > 60 ? '(Moderately overbought)' : rsi < 40 ? '(Moderately oversold)' : '(Neutral)'}
 - MACD: Line ${macd.line.toFixed(6)}, Signal ${macd.signal.toFixed(6)}, Histogram ${macd.histogram.toFixed(6)}, Strength ${macd.strength.toFixed(6)}
 - MACD Status: ${macd.line > macd.signal ? 'Bullish' : 'Bearish'} crossover, Histogram ${macd.histogram > 0 ? 'Positive' : 'Negative'}
 - Bollinger Bands: Upper ${bollingerBands.upper.toFixed(5)}, Middle ${bollingerBands.middle.toFixed(5)}, Lower ${bollingerBands.lower.toFixed(5)}
@@ -492,25 +492,24 @@ BALANCED TECHNICAL INDICATORS:
 
 CHART PATTERNS: ${chartPatterns.join(', ') || 'None detected'}
 ECONOMIC EVENTS: ${economicEvents.map(e => `${e.title} (${e.impact})`).join(', ') || 'None'}
-MARKET SESSION: ${marketSession} (Advantage: ${sessionAdvantage ? 'YES (+1 bonus)' : 'NO (0 bonus)'})
+MARKET SESSION: ${marketSession} (24/7 FLEXIBLE GENERATION)
 
-RECALIBRATED REQUIREMENTS CHECKLIST:
-1. RSI: BUY if < 35 (prefer < 30), SELL if > 65 (prefer > 70)
+RELAXED REQUIREMENTS CHECKLIST:
+1. RSI: BUY if < 40 (prefer < 30), SELL if > 60 (prefer > 70)
 2. MACD: Line vs signal crossover (histogram bonus)
 3. Trend: Price vs EMAs (partial alignment acceptable)
-4. Session: Bonus points but not mandatory
-5. Need 3+ confirmations total with 6+ technical score
+4. Need 2+ confirmations total with 5+ technical score
 
-ANALYZE WITH BALANCE: Generate signal if 3+ confirmations and quality thresholds met. Allow natural opportunities without forcing perfection.`
+ANALYZE WITH FLEXIBILITY: Generate signal if 2+ confirmations and relaxed quality thresholds met. Focus on capturing more realistic opportunities.`
         }
       ],
       max_tokens: 1200,
-      temperature: 0.3 // Balanced temperature for realistic analysis
+      temperature: 0.4 // RELAXED: slightly increased for more variety
     }),
   });
 
   if (!aiAnalysisResponse.ok) {
-    throw new Error(`Recalibrated analysis error: ${aiAnalysisResponse.status}`);
+    throw new Error(`Relaxed analysis error: ${aiAnalysisResponse.status}`);
   }
 
   const aiData = await aiAnalysisResponse.json();
@@ -527,16 +526,15 @@ ANALYZE WITH BALANCE: Generate signal if 3+ confirmations and quality thresholds
 
   const result = JSON.parse(jsonMatch[0]);
   
-  console.log(`🎯 Recalibrated Analysis Result for ${pair}: ${result.signal} (RSI: ${rsi.toFixed(1)}, Confidence: ${result.confidence}%, Score: ${result.technical_score})`);
+  console.log(`🎯 RELAXED Analysis Result for ${pair}: ${result.signal} (RSI: ${rsi.toFixed(1)}, Confidence: ${result.confidence}%, Score: ${result.technical_score})`);
   
   return result;
 };
 
-// UPDATED: Recalibrated quality signal processing - no forced generation
-const processRecalibratedQualitySignals = async (pairs: string[], latestPrices: Map<any, any>, openAIApiKey: string, supabase: any) => {
+// RELAXED: More flexible signal processing with expanded pairs
+const processRelaxedQualitySignals = async (pairs: string[], latestPrices: Map<any, any>, openAIApiKey: string, supabase: any) => {
   const results = [];
   
-  // REMOVED: No max signals limit - process all available pairs
   for (let i = 0; i < pairs.length; i++) {
     const pair = pairs[i];
     
@@ -548,29 +546,29 @@ const processRecalibratedQualitySignals = async (pairs: string[], latestPrices: 
       const priceHistory = generateRealisticPriceHistory(currentPrice, pair, 100);
       const atr = calculateImprovedATR(priceHistory);
 
-      console.log(`🧠 RECALIBRATED analysis for ${pair} (Price: ${currentPrice.toFixed(5)}, ATR: ${atr.toFixed(5)})...`);
+      console.log(`🧠 RELAXED analysis for ${pair} (Price: ${currentPrice.toFixed(5)}, ATR: ${atr.toFixed(5)})...`);
 
-      const aiSignal = await analyzeWithRecalibratedMarketAnalysis(pair, marketPoint, openAIApiKey, priceHistory, {});
+      const aiSignal = await analyzeWithRelaxedMarketAnalysis(pair, marketPoint, openAIApiKey, priceHistory, {});
 
       // Skip neutral signals
       if (aiSignal.signal === 'NEUTRAL' || !['BUY', 'SELL'].includes(aiSignal.signal)) {
-        console.log(`⚪ NEUTRAL ${pair} - No quality opportunity detected`);
+        console.log(`⚪ NEUTRAL ${pair} - No opportunity detected`);
         continue;
       }
 
-      // UPDATED: Relaxed quality thresholds (70%, 60%, 6+, GOOD+)
-      if (aiSignal.confidence < 70 || aiSignal.win_probability < 60 || aiSignal.technical_score < 6) {
+      // RELAXED: Lower quality thresholds (65%, 55%, 5+, FAIR+)
+      if (aiSignal.confidence < 65 || aiSignal.win_probability < 55 || aiSignal.technical_score < 5) {
         console.log(`❌ QUALITY FILTER: ${pair} (conf: ${aiSignal.confidence}%, prob: ${aiSignal.win_probability}%, score: ${aiSignal.technical_score})`);
         continue;
       }
 
-      // UPDATED: Accept both EXCELLENT and GOOD quality
-      if (!['EXCELLENT', 'GOOD'].includes(aiSignal.quality_grade)) {
-        console.log(`❌ GRADE FILTER: ${pair} rated ${aiSignal.quality_grade} (need EXCELLENT or GOOD)`);
+      // RELAXED: Accept EXCELLENT, GOOD, and FAIR quality
+      if (!['EXCELLENT', 'GOOD', 'FAIR'].includes(aiSignal.quality_grade)) {
+        console.log(`❌ GRADE FILTER: ${pair} rated ${aiSignal.quality_grade} (need EXCELLENT, GOOD, or FAIR)`);
         continue;
       }
 
-      // TECHNICAL CONFIRMATION VALIDATION with recalibrated thresholds
+      // RELAXED: Technical validation with lower requirements
       const rsi = calculateRSI(priceHistory);
       const macd = calculateMACD(priceHistory);
       const ema50 = calculateEMA(priceHistory, 50);
@@ -584,26 +582,11 @@ const processRecalibratedQualitySignals = async (pairs: string[], latestPrices: 
         continue;
       }
 
-      // UPDATED: Session advantage is now optional bonus (not required)
-      const hour = new Date().getUTCHours();
-      let sessionAdvantage = false;
-      
-      if (hour >= 0 && hour < 8) {
-        sessionAdvantage = ['USDJPY', 'AUDJPY', 'NZDJPY', 'GBPJPY'].includes(pair);
-      } else if (hour >= 8 && hour < 16) {
-        sessionAdvantage = ['EURUSD', 'GBPUSD', 'EURGBP', 'EURCHF', 'GBPCHF'].includes(pair);
-      } else if (hour >= 16 && hour < 24) {
-        sessionAdvantage = ['EURUSD', 'GBPUSD', 'USDCAD', 'USDCHF'].includes(pair);
-      }
-
-      // Session advantage provides bonus but is not required
-      const sessionBonus = sessionAdvantage ? ' +Session Advantage' : '';
-
-      // Signal generation with recalibrated parameters
+      // Signal generation with relaxed parameters
       const entryPrice = currentPrice;
-      const atrMultiplier = 2.5;
+      const atrMultiplier = 2.0; // RELAXED: reduced from 2.5
       
-      // Conservative stop loss
+      // Relaxed stop loss
       const stopLoss = calculateImprovedStopLoss(entryPrice, pair, aiSignal.signal, atr, atrMultiplier);
       
       // Fixed pip-based take profits
@@ -638,20 +621,20 @@ const processRecalibratedQualitySignals = async (pairs: string[], latestPrices: 
         status: 'active',
         is_centralized: true,
         user_id: null,
-        analysis_text: `RECALIBRATED ${aiSignal.quality_grade} Analysis (${aiSignal.win_probability}% win probability): ${aiSignal.analysis}. Technical confirmations: ${technicalValidation.confirmations.join(', ')}${sessionBonus}. ${aiSignal.signal_reasoning || ''}`,
+        analysis_text: `RELAXED ${aiSignal.quality_grade} Analysis (${aiSignal.win_probability}% win probability): ${aiSignal.analysis}. Technical confirmations: ${technicalValidation.confirmations.join(', ')}. ${aiSignal.signal_reasoning || ''}`,
         chart_data: chartData,
         pips: Math.round(Math.abs(entryPrice - stopLoss) / getPipValue(pair)),
         created_at: new Date().toISOString()
       };
 
-      console.log(`✅ RECALIBRATED SIGNAL for ${pair}: ${aiSignal.signal} (${aiSignal.confidence}% confidence, ${signal.pips} pip stop, ${technicalValidation.confirmations.length} confirmations)${sessionBonus}`);
+      console.log(`✅ RELAXED SIGNAL for ${pair}: ${aiSignal.signal} (${aiSignal.confidence}% confidence, ${signal.pips} pip stop, ${technicalValidation.confirmations.length} confirmations)`);
       results.push(signal);
 
       // Increased delay for quality analysis
       await new Promise(resolve => setTimeout(resolve, 2000));
 
     } catch (error) {
-      console.error(`❌ Error in recalibrated analysis for ${pair}:`, error);
+      console.error(`❌ Error in relaxed analysis for ${pair}:`, error);
     }
   }
 
@@ -673,8 +656,8 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const isCronTriggered = body.trigger === 'cron';
     
-    console.log(`🎯 RECALIBRATED signal generation starting (balanced quality analysis, NO forced generation)...`);
-    console.log(`🛡️ Recalibrated filters: RSI 30/70, 3/4 confirmations, 70%/60%/6+ thresholds, GOOD+ quality, session bonus`);
+    console.log(`🎯 RELAXED signal generation starting (flexible quality analysis, more opportunities)...`);
+    console.log(`🛡️ Relaxed filters: RSI 40/60, 2/4 confirmations, 65%/55%/5+ thresholds, FAIR+ quality, 24/7 generation`);
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -707,34 +690,36 @@ serve(async (req) => {
     
     if (availableSlots <= 0) {
       console.log(`🔄 Signal limit reached - initiating rotation...`);
-      const slotsNeeded = Math.min(6, 4); // Create some space for new opportunities
+      const slotsNeeded = Math.min(8, 6); // Create some space for new opportunities
       const rotatedCount = await rotateOldestSignals(supabase, slotsNeeded);
       availableSlots = rotatedCount;
     }
 
-    console.log(`✅ RECALIBRATED analysis will process all available pairs for natural opportunities (${availableSlots} slots available)`);
+    console.log(`✅ RELAXED analysis will process all available pairs for flexible opportunities (${availableSlots} slots available)`);
 
     // Get market data
     const { data: marketData, error: marketError } = await supabase
       .from('centralized_market_state')
       .select('*')
       .order('last_update', { ascending: false })
-      .limit(25);
+      .limit(30); // RELAXED: increased from 25
 
     if (marketError) throw marketError;
 
     // Get existing pairs to avoid duplicates
     const existingPairs = new Set(existingSignals?.map(s => s.symbol) || []);
 
-    // Prioritized pairs for analysis
-    const prioritizedPairs = [
+    // RELAXED: Expanded pairs for analysis (more exotic pairs included)
+    const expandedPairs = [
       'EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCAD', 'USDCHF', 'NZDUSD',
-      'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY'
+      'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY',
+      'AUDCAD', 'NZDCAD', 'GBPAUD', 'EURAUD', 'EURNZD', 'GBPNZD', 'AUDNZD', // RELAXED: added more pairs
+      'NZDJPY', 'AUDJPY', 'CHFJPY', 'NZDCHF', 'CADCHF', 'GBPCAD', 'EURCAD'
     ];
     
-    const availablePairs = prioritizedPairs.filter(pair => !existingPairs.has(pair));
+    const availablePairs = expandedPairs.filter(pair => !existingPairs.has(pair));
     
-    console.log(`🔍 RECALIBRATED analysis of ${availablePairs.length} pairs for natural opportunities`);
+    console.log(`🔍 RELAXED analysis of ${availablePairs.length} expanded pairs for flexible opportunities`);
     
     // Get latest prices
     const latestPrices = new Map();
@@ -751,7 +736,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           success: true,
-          message: 'No market data available for recalibrated analysis',
+          message: 'No market data available for relaxed analysis',
           signals: [],
           stats: {
             opportunitiesAnalyzed: 0,
@@ -759,20 +744,19 @@ serve(async (req) => {
             totalActiveSignals: currentSignalCount,
             signalLimit: MAX_ACTIVE_SIGNALS,
             executionTime: `${Date.now() - startTime}ms`,
-            recalibratedAnalysis: true,
+            relaxedAnalysis: true,
             buySignals: buyCount,
-            sellSignals: sellCount,
-            forcedGeneration: false
+            sellSignals: sellCount
           }
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Recalibrated signal processing - NO forced generation
-    console.log(`🚀 Starting RECALIBRATED signal generation with balanced technical requirements...`);
+    // RELAXED: Flexible signal processing
+    console.log(`🚀 Starting RELAXED signal generation with flexible technical requirements...`);
     
-    const processingPromise = processRecalibratedQualitySignals(
+    const processingPromise = processRelaxedQualitySignals(
       Array.from(latestPrices.keys()), 
       latestPrices, 
       openAIApiKey, 
@@ -791,7 +775,7 @@ serve(async (req) => {
 
     for (const signal of signalsToProcess) {
       try {
-        console.log(`💾 Inserting RECALIBRATED signal for ${signal.symbol}: ${signal.type}...`);
+        console.log(`💾 Inserting RELAXED signal for ${signal.symbol}: ${signal.type}...`);
         const { data: insertedSignal, error: insertError } = await supabase
           .from('trading_signals')
           .insert([signal])
@@ -809,7 +793,7 @@ serve(async (req) => {
         if (signal.type === 'BUY') newBuySignals++;
         if (signal.type === 'SELL') newSellSignals++;
         
-        console.log(`✅ RECALIBRATED signal ${signalsGenerated}: ${signal.symbol} ${signal.type} (${signal.confidence}% confidence)`);
+        console.log(`✅ RELAXED signal ${signalsGenerated}: ${signal.symbol} ${signal.type} (${signal.confidence}% confidence)`);
 
       } catch (error) {
         console.error(`❌ Error inserting signal for ${signal.symbol}:`, error);
@@ -821,17 +805,17 @@ serve(async (req) => {
     const finalSellCount = sellCount + newSellSignals;
     const executionTime = Date.now() - startTime;
 
-    console.log(`📊 RECALIBRATED SIGNAL GENERATION COMPLETE:`);
+    console.log(`📊 RELAXED SIGNAL GENERATION COMPLETE:`);
     console.log(`  - Execution time: ${executionTime}ms`);
-    console.log(`  - Natural opportunities found: ${signalsToInsert.length}, Generated: ${signalsGenerated} (BUY: ${newBuySignals}, SELL: ${newSellSignals})`);
-    console.log(`  - Recalibrated filters: RSI 30/70, 3/4 confirmations, 70%/60%/6+ thresholds, GOOD+ quality`);
+    console.log(`  - Flexible opportunities found: ${signalsToInsert.length}, Generated: ${signalsGenerated} (BUY: ${newBuySignals}, SELL: ${newSellSignals})`);
+    console.log(`  - Relaxed filters: RSI 40/60, 2/4 confirmations, 65%/55%/5+ thresholds, FAIR+ quality`);
     console.log(`  - Total active: ${finalActiveSignals}/${MAX_ACTIVE_SIGNALS}`);
-    console.log(`  - NO FORCED GENERATION - only natural opportunities`);
+    console.log(`  - EXPANDED PAIRS: ${expandedPairs.length} pairs analyzed for more opportunities`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Found ${signalsToInsert.length} natural opportunities, generated ${signalsGenerated} RECALIBRATED signals (BUY: ${newBuySignals}, SELL: ${newSellSignals}) in ${executionTime}ms - Balanced quality filters, no forced generation`,
+        message: `Found ${signalsToInsert.length} flexible opportunities, generated ${signalsGenerated} RELAXED signals (BUY: ${newBuySignals}, SELL: ${newSellSignals}) in ${executionTime}ms - Flexible filters for more opportunities`,
         signals: generatedSignals?.map(s => ({ 
           id: s.id, 
           symbol: s.symbol, 
@@ -842,25 +826,25 @@ serve(async (req) => {
         })) || [],
         stats: {
           opportunitiesAnalyzed: latestPrices.size,
-          naturalOpportunities: signalsToInsert.length,
+          flexibleOpportunities: signalsToInsert.length,
           signalsGenerated,
           totalActiveSignals: finalActiveSignals,
           signalLimit: MAX_ACTIVE_SIGNALS,
           executionTime: `${executionTime}ms`,
           timeoutProtection: `${FUNCTION_TIMEOUT_MS/1000}s`,
-          recalibratedAnalysis: true,
-          forcedGeneration: false,
-          recalibratedRequirements: {
-            minConfidence: '70%',
-            minWinProbability: '60%',
-            minTechnicalScore: '6/10',
-            rsiThresholds: 'BUY<35, SELL>65 (prefer 30/70)',
+          relaxedAnalysis: true,
+          relaxedRequirements: {
+            minConfidence: '65%', // RELAXED: was 70%
+            minWinProbability: '55%', // RELAXED: was 60%
+            minTechnicalScore: '5/10', // RELAXED: was 6/10
+            rsiThresholds: 'BUY<40, SELL>60 (prefer 30/70)', // RELAXED: was 35/65
             macdConfirmation: 'line+signal (histogram bonus)',
             trendAlignment: 'partial acceptable',
-            qualityGrade: 'EXCELLENT or GOOD',
-            sessionAdvantage: 'bonus (not required)',
-            confirmationsRequired: '3 out of 4',
-            minStopLoss: '50-60 pips'
+            qualityGrade: 'EXCELLENT, GOOD, or FAIR', // RELAXED: added FAIR
+            sessionAdvantage: 'removed (24/7 generation)', // RELAXED: removed timing
+            confirmationsRequired: '2 out of 4', // RELAXED: was 3 out of 4
+            minStopLoss: '30-40 pips', // RELAXED: was 50-60 pips
+            expandedPairs: `${expandedPairs.length} pairs` // RELAXED: expanded from 14
           },
           signalDistribution: {
             buySignals: finalBuyCount,
@@ -868,15 +852,16 @@ serve(async (req) => {
             newBuySignals,
             newSellSignals
           },
-          technicalIndicators: ['RSI (30/70)', 'MACD+Histogram', 'EMA Alignment', 'Bollinger Bands', 'ATR'],
-          recalibratedFeatures: [
-            'Relaxed RSI thresholds (30/70 vs 25/75)',
-            '3 out of 4 confirmations required (vs ALL 4)',
-            'Lowered quality thresholds (70%/60%/6+)', 
-            'Accept GOOD and EXCELLENT quality',
-            'Session advantage as bonus (not required)',
-            'NO forced signal generation',
-            'Natural opportunity detection only'
+          technicalIndicators: ['RSI (40/60)', 'MACD+Histogram', 'EMA Alignment', 'Bollinger Bands', 'ATR'],
+          relaxedFeatures: [
+            'Expanded RSI thresholds (40/60 vs 35/65)',
+            '2 out of 4 confirmations required (vs 3 out of 4)',
+            'Lowered quality thresholds (65%/55%/5+)', 
+            'Accept FAIR, GOOD, and EXCELLENT quality',
+            'Removed session timing requirements (24/7)',
+            'Reduced minimum stop loss (30-40 pips)',
+            `Expanded to ${expandedPairs.length} currency pairs`,
+            'More flexible trend alignment requirements'
           ],
           rotationUsed: availableSlots !== (MAX_ACTIVE_SIGNALS - currentSignalCount)
         },
@@ -888,7 +873,7 @@ serve(async (req) => {
 
   } catch (error) {
     const executionTime = Date.now() - startTime;
-    console.error(`💥 RECALIBRATED SIGNAL GENERATION ERROR (${executionTime}ms):`, error);
+    console.error(`💥 RELAXED SIGNAL GENERATION ERROR (${executionTime}ms):`, error);
     
     return new Response(
       JSON.stringify({ 
@@ -896,8 +881,7 @@ serve(async (req) => {
         error: error.message,
         executionTime: `${executionTime}ms`,
         timestamp: new Date().toISOString(),
-        recalibratedAnalysis: true,
-        forcedGeneration: false
+        relaxedAnalysis: true
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
