@@ -35,23 +35,44 @@ interface SignalCardProps {
 const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
   const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
 
-  // Enhanced validation with comprehensive null checks
+  // Enhanced null and type validation with comprehensive safety checks
   if (!signal) {
     console.warn('SignalCard: Null signal provided, skipping render');
     return null;
   }
 
-  // Check for all required properties before validation
-  if (!signal.id || !signal.pair || !signal.type || !signal.entryPrice) {
-    console.warn('SignalCard: Signal missing required properties:', {
-      hasId: !!signal.id,
-      hasPair: !!signal.pair,
-      hasType: !!signal.type,
-      hasEntryPrice: !!signal.entryPrice
-    });
+  if (typeof signal !== 'object') {
+    console.warn('SignalCard: Signal is not an object:', typeof signal);
     return null;
   }
 
+  // Comprehensive property validation with type checking
+  if (!signal.id || typeof signal.id !== 'string') {
+    console.warn('SignalCard: Signal missing or invalid ID:', signal.id);
+    return null;
+  }
+
+  if (!signal.pair || typeof signal.pair !== 'string') {
+    console.warn('SignalCard: Signal missing or invalid pair:', signal.pair);
+    return null;
+  }
+
+  if (!signal.type || typeof signal.type !== 'string') {
+    console.warn('SignalCard: Signal missing or invalid type:', signal.type);
+    return null;
+  }
+
+  if (signal.type !== 'BUY' && signal.type !== 'SELL') {
+    console.warn('SignalCard: Signal has invalid type value:', signal.type);
+    return null;
+  }
+
+  if (!signal.entryPrice || (typeof signal.entryPrice !== 'string' && typeof signal.entryPrice !== 'number')) {
+    console.warn('SignalCard: Signal missing or invalid entryPrice:', signal.entryPrice);
+    return null;
+  }
+
+  // Additional validation using existing validateSignal function
   if (!validateSignal(signal)) {
     console.warn('SignalCard: Signal failed validation:', signal);
     return null;
@@ -62,6 +83,12 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
   // Additional safety check after safe signal creation
   if (!safeSignal || !safeSignal.id || !safeSignal.pair || !safeSignal.type) {
     console.error('SignalCard: Safe signal creation failed for:', signal.id);
+    return null;
+  }
+
+  // Final type validation for safeSignal
+  if (safeSignal.type !== 'BUY' && safeSignal.type !== 'SELL') {
+    console.error('SignalCard: Safe signal has invalid type after creation:', safeSignal.type);
     return null;
   }
 

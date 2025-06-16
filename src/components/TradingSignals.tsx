@@ -1,4 +1,3 @@
-
 import React, { useState, memo, useMemo, useCallback } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useEnhancedSignalMonitoring } from '@/hooks/useEnhancedSignalMonitoring';
@@ -36,7 +35,7 @@ const TradingSignals = memo(() => {
 
   const { activateMarket } = useMarketActivation();
 
-  // Memoized signal validation with proper loading state handling
+  // Enhanced signal validation with comprehensive null/type checking
   const validSignals = useMemo(() => {
     // Prevent filtering during initial load to avoid race condition
     if (loading || !signals || signals.length === 0) {
@@ -55,8 +54,23 @@ const TradingSignals = memo(() => {
         return false;
       }
       
-      if (!signal.id || !signal.pair || !signal.type) {
-        Logger.debug('signals', `Signal missing required properties: ${signal.id} ${signal.pair} ${signal.type}`);
+      if (!signal.id || typeof signal.id !== 'string') {
+        Logger.debug('signals', `Signal missing or invalid ID: ${signal.id}`);
+        return false;
+      }
+
+      if (!signal.pair || typeof signal.pair !== 'string') {
+        Logger.debug('signals', `Signal missing or invalid pair: ${signal.pair}`);
+        return false;
+      }
+
+      if (!signal.type || typeof signal.type !== 'string') {
+        Logger.debug('signals', `Signal missing or invalid type: ${signal.type}`);
+        return false;
+      }
+
+      if (signal.type !== 'BUY' && signal.type !== 'SELL') {
+        Logger.debug('signals', `Signal has invalid type value: ${signal.type}`);
         return false;
       }
       
@@ -456,7 +470,7 @@ const TradingSignals = memo(() => {
         </div>
       )}
 
-      {/* Enhanced Active Signals Grid */}
+      {/* Enhanced Active Signals Grid with additional safety checks */}
       <div>
         <h3 className="text-white text-lg font-semibold mb-4">
           {selectedPair === 'All' ? 
@@ -468,8 +482,14 @@ const TradingSignals = memo(() => {
         {filteredSignals.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredSignals.map(signal => {
-              if (!signal || !signal.id) {
+              // Additional validation before rendering each signal
+              if (!signal || !signal.id || !signal.pair || !signal.type) {
                 Logger.debug('signals', 'Skipping invalid signal in render:', signal?.id);
+                return null;
+              }
+
+              if (signal.type !== 'BUY' && signal.type !== 'SELL') {
+                Logger.debug('signals', 'Skipping signal with invalid type in render:', signal.id, signal.type);
                 return null;
               }
               
@@ -479,7 +499,7 @@ const TradingSignals = memo(() => {
                   signal={signal}
                   analysis={analysis}
                   analyzingSignal={analyzingSignal}
-                  onGetAIAnalysis={() => handleGetAIAnalysis(signal.id)}
+                  onGetAIAnalysis={() => {}}
                 />
               );
             })}

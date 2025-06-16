@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -102,25 +101,54 @@ export const useTradingSignals = () => {
     }
   }, [isInitialLoad]);
 
-  // Memoized signal processing to prevent unnecessary recalculations
+  // Enhanced signal processing with comprehensive null filtering and validation
   const processSignals = useMemo(() => {
     return (activeSignals: any[]) => {
       Logger.debug('signals', `Processing ${activeSignals.length}/${MAX_ACTIVE_SIGNALS} signals`);
 
-      const transformedSignals = activeSignals
+      // First pass: Filter out completely null/undefined signals
+      const validRawSignals = activeSignals.filter((signal, index) => {
+        if (!signal) {
+          Logger.debug('signals', `Signal ${index + 1} is null/undefined - filtering out`);
+          return false;
+        }
+        
+        if (typeof signal !== 'object') {
+          Logger.debug('signals', `Signal ${index + 1} is not an object (${typeof signal}) - filtering out`);
+          return false;
+        }
+
+        // Check for absolutely required fields
+        if (!signal.id || !signal.symbol || !signal.type) {
+          Logger.debug('signals', `Signal ${index + 1} missing critical fields - id: ${!!signal.id}, symbol: ${!!signal.symbol}, type: ${!!signal.type}`);
+          return false;
+        }
+
+        return true;
+      });
+
+      Logger.debug('signals', `First pass validation: ${validRawSignals.length}/${activeSignals.length} signals have basic required fields`);
+
+      const transformedSignals = validRawSignals
         .map((signal, index) => {
           try {
-            if (!signal) {
-              Logger.debug('signals', `Signal ${index + 1} is null/undefined`);
+            // Additional safety checks during transformation
+            if (!signal?.id || typeof signal.id !== 'string') {
+              Logger.debug('signals', `Signal ${index + 1} has invalid ID: ${signal?.id}`);
               return null;
             }
 
-            if (!signal?.id || !signal?.symbol || !signal?.type) {
-              Logger.debug('signals', `Signal ${index + 1} missing required fields`);
+            if (!signal?.symbol || typeof signal.symbol !== 'string') {
+              Logger.debug('signals', `Signal ${index + 1} has invalid symbol: ${signal?.symbol}`);
               return null;
             }
 
-            const storedEntryPrice = safeParseFloat(signal.price, 1.0);
+            if (!signal?.type || (signal.type !== 'BUY' && signal.type !== 'SELL')) {
+              Logger.debug('signals', `Signal ${index + 1} has invalid type: ${signal?.type}`);
+              return null;
+            }
+
+            const storedEntryPrice = safeParseFloat(signal.price, 0);
             
             if (storedEntryPrice <= 0) {
               Logger.debug('signals', `Invalid stored price for ${signal.symbol}: ${storedEntryPrice}`);
@@ -151,14 +179,14 @@ export const useTradingSignals = () => {
               Logger.debug('signals', `Using fallback chart data for ${signal.symbol}`);
             }
 
-            // Enhanced take profits handling
+            // Enhanced take profits handling with null safety
             const takeProfits = safeParseArray(signal.take_profits);
             const targetsHit = safeParseArray(signal.targets_hit);
 
             const transformedSignal = {
               id: signal.id,
               pair: signal.symbol,
-              type: signal.type || 'BUY',
+              type: signal.type,
               entryPrice: storedEntryPrice.toFixed(5),
               stopLoss: safeParseFloat(signal.stop_loss, 0).toFixed(5),
               takeProfit1: takeProfits[0] ? takeProfits[0].toFixed(5) : '0.00000',
@@ -169,10 +197,21 @@ export const useTradingSignals = () => {
               confidence: Math.floor(safeParseFloat(signal.confidence, 70)),
               timestamp: signal.created_at || new Date().toISOString(),
               status: signal.status || 'active',
-              analysisText: signal.analysis_text || `${signal.type || 'BUY'} signal for ${signal.symbol} (${Math.floor(safeParseFloat(signal.confidence, 70))}% confidence)`,
+              analysisText: signal.analysis_text || `${signal.type} signal for ${signal.symbol} (${Math.floor(safeParseFloat(signal.confidence, 70))}% confidence)`,
               chartData: chartData,
               targetsHit: targetsHit
             };
+
+            // Final validation of transformed signal
+            if (!transformedSignal.id || !transformedSignal.pair || !transformedSignal.type) {
+              Logger.error('signals', `Transformation failed for signal ${signal.id}: missing required fields after transformation`);
+              return null;
+            }
+
+            if (transformedSignal.type !== 'BUY' && transformedSignal.type !== 'SELL') {
+              Logger.error('signals', `Invalid type after transformation for signal ${signal.id}: ${transformedSignal.type}`);
+              return null;
+            }
 
             Logger.debug('signals', `Successfully processed signal: ${transformedSignal.pair} ${transformedSignal.type} (${transformedSignal.confidence}%)`);
             return transformedSignal;
@@ -181,9 +220,14 @@ export const useTradingSignals = () => {
             return null;
           }
         })
-        .filter(Boolean) as TradingSignal[];
+        .filter((signal): signal is TradingSignal => {
+          if (!signal) return false;
+          if (!signal.id || !signal.pair || !signal.type) return false;
+          if (signal.type !== 'BUY' && signal.type !== 'SELL') return false;
+          return true;
+        });
 
-      Logger.info('signals', `Successfully processed ${transformedSignals.length}/${MAX_ACTIVE_SIGNALS} signals`);
+      Logger.info('signals', `Successfully processed ${transformedSignals.length}/${MAX_ACTIVE_SIGNALS} signals after comprehensive validation`);
       return transformedSignals;
     };
   }, []);
