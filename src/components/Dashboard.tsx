@@ -15,9 +15,10 @@ interface DashboardProps {
   onLogout: () => void;
   onNavigateToAffiliate?: () => void;
   onNavigateToAdmin?: () => void;
+  onNavigateToSubscription?: () => void;
 }
 
-const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin }: DashboardProps) => {
+const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, onNavigateToSubscription }: DashboardProps) => {
   const [activeTab, setActiveTab] = useState('signals');
   const [refreshing, setRefreshing] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -84,15 +85,14 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin }:
   };
 
   const navigateToSubscription = () => {
-    // This will trigger the parent component to show subscription page
-    window.dispatchEvent(new CustomEvent('navigate-to-subscription'));
+    if (onNavigateToSubscription) {
+      onNavigateToSubscription();
+    }
   };
 
   const navigateToAffiliate = () => {
     if (onNavigateToAffiliate) {
       onNavigateToAffiliate();
-    } else {
-      window.dispatchEvent(new CustomEvent('navigate-to-affiliate'));
     }
   };
 

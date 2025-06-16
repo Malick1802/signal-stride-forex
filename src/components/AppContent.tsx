@@ -8,6 +8,7 @@ import LandingPage from './LandingPage';
 import AuthPage from './AuthPage';
 import AffiliatePage from './AffiliatePage';
 import AdminDashboard from './AdminDashboard';
+import SubscriptionPage from './SubscriptionPage';
 
 const AppContent = () => {
   const { user, loading, subscription } = useAuth();
@@ -32,17 +33,17 @@ const AppContent = () => {
     // Simple navigation logic based on auth state
     if (user) {
       // Track signup for new users (only once)
-      if (currentView !== 'dashboard' && currentView !== 'admin') {
+      if (currentView !== 'dashboard' && currentView !== 'admin' && currentView !== 'subscription') {
         trackSignup(user.id);
       }
       
-      // Show dashboard for authenticated users (maintain current view if already on admin)
-      if (currentView !== 'admin' && currentView !== 'affiliate') {
+      // Show dashboard for authenticated users (maintain current view if already on admin, subscription, or affiliate)
+      if (currentView !== 'admin' && currentView !== 'affiliate' && currentView !== 'subscription') {
         setCurrentView('dashboard');
       }
     } else {
       // Show landing page for unauthenticated users
-      if (currentView === 'dashboard' || currentView === 'admin') {
+      if (currentView === 'dashboard' || currentView === 'admin' || currentView === 'subscription') {
         setCurrentView('landing');
       }
     }
@@ -78,6 +79,8 @@ const AppContent = () => {
       return <AffiliatePage onNavigate={handleNavigation} />;
     case 'admin':
       return <AdminDashboard onNavigate={handleNavigation} />;
+    case 'subscription':
+      return <SubscriptionPage onNavigate={handleNavigation} />;
     case 'dashboard':
       return user ? (
         <Dashboard 
@@ -85,6 +88,7 @@ const AppContent = () => {
           onLogout={() => {}} // Will be handled by Dashboard component
           onNavigateToAffiliate={() => handleNavigation('affiliate')}
           onNavigateToAdmin={() => handleNavigation('admin')}
+          onNavigateToSubscription={() => handleNavigation('subscription')}
         />
       ) : (
         <LandingPage onNavigate={handleNavigation} />
