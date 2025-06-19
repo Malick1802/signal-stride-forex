@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@capacitor/core": "^7.4.0",
+    "@capacitor/haptics": "^7.0.1",
     "@capacitor/ios": "^7.4.0",
     "@capacitor/keyboard": "^7.0.1",
     "@capacitor/local-notifications": "^7.0.1",
