@@ -25,6 +25,8 @@ interface TechnicalIndicators {
   trend: 'bullish' | 'bearish' | 'sideways';
   validationScore: number;
   confirmations: string[];
+  momentum: number;
+  volatility: number;
 }
 
 interface SignalData {
@@ -225,20 +227,25 @@ serve(async (req) => {
             return;
           }
 
-          // Generate real technical analysis
-          const technicalIndicators = await generateRealTechnicalIndicators(historicalData, pair.current_price);
+          // Generate real technical analysis with improved scoring
+          const technicalIndicators = await generateEnhancedTechnicalIndicators(historicalData, pair.current_price);
           
-          // Only proceed if technical analysis is valid
-          if (technicalIndicators.validationScore < 3) {
-            console.log(`❌ ${symbol} failed technical validation (score: ${technicalIndicators.validationScore})`);
+          // PHASE 1: Lower validation threshold from 3 to 1.5
+          if (technicalIndicators.validationScore < 1.5) {
+            console.log(`📊 ${symbol} validation score: ${technicalIndicators.validationScore.toFixed(2)} - Below threshold (1.5)`);
+            console.log(`📊 ${symbol} confirmations: [${technicalIndicators.confirmations.join(', ')}]`);
             return;
           }
 
-          const signal = await generateRealSignal(pair, technicalIndicators, historicalData);
+          console.log(`✅ ${symbol} passed validation (score: ${technicalIndicators.validationScore.toFixed(2)}) - Attempting signal generation`);
+
+          const signal = await generateEnhancedSignal(pair, technicalIndicators, historicalData);
 
           if (signal && signal.confidence >= 70) {
             generatedSignals.push(signal);
-            console.log(`✅ Generated ${signal.type} signal for ${symbol} (${signal.confidence}% confidence, validation: ${technicalIndicators.validationScore})`);
+            console.log(`✅ Generated ${signal.type} signal for ${symbol} (${signal.confidence}% confidence, validation: ${technicalIndicators.validationScore.toFixed(2)})`);
+          } else {
+            console.log(`❌ ${symbol} signal generation failed - Low confidence or null signal`);
           }
         } catch (error) {
           console.error(`❌ Error generating signal for ${symbol}:`, error);
@@ -389,8 +396,8 @@ function generateOHLCVFromPrices(priceData: PricePoint[]): OHLCVData[] {
   })).sort((a, b) => a.timestamp - b.timestamp);
 }
 
-// Real technical analysis using actual price data
-async function generateRealTechnicalIndicators(historicalData: PricePoint[], currentPrice: number): Promise<TechnicalIndicators> {
+// PHASE 2: Enhanced technical analysis with improved scoring logic
+async function generateEnhancedTechnicalIndicators(historicalData: PricePoint[], currentPrice: number): Promise<TechnicalIndicators> {
   const closes = historicalData.map(d => d.price);
   const ohlcvData = generateOHLCVFromPrices(historicalData);
   
@@ -411,58 +418,126 @@ async function generateRealTechnicalIndicators(historicalData: PricePoint[], cur
   // Calculate real support and resistance from price action
   const { support, resistance } = calculateSupportResistance(closes);
   
+  // PHASE 2: Calculate momentum and volatility for enhanced scoring
+  const momentum = calculateMomentum(closes, 10);
+  const volatility = calculateVolatility(closes, 20);
+  
   // Determine trend based on moving averages
   const trend = currentPrice > sma20 && sma20 > sma50 ? 'bullish' : 
                currentPrice < sma20 && sma20 < sma50 ? 'bearish' : 'sideways';
   
-  // Calculate validation score based on technical confluence
+  // PHASE 2: Enhanced validation score with improved scoring logic
   let validationScore = 0;
   const confirmations: string[] = [];
   
-  // RSI validation
-  if (rsi < 30) {
-    validationScore += 2;
+  // Enhanced RSI validation with partial points for moderate levels
+  if (rsi < 20) {
+    validationScore += 3;
+    confirmations.push('RSI Extremely Oversold');
+  } else if (rsi < 30) {
+    validationScore += 2.5;
     confirmations.push('RSI Oversold');
+  } else if (rsi < 40) { // PHASE 2: Partial points for moderate RSI
+    validationScore += 1.5;
+    confirmations.push('RSI Moderately Low');
+  } else if (rsi > 80) {
+    validationScore += 3;
+    confirmations.push('RSI Extremely Overbought');
   } else if (rsi > 70) {
-    validationScore += 2;
+    validationScore += 2.5;
     confirmations.push('RSI Overbought');
-  } else if (rsi > 40 && rsi < 60) {
-    validationScore += 1;
+  } else if (rsi > 60) { // PHASE 2: Partial points for moderate RSI
+    validationScore += 1.5;
+    confirmations.push('RSI Moderately High');
+  } else if (rsi > 45 && rsi < 55) {
+    validationScore += 0.5;
     confirmations.push('RSI Neutral');
   }
   
-  // MACD validation
+  // Enhanced MACD validation with more nuanced scoring
+  const macdStrength = Math.abs(macdData.value - macdData.signal);
   if (macdData.value > macdData.signal && macdData.histogram > 0) {
-    validationScore += 2;
-    confirmations.push('MACD Bullish');
+    if (macdStrength > 0.0001) {
+      validationScore += 2.5;
+      confirmations.push('Strong MACD Bullish');
+    } else {
+      validationScore += 1.5;
+      confirmations.push('MACD Bullish');
+    }
   } else if (macdData.value < macdData.signal && macdData.histogram < 0) {
-    validationScore += 2;
-    confirmations.push('MACD Bearish');
+    if (macdStrength > 0.0001) {
+      validationScore += 2.5;
+      confirmations.push('Strong MACD Bearish');
+    } else {
+      validationScore += 1.5;
+      confirmations.push('MACD Bearish');
+    }
   }
   
-  // Bollinger Bands validation
+  // Enhanced Bollinger Bands validation
+  const bbPosition = (currentPrice - bbData.lower) / (bbData.upper - bbData.lower);
   if (currentPrice < bbData.lower) {
-    validationScore += 1.5;
+    validationScore += 2;
     confirmations.push('Below BB Lower');
   } else if (currentPrice > bbData.upper) {
-    validationScore += 1.5;
+    validationScore += 2;
     confirmations.push('Above BB Upper');
-  }
-  
-  // Trend validation
-  if (trend !== 'sideways') {
+  } else if (bbPosition < 0.2) {
     validationScore += 1;
-    confirmations.push(`${trend} trend`);
+    confirmations.push('Near BB Lower');
+  } else if (bbPosition > 0.8) {
+    validationScore += 1;
+    confirmations.push('Near BB Upper');
   }
   
-  // Support/Resistance validation
-  const priceNearSupport = Math.abs(currentPrice - support) / currentPrice < 0.005;
-  const priceNearResistance = Math.abs(currentPrice - resistance) / currentPrice < 0.005;
+  // PHASE 2: Momentum-based scoring for trending markets
+  if (Math.abs(momentum) > 0.001) {
+    if (momentum > 0) {
+      validationScore += 1;
+      confirmations.push('Positive Momentum');
+    } else {
+      validationScore += 1;
+      confirmations.push('Negative Momentum');
+    }
+  }
   
-  if (priceNearSupport) {
+  // PHASE 2: Volatility-based scoring
+  if (volatility > 0.001 && volatility < 0.01) { // Moderate volatility is good
+    validationScore += 1;
+    confirmations.push('Moderate Volatility');
+  } else if (volatility > 0.01) { // High volatility adds some points
+    validationScore += 0.5;
+    confirmations.push('High Volatility');
+  }
+  
+  // Trend validation with enhanced scoring
+  if (trend === 'bullish') {
+    validationScore += 1.5;
+    confirmations.push('Bullish Trend');
+  } else if (trend === 'bearish') {
+    validationScore += 1.5;
+    confirmations.push('Bearish Trend');
+  } else {
+    validationScore += 0.5;
+    confirmations.push('Sideways Trend');
+  }
+  
+  // Support/Resistance validation with distance-based scoring
+  const supportDistance = Math.abs(currentPrice - support) / currentPrice;
+  const resistanceDistance = Math.abs(currentPrice - resistance) / currentPrice;
+  
+  if (supportDistance < 0.002) {
+    validationScore += 1.5;
+    confirmations.push('At Support Level');
+  } else if (supportDistance < 0.005) {
     validationScore += 1;
     confirmations.push('Near Support');
-  } else if (priceNearResistance) {
+  }
+  
+  if (resistanceDistance < 0.002) {
+    validationScore += 1.5;
+    confirmations.push('At Resistance Level');
+  } else if (resistanceDistance < 0.005) {
     validationScore += 1;
     confirmations.push('Near Resistance');
   }
@@ -487,13 +562,15 @@ async function generateRealTechnicalIndicators(historicalData: PricePoint[], cur
     support,
     resistance,
     trend,
+    momentum,
+    volatility,
     validationScore,
     confirmations
   };
 }
 
-// Generate real signals based on technical analysis
-async function generateRealSignal(
+// PHASE 1 & 2: Enhanced signal generation with lower thresholds and improved logic
+async function generateEnhancedSignal(
   pair: any, 
   indicators: TechnicalIndicators, 
   historicalData: PricePoint[]
@@ -501,50 +578,79 @@ async function generateRealSignal(
   const price = pair.current_price;
   const symbol = pair.symbol;
   
-  // Determine signal type based on real technical analysis
+  // Determine signal type based on enhanced technical analysis
   let signalType: 'BUY' | 'SELL' | null = null;
   let signalStrength = 0;
   
-  // RSI-based signals
-  if (indicators.rsi < 30 && indicators.trend === 'bullish') {
+  // Enhanced RSI-based signals with partial scoring
+  if (indicators.rsi < 30) {
+    if (indicators.trend === 'bullish' || indicators.momentum > 0) {
+      signalType = 'BUY';
+      signalStrength += 3;
+    } else {
+      signalType = 'BUY';
+      signalStrength += 2;
+    }
+  } else if (indicators.rsi < 40 && indicators.trend === 'bullish') { // PHASE 2: Moderate RSI levels
     signalType = 'BUY';
-    signalStrength += 3;
-  } else if (indicators.rsi > 70 && indicators.trend === 'bearish') {
+    signalStrength += 2;
+  } else if (indicators.rsi > 70) {
+    if (indicators.trend === 'bearish' || indicators.momentum < 0) {
+      signalType = 'SELL';
+      signalStrength += 3;
+    } else {
+      signalType = 'SELL';
+      signalStrength += 2;
+    }
+  } else if (indicators.rsi > 60 && indicators.trend === 'bearish') { // PHASE 2: Moderate RSI levels
     signalType = 'SELL';
-    signalStrength += 3;
+    signalStrength += 2;
   }
   
-  // MACD confirmation
+  // Enhanced MACD confirmation with momentum consideration
   if (signalType === 'BUY' && indicators.macd.value > indicators.macd.signal) {
-    signalStrength += 2;
+    signalStrength += indicators.momentum > 0 ? 2.5 : 2;
   } else if (signalType === 'SELL' && indicators.macd.value < indicators.macd.signal) {
-    signalStrength += 2;
+    signalStrength += indicators.momentum < 0 ? 2.5 : 2;
   }
   
-  // Bollinger Bands confirmation
+  // Enhanced Bollinger Bands confirmation
   if (signalType === 'BUY' && price < indicators.bollingerBands.lower) {
     signalStrength += 2;
+  } else if (signalType === 'BUY' && price < indicators.bollingerBands.middle) {
+    signalStrength += 1; // PHASE 2: Partial points for being below middle
   } else if (signalType === 'SELL' && price > indicators.bollingerBands.upper) {
     signalStrength += 2;
+  } else if (signalType === 'SELL' && price > indicators.bollingerBands.middle) {
+    signalStrength += 1; // PHASE 2: Partial points for being above middle
   }
   
-  // Support/Resistance confirmation
+  // Support/Resistance confirmation with enhanced logic
   const nearSupport = Math.abs(price - indicators.support) / price < 0.005;
   const nearResistance = Math.abs(price - indicators.resistance) / price < 0.005;
   
   if (signalType === 'BUY' && nearSupport) {
-    signalStrength += 1;
+    signalStrength += 1.5;
   } else if (signalType === 'SELL' && nearResistance) {
-    signalStrength += 1;
+    signalStrength += 1.5;
   }
   
-  // Need minimum signal strength
-  if (!signalType || signalStrength < 4) {
+  // PHASE 2: Volatility bonus for appropriate market conditions
+  if (indicators.volatility > 0.001 && indicators.volatility < 0.01) {
+    signalStrength += 0.5;
+  }
+  
+  // PHASE 1: Lower signal strength requirement from 4 to 3
+  if (!signalType || signalStrength < 3) {
+    console.log(`📊 ${symbol} signal strength: ${signalStrength.toFixed(2)} - Below threshold (3.0)`);
     return null;
   }
   
+  console.log(`📊 ${symbol} signal strength: ${signalStrength.toFixed(2)} - Above threshold, generating signal`);
+  
   // Calculate confidence based on signal strength and validation score
-  const confidence = Math.min(95, 60 + (signalStrength * 5) + (indicators.validationScore * 2));
+  const baseConfidence = 60 + (signalStrength * 4) + (indicators.validationScore * 2);
+  const confidence = Math.min(95, Math.max(70, Math.round(baseConfidence)));
   
   // Calculate real ATR for proper stop loss and take profit levels
   const atr = calculateATR(generateOHLCVFromPrices(historicalData));
@@ -573,13 +679,16 @@ async function generateRealSignal(
     ];
   }
   
-  // Generate analysis text with real technical context
-  let analysisText = `${signalType} signal for ${symbol} based on technical confluence. `;
-  analysisText += `RSI: ${indicators.rsi.toFixed(1)} (${indicators.rsi < 30 ? 'oversold' : indicators.rsi > 70 ? 'overbought' : 'neutral'}), `;
+  // Generate enhanced analysis text with technical context
+  let analysisText = `${signalType} signal for ${symbol} based on enhanced technical confluence. `;
+  analysisText += `RSI: ${indicators.rsi.toFixed(1)} (${getRSILabel(indicators.rsi)}), `;
   analysisText += `MACD: ${indicators.macd.value > indicators.macd.signal ? 'bullish' : 'bearish'}, `;
   analysisText += `Trend: ${indicators.trend}, `;
-  analysisText += `Price vs BB: ${price < indicators.bollingerBands.lower ? 'below lower' : price > indicators.bollingerBands.upper ? 'above upper' : 'within bands'}. `;
+  analysisText += `Momentum: ${indicators.momentum > 0 ? 'positive' : 'negative'}, `;
+  analysisText += `Volatility: ${getVolatilityLabel(indicators.volatility)}, `;
+  analysisText += `BB Position: ${getBBPosition(price, indicators.bollingerBands)}. `;
   analysisText += `Confirmations: ${indicators.confirmations.join(', ')}. `;
+  analysisText += `Signal Strength: ${signalStrength.toFixed(1)}/10. `;
   analysisText += `Entry: ${price.toFixed(5)}, SL: ${stopLoss.toFixed(5)}, TP1: ${takeProfits[0].toFixed(5)}`;
   
   return {
@@ -589,7 +698,7 @@ async function generateRealSignal(
     pips: 0, // New signals start with 0 pips since they're at entry price
     stopLoss,
     takeProfits,
-    confidence: Math.round(confidence),
+    confidence,
     analysisText,
     technicalIndicators: indicators,
     chartData: historicalData.slice(-50).map(point => ({
@@ -597,6 +706,58 @@ async function generateRealSignal(
       price: point.price
     }))
   };
+}
+
+// Helper functions for enhanced analysis
+function getRSILabel(rsi: number): string {
+  if (rsi < 20) return 'extremely oversold';
+  if (rsi < 30) return 'oversold';
+  if (rsi < 40) return 'moderately low';
+  if (rsi > 80) return 'extremely overbought';
+  if (rsi > 70) return 'overbought';
+  if (rsi > 60) return 'moderately high';
+  return 'neutral';
+}
+
+function getVolatilityLabel(volatility: number): string {
+  if (volatility < 0.001) return 'low';
+  if (volatility < 0.005) return 'moderate';
+  if (volatility < 0.01) return 'high';
+  return 'very high';
+}
+
+function getBBPosition(price: number, bb: { upper: number; middle: number; lower: number }): string {
+  if (price < bb.lower) return 'below lower band';
+  if (price > bb.upper) return 'above upper band';
+  if (price < bb.middle) return 'below middle';
+  return 'above middle';
+}
+
+// PHASE 2: Enhanced momentum calculation
+function calculateMomentum(prices: number[], period: number = 10): number {
+  if (prices.length < period + 1) return 0;
+  
+  const currentPrice = prices[prices.length - 1];
+  const pastPrice = prices[prices.length - 1 - period];
+  
+  return (currentPrice - pastPrice) / pastPrice;
+}
+
+// PHASE 2: Enhanced volatility calculation
+function calculateVolatility(prices: number[], period: number = 20): number {
+  if (prices.length < period) return 0;
+  
+  const recentPrices = prices.slice(-period);
+  const returns = [];
+  
+  for (let i = 1; i < recentPrices.length; i++) {
+    returns.push((recentPrices[i] - recentPrices[i-1]) / recentPrices[i-1]);
+  }
+  
+  const mean = returns.reduce((sum, ret) => sum + ret, 0) / returns.length;
+  const variance = returns.reduce((sum, ret) => sum + Math.pow(ret - mean, 2), 0) / returns.length;
+  
+  return Math.sqrt(variance);
 }
 
 // Technical analysis utility functions
