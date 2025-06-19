@@ -1,285 +1,257 @@
 
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { RefreshCw, PlayCircle, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
+import { Brain, Zap, TrendingUp, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 
 const TestSignalGeneration = () => {
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [testResults, setTestResults] = useState<any>(null);
-  const [debugLogs, setDebugLogs] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [results, setResults] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const runSignalGenerationTest = async () => {
-    setIsGenerating(true);
-    setTestResults(null);
-    setDebugLogs([]);
+  const handleGenerateSignals = async () => {
+    setLoading(true);
+    setError(null);
+    setResults(null);
 
     try {
-      console.log('🧪 Starting signal generation test...');
+      console.log('🤖 Starting AI-powered signal generation test...');
       
-      // Test with debug mode enabled
-      const { data: result, error } = await supabase.functions.invoke('generate-signals', {
+      const { data, error: functionError } = await supabase.functions.invoke('generate-signals', {
         body: { 
+          test: false, 
           force: true, 
-          debug: true, 
-          trigger: 'manual_test',
-          optimized: false // Disable optimizations for full testing
+          debug: true,
+          optimized: true,
+          trigger: 'test_page_ai'
         }
       });
 
-      if (error) {
-        console.error('❌ Signal generation test failed:', error);
-        toast({
-          title: "Test Failed",
-          description: `Signal generation error: ${error.message}`,
-          variant: "destructive",
-          duration: 10000,
-        });
-        setTestResults({
-          success: false,
-          error: error.message,
-          timestamp: new Date().toISOString()
-        });
-        return;
+      if (functionError) {
+        throw new Error(`AI Signal generation failed: ${functionError.message}`);
       }
 
-      console.log('✅ Signal generation test completed:', result);
-      
-      // Parse the results
-      const testResult = {
-        success: result?.status === 'success',
-        signalsGenerated: result?.stats?.signalsGenerated || 0,
-        totalGenerated: result?.stats?.totalGenerated || 0,
-        totalActiveSignals: result?.stats?.totalActiveSignals || 0,
-        signalLimit: result?.stats?.signalLimit || 20,
-        executionTime: result?.stats?.executionTime || 'unknown',
-        signalDistribution: result?.stats?.signalDistribution || {},
-        errors: result?.stats?.errors || [],
-        timestamp: result?.timestamp || new Date().toISOString()
-      };
+      console.log('🤖 AI Signal generation response:', data);
+      setResults(data);
 
-      setTestResults(testResult);
-
-      // Show appropriate toast
-      if (testResult.success && testResult.signalsGenerated > 0) {
+      if (data?.stats?.signalsGenerated > 0) {
         toast({
-          title: "🎯 Test Successful!",
-          description: `Generated ${testResult.signalsGenerated} signals in ${testResult.executionTime}`,
-          duration: 8000,
-        });
-      } else if (testResult.success && testResult.signalsGenerated === 0) {
-        toast({
-          title: "⚠️ Test Completed - No Signals",
-          description: "Function executed successfully but no signals passed validation",
-          variant: "destructive",
-          duration: 10000,
+          title: "🤖 AI Signals Generated Successfully",
+          description: `Generated ${data.stats.signalsGenerated} AI-powered signals using OpenAI analysis`,
         });
       } else {
         toast({
-          title: "❌ Test Failed",
-          description: "Signal generation test encountered issues",
-          variant: "destructive",
-          duration: 10000,
+          title: "🤖 AI Analysis Complete",
+          description: "AI analysis completed but no high-confidence signals generated",
+          variant: "default"
         });
       }
 
-    } catch (error) {
-      console.error('❌ Critical test error:', error);
+    } catch (err: any) {
+      console.error('❌ AI Signal generation error:', err);
+      setError(err.message);
       toast({
-        title: "Critical Test Error",
-        description: `Test failed: ${error}`,
-        variant: "destructive",
-        duration: 10000,
-      });
-      setTestResults({
-        success: false,
-        error: String(error),
-        timestamp: new Date().toISOString()
+        title: "AI Generation Error",
+        description: err.message,
+        variant: "destructive"
       });
     } finally {
-      setIsGenerating(false);
+      setLoading(false);
     }
   };
 
-  const getStatusIcon = (success: boolean) => {
-    if (success) return <CheckCircle className="h-5 w-5 text-green-500" />;
-    return <XCircle className="h-5 w-5 text-red-500" />;
-  };
+  const handleTestConnection = async () => {
+    setLoading(true);
+    setError(null);
 
-  const getStatusBadge = (success: boolean, signalsGenerated: number) => {
-    if (success && signalsGenerated > 0) {
-      return <Badge className="bg-green-500">SUCCESS</Badge>;
-    } else if (success && signalsGenerated === 0) {
-      return <Badge variant="secondary">NO SIGNALS</Badge>;
-    } else {
-      return <Badge variant="destructive">FAILED</Badge>;
+    try {
+      const { data, error: functionError } = await supabase.functions.invoke('generate-signals', {
+        body: { test: true, skipGeneration: true }
+      });
+
+      if (functionError) {
+        throw new Error(`Connection test failed: ${functionError.message}`);
+      }
+
+      toast({
+        title: "🤖 AI System Connected",
+        description: "AI-powered signal generation system is ready",
+      });
+
+      setResults({
+        status: 'connection_test',
+        message: 'AI system connection successful',
+        environment: data?.environment || {},
+        timestamp: data?.timestamp
+      });
+
+    } catch (err: any) {
+      setError(err.message);
+      toast({
+        title: "Connection Error",
+        description: err.message,
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <Card className="w-full max-w-4xl mx-auto">
-      <CardHeader>
-        <CardTitle className="flex items-center space-x-2">
-          <PlayCircle className="h-6 w-6 text-blue-500" />
-          <span>Signal Generation Test</span>
-        </CardTitle>
-        <CardDescription>
-          Test the improved signal generation system with Phase 1 & 2 optimizations
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        
-        {/* Test Controls */}
-        <div className="flex space-x-3">
-          <Button
-            onClick={runSignalGenerationTest}
-            disabled={isGenerating}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            {isGenerating ? (
-              <>
-                <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                Testing Signal Generation...
-              </>
-            ) : (
-              <>
-                <PlayCircle className="h-4 w-4 mr-2" />
-                Run Test
-              </>
-            )}
-          </Button>
-        </div>
-
-        {/* Test Results */}
-        {testResults && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
-              <div className="flex items-center space-x-3">
-                {getStatusIcon(testResults.success)}
-                <div>
-                  <h3 className="font-semibold">Test Results</h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
-                    Completed at {new Date(testResults.timestamp).toLocaleTimeString()}
-                  </p>
-                </div>
-              </div>
-              {getStatusBadge(testResults.success, testResults.signalsGenerated)}
+    <div className="space-y-6">
+      <Card className="border-purple-200 bg-gradient-to-r from-purple-50 to-blue-50">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-purple-900">
+            <Brain className="h-6 w-6" />
+            AI-Powered Signal Generation Testing
+          </CardTitle>
+          <p className="text-purple-700">
+            Test the OpenAI-powered signal generation system with advanced market analysis
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <h4 className="font-semibold text-purple-900 flex items-center gap-2">
+                <Zap className="h-4 w-4" />
+                AI Features
+              </h4>
+              <ul className="text-sm text-purple-700 space-y-1">
+                <li>• OpenAI-powered market analysis</li>
+                <li>• Natural language reasoning</li>
+                <li>• Context-aware decision making</li>
+                <li>• Advanced pattern recognition</li>
+                <li>• Minimum 30-pip stop loss enforcement</li>
+                <li>• Minimum 15-pip take profit validation</li>
+              </ul>
             </div>
+            <div className="space-y-2">
+              <h4 className="font-semibold text-purple-900 flex items-center gap-2">
+                <TrendingUp className="h-4 w-4" />
+                Signal Quality
+              </h4>
+              <ul className="text-sm text-purple-700 space-y-1">
+                <li>• 70-95% confidence range</li>
+                <li>• Major currency pair focus</li>
+                <li>• Session-aware analysis</li>
+                <li>• Risk/reward optimization</li>
+                <li>• Real-time market data input</li>
+                <li>• Multi-factor technical validation</li>
+              </ul>
+            </div>
+          </div>
+          
+          <div className="flex gap-3 pt-4">
+            <Button
+              onClick={handleTestConnection}
+              disabled={loading}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <CheckCircle className="h-4 w-4" />
+              Test AI Connection
+            </Button>
+            <Button
+              onClick={handleGenerateSignals}
+              disabled={loading}
+              className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700"
+            >
+              <Brain className="h-4 w-4" />
+              {loading ? 'AI Analyzing...' : 'Generate AI Signals'}
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
 
-            {/* Detailed Results */}
+      {error && (
+        <Card className="border-red-200 bg-red-50">
+          <CardContent className="pt-6">
+            <div className="flex items-center gap-2 text-red-800">
+              <AlertCircle className="h-5 w-5" />
+              <span className="font-semibold">Error</span>
+            </div>
+            <p className="text-red-700 mt-2">{error}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {results && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Brain className="h-5 w-5 text-purple-600" />
+              AI Generation Results
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="bg-white dark:bg-gray-800 p-3 rounded border">
-                <div className="text-2xl font-bold text-green-600">
-                  {testResults.signalsGenerated}
+              <div className="text-center">
+                <div className="text-2xl font-bold text-purple-600">
+                  {results.stats?.signalsGenerated || 0}
                 </div>
-                <div className="text-sm text-gray-600">Signals Generated</div>
+                <div className="text-sm text-gray-600">AI Signals Generated</div>
               </div>
-              
-              <div className="bg-white dark:bg-gray-800 p-3 rounded border">
+              <div className="text-center">
                 <div className="text-2xl font-bold text-blue-600">
-                  {testResults.totalActiveSignals}
+                  {results.stats?.totalActiveSignals || 0}
                 </div>
                 <div className="text-sm text-gray-600">Total Active</div>
               </div>
-              
-              <div className="bg-white dark:bg-gray-800 p-3 rounded border">
-                <div className="text-2xl font-bold text-purple-600">
-                  {testResults.executionTime}
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {results.stats?.executionTime || 'N/A'}
                 </div>
                 <div className="text-sm text-gray-600">Execution Time</div>
               </div>
-              
-              <div className="bg-white dark:bg-gray-800 p-3 rounded border">
+              <div className="text-center">
                 <div className="text-2xl font-bold text-orange-600">
-                  {testResults.signalLimit}
+                  {results.stats?.maxNewSignalsPerRun || 0}
                 </div>
-                <div className="text-sm text-gray-600">Signal Limit</div>
+                <div className="text-sm text-gray-600">Max Per Run</div>
               </div>
             </div>
 
-            {/* Signal Distribution */}
-            {testResults.signalDistribution && Object.keys(testResults.signalDistribution).length > 0 && (
-              <div className="bg-white dark:bg-gray-800 p-4 rounded border">
-                <h4 className="font-medium mb-3">Signal Distribution</h4>
-                <div className="flex space-x-4">
-                  <div className="flex items-center space-x-2">
-                    <div className="w-3 h-3 bg-green-500 rounded"></div>
-                    <span className="text-sm">BUY: {testResults.signalDistribution.newBuySignals || 0}</span>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-3 h-3 bg-red-500 rounded"></div>
-                    <span className="text-sm">SELL: {testResults.signalDistribution.newSellSignals || 0}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Errors */}
-            {testResults.errors && testResults.errors.length > 0 && (
-              <div className="bg-red-50 dark:bg-red-900/20 p-4 rounded border border-red-200">
-                <div className="flex items-center space-x-2 mb-2">
-                  <AlertTriangle className="h-4 w-4 text-red-500" />
-                  <h4 className="font-medium text-red-700 dark:text-red-400">Errors Encountered</h4>
-                </div>
-                <div className="space-y-1">
-                  {testResults.errors.map((error: string, index: number) => (
-                    <div key={index} className="text-sm text-red-600 dark:text-red-300">
-                      • {error}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Test Analysis */}
-            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded border border-blue-200">
-              <h4 className="font-medium text-blue-700 dark:text-blue-400 mb-2">Test Analysis</h4>
-              <div className="text-sm text-blue-600 dark:text-blue-300 space-y-1">
-                {testResults.success ? (
-                  <>
-                    {testResults.signalsGenerated > 0 ? (
-                      <>
-                        <div>✅ Signal generation is working with Phase 1 & 2 improvements</div>
-                        <div>✅ Validation thresholds (1.5) are allowing quality signals through</div>
-                        <div>✅ Enhanced scoring logic is producing {testResults.signalsGenerated} signals</div>
-                      </>
-                    ) : (
-                      <>
-                        <div>⚠️ Function executes successfully but no signals generated</div>
-                        <div>⚠️ Market conditions may not meet validation criteria</div>
-                        <div>💡 Consider further threshold adjustments or check market data quality</div>
-                      </>
-                    )}
-                  </>
-                ) : (
-                  <>
-                    <div>❌ Signal generation failed - check edge function logs</div>
-                    <div>🔧 Function may need debugging or error handling improvements</div>
-                  </>
+            {results.stats?.signalDistribution && (
+              <div className="flex gap-2 justify-center">
+                <Badge variant="outline" className="bg-green-50 text-green-700">
+                  BUY: {results.stats.signalDistribution.newBuySignals || 0}
+                </Badge>
+                <Badge variant="outline" className="bg-red-50 text-red-700">
+                  SELL: {results.stats.signalDistribution.newSellSignals || 0}
+                </Badge>
+                {results.stats.aiPowered && (
+                  <Badge variant="outline" className="bg-purple-50 text-purple-700">
+                    <Brain className="h-3 w-3 mr-1" />
+                    AI-Powered
+                  </Badge>
                 )}
               </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {/* Instructions */}
-        {!testResults && (
-          <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded">
-            <h4 className="font-medium mb-2">Test Instructions</h4>
-            <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-              <div>• This test will trigger the signal generation function with debug logging</div>
-              <div>• It will test the Phase 1 & 2 improvements (lowered thresholds + enhanced scoring)</div>
-              <div>• Results will show if our optimizations are working</div>
-              <div>• The test forces generation regardless of existing signal limits</div>
+            {results.stats?.errors && results.stats.errors.length > 0 && (
+              <div className="mt-4">
+                <h4 className="font-semibold text-red-600 mb-2">Errors:</h4>
+                <ul className="text-sm text-red-600 space-y-1">
+                  {results.stats.errors.map((error: string, index: number) => (
+                    <li key={index}>• {error}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <div className="text-xs text-gray-500 flex items-center gap-2">
+              <Clock className="h-3 w-3" />
+              Generated at: {results.timestamp}
+              {results.trigger && ` • Trigger: ${results.trigger}`}
             </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+          </CardContent>
+        </Card>
+      )}
+    </div>
   );
 };
 
