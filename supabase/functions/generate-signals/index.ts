@@ -569,7 +569,7 @@ async function generateEnhancedTechnicalIndicators(historicalData: PricePoint[],
   };
 }
 
-// PHASE 1 & 2: Enhanced signal generation with lower thresholds and improved logic
+// PHASE 1 & 2: Enhanced signal generation with minimum pip requirements
 async function generateEnhancedSignal(
   pair: any, 
   indicators: TechnicalIndicators, 
@@ -656,27 +656,76 @@ async function generateEnhancedSignal(
   const atr = calculateATR(generateOHLCVFromPrices(historicalData));
   const atrMultiplier = 2; // Conservative ATR multiplier
   
+  // Helper functions for pip calculations
+  const isJPYPair = (symbol: string): boolean => symbol.includes('JPY');
+  const getPipValue = (symbol: string): number => isJPYPair(symbol) ? 0.01 : 0.0001;
+  
   let stopLoss: number;
   let takeProfits: number[];
   
   if (signalType === 'BUY') {
-    stopLoss = Math.max(price - (atr * atrMultiplier), indicators.support * 0.999);
+    // UPDATED: Enforce minimum 30 pip stop loss
+    const minStopDistance = 30 * getPipValue(symbol);
+    const atrStopDistance = atr * atrMultiplier;
+    const stopDistance = Math.max(minStopDistance, atrStopDistance);
+    
+    stopLoss = Math.max(price - stopDistance, indicators.support * 0.999);
+    
+    // UPDATED: Enforce minimum 15 pip take profits
+    const minTpDistance = 15 * getPipValue(symbol);
+    const tp1Distance = Math.max(minTpDistance, atr * 1.5);
+    const tp2Distance = Math.max(minTpDistance * 1.67, atr * 2.5); // 25 pips min
+    const tp3Distance = Math.max(minTpDistance * 2.33, atr * 3.5); // 35 pips min
+    const tp4Distance = Math.max(minTpDistance * 3.33, atr * 5); // 50 pips min
+    const tp5Distance = Math.max(minTpDistance * 4.67, atr * 7); // 70 pips min
+    
     takeProfits = [
-      Math.min(price + (atr * 1.5), indicators.resistance * 0.999),
-      Math.min(price + (atr * 2.5), indicators.resistance * 1.001),
-      price + (atr * 3.5),
-      price + (atr * 5),
-      price + (atr * 7)
+      Math.min(price + tp1Distance, indicators.resistance * 0.999),
+      Math.min(price + tp2Distance, indicators.resistance * 1.001),
+      price + tp3Distance,
+      price + tp4Distance,
+      price + tp5Distance
     ];
   } else {
-    stopLoss = Math.min(price + (atr * atrMultiplier), indicators.resistance * 1.001);
+    // UPDATED: Enforce minimum 30 pip stop loss
+    const minStopDistance = 30 * getPipValue(symbol);
+    const atrStopDistance = atr * atrMultiplier;
+    const stopDistance = Math.max(minStopDistance, atrStopDistance);
+    
+    stopLoss = Math.min(price + stopDistance, indicators.resistance * 1.001);
+    
+    // UPDATED: Enforce minimum 15 pip take profits
+    const minTpDistance = 15 * getPipValue(symbol);
+    const tp1Distance = Math.max(minTpDistance, atr * 1.5);
+    const tp2Distance = Math.max(minTpDistance * 1.67, atr * 2.5); // 25 pips min
+    const tp3Distance = Math.max(minTpDistance * 2.33, atr * 3.5); // 35 pips min
+    const tp4Distance = Math.max(minTpDistance * 3.33, atr * 5); // 50 pips min
+    const tp5Distance = Math.max(minTpDistance * 4.67, atr * 7); // 70 pips min
+    
     takeProfits = [
-      Math.max(price - (atr * 1.5), indicators.support * 1.001),
-      Math.max(price - (atr * 2.5), indicators.support * 0.999),
-      price - (atr * 3.5),
-      price - (atr * 5),
-      price - (atr * 7)
+      Math.max(price - tp1Distance, indicators.support * 1.001),
+      Math.max(price - tp2Distance, indicators.support * 0.999),
+      price - tp3Distance,
+      price - tp4Distance,
+      price - tp5Distance
     ];
+  }
+  
+  // Log the pip distances for verification
+  const stopLossPips = Math.round(Math.abs(price - stopLoss) / getPipValue(symbol));
+  const tp1Pips = Math.round(Math.abs(takeProfits[0] - price) / getPipValue(symbol));
+  
+  console.log(`📊 ${symbol} ${signalType} - SL: ${stopLossPips} pips, TP1: ${tp1Pips} pips`);
+  
+  // Verify minimum requirements are met
+  if (stopLossPips < 30) {
+    console.log(`❌ ${symbol} stop loss only ${stopLossPips} pips - below 30 pip minimum`);
+    return null;
+  }
+  
+  if (tp1Pips < 15) {
+    console.log(`❌ ${symbol} take profit only ${tp1Pips} pips - below 15 pip minimum`);
+    return null;
   }
   
   // Generate enhanced analysis text with technical context
