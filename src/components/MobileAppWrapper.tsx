@@ -2,6 +2,7 @@
 import React, { useEffect } from 'react';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useNativeFeatures } from '@/hooks/useNativeFeatures';
+import { MobileNotificationManager } from '@/utils/mobileNotifications';
 import { Capacitor } from '@capacitor/core';
 
 interface MobileAppWrapperProps {
@@ -14,43 +15,62 @@ const MobileAppWrapper: React.FC<MobileAppWrapperProps> = ({ children }) => {
 
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
-      console.log('Running as native mobile app');
+      console.log('🚀 ForexSignal Pro mobile app initialized');
+      
+      // Initialize mobile notifications
+      MobileNotificationManager.initialize();
       
       // Add mobile-specific styles
       document.body.classList.add('mobile-app');
       
-      // Disable text selection on mobile for better UX
+      // Optimize for mobile performance
       document.body.style.webkitUserSelect = 'none';
       document.body.style.userSelect = 'none';
+      document.body.style.webkitTouchCallout = 'none';
+      document.body.style.webkitTapHighlightColor = 'transparent';
       
       // Prevent zoom on double tap
-      document.addEventListener('touchstart', (e) => {
-        if (e.touches.length > 1) {
-          e.preventDefault();
-        }
-      });
-
       let lastTouchEnd = 0;
-      document.addEventListener('touchend', (e) => {
-        const now = (new Date()).getTime();
+      const preventZoom = (e: TouchEvent) => {
+        const now = Date.now();
         if (now - lastTouchEnd <= 300) {
           e.preventDefault();
         }
         lastTouchEnd = now;
-      }, false);
+      };
+      
+      document.addEventListener('touchend', preventZoom, { passive: false });
+      
+      // Handle touch feedback for trading actions
+      const handleTouchFeedback = () => {
+        triggerHaptic();
+      };
+      
+      // Add haptic feedback to buttons
+      const buttons = document.querySelectorAll('button');
+      buttons.forEach(button => {
+        button.addEventListener('touchstart', handleTouchFeedback);
+      });
+      
+      return () => {
+        document.removeEventListener('touchend', preventZoom);
+        buttons.forEach(button => {
+          button.removeEventListener('touchstart', handleTouchFeedback);
+        });
+      };
     }
-  }, []);
+  }, [triggerHaptic]);
 
   useEffect(() => {
     if (isRegistered && pushToken) {
-      console.log('Push notifications registered with token:', pushToken);
+      console.log('📱 Push notifications registered for ForexSignal Pro:', pushToken);
       // Here you would typically send the token to your backend
-      // to store it for sending notifications
+      // to register it for signal notifications
     }
   }, [isRegistered, pushToken]);
 
   return (
-    <div className="mobile-app-wrapper">
+    <div className="mobile-app-wrapper min-h-screen">
       {children}
     </div>
   );

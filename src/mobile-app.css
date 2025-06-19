@@ -1,19 +1,24 @@
 
-/* Mobile App Specific Styles */
+/* ForexSignal Pro Mobile App Styles */
 .mobile-app {
   /* Prevent overscroll bounce on iOS */
   overscroll-behavior: none;
   -webkit-overflow-scrolling: touch;
+  /* Optimize for forex trading performance */
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
 }
 
 .mobile-app body {
-  /* Prevent zoom on form inputs */
+  /* Prevent zoom on form inputs for trading */
   font-size: 16px;
-  /* Prevent highlighting on touch */
+  /* Prevent text selection for better trading UX */
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
   -webkit-user-select: none;
   user-select: none;
+  /* Smooth scrolling for charts */
+  scroll-behavior: smooth;
 }
 
 .mobile-app input,
@@ -22,26 +27,108 @@
   /* Re-enable selection for form elements */
   -webkit-user-select: text;
   user-select: text;
+  /* Prevent zoom on focus */
+  font-size: 16px;
+  /* Better mobile input styling */
+  border-radius: 8px;
+  padding: 12px;
 }
 
-/* Keyboard open adjustments */
+/* Keyboard adjustments for trading forms */
 .keyboard-open {
-  /* Adjust layout when virtual keyboard is open */
-  height: calc(100vh - 250px);
+  height: calc(100vh - 280px);
   overflow: hidden;
 }
 
-/* Safe area insets for notched devices */
-.mobile-app-wrapper {
-  padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
-  padding-left: env(safe-area-inset-left);
-  padding-right: env(safe-area-inset-right);
+.keyboard-open .trading-form {
+  padding-bottom: 40px;
 }
 
-/* Status bar adjustments */
-@media (display-mode: standalone) {
+/* Safe area adjustments for modern devices */
+.mobile-app-wrapper {
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: max(env(safe-area-inset-bottom), 20px);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
+}
+
+/* Status bar adjustments for trading app */
+@supports (padding: max(0px)) {
   .mobile-app-wrapper {
-    padding-top: max(env(safe-area-inset-top), 20px);
+    padding-top: max(env(safe-area-inset-top), 24px);
   }
+}
+
+/* Better button touch targets for trading */
+.mobile-app button {
+  min-height: 44px;
+  min-width: 44px;
+  touch-action: manipulation;
+}
+
+/* Optimize charts for mobile */
+.mobile-app .recharts-wrapper {
+  -webkit-transform: translateZ(0);
+  transform: translateZ(0);
+}
+
+/* Trading signal cards mobile optimization */
+.mobile-app .signal-card {
+  margin-bottom: 16px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Price display optimization for mobile */
+.mobile-app .price-display {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Notification styling for mobile */
+.mobile-notification {
+  position: fixed;
+  top: env(safe-area-inset-top, 20px);
+  left: 16px;
+  right: 16px;
+  z-index: 9999;
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  padding: 16px;
+  color: white;
+  animation: slideDown 0.3s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Dark mode optimizations for mobile trading */
+@media (prefers-color-scheme: dark) {
+  .mobile-app {
+    background-color: #0f172a;
+    color: #f8fafc;
+  }
+}
+
+/* Performance optimizations for trading charts */
+.mobile-app .chart-container {
+  will-change: transform;
+  contain: layout style paint;
+}
+
+/* Touch improvements for mobile trading */
+.mobile-app .touchable {
+  -webkit-tap-highlight-color: rgba(16, 185, 129, 0.2);
+  tap-highlight-color: rgba(16, 185, 129, 0.2);
 }

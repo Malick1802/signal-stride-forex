@@ -13,12 +13,36 @@ const config: CapacitorConfig = {
     SplashScreen: {
       launchShowDuration: 2000,
       backgroundColor: '#0f172a',
-      showSpinner: false
+      showSpinner: false,
+      androidSpinnerStyle: 'large',
+      iosSpinnerStyle: 'small',
+      spinnerColor: '#10b981'
     },
     StatusBar: {
       style: 'dark',
-      backgroundColor: '#0f172a'
+      backgroundColor: '#0f172a',
+      overlay: false
+    },
+    PushNotifications: {
+      presentationOptions: ['badge', 'sound', 'alert']
+    },
+    LocalNotifications: {
+      smallIcon: 'ic_stat_icon_config_sample',
+      iconColor: '#10b981',
+      sound: 'beep.wav'
+    },
+    Keyboard: {
+      resize: 'body',
+      style: 'dark',
+      resizeOnFullScreen: true
     }
+  },
+  ios: {
+    contentInset: 'automatic'
+  },
+  android: {
+    allowMixedContent: true,
+    captureInput: true
   }
 };
 
