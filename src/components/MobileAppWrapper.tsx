@@ -23,11 +23,11 @@ const MobileAppWrapper: React.FC<MobileAppWrapperProps> = ({ children }) => {
       // Add mobile-specific styles
       document.body.classList.add('mobile-app');
       
-      // Optimize for mobile performance
+      // Optimize for mobile performance with type-safe webkit properties
       document.body.style.webkitUserSelect = 'none';
       document.body.style.userSelect = 'none';
-      document.body.style.webkitTouchCallout = 'none';
-      document.body.style.webkitTapHighlightColor = 'transparent';
+      (document.body.style as any).webkitTouchCallout = 'none';
+      (document.body.style as any).webkitTapHighlightColor = 'transparent';
       
       // Prevent zoom on double tap
       let lastTouchEnd = 0;
