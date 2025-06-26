@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useSignalStatusManager } from './useSignalStatusManager';
 import Logger from '@/utils/logger';
 
 interface EnhancedSignalData {
@@ -19,6 +20,7 @@ interface EnhancedSignalData {
 
 export const useEnhancedSignalMonitoring = () => {
   const { toast } = useToast();
+  const { expireSignalImmediately, validateSignalStatus } = useSignalStatusManager();
   const [stopLossConfirmations, setStopLossConfirmations] = useState<Record<string, {
     count: number, 
     firstDetectedAt: number,
@@ -176,7 +178,7 @@ export const useEnhancedSignalMonitoring = () => {
     return newTargetsHit;
   }, []);
 
-  // Process signal outcome with pure market-based logic
+  // Process signal outcome with IMMEDIATE expiration when conditions are met
   const processSignalOutcome = useCallback(async (
     signal: EnhancedSignalData, 
     currentPrice: number, 
@@ -191,7 +193,16 @@ export const useEnhancedSignalMonitoring = () => {
 
       Logger.info('monitoring', `Processing outcome: ${signal.symbol} - SL: ${stopLossHit}, All TP: ${allTargetsHit}`);
 
-      // Check for existing outcome
+      // PHASE 1 FIX: Always expire signal immediately when condition is met
+      const reason = allTargetsHit ? 'all_targets_hit' : 'stop_loss_hit';
+      const expireSuccess = await expireSignalImmediately(signal.id, reason, targetsHit);
+      
+      if (!expireSuccess) {
+        Logger.error('monitoring', `Failed to expire signal ${signal.id}`);
+        return;
+      }
+
+      // Create outcome record only if it doesn't exist
       const { data: existingOutcome } = await supabase
         .from('signal_outcomes')
         .select('id')
@@ -199,7 +210,7 @@ export const useEnhancedSignalMonitoring = () => {
         .single();
 
       if (existingOutcome) {
-        Logger.debug('monitoring', `Outcome exists for ${signal.id}, skipping`);
+        Logger.debug('monitoring', `Outcome exists for ${signal.id}, signal already expired`);
         return;
       }
 
@@ -226,13 +237,13 @@ export const useEnhancedSignalMonitoring = () => {
       // Determine outcome notes
       let outcomeNotes = '';
       if (allTargetsHit) {
-        outcomeNotes = 'All Take Profits Hit (Pure Outcome-Based)';
+        outcomeNotes = 'All Take Profits Hit (Enhanced Pure Outcome)';
       } else if (targetsHit.length > 0 && stopLossHit) {
-        outcomeNotes = `Take Profit ${Math.max(...targetsHit)} Hit, Then Stop Loss (Pure Outcome-Based)`;
+        outcomeNotes = `Take Profit ${Math.max(...targetsHit)} Hit, Then Stop Loss (Enhanced Pure Outcome)`;
       } else if (targetsHit.length > 0) {
-        outcomeNotes = `Take Profit ${Math.max(...targetsHit)} Hit (Pure Outcome-Based)`;
+        outcomeNotes = `Take Profit ${Math.max(...targetsHit)} Hit (Enhanced Pure Outcome)`;
       } else {
-        outcomeNotes = 'Stop Loss Hit (Pure Outcome-Based)';
+        outcomeNotes = 'Stop Loss Hit (Enhanced Pure Outcome)';
       }
 
       // Create outcome record
@@ -255,25 +266,8 @@ export const useEnhancedSignalMonitoring = () => {
 
       Logger.info('monitoring', `Created outcome for ${signal.id}: ${outcomeNotes} (${pnlPips} pips)`);
 
-      // Update signal status
-      const { error: updateError } = await supabase
-        .from('trading_signals')
-        .update({ 
-          status: 'expired',
-          targets_hit: targetsHit,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', signal.id);
-
-      if (updateError) {
-        Logger.error('monitoring', `Failed to update signal ${signal.id}:`, updateError);
-        return;
-      }
-
-      Logger.info('monitoring', `Signal expired: ${signal.id} (${signal.symbol}) - Market based`);
-
       // Show notification
-      const notificationTitle = isSuccessful ? "🎯 Pure Outcome Success!" : "⛔ Pure Outcome Stop Loss";
+      const notificationTitle = isSuccessful ? "🎯 Enhanced Pure Outcome Success!" : "⛔ Enhanced Pure Outcome Stop Loss";
       const notificationDescription = `${signal.symbol} ${signal.type} ${outcomeNotes} (${pnlPips >= 0 ? '+' : ''}${pnlPips} pips)`;
       
       toast({
@@ -285,7 +279,7 @@ export const useEnhancedSignalMonitoring = () => {
     } catch (error) {
       Logger.error('monitoring', `Error processing outcome for ${signal.id}:`, error);
     }
-  }, [toast]);
+  }, [toast, expireSignalImmediately]);
 
   // Enhanced monitoring with exclusive pure outcome control
   const monitorSignalsEnhanced = useCallback(async () => {
@@ -301,7 +295,7 @@ export const useEnhancedSignalMonitoring = () => {
         return;
       }
 
-      Logger.debug('monitoring', `Monitoring ${activeSignals.length} signals`);
+      Logger.debug('monitoring', `Enhanced monitoring ${activeSignals.length} signals`);
 
       // Get current market prices
       const symbols = [...new Set(activeSignals.map(s => s.symbol))];
@@ -324,7 +318,7 @@ export const useEnhancedSignalMonitoring = () => {
       // Clear stale confirmations
       clearStaleConfirmations();
 
-      // Process each signal with pure outcome validation
+      // Process each signal with enhanced validation
       for (const signal of activeSignals) {
         const currentPrice = currentPrices[signal.symbol];
         if (!currentPrice) continue;
@@ -349,7 +343,15 @@ export const useEnhancedSignalMonitoring = () => {
           currentTrailingStop: undefined
         };
 
-        Logger.debug('monitoring', `Validating ${signal.symbol} - Current: ${currentPrice}, Entry: ${enhancedSignal.entryPrice}, SL: ${enhancedSignal.stopLoss}`);
+        // PHASE 3: Validate signal status before processing
+        const statusValidation = await validateSignalStatus(signal.id);
+        if (!statusValidation.isValid && statusValidation.shouldBeExpired) {
+          Logger.warning('monitoring', `Fixing inconsistent signal status: ${statusValidation.reason}`);
+          await expireSignalImmediately(signal.id, 'all_targets_hit', enhancedSignal.targetsHit);
+          continue;
+        }
+
+        Logger.debug('monitoring', `Enhanced validating ${signal.symbol} - Current: ${currentPrice}, Entry: ${enhancedSignal.entryPrice}, SL: ${enhancedSignal.stopLoss}`);
 
         // Check take profits FIRST (priority over stop loss)
         const newTargetsHit = validateTakeProfitHits(enhancedSignal, currentPrice);
@@ -398,25 +400,25 @@ export const useEnhancedSignalMonitoring = () => {
         // Check for stop loss with enhanced validation
         const stopLossHit = validateStopLossHit(enhancedSignal, currentPrice);
 
-        // Process outcome if signal should expire (PURE MARKET BASED)
+        // Process outcome if signal should expire (ENHANCED PURE MARKET BASED)
         await processSignalOutcome(enhancedSignal, currentPrice, stopLossHit, enhancedSignal.targetsHit);
       }
 
     } catch (error) {
-      Logger.error('monitoring', 'Monitoring error:', error);
+      Logger.error('monitoring', 'Enhanced monitoring error:', error);
     }
-  }, [validateStopLossHit, validateTakeProfitHits, processSignalOutcome, calculateTrailingStop, clearStaleConfirmations]);
+  }, [validateStopLossHit, validateTakeProfitHits, processSignalOutcome, calculateTrailingStop, clearStaleConfirmations, expireSignalImmediately, validateSignalStatus]);
 
   useEffect(() => {
     // Initial monitoring
     monitorSignalsEnhanced();
 
-    // Keep 3-second monitoring as requested for maximum responsiveness
+    // Keep 3-second monitoring for maximum responsiveness
     const monitorInterval = setInterval(monitorSignalsEnhanced, 3000);
 
     // Real-time price update monitoring
     const priceChannel = supabase
-      .channel('pure-outcome-exclusive-monitoring')
+      .channel('enhanced-pure-outcome-monitoring')
       .on(
         'postgres_changes',
         {
@@ -430,7 +432,7 @@ export const useEnhancedSignalMonitoring = () => {
       )
       .subscribe();
 
-    Logger.info('monitoring', 'Pure outcome exclusive monitoring active with 3s interval');
+    Logger.info('monitoring', 'Enhanced pure outcome monitoring active with immediate expiration');
 
     return () => {
       clearInterval(monitorInterval);
