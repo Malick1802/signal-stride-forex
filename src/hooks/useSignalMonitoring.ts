@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useSMSNotifications } from './useSMSNotifications';
 import { useAuth } from '@/contexts/AuthContext';
+import { MobileNotificationManager } from '@/utils/mobileNotifications';
 
 interface SignalToMonitor {
   id: string;
@@ -21,9 +22,8 @@ interface SignalToMonitor {
 export const useSignalMonitoring = () => {
   const { toast } = useToast();
   const { user } = useAuth();
-  const { sendNewSignalSMS, sendTargetHitSMS, sendStopLossSMS, sendSignalCompleteSMS } = useSMSNotifications();
+  const { sendTargetHitSMS, sendStopLossSMS, sendSignalCompleteSMS } = useSMSNotifications();
 
-  // Get user profile for SMS notifications
   const getUserProfile = useCallback(async () => {
     if (!user) return null;
     
@@ -36,6 +36,68 @@ export const useSignalMonitoring = () => {
     return profile;
   }, [user]);
 
+  const createSignalOutcome = useCallback(async (
+    signalId: string,
+    isSuccessful: boolean,
+    exitPrice: number,
+    targetsHit: number[],
+    pnlPips: number,
+    notes: string
+  ) => {
+    try {
+      // Check if outcome already exists
+      const { data: existingOutcome } = await supabase
+        .from('signal_outcomes')
+        .select('id')
+        .eq('signal_id', signalId)
+        .single();
+
+      if (existingOutcome) {
+        console.log(`Outcome already exists for signal ${signalId}`);
+        return true;
+      }
+
+      // Create outcome record
+      const { error: outcomeError } = await supabase
+        .from('signal_outcomes')
+        .insert({
+          signal_id: signalId,
+          hit_target: isSuccessful,
+          exit_price: exitPrice,
+          exit_timestamp: new Date().toISOString(),
+          target_hit_level: targetsHit.length > 0 ? Math.max(...targetsHit) : null,
+          pnl_pips: pnlPips,
+          notes: notes
+        });
+
+      if (outcomeError) {
+        console.error('Error creating signal outcome:', outcomeError);
+        return false;
+      }
+
+      // Expire the signal
+      const { error: updateError } = await supabase
+        .from('trading_signals')
+        .update({ 
+          status: 'expired',
+          targets_hit: targetsHit,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', signalId);
+
+      if (updateError) {
+        console.error('Error expiring signal:', updateError);
+        return false;
+      }
+
+      console.log(`✅ Signal ${signalId} expired with outcome: ${notes} (${pnlPips} pips)`);
+      return true;
+    } catch (error) {
+      console.error('Error in createSignalOutcome:', error);
+      return false;
+    }
+  }, []);
+
   const checkSignalOutcomes = useCallback(async (signals: SignalToMonitor[], currentPrices: Record<string, number>) => {
     const userProfile = await getUserProfile();
     
@@ -45,20 +107,21 @@ export const useSignalMonitoring = () => {
       const currentPrice = currentPrices[signal.symbol];
       if (!currentPrice) continue;
 
-      console.log(`📊 PURE OUTCOME-BASED MONITORING signal ${signal.id} (${signal.symbol}): Current ${currentPrice}, Entry ${signal.entryPrice}, SL ${signal.stopLoss}`);
+      console.log(`📊 Monitoring ${signal.symbol}: Current ${currentPrice}, Entry ${signal.entryPrice}, SL ${signal.stopLoss}`);
 
       let hitStopLoss = false;
       let newTargetsHit = [...signal.targetsHit];
       let hasNewTargetHit = false;
+      let shouldExpire = false;
 
-      // Check stop loss hit first (ONLY outcome-based expiration)
+      // Check stop loss hit
       if (signal.type === 'BUY') {
         hitStopLoss = currentPrice <= signal.stopLoss;
       } else {
         hitStopLoss = currentPrice >= signal.stopLoss;
       }
 
-      // Check take profit hits and update targets_hit array
+      // Check take profit hits
       if (!hitStopLoss && signal.takeProfits.length > 0) {
         for (let i = 0; i < signal.takeProfits.length; i++) {
           const tpPrice = signal.takeProfits[i];
@@ -71,17 +134,14 @@ export const useSignalMonitoring = () => {
             tpHit = currentPrice <= tpPrice;
           }
           
-          // If target hit and not already recorded, add to array
           if (tpHit && !newTargetsHit.includes(targetNumber)) {
             newTargetsHit.push(targetNumber);
-            newTargetsHit.sort();
             hasNewTargetHit = true;
-            console.log(`🎯 NEW TARGET ${targetNumber} HIT for ${signal.symbol}! Pure outcome-based detection`);
+            console.log(`🎯 Target ${targetNumber} hit for ${signal.symbol}!`);
             
-            // Show immediate notification for new target hit
             toast({
               title: `🎯 Target ${targetNumber} Hit!`,
-              description: `${signal.symbol} ${signal.type} reached TP${targetNumber} at ${tpPrice.toFixed(5)} (Pure outcome-based)`,
+              description: `${signal.symbol} ${signal.type} reached TP${targetNumber} at ${tpPrice.toFixed(5)}`,
               duration: 6000,
             });
 
@@ -99,11 +159,18 @@ export const useSignalMonitoring = () => {
                 pnlPips
               });
             }
+
+            // Send mobile notification
+            await MobileNotificationManager.showInstantSignalNotification({
+              title: `🎯 ${signal.symbol} Target ${targetNumber} Hit!`,
+              body: `${signal.type} signal reached TP${targetNumber} at ${tpPrice.toFixed(5)}`,
+              data: { signalId: signal.id, targetLevel: targetNumber }
+            });
           }
         }
       }
 
-      // Update targets_hit array if new targets were hit
+      // Update targets if new ones hit
       if (hasNewTargetHit) {
         try {
           const { error: updateError } = await supabase
@@ -115,102 +182,55 @@ export const useSignalMonitoring = () => {
             .eq('id', signal.id);
 
           if (updateError) {
-            console.error('❌ Error updating targets_hit:', updateError);
-          } else {
-            console.log(`✅ Pure outcome-based targets_hit update for ${signal.symbol}:`, newTargetsHit);
+            console.error('Error updating targets_hit:', updateError);
           }
         } catch (error) {
-          console.error('❌ Error updating signal targets:', error);
+          console.error('Error updating signal targets:', error);
         }
       }
 
-      // Check if signal should be expired (all targets hit OR stop loss hit) - PURE OUTCOME ONLY
+      // Check if signal should expire immediately
       const allTargetsHit = newTargetsHit.length === signal.takeProfits.length;
-      if (hitStopLoss || allTargetsHit) {
-        try {
-          console.log(`🔄 PURE OUTCOME-BASED EXPIRATION for ${signal.symbol}: ${allTargetsHit ? 'ALL TARGETS HIT' : 'STOP LOSS HIT'} - NO TIME COMPONENT`);
-          
-          // Calculate final exit price and P&L
-          let finalExitPrice = currentPrice;
-          let isSuccessful = allTargetsHit;
-          
-          if (allTargetsHit) {
-            // Use the highest hit target price
-            const highestHitTarget = Math.max(...newTargetsHit);
-            finalExitPrice = signal.takeProfits[highestHitTarget - 1];
-          } else if (hitStopLoss) {
-            finalExitPrice = signal.stopLoss;
-            isSuccessful = false;
-          }
-          
-          let pnlPips = 0;
-          if (signal.type === 'BUY') {
-            pnlPips = Math.round((finalExitPrice - signal.entryPrice) * 10000);
-          } else {
-            pnlPips = Math.round((signal.entryPrice - finalExitPrice) * 10000);
-          }
+      shouldExpire = hitStopLoss || allTargetsHit;
 
-          // Determine final outcome status
-          let finalStatus = '';
-          if (allTargetsHit) {
-            finalStatus = 'All Take Profits Hit (Pure Outcome-Based)';
-          } else if (newTargetsHit.length > 0 && hitStopLoss) {
-            finalStatus = `Take Profit ${Math.max(...newTargetsHit)} Hit, Then Stop Loss (Pure Outcome-Based)`;
-          } else if (newTargetsHit.length > 0) {
-            finalStatus = `Take Profit ${Math.max(...newTargetsHit)} Hit (Pure Outcome-Based)`;
-          } else {
-            finalStatus = 'Stop Loss Hit (Pure Outcome-Based)';
-          }
+      if (shouldExpire) {
+        // Calculate final outcome
+        let finalExitPrice = currentPrice;
+        let isSuccessful = allTargetsHit;
+        let finalNotes = '';
+        
+        if (allTargetsHit) {
+          const highestHitTarget = Math.max(...newTargetsHit);
+          finalExitPrice = signal.takeProfits[highestHitTarget - 1];
+          finalNotes = `All Take Profits Hit - Target ${highestHitTarget}`;
+        } else if (hitStopLoss) {
+          finalExitPrice = signal.stopLoss;
+          isSuccessful = false;
+          finalNotes = 'Stop Loss Hit';
+        }
+        
+        // Calculate P&L
+        let pnlPips = 0;
+        if (signal.type === 'BUY') {
+          pnlPips = Math.round((finalExitPrice - signal.entryPrice) * 10000);
+        } else {
+          pnlPips = Math.round((signal.entryPrice - finalExitPrice) * 10000);
+        }
 
-          // Check if outcome already exists to prevent duplicates
-          const { data: existingOutcome } = await supabase
-            .from('signal_outcomes')
-            .select('id')
-            .eq('signal_id', signal.id)
-            .single();
+        // Create outcome and expire signal immediately
+        const success = await createSignalOutcome(
+          signal.id,
+          isSuccessful,
+          finalExitPrice,
+          newTargetsHit,
+          pnlPips,
+          finalNotes
+        );
 
-          if (existingOutcome) {
-            console.log(`⚠️ Pure outcome already exists for signal ${signal.id}, skipping`);
-            continue;
-          }
-
-          // Create signal outcome record
-          const { error: outcomeError } = await supabase
-            .from('signal_outcomes')
-            .insert({
-              signal_id: signal.id,
-              hit_target: isSuccessful,
-              exit_price: finalExitPrice,
-              exit_timestamp: new Date().toISOString(),
-              target_hit_level: newTargetsHit.length > 0 ? Math.max(...newTargetsHit) : null,
-              pnl_pips: pnlPips,
-              notes: finalStatus
-            });
-
-          if (outcomeError) {
-            console.error('❌ Error creating pure outcome-based signal outcome:', outcomeError);
-            continue;
-          }
-
-          // Update signal status to expired
-          const { error: updateError } = await supabase
-            .from('trading_signals')
-            .update({ 
-              status: 'expired',
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', signal.id);
-
-          if (updateError) {
-            console.error('❌ Error updating signal status:', updateError);
-            continue;
-          }
-
-          console.log(`✅ PURE OUTCOME-BASED EXPIRATION: Signal ${signal.id} expired with outcome: ${isSuccessful ? 'SUCCESS' : 'LOSS'} (${pnlPips} pips) - ${finalStatus}`);
-          
+        if (success) {
           // Show final notification
-          const notificationTitle = isSuccessful ? "🎯 Signal Completed Successfully!" : "⛔ Signal Stopped Out";
-          const notificationDescription = `${signal.symbol} ${signal.type} ${finalStatus} (${pnlPips >= 0 ? '+' : ''}${pnlPips} pips)`;
+          const notificationTitle = isSuccessful ? "🎯 Signal Completed!" : "⛔ Signal Stopped Out";
+          const notificationDescription = `${signal.symbol} ${signal.type} ${finalNotes} (${pnlPips >= 0 ? '+' : ''}${pnlPips} pips)`;
           
           toast({
             title: notificationTitle,
@@ -218,7 +238,7 @@ export const useSignalMonitoring = () => {
             duration: 8000,
           });
 
-          // Send SMS notification for signal completion
+          // Send SMS notification
           if (userProfile?.phone_number && userProfile.sms_notifications_enabled && userProfile.sms_verified) {
             if (isSuccessful) {
               await sendSignalCompleteSMS(userProfile.phone_number, {
@@ -236,16 +256,20 @@ export const useSignalMonitoring = () => {
             }
           }
 
-        } catch (error) {
-          console.error('❌ Error processing pure outcome-based signal expiration:', error);
+          // Send mobile notification
+          await MobileNotificationManager.showSignalOutcomeNotification(
+            signal.symbol,
+            isSuccessful ? 'profit' : 'loss',
+            Math.abs(pnlPips)
+          );
         }
       }
     }
-  }, [toast, getUserProfile, sendTargetHitSMS, sendStopLossSMS, sendSignalCompleteSMS]);
+  }, [toast, getUserProfile, sendTargetHitSMS, sendStopLossSMS, sendSignalCompleteSMS, createSignalOutcome]);
 
   const monitorActiveSignals = useCallback(async () => {
     try {
-      // Get active signals only (no time-based filtering - pure outcome monitoring only)
+      // Get active signals only
       const { data: activeSignals, error: signalsError } = await supabase
         .from('trading_signals')
         .select('*')
@@ -256,7 +280,7 @@ export const useSignalMonitoring = () => {
         return;
       }
 
-      console.log(`🔍 PURE OUTCOME-BASED MONITORING: ${activeSignals.length} active signals (time-based expiration ELIMINATED)...`);
+      console.log(`🔍 Monitoring ${activeSignals.length} active signals...`);
 
       // Get current market prices
       const symbols = [...new Set(activeSignals.map(s => s.symbol))];
@@ -266,7 +290,7 @@ export const useSignalMonitoring = () => {
         .in('symbol', symbols);
 
       if (priceError || !marketData?.length) {
-        console.log('⚠️ No market data available for pure outcome-based signal monitoring');
+        console.log('⚠️ No market data available for signal monitoring');
         return;
       }
 
@@ -290,11 +314,11 @@ export const useSignalMonitoring = () => {
         confidence: signal.confidence
       }));
 
-      // Check for outcomes using ONLY pure market conditions (NO time component)
+      // Check for outcomes using pure market conditions
       await checkSignalOutcomes(signalsToMonitor, currentPrices);
 
     } catch (error) {
-      console.error('❌ Error in pure outcome-based signal monitoring:', error);
+      console.error('❌ Error in signal monitoring:', error);
     }
   }, [checkSignalOutcomes]);
 
@@ -302,12 +326,12 @@ export const useSignalMonitoring = () => {
     // Initial monitoring check
     monitorActiveSignals();
 
-    // Enhanced monitoring every 5 seconds for immediate pure outcome-based detection
-    const monitorInterval = setInterval(monitorActiveSignals, 5000);
+    // Monitor every 3 seconds for immediate outcome detection
+    const monitorInterval = setInterval(monitorActiveSignals, 3000);
 
-    // Subscribe to real-time price updates for immediate pure outcome-based checking
+    // Subscribe to real-time price updates
     const priceChannel = supabase
-      .channel('pure-outcome-monitoring')
+      .channel('outcome-monitoring')
       .on(
         'postgres_changes',
         {
@@ -316,35 +340,17 @@ export const useSignalMonitoring = () => {
           table: 'centralized_market_state'
         },
         () => {
-          // Check for pure outcome-based results immediately after price updates
-          setTimeout(monitorActiveSignals, 500);
+          // Check immediately after price updates
+          monitorActiveSignals();
         }
       )
       .subscribe();
 
-    // Subscribe to signal updates to refresh pure outcome monitoring
-    const signalChannel = supabase
-      .channel('pure-outcome-signal-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'trading_signals'
-        },
-        (payload) => {
-          console.log('📡 Pure outcome-based signal update detected (NO time expiration):', payload);
-          setTimeout(monitorActiveSignals, 1000);
-        }
-      )
-      .subscribe();
-
-    console.log('🔄 Pure outcome-based signal monitoring initialized - time-based expiration ELIMINATED');
+    console.log('🔄 Pure outcome-based signal monitoring active');
 
     return () => {
       clearInterval(monitorInterval);
       supabase.removeChannel(priceChannel);
-      supabase.removeChannel(signalChannel);
     };
   }, [monitorActiveSignals]);
 

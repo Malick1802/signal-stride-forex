@@ -44,9 +44,9 @@ export const useExpiredSignals = () => {
 
   const fetchExpiredSignals = async () => {
     try {
-      console.log('📊 Fetching expired signals with corrected expiration times...');
+      console.log('📊 Fetching expired signals with outcomes...');
       
-      // Fetch expired signals with outcomes
+      // Fetch expired signals with their outcomes
       const { data: signals, error } = await supabase
         .from('trading_signals')
         .select(`
@@ -61,7 +61,7 @@ export const useExpiredSignals = () => {
           )
         `)
         .eq('status', 'expired')
-        .order('updated_at', { ascending: false }) // Use updated_at which should reflect when status changed
+        .order('updated_at', { ascending: false })
         .limit(100);
 
       if (error) {
@@ -77,101 +77,72 @@ export const useExpiredSignals = () => {
       if (signals) {
         console.log(`📈 Found ${signals.length} expired signals`);
         
-        // Transform the data with corrected expiration time logic
+        // Transform the data using actual outcome data
         const transformedSignals = signals.map(signal => {
           const outcome = signal.signal_outcomes?.[0];
           const createdAt = new Date(signal.created_at);
           
-          // Determine proper expiration time
+          // Use actual exit timestamp from outcome or signal update time
           let expiredAt: Date;
           if (outcome?.exit_timestamp) {
-            // Use actual exit timestamp from outcome
             expiredAt = new Date(outcome.exit_timestamp);
-          } else if (signal.updated_at !== signal.created_at) {
-            // Use updated_at when status changed to expired
-            expiredAt = new Date(signal.updated_at);
           } else {
-            // Fallback: estimate based on signal creation + reasonable trading duration
-            // Most forex signals should resolve within 24-48 hours
-            const estimatedDuration = Math.random() * 48 + 4; // 4-52 hours
-            expiredAt = new Date(createdAt.getTime() + (estimatedDuration * 60 * 60 * 1000));
+            expiredAt = new Date(signal.updated_at);
           }
 
-          // Calculate duration from creation to expiration
+          // Calculate actual duration from creation to expiration
           const durationMs = expiredAt.getTime() - createdAt.getTime();
           const hours = Math.floor(durationMs / (1000 * 60 * 60));
           const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
 
-          // Corrected result determination logic
+          // Use outcome data if available
           let result: 'WIN' | 'LOSS' = 'LOSS';
-          let reason = 'Stop Loss Hit';
+          let reason = 'Unknown';
           let exitPrice = signal.price;
           let pnl = '$0.00';
           let targetHitLevel = undefined;
 
-          // Check if any targets were hit (from signal data or outcome)
-          const targetsHit = signal.targets_hit || [];
-          const hasTargetsHit = targetsHit.length > 0;
-          
           if (outcome) {
-            // Use outcome data if available
-            if (outcome.hit_target || hasTargetsHit) {
-              result = 'WIN';
-              targetHitLevel = outcome.target_hit_level || Math.max(...targetsHit, 0);
-              reason = targetHitLevel > 0 ? `Target ${targetHitLevel} Hit` : 'Take Profit Hit';
-            } else {
-              result = 'LOSS';
-              reason = outcome.notes || 'Stop Loss Hit';
-            }
-            
+            result = outcome.hit_target ? 'WIN' : 'LOSS';
             exitPrice = outcome.exit_price || signal.price;
+            targetHitLevel = outcome.target_hit_level;
+            reason = outcome.notes || (outcome.hit_target ? 'Target Hit' : 'Stop Loss Hit');
             
-            // Calculate P&L from outcome
+            // Use actual P&L from outcome
             if (outcome.pnl_pips) {
               const pipValue = 10; // $10 per pip for standard lot
               const pnlAmount = outcome.pnl_pips * pipValue;
               pnl = pnlAmount >= 0 ? `+$${pnlAmount.toFixed(2)}` : `-$${Math.abs(pnlAmount).toFixed(2)}`;
             }
-          } else if (hasTargetsHit) {
-            // No outcome record but targets were hit (check signal data)
-            result = 'WIN';
-            targetHitLevel = Math.max(...targetsHit);
-            reason = `Target ${targetHitLevel} Hit`;
-            
-            // Estimate P&L based on target hit
-            const entryPrice = parseFloat(signal.price.toString());
-            const takeProfits = signal.take_profits || [];
-            if (takeProfits[targetHitLevel - 1]) {
-              const targetPrice = parseFloat(takeProfits[targetHitLevel - 1].toString());
-              exitPrice = targetPrice;
-              
-              // Calculate estimated P&L
-              let pipDifference = 0;
-              if (signal.type === 'BUY') {
-                pipDifference = (targetPrice - entryPrice) * 10000;
-              } else {
-                pipDifference = (entryPrice - targetPrice) * 10000;
-              }
-              const estimatedPnL = pipDifference * 10; // $10 per pip
-              pnl = estimatedPnL >= 0 ? `+$${estimatedPnL.toFixed(2)}` : `-$${Math.abs(estimatedPnL).toFixed(2)}`;
-            }
           } else {
-            // No targets hit and no positive outcome
-            result = 'LOSS';
-            reason = 'Stop Loss Hit';
-            exitPrice = signal.stop_loss;
-            
-            // Calculate stop loss P&L
-            const entryPrice = parseFloat(signal.price.toString());
-            const stopLossPrice = parseFloat(signal.stop_loss.toString());
-            let pipDifference = 0;
-            if (signal.type === 'BUY') {
-              pipDifference = (stopLossPrice - entryPrice) * 10000;
+            // Fallback: check signal targets_hit
+            const targetsHit = signal.targets_hit || [];
+            if (targetsHit.length > 0) {
+              result = 'WIN';
+              targetHitLevel = Math.max(...targetsHit);
+              reason = `Target ${targetHitLevel} Hit`;
+              
+              // Estimate P&L if outcome missing
+              const takeProfits = signal.take_profits || [];
+              if (takeProfits[targetHitLevel - 1]) {
+                const targetPrice = parseFloat(takeProfits[targetHitLevel - 1].toString());
+                exitPrice = targetPrice;
+                
+                const entryPrice = parseFloat(signal.price.toString());
+                let pipDifference = 0;
+                if (signal.type === 'BUY') {
+                  pipDifference = (targetPrice - entryPrice) * 10000;
+                } else {
+                  pipDifference = (entryPrice - targetPrice) * 10000;
+                }
+                const estimatedPnL = pipDifference * 10;
+                pnl = estimatedPnL >= 0 ? `+$${estimatedPnL.toFixed(2)}` : `-$${Math.abs(estimatedPnL).toFixed(2)}`;
+              }
             } else {
-              pipDifference = (entryPrice - stopLossPrice) * 10000;
+              result = 'LOSS';
+              reason = 'Stop Loss Hit';
+              exitPrice = signal.stop_loss;
             }
-            const stopLossPnL = pipDifference * 10; // $10 per pip
-            pnl = `-$${Math.abs(stopLossPnL).toFixed(2)}`;
           }
 
           return {
@@ -194,13 +165,13 @@ export const useExpiredSignals = () => {
 
         setExpiredSignals(transformedSignals);
 
-        // Calculate corrected statistics
+        // Calculate statistics
         const totalSignals = transformedSignals.length;
         const wins = transformedSignals.filter(s => s.result === 'WIN').length;
         const losses = transformedSignals.filter(s => s.result === 'LOSS').length;
         const winRate = totalSignals > 0 ? Math.round((wins / totalSignals) * 100) : 0;
         
-        // Calculate total P&L with better parsing
+        // Calculate total P&L
         const totalPnL = transformedSignals.reduce((sum, signal) => {
           const pnlValue = parseFloat(signal.pnl.replace(/[$+,]/g, ''));
           return sum + (isNaN(pnlValue) ? 0 : pnlValue);
@@ -224,7 +195,7 @@ export const useExpiredSignals = () => {
           losses
         });
 
-        console.log(`✅ Corrected expired signals loaded with proper expiration times - Total: ${totalSignals}, Wins: ${wins}, Losses: ${losses}, Win Rate: ${winRate}%, Total P&L: $${totalPnL.toFixed(2)}`);
+        console.log(`✅ Loaded ${totalSignals} expired signals - Wins: ${wins}, Losses: ${losses}, Win Rate: ${winRate}%, Total P&L: $${totalPnL.toFixed(2)}`);
       }
     } catch (error) {
       console.error('❌ Error fetching expired signals:', error);
@@ -253,7 +224,7 @@ export const useExpiredSignals = () => {
         },
         (payload) => {
           console.log('📡 New signal outcome detected:', payload);
-          setTimeout(fetchExpiredSignals, 500);
+          fetchExpiredSignals();
           
           toast({
             title: "📊 Signal Completed",
@@ -272,7 +243,7 @@ export const useExpiredSignals = () => {
         },
         (payload) => {
           console.log('📡 Signal expired:', payload);
-          setTimeout(fetchExpiredSignals, 1000);
+          fetchExpiredSignals();
         }
       )
       .subscribe();
