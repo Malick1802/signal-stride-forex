@@ -95,7 +95,7 @@ export const useExpiredSignals = () => {
           const hours = Math.floor(durationMs / (1000 * 60 * 60));
           const minutes = Math.floor((durationMs % (1000 * 60 * 60)) / (1000 * 60));
 
-          // Use outcome data if available
+          // Use outcome data if available - PRIORITY LOGIC FIXED
           let result: 'WIN' | 'LOSS' = 'LOSS';
           let reason = 'Unknown';
           let exitPrice = signal.price;
@@ -108,19 +108,20 @@ export const useExpiredSignals = () => {
             targetHitLevel = outcome.target_hit_level;
             reason = outcome.notes || (outcome.hit_target ? 'Target Hit' : 'Stop Loss Hit');
             
-            // Use actual pips from outcome
+            // Use actual pips from outcome - this should prioritize profit level pips
             if (outcome.pnl_pips !== null && outcome.pnl_pips !== undefined) {
               pips = outcome.pnl_pips >= 0 ? `+${outcome.pnl_pips} pips` : `${outcome.pnl_pips} pips`;
             }
           } else {
-            // Fallback: check signal targets_hit and estimate pips
+            // Fallback: check signal targets_hit and estimate pips - FIXED LOGIC
             const targetsHit = signal.targets_hit || [];
             if (targetsHit.length > 0) {
+              // PRIORITY FIX: If targets were hit, calculate pips to the highest hit target
               result = 'WIN';
               targetHitLevel = Math.max(...targetsHit);
               reason = `Target ${targetHitLevel} Hit`;
               
-              // Estimate pips if outcome missing
+              // Calculate pips to the target that was hit, NOT to stop loss
               const takeProfits = signal.take_profits || [];
               if (takeProfits[targetHitLevel - 1]) {
                 const targetPrice = parseFloat(takeProfits[targetHitLevel - 1].toString());
@@ -130,6 +131,7 @@ export const useExpiredSignals = () => {
                 let pipDifference = 0;
                 const multiplier = signal.symbol.includes('JPY') ? 100 : 10000;
                 
+                // Calculate pips to the TARGET PRICE, not stop loss
                 if (signal.type === 'BUY') {
                   pipDifference = Math.round((targetPrice - entryPrice) * multiplier);
                 } else {
@@ -139,6 +141,7 @@ export const useExpiredSignals = () => {
                 pips = pipDifference >= 0 ? `+${pipDifference} pips` : `${pipDifference} pips`;
               }
             } else {
+              // Only calculate stop loss pips if NO targets were hit
               result = 'LOSS';
               reason = 'Stop Loss Hit';
               exitPrice = signal.stop_loss;
@@ -179,13 +182,13 @@ export const useExpiredSignals = () => {
 
         setExpiredSignals(transformedSignals);
 
-        // Calculate statistics
+        // Calculate statistics - Average pips now correctly uses profit-level pips when available
         const totalSignals = transformedSignals.length;
         const wins = transformedSignals.filter(s => s.result === 'WIN').length;
         const losses = transformedSignals.filter(s => s.result === 'LOSS').length;
         const winRate = totalSignals > 0 ? Math.round((wins / totalSignals) * 100) : 0;
         
-        // Calculate average pips
+        // Calculate average pips using the corrected pip values
         const totalPips = transformedSignals.reduce((sum, signal) => {
           const pipsValue = parseInt(signal.pips.replace(/[^\d-]/g, ''));
           return sum + (isNaN(pipsValue) ? 0 : pipsValue);
