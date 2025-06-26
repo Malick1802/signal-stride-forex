@@ -346,7 +346,7 @@ export const useEnhancedSignalMonitoring = () => {
         // PHASE 3: Validate signal status before processing
         const statusValidation = await validateSignalStatus(signal.id);
         if (!statusValidation.isValid && statusValidation.shouldBeExpired) {
-          Logger.warning('monitoring', `Fixing inconsistent signal status: ${statusValidation.reason}`);
+          Logger.warn('monitoring', `Fixing inconsistent signal status: ${statusValidation.reason}`);
           await expireSignalImmediately(signal.id, 'all_targets_hit', enhancedSignal.targetsHit);
           continue;
         }
