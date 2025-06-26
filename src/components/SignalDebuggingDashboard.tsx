@@ -44,7 +44,7 @@ const SignalDebuggingDashboard = () => {
     successRate: 0
   });
 
-  const { investigateExpiredSignalsWithoutOutcomes } = useSignalOutcomeTracker();
+  const { repairExpiredSignalsWithoutOutcomes } = useSignalOutcomeTracker();
 
   const calculatePipDistance = (price1: number, price2: number, symbol: string): number => {
     const multiplier = symbol.includes('JPY') ? 100 : 10000;
@@ -210,7 +210,7 @@ const SignalDebuggingDashboard = () => {
   const handleRepairMissingOutcomes = async () => {
     setLoading(true);
     try {
-      await investigateExpiredSignalsWithoutOutcomes();
+      await repairExpiredSignalsWithoutOutcomes();
       await fetchDebugInfo(); // Refresh data after repair
     } finally {
       setLoading(false);
