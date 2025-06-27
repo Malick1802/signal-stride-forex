@@ -20,10 +20,10 @@ const App = () => {
   useEffect(() => {
     // Log platform information
     if (Capacitor.isNativePlatform()) {
-      console.log('🚀 ForexSignal Pro running as native mobile app');
+      console.log('🚀 ForexAlert Pro running as native mobile app');
       console.log('📱 Platform:', Capacitor.getPlatform());
     } else {
-      console.log('🌐 ForexSignal Pro running as web app');
+      console.log('🌐 ForexAlert Pro running as web app');
     }
   }, []);
 

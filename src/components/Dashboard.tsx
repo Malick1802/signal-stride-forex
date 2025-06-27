@@ -191,8 +191,8 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
             <div className="flex items-center space-x-1 sm:space-x-2">
               <TrendingUp className="h-6 w-6 sm:h-8 sm:w-8 text-emerald-400" />
               <span className="text-lg sm:text-2xl font-bold text-white truncate">
-                <span className="hidden sm:inline">ForexSignal Pro</span>
-                <span className="sm:hidden">FSP</span>
+                <span className="hidden sm:inline">ForexAlert Pro</span>
+                <span className="sm:hidden">FAP</span>
               </span>
             </div>
             
@@ -298,7 +298,7 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
         </div>
       </nav>
 
-      {/* UserProfile Modal */}
+      {/*UserProfile Modal */}
       <UserProfile open={profileOpen} onOpenChange={setProfileOpen} />
 
       {/* Desktop Tab Navigation */}

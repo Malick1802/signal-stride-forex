@@ -1,4 +1,3 @@
-
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 
@@ -16,7 +15,7 @@ export class MobileNotificationManager {
     try {
       const permission = await LocalNotifications.requestPermissions();
       if (permission.display === 'granted') {
-        console.log('📱 ForexSignal Pro notification permissions granted');
+        console.log('📱 ForexAlert Pro notification permissions granted');
         
         // Set up notification channels for Android
         if (Capacitor.getPlatform() === 'android') {

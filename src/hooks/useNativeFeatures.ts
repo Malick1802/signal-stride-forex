@@ -1,4 +1,3 @@
-
 import { useEffect } from 'react';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { SplashScreen } from '@capacitor/splash-screen';
@@ -45,7 +44,7 @@ export const useNativeFeatures = () => {
         document.body.classList.remove('keyboard-open');
       });
 
-      console.log('📱 ForexSignal Pro native features initialized');
+      console.log('📱 ForexAlert Pro native features initialized');
 
     } catch (error) {
       console.error('❌ Error initializing native features:', error);

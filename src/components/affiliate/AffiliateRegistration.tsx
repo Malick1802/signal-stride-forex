@@ -23,7 +23,7 @@ export const AffiliateRegistration = () => {
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-white mb-4">Join Our Affiliate Program</h1>
           <p className="text-xl text-gray-400 max-w-2xl mx-auto">
-            Earn commissions by referring new users to ForexSignal Pro. Our 3-level MLM structure 
+            Earn commissions by referring new users to ForexAlert Pro. Our 3-level MLM structure 
             rewards you for building a network of successful traders.
           </p>
         </div>

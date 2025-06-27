@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useNativeFeatures } from '@/hooks/useNativeFeatures';
@@ -15,7 +14,7 @@ const MobileAppWrapper: React.FC<MobileAppWrapperProps> = ({ children }) => {
 
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
-      console.log('🚀 ForexSignal Pro mobile app initialized');
+      console.log('🚀 ForexAlert Pro mobile app initialized');
       
       // Initialize mobile notifications
       MobileNotificationManager.initialize();
@@ -63,7 +62,7 @@ const MobileAppWrapper: React.FC<MobileAppWrapperProps> = ({ children }) => {
 
   useEffect(() => {
     if (isRegistered && pushToken) {
-      console.log('📱 Push notifications registered for ForexSignal Pro:', pushToken);
+      console.log('📱 Push notifications registered for ForexAlert Pro:', pushToken);
       // Here you would typically send the token to your backend
       // to register it for signal notifications
     }
