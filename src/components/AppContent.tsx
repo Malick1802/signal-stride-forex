@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import LandingPage from './LandingPage';
@@ -15,18 +14,18 @@ const LazyAdminDashboard = lazy(() => import('./AdminDashboard'));
 type ViewType = 'landing' | 'auth' | 'dashboard' | 'subscription' | 'affiliate' | 'admin';
 
 const AppContent = () => {
-  const { user, loading, subscription } = useAuth();
+  const { user, loading, subscription, session } = useAuth();
   const [currentView, setCurrentView] = useState<ViewType>('landing');
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const checkAdminStatus = async () => {
-      if (user) {
+      if (user && session) {
         try {
-          // Use the session from useAuth instead of getIdToken
+          // Use the session access_token instead of user.access_token
           const response = await fetch('/.netlify/functions/check-admin', {
             headers: {
-              Authorization: `Bearer ${user.access_token || ''}`,
+              Authorization: `Bearer ${session.access_token || ''}`,
             },
           });
           const data = await response.json();
@@ -42,7 +41,7 @@ const AppContent = () => {
     };
 
     checkAdminStatus();
-  }, [user]);
+  }, [user, session]);
 
   useEffect(() => {
     console.log('AppContent: Auth state changed', {
