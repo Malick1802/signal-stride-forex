@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import LandingPage from './LandingPage';
@@ -11,19 +12,21 @@ const LazySubscriptionPage = lazy(() => import('./SubscriptionPage'));
 const LazyAffiliatePage = lazy(() => import('./AffiliatePage'));
 const LazyAdminDashboard = lazy(() => import('./AdminDashboard'));
 
+type ViewType = 'landing' | 'auth' | 'dashboard' | 'subscription' | 'affiliate' | 'admin';
+
 const AppContent = () => {
   const { user, loading, subscription } = useAuth();
-  const [currentView, setCurrentView] = useState<'landing' | 'auth' | 'dashboard' | 'subscription' | 'affiliate' | 'admin'>('landing');
+  const [currentView, setCurrentView] = useState<ViewType>('landing');
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     const checkAdminStatus = async () => {
       if (user) {
-        const token = await user.getIdToken();
         try {
+          // Use the session from useAuth instead of getIdToken
           const response = await fetch('/.netlify/functions/check-admin', {
             headers: {
-              Authorization: `Bearer ${token}`,
+              Authorization: `Bearer ${user.access_token || ''}`,
             },
           });
           const data = await response.json();
@@ -77,6 +80,15 @@ const AppContent = () => {
     setCurrentView('admin');
   };
 
+  // Create navigation handlers that match the expected string type
+  const handleLandingNavigation = (view: string) => {
+    setCurrentView(view as ViewType);
+  };
+
+  const handleAuthNavigation = (view: string) => {
+    setCurrentView(view as ViewType);
+  };
+
   if (loading) {
     return <MobileLoadingScreen message="Initializing ForexAlert Pro..." />;
   }
@@ -84,8 +96,8 @@ const AppContent = () => {
   return (
     <ProgressiveAuthProvider>
       <div className="w-full min-h-screen">
-        {currentView === 'landing' && <LandingPage onNavigate={setCurrentView} />}
-        {currentView === 'auth' && <AuthPage onNavigate={setCurrentView} />}
+        {currentView === 'landing' && <LandingPage onNavigate={handleLandingNavigation} />}
+        {currentView === 'auth' && <AuthPage onNavigate={handleAuthNavigation} />}
         
         {user && (
           <Suspense fallback={<MobileLoadingScreen message="Loading dashboard..." />}>
@@ -99,13 +111,13 @@ const AppContent = () => {
               />
             )}
             {currentView === 'subscription' && (
-              <LazySubscriptionPage onNavigate={setCurrentView} />
+              <LazySubscriptionPage onNavigate={handleAuthNavigation} />
             )}
             {currentView === 'affiliate' && (
-              <LazyAffiliatePage onNavigate={setCurrentView} />
+              <LazyAffiliatePage onNavigate={handleAuthNavigation} />
             )}
             {currentView === 'admin' && isAdmin && (
-              <LazyAdminDashboard onNavigate={setCurrentView} />
+              <LazyAdminDashboard onNavigate={handleAuthNavigation} />
             )}
           </Suspense>
         )}
