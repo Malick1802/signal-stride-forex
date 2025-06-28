@@ -1,16 +1,19 @@
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import { TrendingUp, RefreshCw, Bell, Settings, LogOut, CreditCard, Users, Shield, Menu, X } from 'lucide-react';
-import TradingSignals from './TradingSignals';
-import ExpiredSignals from './ExpiredSignals';
 import UserProfile from './UserProfile';
 import SubscriptionStatusWidget from './SubscriptionStatusWidget';
 import TrialExpirationBanner from './TrialExpirationBanner';
+import MobileLoadingScreen from './MobileLoadingScreen';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '../contexts/AuthContext';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+
+// Lazy load heavy components
+const LazyTradingSignals = lazy(() => import('./LazyTradingSignals'));
+const LazyExpiredSignals = lazy(() => import('./LazyExpiredSignals'));
 
 interface DashboardProps {
   user: any;
@@ -113,11 +116,11 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
 
   const handleTabClick = (tabId: string) => {
     if (tabId === 'subscription') {
-      navigateToSubscription();
+      onNavigateToSubscription?.();
     } else if (tabId === 'affiliate') {
-      navigateToAffiliate();
+      onNavigateToAffiliate?.();
     } else if (tabId === 'admin') {
-      navigateToAdmin();
+      onNavigateToAdmin?.();
     } else {
       setActiveTab(tabId);
     }
@@ -341,8 +344,10 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
           />
         )}
 
-        {activeTab === 'signals' && <TradingSignals />}
-        {activeTab === 'expired' && <ExpiredSignals />}
+        <Suspense fallback={<MobileLoadingScreen message="Loading signals..." />}>
+          {activeTab === 'signals' && <LazyTradingSignals />}
+          {activeTab === 'expired' && <LazyExpiredSignals />}
+        </Suspense>
       </div>
     </div>
   );
