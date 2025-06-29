@@ -1,7 +1,18 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { Network } from '@capacitor/network';
+
+// Dynamically import Network to handle cases where it might not be available
+let Network: any = null;
+try {
+  if (Capacitor.isNativePlatform()) {
+    import('@capacitor/network').then(module => {
+      Network = module.Network;
+    });
+  }
+} catch (error) {
+  console.warn('Network plugin not available:', error);
+}
 
 interface ConnectivityState {
   isOnline: boolean;
@@ -22,7 +33,7 @@ export const useMobileConnectivity = () => {
 
   const checkConnectivity = useCallback(async () => {
     try {
-      if (Capacitor.isNativePlatform()) {
+      if (Capacitor.isNativePlatform() && Network) {
         const status = await Network.getStatus();
         setConnectivity(prev => ({
           ...prev,
@@ -97,8 +108,8 @@ export const useMobileConnectivity = () => {
 
     // Native network listener
     let networkListener: any = null;
-    if (Capacitor.isNativePlatform()) {
-      Network.addListener('networkStatusChange', (status) => {
+    if (Capacitor.isNativePlatform() && Network) {
+      Network.addListener('networkStatusChange', (status: any) => {
         console.log('📱 Mobile: Network status changed:', status);
         setConnectivity(prev => ({
           ...prev,
@@ -107,7 +118,7 @@ export const useMobileConnectivity = () => {
           isConnected: status.connected,
           lastConnected: status.connected ? new Date() : prev.lastConnected
         }));
-      }).then(listener => {
+      }).then((listener: any) => {
         networkListener = listener;
       });
     }
