@@ -8,7 +8,6 @@ const config: CapacitorConfig = {
   server: {
     url: 'https://da46b985-2e68-44b3-90bc-922d481bf104.lovableproject.com?forceHideBadge=true',
     cleartext: true,
-    // Enhanced mobile connectivity settings
     timeout: 30000,
     androidScheme: 'https'
   },
@@ -41,35 +40,26 @@ const config: CapacitorConfig = {
       style: 'dark',
       resizeOnFullScreen: true
     },
-    // Enhanced network handling
     Network: {
       autoStart: true
     },
-    // Enhanced app behavior
     App: {
       launchUrl: undefined,
-      // Prevent app from being killed in background
       allowBackgroundProcessing: true
     }
   },
   ios: {
     contentInset: 'automatic',
-    // Enhanced iOS settings
     allowsLinkPreview: false,
     scrollEnabled: true,
-    // Better performance
     limitsNavigationsToAppBoundDomains: false
   },
   android: {
     allowMixedContent: true,
     captureInput: true,
-    // Enhanced Android settings
     webContentsDebuggingEnabled: true,
-    // Better connectivity handling
     appendUserAgent: 'ForexSignalPro/1.0',
-    // Performance optimizations
     loggingBehavior: 'debug',
-    // Network security
     useLegacyBridge: false
   }
 };

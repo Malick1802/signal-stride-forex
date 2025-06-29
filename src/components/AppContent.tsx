@@ -1,11 +1,12 @@
-
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import LandingPage from './LandingPage';
 import AuthPage from './AuthPage';
 import MobileLoadingScreen from './MobileLoadingScreen';
+import MobileSetupGuide from './MobileSetupGuide';
 import ProgressiveAuthProvider from './ProgressiveAuthProvider';
 import { supabase } from '@/integrations/supabase/client';
+import { Capacitor } from '@capacitor/core';
 
 // Lazy load heavy components
 const LazyDashboard = lazy(() => import('./LazyDashboard'));
@@ -117,6 +118,13 @@ const AppContent = () => {
   return (
     <ProgressiveAuthProvider>
       <div className="w-full min-h-screen">
+        {/* Show mobile setup guide on web version */}
+        {!Capacitor.isNativePlatform() && currentView === 'landing' && (
+          <div className="p-4">
+            <MobileSetupGuide />
+          </div>
+        )}
+        
         {currentView === 'landing' && (
           <LandingPage onNavigate={handleLandingNavigation} />
         )}
@@ -126,6 +134,13 @@ const AppContent = () => {
         
         {user && (
           <Suspense fallback={<MobileLoadingScreen message="Loading dashboard..." />}>
+            {/* Show mobile status in dashboard */}
+            {currentView === 'dashboard' && Capacitor.isNativePlatform() && (
+              <div className="p-4">
+                <MobileSetupGuide />
+              </div>
+            )}
+            
             {currentView === 'dashboard' && (
               <LazyDashboard
                 user={user}
