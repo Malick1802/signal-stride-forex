@@ -366,7 +366,7 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
         </div>
       </div>
 
-      {/* Dashboard Stats Slider */}
+      {/* Dashboard Stats Slider - Mobile Only */}
       <DashboardStats 
         activeSignalsCount={2}
         totalSignalsCount={20}
