@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import LandingPage from './LandingPage';
@@ -66,16 +67,20 @@ const AppContent = () => {
 
     if (!loading) {
       if (user) {
+        // Only navigate to dashboard if currently on landing or auth page
         if (currentView === 'landing' || currentView === 'auth') {
           console.log('AppContent: User authenticated, navigating to dashboard');
           setCurrentView('dashboard');
         }
       } else {
-        console.log('AppContent: No user, showing landing page');
-        setCurrentView('landing');
+        // Only navigate to landing if not already there
+        if (currentView !== 'landing') {
+          console.log('AppContent: No user, showing landing page');
+          setCurrentView('landing');
+        }
       }
     }
-  }, [user, loading, subscription, currentView, isAdmin]);
+  }, [user, loading, subscription, isAdmin]); // Removed currentView from dependencies
 
   const handleLogout = () => {
     console.log('AppContent: Handling logout');

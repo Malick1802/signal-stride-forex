@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { TrendingUp } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -13,7 +14,7 @@ interface LandingPageProps {
 }
 
 const LandingPage = ({ onNavigate }: LandingPageProps) => {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const [stats, setStats] = useState<Stat[]>([
     { label: 'Accuracy', value: '85-95%', description: 'Signal Win Rate' },
     { label: 'Signals Sent', value: '100+', description: 'Per Month' },
@@ -31,13 +32,8 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
     }, 3000);
   }, []);
 
-  const handleAuthNavigation = async () => {
-    // If user is already logged in, sign them out first to show fresh auth page
-    if (user) {
-      console.log('User already logged in, signing out to show fresh auth page');
-      await signOut();
-    }
-    // Navigate to auth page
+  const handleAuthNavigation = () => {
+    // Simply navigate to auth page without signing out
     onNavigate('auth');
   };
 
