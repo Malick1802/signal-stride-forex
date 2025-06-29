@@ -1,4 +1,3 @@
-
 import React, { useRef, useState } from "react";
 import { useProfile } from "@/hooks/useProfile";
 import { Button } from "@/components/ui/button";
@@ -7,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { SMSSettings } from "./SMSSettings";
+import { PushNotificationSettings } from "./PushNotificationSettings";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function UserProfile({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
@@ -59,7 +59,7 @@ export default function UserProfile({ open, onOpenChange }: { open: boolean; onO
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>User Profile</DialogTitle>
         </DialogHeader>
@@ -67,9 +67,10 @@ export default function UserProfile({ open, onOpenChange }: { open: boolean; onO
           <div className="text-center py-8 text-muted">Loading...</div>
         ) : (
           <Tabs defaultValue="profile" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="profile">Profile</TabsTrigger>
-              <TabsTrigger value="notifications">SMS Notifications</TabsTrigger>
+              <TabsTrigger value="push-notifications">Push Notifications</TabsTrigger>
+              <TabsTrigger value="sms-notifications">SMS Notifications</TabsTrigger>
             </TabsList>
             
             <TabsContent value="profile">
@@ -165,7 +166,11 @@ export default function UserProfile({ open, onOpenChange }: { open: boolean; onO
               </form>
             </TabsContent>
             
-            <TabsContent value="notifications">
+            <TabsContent value="push-notifications">
+              <PushNotificationSettings />
+            </TabsContent>
+            
+            <TabsContent value="sms-notifications">
               <SMSSettings />
             </TabsContent>
           </Tabs>

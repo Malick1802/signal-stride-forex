@@ -106,6 +106,11 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
     }
   };
 
+  const handleNotificationClick = () => {
+    setProfileOpen(true);
+    // TODO: Could add logic to directly open the push notifications tab
+  };
+
   const tabItems = [
     { id: 'signals', label: 'Active Signals', shortLabel: 'Active' },
     { id: 'expired', label: 'Expired Signals', shortLabel: 'Expired' },
@@ -235,7 +240,11 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
               >
                 <RefreshCw className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
               </button>
-              <button className="p-2 text-gray-400 hover:text-white transition-colors" aria-label="Notifications">
+              <button 
+                className="p-2 text-gray-400 hover:text-white transition-colors" 
+                aria-label="Notifications"
+                onClick={handleNotificationClick}
+              >
                 <Bell className="h-5 w-5" />
               </button>
               <button
