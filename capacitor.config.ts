@@ -1,3 +1,4 @@
+
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
@@ -6,7 +7,10 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     url: 'https://da46b985-2e68-44b3-90bc-922d481bf104.lovableproject.com?forceHideBadge=true',
-    cleartext: true
+    cleartext: true,
+    // Enhanced mobile connectivity settings
+    timeout: 30000,
+    androidScheme: 'https'
   },
   plugins: {
     SplashScreen: {
@@ -15,7 +19,9 @@ const config: CapacitorConfig = {
       showSpinner: false,
       androidSpinnerStyle: 'large',
       iosSpinnerStyle: 'small',
-      spinnerColor: '#10b981'
+      spinnerColor: '#10b981',
+      splashFullScreen: true,
+      splashImmersive: true
     },
     StatusBar: {
       style: 'dark',
@@ -34,14 +40,37 @@ const config: CapacitorConfig = {
       resize: 'body',
       style: 'dark',
       resizeOnFullScreen: true
+    },
+    // Enhanced network handling
+    Network: {
+      autoStart: true
+    },
+    // Enhanced app behavior
+    App: {
+      launchUrl: undefined,
+      // Prevent app from being killed in background
+      allowBackgroundProcessing: true
     }
   },
   ios: {
-    contentInset: 'automatic'
+    contentInset: 'automatic',
+    // Enhanced iOS settings
+    allowsLinkPreview: false,
+    scrollEnabled: true,
+    // Better performance
+    limitsNavigationsToAppBoundDomains: false
   },
   android: {
     allowMixedContent: true,
-    captureInput: true
+    captureInput: true,
+    // Enhanced Android settings
+    webContentsDebuggingEnabled: true,
+    // Better connectivity handling
+    appendUserAgent: 'ForexSignalPro/1.0',
+    // Performance optimizations
+    loggingBehavior: 'debug',
+    // Network security
+    useLegacyBridge: false
   }
 };
 

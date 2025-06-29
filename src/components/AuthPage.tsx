@@ -1,7 +1,8 @@
 
 import React, { useState } from 'react';
-import { TrendingUp, ArrowLeft, Eye, EyeOff, CheckCircle, Mail } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import { TrendingUp, ArrowLeft, Eye, EyeOff, CheckCircle, Mail, Wifi, WifiOff } from 'lucide-react';
+import { useMobileAuth } from '@/hooks/useMobileAuth';
+import { Capacitor } from '@capacitor/core';
 
 interface AuthPageProps {
   onNavigate: (view: string) => void;
@@ -13,64 +14,46 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
   const [signupSuccess, setSignupSuccess] = useState(false);
 
-  const { signIn, signUp } = useAuth();
+  const { 
+    loading, 
+    isConnected, 
+    mobileSignIn, 
+    mobileSignUp, 
+    retryAuth,
+    authError,
+    hasOfflineAuth,
+    lastAuthSync 
+  } = useMobileAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
-    setIsLoading(true);
-    setSignupSuccess(false);
 
     try {
       if (isLogin) {
-        console.log('AuthPage: Attempting to sign in with:', email);
-        const { error } = await signIn(email, password);
-        if (error) {
-          console.error('AuthPage: Sign in error:', error);
-          if (error.message.includes('Email not confirmed')) {
-            setError('Please check your email and click the confirmation link before signing in.');
-          } else if (error.message.includes('Invalid login credentials')) {
-            setError('Invalid email or password. Please check your credentials.');
-          } else {
-            setError(error.message);
-          }
-        } else {
-          console.log('AuthPage: Sign in successful - navigation will be handled by AuthContext');
-          // No need to manually navigate - AuthContext will handle this
+        console.log('AuthPage: Attempting mobile sign in with:', email);
+        const { error } = await mobileSignIn(email, password);
+        if (!error) {
+          console.log('AuthPage: Mobile sign in successful');
         }
       } else {
         if (password !== confirmPassword) {
-          setError('Passwords do not match');
           return;
         }
         if (password.length < 6) {
-          setError('Password must be at least 6 characters long');
           return;
         }
         
-        console.log('AuthPage: Attempting to sign up with:', email);
-        const { error } = await signUp(email, password);
-        if (error) {
-          console.error('AuthPage: Sign up error:', error);
-          if (error.message.includes('User already registered')) {
-            setError('An account with this email already exists. Please sign in instead.');
-          } else {
-            setError(error.message);
-          }
-        } else {
-          console.log('AuthPage: Sign up successful - showing confirmation message');
+        console.log('AuthPage: Attempting mobile sign up with:', email);
+        const { error } = await mobileSignUp(email, password);
+        if (!error) {
+          console.log('AuthPage: Mobile sign up successful');
           setSignupSuccess(true);
         }
       }
     } catch (err) {
       console.error('AuthPage: Unexpected error:', err);
-      setError('An unexpected error occurred. Please try again.');
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -101,7 +84,6 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
                   setEmail('');
                   setPassword('');
                   setConfirmPassword('');
-                  setError('');
                 }}
                 className="w-full py-3 bg-gradient-to-r from-emerald-500 to-blue-500 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-emerald-500/25 transition-all"
               >
@@ -138,9 +120,51 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
           </div>
         </div>
 
-        {error && (
+        {/* Enhanced Mobile Connection Status */}
+        {Capacitor.isNativePlatform() && (
+          <div className={`mb-6 p-3 rounded-lg border ${
+            isConnected 
+              ? 'bg-emerald-500/20 border-emerald-500/30' 
+              : 'bg-red-500/20 border-red-500/30'
+          }`}>
+            <div className="flex items-center space-x-2">
+              {isConnected ? (
+                <Wifi className="h-4 w-4 text-emerald-400" />
+              ) : (
+                <WifiOff className="h-4 w-4 text-red-400" />
+              )}
+              <span className={`text-sm font-medium ${
+                isConnected ? 'text-emerald-400' : 'text-red-400'
+              }`}>
+                {isConnected ? 'Connected to ForexAlert Pro' : 'Connection Required'}
+              </span>
+            </div>
+            
+            {!isConnected && (
+              <div className="mt-2">
+                <p className="text-gray-300 text-xs mb-2">
+                  Internet connection needed to sign in
+                </p>
+                <button
+                  onClick={retryAuth}
+                  className="text-xs text-blue-400 hover:text-blue-300"
+                >
+                  Retry Connection
+                </button>
+              </div>
+            )}
+            
+            {hasOfflineAuth && lastAuthSync && (
+              <p className="text-gray-400 text-xs mt-1">
+                Last sync: {lastAuthSync.toLocaleTimeString()}
+              </p>
+            )}
+          </div>
+        )}
+
+        {authError && (
           <div className="mb-6 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-300 text-sm">
-            {error}
+            {authError}
           </div>
         )}
 
@@ -202,10 +226,10 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
 
           <button
             type="submit"
-            disabled={isLoading}
+            disabled={loading || (!isConnected && Capacitor.isNativePlatform())}
             className="w-full py-3 bg-gradient-to-r from-emerald-500 to-blue-500 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-emerald-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isLoading ? 'Loading...' : (isLogin ? 'Sign In' : 'Create Account')}
+            {loading ? 'Loading...' : (isLogin ? 'Sign In' : 'Create Account')}
           </button>
 
           <div className="text-center">
@@ -216,7 +240,6 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
               type="button"
               onClick={() => {
                 setIsLogin(!isLogin);
-                setError('');
                 setSignupSuccess(false);
                 setEmail('');
                 setPassword('');

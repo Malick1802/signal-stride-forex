@@ -1,0 +1,155 @@
+
+import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { AlertTriangle, RefreshCw, Wifi, WifiOff } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { Button } from '@/components/ui/button';
+
+interface Props {
+  children: ReactNode;
+}
+
+interface State {
+  hasError: boolean;
+  error: Error | null;
+  errorInfo: ErrorInfo | null;
+  isOnline: boolean;
+}
+
+class MobileErrorBoundary extends Component<Props, State> {
+  private networkListener: (() => void) | null = null;
+
+  constructor(props: Props) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null,
+      errorInfo: null,
+      isOnline: navigator.onLine
+    };
+  }
+
+  componentDidMount() {
+    // Listen for network changes
+    this.networkListener = () => {
+      this.setState({ isOnline: navigator.onLine });
+    };
+    
+    window.addEventListener('online', this.networkListener);
+    window.addEventListener('offline', this.networkListener);
+  }
+
+  componentWillUnmount() {
+    if (this.networkListener) {
+      window.removeEventListener('online', this.networkListener);
+      window.removeEventListener('offline', this.networkListener);
+    }
+  }
+
+  static getDerivedStateFromError(error: Error): State {
+    return {
+      hasError: true,
+      error,
+      errorInfo: null,
+      isOnline: navigator.onLine
+    };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('🚨 Mobile Error Boundary caught an error:', error, errorInfo);
+    
+    // Log additional mobile context
+    if (Capacitor.isNativePlatform()) {
+      console.error('📱 Mobile Platform:', Capacitor.getPlatform());
+      console.error('🌐 Network Status:', navigator.onLine ? 'Online' : 'Offline');
+      console.error('🔧 Capacitor Version:', Capacitor.getPlatform());
+    }
+    
+    this.setState({
+      error,
+      errorInfo,
+      isOnline: navigator.onLine
+    });
+  }
+
+  handleRetry = () => {
+    this.setState({
+      hasError: false,
+      error: null,
+      errorInfo: null
+    });
+    
+    // Force reload on mobile if still having issues
+    if (Capacitor.isNativePlatform() && !this.state.isOnline) {
+      window.location.reload();
+    }
+  };
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center p-6">
+          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 w-full max-w-md border border-white/20 text-center">
+            <AlertTriangle className="h-16 w-16 text-red-400 mx-auto mb-6" />
+            
+            <h2 className="text-2xl font-bold text-white mb-4">
+              {Capacitor.isNativePlatform() ? 'Mobile App Error' : 'Application Error'}
+            </h2>
+            
+            <div className="space-y-4 mb-6">
+              <div className="flex items-center justify-center space-x-2">
+                {this.state.isOnline ? (
+                  <Wifi className="h-5 w-5 text-emerald-400" />
+                ) : (
+                  <WifiOff className="h-5 w-5 text-red-400" />
+                )}
+                <span className={`text-sm ${this.state.isOnline ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {this.state.isOnline ? 'Connected' : 'No Internet Connection'}
+                </span>
+              </div>
+              
+              {!this.state.isOnline && (
+                <p className="text-gray-300 text-sm">
+                  Please check your internet connection and try again.
+                </p>
+              )}
+              
+              <p className="text-gray-300 text-sm">
+                {this.state.error?.message || 'An unexpected error occurred'}
+              </p>
+              
+              {Capacitor.isNativePlatform() && (
+                <p className="text-gray-400 text-xs">
+                  Running on {Capacitor.getPlatform()} platform
+                </p>
+              )}
+            </div>
+            
+            <div className="space-y-3">
+              <Button
+                onClick={this.handleRetry}
+                className="w-full bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Try Again
+              </Button>
+              
+              {Capacitor.isNativePlatform() && (
+                <Button
+                  onClick={() => window.location.reload()}
+                  variant="outline"
+                  className="w-full border-white/20 text-white hover:bg-white/10"
+                >
+                  Reload App
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+export default MobileErrorBoundary;
