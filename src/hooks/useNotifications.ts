@@ -21,40 +21,28 @@ export const useNotifications = () => {
 
   const fetchNotifications = useCallback(async () => {
     if (!user) {
+      setNotifications([]);
+      setUnreadCount(0);
       setLoading(false);
       return;
     }
 
     try {
-      // Since user_notifications table doesn't exist in types, we'll use a mock implementation
-      // In production, you would either:
-      // 1. Create the user_notifications table
-      // 2. Use an existing table like admin_notifications with user filtering
-      
-      // For now, let's create mock notifications to demonstrate the functionality
-      const mockNotifications: UserNotification[] = [
-        {
-          id: '1',
-          title: '🚨 New EUR/USD Signal',
-          message: 'BUY signal at 1.0850 | SL: 1.0800 | TP: 1.0900',
-          type: 'signal',
-          read: false,
-          data: { signalId: '123', type: 'new_signal' },
-          created_at: new Date().toISOString()
-        },
-        {
-          id: '2',
-          title: '✅ Target Hit!',
-          message: 'GBP/USD BUY reached TP1 at 1.2650',
-          type: 'success',
-          read: false,
-          data: { signalId: '124', type: 'target_hit' },
-          created_at: new Date(Date.now() - 300000).toISOString()
-        }
-      ];
+      const { data, error } = await supabase
+        .from('user_notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
 
-      setNotifications(mockNotifications);
-      setUnreadCount(mockNotifications.filter(n => !n.read).length);
+      if (error) {
+        console.error('Error fetching notifications:', error);
+        setNotifications([]);
+        setUnreadCount(0);
+      } else {
+        setNotifications(data || []);
+        setUnreadCount((data || []).filter(n => !n.read).length);
+      }
     } catch (error) {
       console.error('Error fetching notifications:', error);
       setNotifications([]);
@@ -64,18 +52,46 @@ export const useNotifications = () => {
     }
   }, [user]);
 
+  const createNotification = useCallback(async (
+    title: string, 
+    message: string, 
+    type: 'info' | 'success' | 'warning' | 'error' | 'signal' = 'info',
+    data?: any
+  ) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('user_notifications')
+        .insert({
+          user_id: user.id,
+          title,
+          message,
+          type,
+          data: data || {}
+        });
+
+      if (error) {
+        console.error('Error creating notification:', error);
+      }
+    } catch (error) {
+      console.error('Error creating notification:', error);
+    }
+  }, [user]);
+
   const markAsRead = useCallback(async (notificationId: string) => {
     if (!user) return;
 
     try {
-      // Update local state immediately for better UX
-      setNotifications(prev => 
-        prev.map(n => n.id === notificationId ? { ...n, read: true } : n)
-      );
-      setUnreadCount(prev => Math.max(0, prev - 1));
+      const { error } = await supabase
+        .from('user_notifications')
+        .update({ read: true })
+        .eq('id', notificationId)
+        .eq('user_id', user.id);
 
-      // In production, you would update the database here
-      console.log('Marking notification as read:', notificationId);
+      if (error) {
+        console.error('Error marking notification as read:', error);
+      }
     } catch (error) {
       console.error('Error marking notification as read:', error);
     }
@@ -85,44 +101,124 @@ export const useNotifications = () => {
     if (!user) return;
 
     try {
-      // Update local state immediately
-      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
-      setUnreadCount(0);
+      const { error } = await supabase
+        .from('user_notifications')
+        .update({ read: true })
+        .eq('user_id', user.id)
+        .eq('read', false);
 
-      // In production, you would update the database here
-      console.log('Marking all notifications as read');
+      if (error) {
+        console.error('Error marking all notifications as read:', error);
+      }
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
     }
   }, [user]);
 
+  const clearNotification = useCallback(async (notificationId: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('user_notifications')
+        .delete()
+        .eq('id', notificationId)
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Error deleting notification:', error);
+      }
+    } catch (error) {
+      console.error('Error deleting notification:', error);
+    }
+  }, [user]);
+
+  const clearAllNotifications = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('user_notifications')
+        .delete()
+        .eq('user_id', user.id);
+
+      if (error) {
+        console.error('Error clearing all notifications:', error);
+      }
+    } catch (error) {
+      console.error('Error clearing all notifications:', error);
+    }
+  }, [user]);
+
+  // Initial fetch
   useEffect(() => {
     fetchNotifications();
   }, [fetchNotifications]);
 
-  // Real-time subscription for new notifications
+  // Real-time subscription for cross-device sync
   useEffect(() => {
     if (!user) return;
 
-    // In production, you would set up real-time subscription here
-    // For now, we'll simulate new notifications every 30 seconds
-    const interval = setInterval(() => {
-      const newNotification: UserNotification = {
-        id: Date.now().toString(),
-        title: '📊 Market Update',
-        message: 'USD showing strength across major pairs',
-        type: 'info',
-        read: false,
-        data: { type: 'market_update' },
-        created_at: new Date().toISOString()
-      };
+    console.log('📡 Setting up real-time notification subscription for user:', user.id);
 
-      setNotifications(prev => [newNotification, ...prev]);
-      setUnreadCount(prev => prev + 1);
-    }, 30000);
+    const channel = supabase
+      .channel('user-notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'user_notifications',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('📥 New notification received:', payload.new);
+          const newNotification = payload.new as UserNotification;
+          setNotifications(prev => [newNotification, ...prev]);
+          setUnreadCount(prev => prev + 1);
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'user_notifications',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('📝 Notification updated:', payload.new);
+          const updatedNotification = payload.new as UserNotification;
+          setNotifications(prev => 
+            prev.map(n => n.id === updatedNotification.id ? updatedNotification : n)
+          );
+          // Recalculate unread count
+          setNotifications(current => {
+            setUnreadCount(current.filter(n => !n.read).length);
+            return current;
+          });
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'DELETE',
+          schema: 'public',
+          table: 'user_notifications',
+          filter: `user_id=eq.${user.id}`
+        },
+        (payload) => {
+          console.log('🗑️ Notification deleted:', payload.old);
+          const deletedId = payload.old.id;
+          setNotifications(prev => prev.filter(n => n.id !== deletedId));
+          setUnreadCount(prev => Math.max(0, prev - 1));
+        }
+      )
+      .subscribe();
 
     return () => {
-      clearInterval(interval);
+      console.log('📡 Cleaning up notification subscription');
+      supabase.removeChannel(channel);
     };
   }, [user]);
 
@@ -130,8 +226,11 @@ export const useNotifications = () => {
     notifications,
     unreadCount,
     loading,
+    createNotification,
     markAsRead,
     markAllAsRead,
+    clearNotification,
+    clearAllNotifications,
     refresh: fetchNotifications
   };
 };
