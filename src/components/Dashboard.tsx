@@ -12,6 +12,8 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { PullToRefresh } from './PullToRefresh';
 import { MobileActionMenu } from './MobileActionMenu';
+import { NotificationCenter } from './NotificationCenter';
+import { SettingsDialog } from './SettingsDialog';
 
 // Lazy load heavy components
 const LazyTradingSignals = lazy(() => import('./LazyTradingSignals'));
@@ -236,7 +238,7 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
               />
             </div>
             
-            {/* Action buttons - Responsive */}
+            {/* Action buttons - Desktop */}
             <div className="hidden sm:flex items-center space-x-2">
               <button
                 onClick={handleRefresh}
@@ -246,24 +248,31 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
               >
                 <RefreshCw className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
               </button>
-              <button 
-                className="p-2 text-gray-400 hover:text-white transition-colors" 
-                aria-label="Notifications"
-                onClick={handleNotificationClick}
-              >
-                <Bell className="h-5 w-5" />
-              </button>
-              <button
-                className="p-2 text-gray-400 hover:text-white transition-colors"
-                aria-label="Profile"
-                onClick={() => setProfileOpen(true)}
-              >
-                <Settings className="h-5 w-5" />
-              </button>
+              
+              {/* Notification Center */}
+              <NotificationCenter>
+                <button className="p-2 text-gray-400 hover:text-white transition-colors" aria-label="Notifications">
+                  <Bell className="h-5 w-5" />
+                </button>
+              </NotificationCenter>
+
+              {/* Settings */}
+              <SettingsDialog>
+                <button className="p-2 text-gray-400 hover:text-white transition-colors" aria-label="Settings">
+                  <Settings className="h-5 w-5" />
+                </button>
+              </SettingsDialog>
             </div>
 
             {/* Mobile Action Menu */}
-            <MobileActionMenu onOpenProfile={() => setProfileOpen(true)} />
+            <div className="sm:hidden flex items-center space-x-1">
+              <NotificationCenter>
+                <button className="p-2 text-gray-400 hover:text-white transition-colors" aria-label="Notifications">
+                  <Bell className="h-5 w-5" />
+                </button>
+              </NotificationCenter>
+              <MobileActionMenu onOpenProfile={() => setProfileOpen(true)} />
+            </div>
 
             {/* User profile - Mobile optimized */}
             <div className="flex items-center space-x-2">
