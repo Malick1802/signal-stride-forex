@@ -21,8 +21,8 @@ export default defineConfig(({ mode }) => ({
   build: {
     // Optimize for mobile app
     target: 'es2015',
-    minify: 'terser',
-    sourcemap: false,
+    minify: mode === 'production' ? 'terser' : false,
+    sourcemap: mode === 'development',
     rollupOptions: {
       output: {
         manualChunks: {
@@ -30,6 +30,12 @@ export default defineConfig(({ mode }) => ({
           ui: ['@radix-ui/react-dialog', '@radix-ui/react-toast'],
         }
       }
-    }
+    },
+    terserOptions: mode === 'production' ? {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+      },
+    } : undefined,
   },
 }));
