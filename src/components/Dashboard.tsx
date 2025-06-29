@@ -1,3 +1,4 @@
+
 import React, { useState, lazy, Suspense } from 'react';
 import { TrendingUp, RefreshCw, Bell, Settings, LogOut, CreditCard, Users, Shield, Menu, X } from 'lucide-react';
 import UserProfile from './UserProfile';
@@ -11,7 +12,6 @@ import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { PullToRefresh } from './PullToRefresh';
-import { MobileActionMenu } from './MobileActionMenu';
 import { NotificationCenter } from './NotificationCenter';
 import { SettingsDialog } from './SettingsDialog';
 
@@ -264,14 +264,20 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
               </SettingsDialog>
             </div>
 
-            {/* Mobile Action Menu */}
+            {/* Mobile Action Menu - Simplified */}
             <div className="sm:hidden flex items-center space-x-1">
               <NotificationCenter>
                 <button className="p-2 text-gray-400 hover:text-white transition-colors" aria-label="Notifications">
                   <Bell className="h-5 w-5" />
                 </button>
               </NotificationCenter>
-              <MobileActionMenu onOpenProfile={() => setProfileOpen(true)} />
+              
+              {/* Settings Button */}
+              <SettingsDialog>
+                <button className="p-2 text-gray-400 hover:text-white transition-colors" aria-label="Settings">
+                  <Settings className="h-5 w-5" />
+                </button>
+              </SettingsDialog>
             </div>
 
             {/* User profile - Mobile optimized */}
