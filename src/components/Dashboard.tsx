@@ -1,10 +1,10 @@
-
 import React, { useState, lazy, Suspense } from 'react';
 import { TrendingUp, RefreshCw, Bell, Settings, LogOut, CreditCard, Users, Shield, Menu, X } from 'lucide-react';
 import UserProfile from './UserProfile';
 import SubscriptionStatusWidget from './SubscriptionStatusWidget';
 import TrialExpirationBanner from './TrialExpirationBanner';
 import MobileLoadingScreen from './MobileLoadingScreen';
+import DashboardStats from './DashboardStats';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '../contexts/AuthContext';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
@@ -365,6 +365,15 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
           </Tabs>
         </div>
       </div>
+
+      {/* Dashboard Stats Slider */}
+      <DashboardStats 
+        activeSignalsCount={2}
+        totalSignalsCount={20}
+        avgConfidence={80}
+        lastUpdateTime="7:01:58 PM"
+        isAutomated={true}
+      />
 
       {/* Content Area - With Pull to Refresh for Mobile */}
       <PullToRefresh onRefresh={handleRefresh} className="flex-1">
