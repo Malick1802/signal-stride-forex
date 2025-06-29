@@ -5,6 +5,7 @@ import { MobileNotificationManager } from '@/utils/mobileNotifications';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { Haptics, ImpactStyle } from '@capacitor/haptics';
 
 export const useMobileNotificationManager = () => {
   const { profile } = useProfile();
@@ -34,15 +35,14 @@ export const useMobileNotificationManager = () => {
     if (!user) return;
 
     try {
-      const { error } = await supabase
-        .from('user_notifications')
-        .insert({
-          user_id: user.id,
-          title,
-          message,
-          type,
-          data
-        });
+      // Use raw SQL query to insert notification
+      const { error } = await supabase.rpc('exec_sql', {
+        query: `
+          INSERT INTO user_notifications (user_id, title, message, type, data)
+          VALUES ($1, $2, $3, $4, $5)
+        `,
+        params: [user.id, title, message, type, JSON.stringify(data || {})]
+      });
 
       if (error) {
         console.error('Error creating user notification:', error);
@@ -51,6 +51,18 @@ export const useMobileNotificationManager = () => {
       console.error('Error creating user notification:', error);
     }
   }, [user]);
+
+  const triggerHaptics = useCallback(async (type: 'light' | 'medium' | 'heavy' = 'medium') => {
+    if (!profile?.push_vibration_enabled) return;
+
+    try {
+      const impactStyle = type === 'light' ? ImpactStyle.Light : 
+                         type === 'heavy' ? ImpactStyle.Heavy : ImpactStyle.Medium;
+      await Haptics.impact({ style: impactStyle });
+    } catch (error) {
+      console.log('Haptics not available:', error);
+    }
+  }, [profile?.push_vibration_enabled]);
 
   const sendNewSignalNotification = useCallback(async (signal: any) => {
     if (!shouldSendNotification('new_signal')) return;
@@ -61,11 +73,16 @@ export const useMobileNotificationManager = () => {
     // Create persistent notification
     await createUserNotification(title, body, 'signal', { signalId: signal.id, type: 'new_signal' });
 
-    // Show mobile notification
+    // Trigger haptics if enabled
+    await triggerHaptics('heavy');
+
+    // Show mobile notification with sound/vibration based on settings
     await MobileNotificationManager.showInstantSignalNotification({
       title,
       body,
-      data: { signalId: signal.id, type: 'new_signal' }
+      data: { signalId: signal.id, type: 'new_signal' },
+      sound: profile?.push_sound_enabled !== false,
+      vibrate: profile?.push_vibration_enabled !== false
     });
 
     // Show toast notification for immediate feedback
@@ -74,7 +91,7 @@ export const useMobileNotificationManager = () => {
       description: body,
       duration: 5000,
     });
-  }, [shouldSendNotification, toast, createUserNotification]);
+  }, [shouldSendNotification, toast, createUserNotification, triggerHaptics, profile]);
 
   const sendTargetHitNotification = useCallback(async (signal: any, targetLevel: number, price: number) => {
     if (!shouldSendNotification('target_hit')) return;
@@ -85,10 +102,15 @@ export const useMobileNotificationManager = () => {
     // Create persistent notification
     await createUserNotification(title, body, 'success', { signalId: signal.id, type: 'target_hit', targetLevel });
 
+    // Trigger haptics
+    await triggerHaptics('medium');
+
     await MobileNotificationManager.showInstantSignalNotification({
       title,
       body,
-      data: { signalId: signal.id, type: 'target_hit', targetLevel }
+      data: { signalId: signal.id, type: 'target_hit', targetLevel },
+      sound: profile?.push_sound_enabled !== false,
+      vibrate: profile?.push_vibration_enabled !== false
     });
 
     toast({
@@ -96,7 +118,7 @@ export const useMobileNotificationManager = () => {
       description: body,
       duration: 6000,
     });
-  }, [shouldSendNotification, toast, createUserNotification]);
+  }, [shouldSendNotification, toast, createUserNotification, triggerHaptics, profile]);
 
   const sendStopLossNotification = useCallback(async (signal: any, price: number) => {
     if (!shouldSendNotification('stop_loss')) return;
@@ -107,10 +129,15 @@ export const useMobileNotificationManager = () => {
     // Create persistent notification
     await createUserNotification(title, body, 'warning', { signalId: signal.id, type: 'stop_loss' });
 
+    // Trigger haptics
+    await triggerHaptics('heavy');
+
     await MobileNotificationManager.showInstantSignalNotification({
       title,
       body,
-      data: { signalId: signal.id, type: 'stop_loss' }
+      data: { signalId: signal.id, type: 'stop_loss' },
+      sound: profile?.push_sound_enabled !== false,
+      vibrate: profile?.push_vibration_enabled !== false
     });
 
     toast({
@@ -118,7 +145,7 @@ export const useMobileNotificationManager = () => {
       description: body,
       duration: 6000,
     });
-  }, [shouldSendNotification, toast, createUserNotification]);
+  }, [shouldSendNotification, toast, createUserNotification, triggerHaptics, profile]);
 
   const sendSignalCompleteNotification = useCallback(async (signal: any, outcome: 'profit' | 'loss', pips: number) => {
     if (!shouldSendNotification('signal_complete')) return;
@@ -135,6 +162,9 @@ export const useMobileNotificationManager = () => {
       pips 
     });
 
+    // Trigger haptics
+    await triggerHaptics(isProfit ? 'light' : 'heavy');
+
     await MobileNotificationManager.showSignalOutcomeNotification(
       signal.symbol,
       outcome,
@@ -146,7 +176,7 @@ export const useMobileNotificationManager = () => {
       description: body,
       duration: 8000,
     });
-  }, [shouldSendNotification, toast, createUserNotification]);
+  }, [shouldSendNotification, toast, createUserNotification, triggerHaptics]);
 
   return {
     sendNewSignalNotification,

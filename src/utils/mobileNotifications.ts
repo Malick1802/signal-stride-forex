@@ -1,3 +1,4 @@
+
 import { Capacitor } from '@capacitor/core';
 import { LocalNotifications } from '@capacitor/local-notifications';
 
@@ -6,6 +7,8 @@ interface SignalNotification {
   body: string;
   data?: any;
   scheduled?: Date;
+  sound?: boolean;
+  vibrate?: boolean;
 }
 
 export class MobileNotificationManager {
@@ -38,21 +41,27 @@ export class MobileNotificationManager {
         name: 'Forex Trading Signals',
         description: 'New forex trading signals and updates',
         importance: 5,
-        visibility: 1
+        visibility: 1,
+        sound: 'default',
+        vibration: true
       },
       {
         id: 'signal_outcomes',
         name: 'Signal Outcomes',
         description: 'Stop loss and take profit notifications',
         importance: 4,
-        visibility: 1
+        visibility: 1,
+        sound: 'default',
+        vibration: true
       },
       {
         id: 'market_alerts',
         name: 'Market Alerts',
         description: 'Important market updates and news',
         importance: 3,
-        visibility: 1
+        visibility: 1,
+        sound: 'default',
+        vibration: false
       }
     ];
 
@@ -78,7 +87,7 @@ export class MobileNotificationManager {
             body: signal.body,
             id: Date.now(),
             schedule: { at: notificationTime },
-            sound: 'default',
+            sound: signal.sound !== false ? 'default' : undefined,
             attachments: undefined,
             actionTypeId: 'FOREX_SIGNAL',
             extra: signal.data,
@@ -96,7 +105,21 @@ export class MobileNotificationManager {
   }
 
   static async showInstantSignalNotification(signal: SignalNotification) {
-    if (!Capacitor.isNativePlatform()) return;
+    if (!Capacitor.isNativePlatform()) {
+      // For web, show browser notification if available
+      if ('Notification' in window && Notification.permission === 'granted') {
+        try {
+          new Notification(signal.title, {
+            body: signal.body,
+            icon: '/favicon.ico',
+            tag: 'forex-signal'
+          });
+        } catch (error) {
+          console.warn('Could not show web notification:', error);
+        }
+      }
+      return;
+    }
 
     try {
       await LocalNotifications.schedule({
@@ -105,7 +128,7 @@ export class MobileNotificationManager {
             title: signal.title,
             body: signal.body,
             id: Date.now(),
-            sound: 'default',
+            sound: signal.sound !== false ? 'default' : undefined,
             attachments: undefined,
             actionTypeId: 'FOREX_SIGNAL',
             extra: signal.data,
@@ -123,7 +146,25 @@ export class MobileNotificationManager {
   }
 
   static async showSignalOutcomeNotification(pair: string, outcome: 'profit' | 'loss', pips: number) {
-    if (!Capacitor.isNativePlatform()) return;
+    if (!Capacitor.isNativePlatform()) {
+      // For web, show browser notification if available
+      if ('Notification' in window && Notification.permission === 'granted') {
+        const isProfit = outcome === 'profit';
+        const title = `${pair} Signal ${isProfit ? 'Profit' : 'Loss'}`;
+        const body = `${isProfit ? '✅ Target hit!' : '❌ Stop loss hit'} ${Math.abs(pips)} pips`;
+        
+        try {
+          new Notification(title, {
+            body,
+            icon: '/favicon.ico',
+            tag: 'forex-outcome'
+          });
+        } catch (error) {
+          console.warn('Could not show web notification:', error);
+        }
+      }
+      return;
+    }
 
     const isProfit = outcome === 'profit';
     const title = `${pair} Signal ${isProfit ? 'Profit' : 'Loss'}`;
@@ -159,5 +200,18 @@ export class MobileNotificationManager {
     } catch (error) {
       console.error('❌ Error clearing notifications:', error);
     }
+  }
+
+  static async requestWebNotificationPermission() {
+    if (!('Notification' in window)) return false;
+
+    if (Notification.permission === 'granted') return true;
+
+    if (Notification.permission !== 'denied') {
+      const permission = await Notification.requestPermission();
+      return permission === 'granted';
+    }
+
+    return false;
   }
 }
