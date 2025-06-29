@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import MobileAppWrapper from "./components/MobileAppWrapper";
+import MobileDebugger from "./components/MobileDebugger";
 import Index from "./pages/Index";
 import TestPage from "./pages/TestPage";
 import NotFound from "./pages/NotFound";
@@ -31,6 +32,7 @@ const App = () => {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <MobileAppWrapper>
+          <MobileDebugger />
           <Toaster />
           <Sonner />
           <BrowserRouter>

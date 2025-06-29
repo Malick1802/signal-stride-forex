@@ -1,9 +1,11 @@
+
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import LandingPage from './LandingPage';
 import AuthPage from './AuthPage';
 import MobileLoadingScreen from './MobileLoadingScreen';
 import ProgressiveAuthProvider from './ProgressiveAuthProvider';
+import { supabase } from '@/integrations/supabase/client';
 
 // Lazy load heavy components
 const LazyDashboard = lazy(() => import('./LazyDashboard'));
@@ -22,17 +24,27 @@ const AppContent = () => {
     const checkAdminStatus = async () => {
       if (user && session) {
         try {
-          // Use the session access_token instead of user.access_token
-          const response = await fetch('/.netlify/functions/check-admin', {
-            headers: {
-              Authorization: `Bearer ${session.access_token || ''}`,
-            },
-          });
-          const data = await response.json();
-          setIsAdmin(data.isAdmin || false);
-          console.log('AppContent: Admin status check', data);
+          console.log('AppContent: Checking admin status for user:', user.email);
+          
+          // Use direct Supabase query instead of Netlify function
+          const { data, error } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', user.id)
+            .eq('role', 'admin')
+            .maybeSingle();
+
+          if (error) {
+            console.error('AppContent: Error checking admin status:', error);
+            setIsAdmin(false);
+            return;
+          }
+
+          const hasAdminRole = !!data;
+          setIsAdmin(hasAdminRole);
+          console.log('AppContent: Admin status check result:', hasAdminRole);
         } catch (error) {
-          console.error('AppContent: Failed to check admin status', error);
+          console.error('AppContent: Failed to check admin status:', error);
           setIsAdmin(false);
         }
       } else {
@@ -55,36 +67,44 @@ const AppContent = () => {
     if (!loading) {
       if (user) {
         if (currentView === 'landing' || currentView === 'auth') {
+          console.log('AppContent: User authenticated, navigating to dashboard');
           setCurrentView('dashboard');
         }
       } else {
+        console.log('AppContent: No user, showing landing page');
         setCurrentView('landing');
       }
     }
   }, [user, loading, subscription, currentView, isAdmin]);
 
   const handleLogout = () => {
+    console.log('AppContent: Handling logout');
     setCurrentView('landing');
   };
 
   const navigateToSubscription = () => {
+    console.log('AppContent: Navigating to subscription page');
     setCurrentView('subscription');
   };
 
   const navigateToAffiliate = () => {
+    console.log('AppContent: Navigating to affiliate page');
     setCurrentView('affiliate');
   };
 
   const navigateToAdmin = () => {
+    console.log('AppContent: Navigating to admin page');
     setCurrentView('admin');
   };
 
   // Create navigation handlers that match the expected string type
   const handleLandingNavigation = (view: string) => {
+    console.log('AppContent: Landing navigation to:', view);
     setCurrentView(view as ViewType);
   };
 
   const handleAuthNavigation = (view: string) => {
+    console.log('AppContent: Auth navigation to:', view);
     setCurrentView(view as ViewType);
   };
 
@@ -92,11 +112,17 @@ const AppContent = () => {
     return <MobileLoadingScreen message="Initializing ForexAlert Pro..." />;
   }
 
+  console.log('AppContent: Rendering current view:', currentView);
+
   return (
     <ProgressiveAuthProvider>
       <div className="w-full min-h-screen">
-        {currentView === 'landing' && <LandingPage onNavigate={handleLandingNavigation} />}
-        {currentView === 'auth' && <AuthPage onNavigate={handleAuthNavigation} />}
+        {currentView === 'landing' && (
+          <LandingPage onNavigate={handleLandingNavigation} />
+        )}
+        {currentView === 'auth' && (
+          <AuthPage onNavigate={handleAuthNavigation} />
+        )}
         
         {user && (
           <Suspense fallback={<MobileLoadingScreen message="Loading dashboard..." />}>
