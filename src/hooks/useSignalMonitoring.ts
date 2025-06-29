@@ -1,10 +1,9 @@
-
 import { useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { useSMSNotifications } from './useSMSNotifications';
+import { useMobileNotificationManager } from './useMobileNotificationManager';
 import { useAuth } from '@/contexts/AuthContext';
-import { MobileNotificationManager } from '@/utils/mobileNotifications';
 
 interface SignalToMonitor {
   id: string;
@@ -23,6 +22,12 @@ export const useSignalMonitoring = () => {
   const { toast } = useToast();
   const { user } = useAuth();
   const { sendTargetHitSMS, sendStopLossSMS, sendSignalCompleteSMS } = useSMSNotifications();
+  const { 
+    sendNewSignalNotification, 
+    sendTargetHitNotification, 
+    sendStopLossNotification, 
+    sendSignalCompleteNotification 
+  } = useMobileNotificationManager();
 
   const getUserProfile = useCallback(async () => {
     if (!user) return null;
@@ -139,11 +144,8 @@ export const useSignalMonitoring = () => {
             hasNewTargetHit = true;
             console.log(`🎯 Target ${targetNumber} hit for ${signal.symbol}!`);
             
-            toast({
-              title: `🎯 Target ${targetNumber} Hit!`,
-              description: `${signal.symbol} ${signal.type} reached TP${targetNumber} at ${tpPrice.toFixed(5)}`,
-              duration: 6000,
-            });
+            // Send mobile notification
+            await sendTargetHitNotification(signal, targetNumber, tpPrice);
 
             // Send SMS notification for target hit
             if (userProfile?.phone_number && userProfile.sms_notifications_enabled && userProfile.sms_verified) {
@@ -159,13 +161,6 @@ export const useSignalMonitoring = () => {
                 pnlPips
               });
             }
-
-            // Send mobile notification
-            await MobileNotificationManager.showInstantSignalNotification({
-              title: `🎯 ${signal.symbol} Target ${targetNumber} Hit!`,
-              body: `${signal.type} signal reached TP${targetNumber} at ${tpPrice.toFixed(5)}`,
-              data: { signalId: signal.id, targetLevel: targetNumber }
-            });
           }
         }
       }
@@ -228,15 +223,12 @@ export const useSignalMonitoring = () => {
         );
 
         if (success) {
-          // Show final notification
-          const notificationTitle = isSuccessful ? "🎯 Signal Completed!" : "⛔ Signal Stopped Out";
-          const notificationDescription = `${signal.symbol} ${signal.type} ${finalNotes} (${pnlPips >= 0 ? '+' : ''}${pnlPips} pips)`;
-          
-          toast({
-            title: notificationTitle,
-            description: notificationDescription,
-            duration: 8000,
-          });
+          // Send mobile notification
+          await sendSignalCompleteNotification(
+            signal,
+            isSuccessful ? 'profit' : 'loss',
+            pnlPips
+          );
 
           // Send SMS notification
           if (userProfile?.phone_number && userProfile.sms_notifications_enabled && userProfile.sms_verified) {
@@ -255,17 +247,10 @@ export const useSignalMonitoring = () => {
               });
             }
           }
-
-          // Send mobile notification
-          await MobileNotificationManager.showSignalOutcomeNotification(
-            signal.symbol,
-            isSuccessful ? 'profit' : 'loss',
-            Math.abs(pnlPips)
-          );
         }
       }
     }
-  }, [toast, getUserProfile, sendTargetHitSMS, sendStopLossSMS, sendSignalCompleteSMS, createSignalOutcome]);
+  }, [toast, getUserProfile, sendTargetHitSMS, sendStopLossSMS, sendSignalCompleteSMS, createSignalOutcome, sendTargetHitNotification, sendStopLossNotification, sendSignalCompleteNotification]);
 
   const monitorActiveSignals = useCallback(async () => {
     try {

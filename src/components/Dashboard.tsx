@@ -10,6 +10,8 @@ import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { PullToRefresh } from './PullToRefresh';
+import { MobileActionMenu } from './MobileActionMenu';
 
 // Lazy load heavy components
 const LazyTradingSignals = lazy(() => import('./LazyTradingSignals'));
@@ -38,6 +40,10 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
 
   const handleRefresh = async () => {
     setRefreshing(true);
+    // Add haptic feedback for mobile
+    if (typeof window !== 'undefined' && 'navigator' in window && 'vibrate' in navigator) {
+      navigator.vibrate(50);
+    }
     await new Promise(resolve => setTimeout(resolve, 1000));
     setRefreshing(false);
   };
@@ -256,6 +262,9 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
               </button>
             </div>
 
+            {/* Mobile Action Menu */}
+            <MobileActionMenu onOpenProfile={() => setProfileOpen(true)} />
+
             {/* User profile - Mobile optimized */}
             <div className="flex items-center space-x-2">
               <div className="flex items-center">
@@ -342,22 +351,24 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
         </div>
       </div>
 
-      {/* Content Area - Mobile optimized */}
-      <div className="p-3 sm:p-6">
-        {/* Trial Expiration Banner */}
-        {!bannerDismissed && (
-          <TrialExpirationBanner
-            subscription={subscription}
-            onUpgrade={handleUpgrade}
-            onDismiss={() => setBannerDismissed(true)}
-          />
-        )}
+      {/* Content Area - With Pull to Refresh for Mobile */}
+      <PullToRefresh onRefresh={handleRefresh} className="flex-1">
+        <div className="p-3 sm:p-6">
+          {/* Trial Expiration Banner */}
+          {!bannerDismissed && (
+            <TrialExpirationBanner
+              subscription={subscription}
+              onUpgrade={handleUpgrade}
+              onDismiss={() => setBannerDismissed(true)}
+            />
+          )}
 
-        <Suspense fallback={<MobileLoadingScreen message="Loading signals..." />}>
-          {activeTab === 'signals' && <LazyTradingSignals />}
-          {activeTab === 'expired' && <LazyExpiredSignals />}
-        </Suspense>
-      </div>
+          <Suspense fallback={<MobileLoadingScreen message="Loading signals..." />}>
+            {activeTab === 'signals' && <LazyTradingSignals />}
+            {activeTab === 'expired' && <LazyExpiredSignals />}
+          </Suspense>
+        </div>
+      </PullToRefresh>
     </div>
   );
 };
