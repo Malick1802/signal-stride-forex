@@ -101,7 +101,11 @@ const TradingSignals = memo(() => {
       loading,
       lastUpdate,
       distribution: signalDistribution,
-      systemHealth: systemHealth?.status || 'unknown'
+      systemHealth: {
+        pureOutcomeActive: systemHealth?.pureOutcomeActive || false,
+        signalsHealthy: systemHealth?.signalsHealthy || false,
+        timeBasedEliminated: systemHealth?.timeBasedEliminanted || false
+      }
     };
   }, [signals.length, loading, lastUpdate, signalDistribution, systemHealth]);
 
