@@ -4,15 +4,31 @@ import { useSignalNotifications } from '@/hooks/useSignalNotifications';
 import LandingPage from './LandingPage';
 import AuthPage from './AuthPage';
 import MobileLoadingScreen from './MobileLoadingScreen';
+import LazyLoadFallback from './LazyLoadFallback';
 import ProgressiveAuthProvider from './ProgressiveAuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { Capacitor } from '@capacitor/core';
 
-// Lazy load heavy components
-const LazyDashboard = lazy(() => import('./LazyDashboard'));
-const LazySubscriptionPage = lazy(() => import('./SubscriptionPage'));
-const LazyAffiliatePage = lazy(() => import('./AffiliatePage'));
-const LazyAdminDashboard = lazy(() => import('./AdminDashboard'));
+// Lazy load heavy components with error boundaries
+const LazyDashboard = lazy(() => import('./LazyDashboard').catch(error => {
+  console.error('🚨 Failed to load Dashboard:', error);
+  return { default: () => <LazyLoadFallback error={error} componentName="Dashboard" /> };
+}));
+
+const LazySubscriptionPage = lazy(() => import('./SubscriptionPage').catch(error => {
+  console.error('🚨 Failed to load SubscriptionPage:', error);
+  return { default: () => <LazyLoadFallback error={error} componentName="Subscription" /> };
+}));
+
+const LazyAffiliatePage = lazy(() => import('./AffiliatePage').catch(error => {
+  console.error('🚨 Failed to load AffiliatePage:', error);
+  return { default: () => <LazyLoadFallback error={error} componentName="Affiliate" /> };
+}));
+
+const LazyAdminDashboard = lazy(() => import('./AdminDashboard').catch(error => {
+  console.error('🚨 Failed to load AdminDashboard:', error);
+  return { default: () => <LazyLoadFallback error={error} componentName="Admin Dashboard" /> };
+}));
 
 type ViewType = 'landing' | 'auth' | 'dashboard' | 'subscription' | 'affiliate' | 'admin';
 
@@ -65,7 +81,8 @@ const AppContent = () => {
       loading,
       subscription: subscription?.subscribed ? 'active' : 'none',
       currentView,
-      isAdmin
+      isAdmin,
+      platform: Capacitor.isNativePlatform() ? Capacitor.getPlatform() : 'web'
     });
 
     if (!loading) {
@@ -133,7 +150,7 @@ const AppContent = () => {
         )}
         
         {user && (
-          <Suspense fallback={<MobileLoadingScreen message="Loading dashboard..." />}>
+          <Suspense fallback={<MobileLoadingScreen message={`Loading ${currentView}...`} />}>
             {currentView === 'dashboard' && (
               <LazyDashboard
                 user={user}

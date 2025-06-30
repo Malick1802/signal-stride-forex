@@ -1,6 +1,6 @@
 
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { AlertTriangle, RefreshCw, Wifi, WifiOff } from 'lucide-react';
+import { AlertTriangle, RefreshCw, Wifi, WifiOff, Bug } from 'lucide-react';
 import { Capacitor } from '@capacitor/core';
 import { Button } from '@/components/ui/button';
 
@@ -13,6 +13,7 @@ interface State {
   error: Error | null;
   errorInfo: ErrorInfo | null;
   isOnline: boolean;
+  debugInfo: string[];
 }
 
 class MobileErrorBoundary extends Component<Props, State> {
@@ -24,18 +25,29 @@ class MobileErrorBoundary extends Component<Props, State> {
       hasError: false,
       error: null,
       errorInfo: null,
-      isOnline: navigator.onLine
+      isOnline: navigator.onLine,
+      debugInfo: []
     };
   }
 
   componentDidMount() {
+    this.addDebugInfo('MobileErrorBoundary mounted');
+    
     // Listen for network changes
     this.networkListener = () => {
       this.setState({ isOnline: navigator.onLine });
+      this.addDebugInfo(`Network status changed: ${navigator.onLine ? 'online' : 'offline'}`);
     };
     
     window.addEventListener('online', this.networkListener);
     window.addEventListener('offline', this.networkListener);
+    
+    // Listen for unhandled errors
+    window.addEventListener('error', this.handleGlobalError);
+    window.addEventListener('unhandledrejection', this.handleUnhandledRejection);
+    
+    this.addDebugInfo(`Platform: ${Capacitor.isNativePlatform() ? Capacitor.getPlatform() : 'web'}`);
+    this.addDebugInfo(`Initial network status: ${navigator.onLine ? 'online' : 'offline'}`);
   }
 
   componentWillUnmount() {
@@ -43,13 +55,32 @@ class MobileErrorBoundary extends Component<Props, State> {
       window.removeEventListener('online', this.networkListener);
       window.removeEventListener('offline', this.networkListener);
     }
+    window.removeEventListener('error', this.handleGlobalError);
+    window.removeEventListener('unhandledrejection', this.handleUnhandledRejection);
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  addDebugInfo = (info: string) => {
+    const timestamp = new Date().toISOString();
+    console.log(`🐛 [MobileErrorBoundary] ${timestamp}: ${info}`);
+    this.setState(prev => ({
+      debugInfo: [...prev.debugInfo.slice(-9), `${timestamp}: ${info}`]
+    }));
+  };
+
+  handleGlobalError = (event: ErrorEvent) => {
+    console.error('🚨 Global error caught:', event.error);
+    this.addDebugInfo(`Global error: ${event.error?.message || 'Unknown error'}`);
+  };
+
+  handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+    console.error('🚨 Unhandled promise rejection:', event.reason);
+    this.addDebugInfo(`Promise rejection: ${event.reason?.message || 'Unknown rejection'}`);
+  };
+
+  static getDerivedStateFromError(error: Error): Partial<State> {
     return {
       hasError: true,
       error,
-      errorInfo: null,
       isOnline: navigator.onLine
     };
   }
@@ -57,11 +88,13 @@ class MobileErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('🚨 Mobile Error Boundary caught an error:', error, errorInfo);
     
+    this.addDebugInfo(`Error caught: ${error.message}`);
+    this.addDebugInfo(`Error stack: ${error.stack?.substring(0, 200) || 'No stack'}`);
+    
     // Log additional mobile context
     if (Capacitor.isNativePlatform()) {
-      console.error('📱 Mobile Platform:', Capacitor.getPlatform());
-      console.error('🌐 Network Status:', navigator.onLine ? 'Online' : 'Offline');
-      console.error('🔧 Capacitor Version:', Capacitor.getPlatform());
+      this.addDebugInfo(`Mobile Platform: ${Capacitor.getPlatform()}`);
+      this.addDebugInfo(`Network Status: ${navigator.onLine ? 'Online' : 'Offline'}`);
     }
     
     this.setState({
@@ -72,10 +105,12 @@ class MobileErrorBoundary extends Component<Props, State> {
   }
 
   handleRetry = () => {
+    this.addDebugInfo('User initiated retry');
     this.setState({
       hasError: false,
       error: null,
-      errorInfo: null
+      errorInfo: null,
+      debugInfo: []
     });
     
     // Force reload on mobile if still having issues
@@ -84,15 +119,33 @@ class MobileErrorBoundary extends Component<Props, State> {
     }
   };
 
+  handleShowDebug = () => {
+    const debugData = {
+      error: this.state.error?.message,
+      stack: this.state.error?.stack,
+      platform: Capacitor.isNativePlatform() ? Capacitor.getPlatform() : 'web',
+      online: this.state.isOnline,
+      url: window.location.href,
+      userAgent: navigator.userAgent,
+      debugInfo: this.state.debugInfo
+    };
+    
+    console.log('🐛 Debug Info:', debugData);
+    alert('Debug info logged to console. Please check the developer tools.');
+  };
+
   render() {
     if (this.state.hasError) {
+      const errorMessage = this.state.error?.message || 'An unexpected error occurred';
+      const isNetworkError = errorMessage.includes('fetch') || errorMessage.includes('network') || !this.state.isOnline;
+      
       return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center p-6">
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 w-full max-w-md border border-white/20 text-center">
             <AlertTriangle className="h-16 w-16 text-red-400 mx-auto mb-6" />
             
             <h2 className="text-2xl font-bold text-white mb-4">
-              {Capacitor.isNativePlatform() ? 'Mobile App Error' : 'Application Error'}
+              {isNetworkError ? 'Connection Problem' : 'App Error'}
             </h2>
             
             <div className="space-y-4 mb-6">
@@ -114,7 +167,10 @@ class MobileErrorBoundary extends Component<Props, State> {
               )}
               
               <p className="text-gray-300 text-sm">
-                {this.state.error?.message || 'An unexpected error occurred'}
+                {isNetworkError 
+                  ? 'Unable to load the app. This might be a network issue.'
+                  : errorMessage
+                }
               </p>
               
               {Capacitor.isNativePlatform() && (
@@ -142,6 +198,16 @@ class MobileErrorBoundary extends Component<Props, State> {
                   Reload App
                 </Button>
               )}
+              
+              <Button
+                onClick={this.handleShowDebug}
+                variant="ghost"
+                size="sm"
+                className="w-full text-gray-400 hover:text-white"
+              >
+                <Bug className="h-4 w-4 mr-2" />
+                Show Debug Info
+              </Button>
             </div>
           </div>
         </div>
