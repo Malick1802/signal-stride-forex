@@ -1,4 +1,3 @@
-
 import { Capacitor } from '@capacitor/core';
 
 interface SignalNotification {
@@ -15,16 +14,41 @@ export class MobileNotificationManager {
     console.log('📱 Initializing MobileNotificationManager...');
     
     if (!Capacitor.isNativePlatform()) {
-      console.log('🌐 Web platform - using browser notifications if available');
-      return await this.requestWebNotificationPermission();
+      console.log('🌐 Web platform - initializing browser notifications');
+      return await this.initializeWebNotifications();
     }
 
+    return await this.initializeMobileNotifications();
+  }
+
+  static async initializeWebNotifications() {
+    if (!('Notification' in window)) {
+      console.log('❌ Browser notifications not supported');
+      return false;
+    }
+
+    if (Notification.permission === 'granted') {
+      console.log('✅ Web notification permissions already granted');
+      return true;
+    }
+
+    if (Notification.permission === 'denied') {
+      console.log('❌ Web notification permissions denied');
+      return false;
+    }
+
+    // Permission is 'default', we'll let the component handle the request
+    console.log('ℹ️ Web notification permissions not yet requested');
+    return false;
+  }
+
+  static async initializeMobileNotifications() {
     try {
       const { LocalNotifications } = await import('@capacitor/local-notifications');
-      console.log('📱 Requesting local notification permissions...');
+      console.log('📱 Requesting mobile notification permissions...');
       
       const permission = await LocalNotifications.requestPermissions();
-      console.log('📱 Permission result:', permission);
+      console.log('📱 Mobile permission result:', permission);
       
       if (permission.display === 'granted') {
         console.log('✅ Mobile notification permissions granted');
@@ -44,7 +68,7 @@ export class MobileNotificationManager {
       }
     } catch (error) {
       console.error('❌ Error initializing mobile notifications:', error);
-      return false;
+      throw new Error(`Mobile notification setup failed: ${(error as Error).message}`);
     }
   }
 
@@ -99,6 +123,9 @@ export class MobileNotificationManager {
   static async setupNotificationListeners() {
     try {
       const { LocalNotifications } = await import('@capacitor/local-notifications');
+      
+      // Clear any existing listeners first
+      await LocalNotifications.removeAllListeners();
       
       // Listen for notification received while app is in foreground
       LocalNotifications.addListener('localNotificationReceived', (notification) => {
@@ -162,7 +189,7 @@ export class MobileNotificationManager {
       const { LocalNotifications } = await import('@capacitor/local-notifications');
       
       const notificationId = Date.now();
-      console.log('📱 Showing instant notification:', { id: notificationId, title: signal.title });
+      console.log('📱 Showing instant mobile notification:', { id: notificationId, title: signal.title });
       
       await LocalNotifications.schedule({
         notifications: [
@@ -181,9 +208,10 @@ export class MobileNotificationManager {
         ]
       });
       
-      console.log('✅ Instant forex signal notification sent:', signal.title);
+      console.log('✅ Mobile notification sent:', signal.title);
     } catch (error) {
-      console.error('❌ Error showing instant notification:', error);
+      console.error('❌ Error showing mobile notification:', error);
+      throw new Error(`Failed to send mobile notification: ${(error as Error).message}`);
     }
   }
 
@@ -219,6 +247,7 @@ export class MobileNotificationManager {
       console.log('✅ Signal outcome notification sent:', title);
     } catch (error) {
       console.error('❌ Error showing outcome notification:', error);
+      throw new Error(`Failed to send outcome notification: ${(error as Error).message}`);
     }
   }
 
@@ -256,40 +285,62 @@ export class MobileNotificationManager {
   }
 
   static showWebNotification(signal: SignalNotification) {
-    if ('Notification' in window && Notification.permission === 'granted') {
-      try {
-        console.log('🌐 Showing web notification:', signal.title);
-        const notification = new Notification(signal.title, {
-          body: signal.body,
-          icon: '/favicon.ico',
-          tag: 'forex-signal',
-          requireInteraction: true
-        });
+    if (!('Notification' in window)) {
+      console.log('❌ Browser notifications not supported');
+      throw new Error('Browser notifications are not supported on this device');
+    }
 
-        // Auto-close after 5 seconds
-        setTimeout(() => {
-          notification.close();
-        }, 5000);
+    if (Notification.permission !== 'granted') {
+      console.log('❌ Web notification permission not granted:', Notification.permission);
+      throw new Error('Notification permissions not granted. Please enable notifications in your browser settings.');
+    }
 
-        console.log('✅ Web notification shown');
-      } catch (error) {
-        console.warn('⚠️ Could not show web notification:', error);
-      }
-    } else {
-      console.log('🌐 Web notifications not available or not permitted');
+    try {
+      console.log('🌐 Showing web notification:', signal.title);
+      
+      const notification = new Notification(signal.title, {
+        body: signal.body,
+        icon: '/favicon.ico',
+        badge: '/favicon.ico',
+        tag: 'forex-signal',
+        requireInteraction: true,
+        silent: signal.sound === false
+      });
+
+      notification.onclick = () => {
+        console.log('🌐 Web notification clicked');
+        window.focus();
+        notification.close();
+      };
+
+      // Auto-close after 8 seconds
+      setTimeout(() => {
+        notification.close();
+      }, 8000);
+
+      console.log('✅ Web notification shown');
+    } catch (error) {
+      console.error('❌ Could not show web notification:', error);
+      throw new Error(`Failed to show web notification: ${(error as Error).message}`);
     }
   }
 
-  // Test notification function
   static async testNotification() {
     console.log('🧪 Testing notification system...');
     
-    await this.showInstantSignalNotification({
-      title: '🧪 Test Notification',
-      body: 'This is a test to verify notifications are working',
-      data: { type: 'test' },
-      sound: true,
-      vibrate: true
-    });
+    try {
+      await this.showInstantSignalNotification({
+        title: '🧪 Test Notification',
+        body: 'This is a test to verify notifications are working correctly',
+        data: { type: 'test' },
+        sound: true,
+        vibrate: true
+      });
+      
+      console.log('✅ Test notification sent successfully');
+    } catch (error) {
+      console.error('❌ Test notification failed:', error);
+      throw error;
+    }
   }
 }
