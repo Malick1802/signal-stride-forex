@@ -5,7 +5,7 @@ import { useNotifications } from '@/hooks/useNotifications';
 import { MobileNotificationManager } from '@/utils/mobileNotifications';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
-import { Haptics, ImpactStyle } from '@capacitor/haptics';
+import { Capacitor } from '@capacitor/core';
 
 export const useMobileNotificationManager = () => {
   const { profile } = useProfile();
@@ -33,14 +33,16 @@ export const useMobileNotificationManager = () => {
   }, [profile]);
 
   const triggerHaptics = useCallback(async (type: 'light' | 'medium' | 'heavy' = 'medium') => {
-    if (!profile?.push_vibration_enabled) return;
+    if (!profile?.push_vibration_enabled || !Capacitor.isNativePlatform()) return;
 
     try {
+      const { Haptics, ImpactStyle } = await import('@capacitor/haptics');
       const impactStyle = type === 'light' ? ImpactStyle.Light : 
                          type === 'heavy' ? ImpactStyle.Heavy : ImpactStyle.Medium;
       await Haptics.impact({ style: impactStyle });
+      console.log(`✅ Haptic feedback triggered: ${type}`);
     } catch (error) {
-      console.log('Haptics not available:', error);
+      console.warn('⚠️ Haptics not available:', error);
     }
   }, [profile?.push_vibration_enabled]);
 
@@ -49,6 +51,8 @@ export const useMobileNotificationManager = () => {
 
     const title = `🚨 New ${signal.type} Signal`;
     const body = `${signal.symbol} - Entry: ${signal.price} | SL: ${signal.stop_loss}`;
+    
+    console.log('📱 Sending new signal notification:', { title, body, signalId: signal.id });
     
     // Create persistent notification in database
     await createNotification(title, body, 'signal', { 
@@ -86,6 +90,8 @@ export const useMobileNotificationManager = () => {
     const title = `🎯 Target ${targetLevel} Hit!`;
     const body = `${signal.symbol} ${signal.type} reached TP${targetLevel} at ${price.toFixed(5)}`;
     
+    console.log('📱 Sending target hit notification:', { title, body, signalId: signal.id });
+    
     // Create persistent notification in database
     await createNotification(title, body, 'success', { 
       signalId: signal.id, 
@@ -118,6 +124,8 @@ export const useMobileNotificationManager = () => {
 
     const title = `⛔ Stop Loss Hit`;
     const body = `${signal.symbol} ${signal.type} stopped out at ${price.toFixed(5)}`;
+    
+    console.log('📱 Sending stop loss notification:', { title, body, signalId: signal.id });
     
     // Create persistent notification in database
     await createNotification(title, body, 'warning', { 
@@ -152,6 +160,8 @@ export const useMobileNotificationManager = () => {
     const title = `${isProfit ? '✅' : '❌'} Signal ${isProfit ? 'Completed' : 'Closed'}`;
     const body = `${signal.symbol} ${signal.type} - ${isProfit ? '+' : ''}${pips} pips`;
     
+    console.log('📱 Sending signal complete notification:', { title, body, signalId: signal.id });
+    
     // Create persistent notification in database
     await createNotification(title, body, isProfit ? 'success' : 'error', { 
       signalId: signal.id, 
@@ -180,6 +190,8 @@ export const useMobileNotificationManager = () => {
   const sendMarketUpdateNotification = useCallback(async (title: string, message: string, data?: any) => {
     if (!shouldSendNotification('market_update') || !user) return;
 
+    console.log('📱 Sending market update notification:', { title, message });
+
     // Create persistent notification in database
     await createNotification(title, message, 'info', { 
       type: 'market_update',
@@ -202,12 +214,34 @@ export const useMobileNotificationManager = () => {
     });
   }, [shouldSendNotification, toast, createNotification, profile, user]);
 
+  // Test notification function
+  const sendTestNotification = useCallback(async () => {
+    console.log('📱 Sending test notification...');
+    
+    await MobileNotificationManager.showInstantSignalNotification({
+      title: '🧪 Test Notification',
+      body: 'This is a test notification to verify the system is working',
+      data: { type: 'test' },
+      sound: profile?.push_sound_enabled !== false,
+      vibrate: profile?.push_vibration_enabled !== false
+    });
+
+    await triggerHaptics('medium');
+
+    toast({
+      title: '🧪 Test Notification Sent',
+      description: 'Check if you received the notification',
+      duration: 3000,
+    });
+  }, [profile, triggerHaptics, toast]);
+
   return {
     sendNewSignalNotification,
     sendTargetHitNotification,
     sendStopLossNotification,
     sendSignalCompleteNotification,
     sendMarketUpdateNotification,
+    sendTestNotification,
     shouldSendNotification
   };
 };

@@ -4,17 +4,21 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Bell, Volume2, Vibrate, AlertCircle } from 'lucide-react';
+import { Bell, Volume2, Vibrate, AlertCircle, TestTube } from 'lucide-react';
 import { useProfile } from '@/hooks/useProfile';
 import { useToast } from '@/hooks/use-toast';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { useMobileNotificationManager } from '@/hooks/useMobileNotificationManager';
+import { MobileNotificationManager } from '@/utils/mobileNotifications';
 import { Capacitor } from '@capacitor/core';
 
 export const PushNotificationSettings = () => {
   const { profile, updateProfile, loading } = useProfile();
   const { toast } = useToast();
-  const { isRegistered, initializePushNotifications } = usePushNotifications();
+  const { isRegistered, permissionError, initializePushNotifications } = usePushNotifications();
+  const { sendTestNotification } = useMobileNotificationManager();
   const [permissionStatus, setPermissionStatus] = useState<'default' | 'granted' | 'denied'>('default');
+  const [isInitializing, setIsInitializing] = useState(false);
 
   // Local state for form values
   const [settings, setSettings] = useState({
@@ -71,27 +75,67 @@ export const PushNotificationSettings = () => {
   };
 
   const requestPermission = async () => {
-    if (Capacitor.isNativePlatform()) {
-      // On mobile, use Capacitor's push notification initialization
-      await initializePushNotifications();
-    } else if ('Notification' in window) {
-      // On web, request browser notification permission
-      const permission = await Notification.requestPermission();
-      setPermissionStatus(permission);
+    setIsInitializing(true);
+    
+    try {
+      if (Capacitor.isNativePlatform()) {
+        // Initialize mobile notifications first
+        await MobileNotificationManager.initialize();
+        // Then initialize push notifications
+        await initializePushNotifications();
+      } else if ('Notification' in window) {
+        // On web, request browser notification permission
+        const permission = await Notification.requestPermission();
+        setPermissionStatus(permission);
+      }
+    } catch (error) {
+      console.error('Error requesting permissions:', error);
+      toast({
+        title: 'Permission Error',
+        description: 'Failed to request notification permissions',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsInitializing(false);
+    }
+  };
+
+  const handleTestNotification = async () => {
+    try {
+      if (Capacitor.isNativePlatform()) {
+        await sendTestNotification();
+      } else {
+        await MobileNotificationManager.testNotification();
+      }
+    } catch (error) {
+      console.error('Error sending test notification:', error);
+      toast({
+        title: 'Test Failed',
+        description: 'Failed to send test notification',
+        variant: 'destructive',
+      });
     }
   };
 
   const getPermissionBadge = () => {
     if (Capacitor.isNativePlatform()) {
+      if (permissionError) {
+        return (
+          <Badge variant="destructive">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            Error
+          </Badge>
+        );
+      }
       return isRegistered ? (
         <Badge variant="default" className="bg-green-500">
           <Bell className="w-3 h-3 mr-1" />
           Enabled
         </Badge>
       ) : (
-        <Badge variant="destructive">
+        <Badge variant="secondary">
           <AlertCircle className="w-3 h-3 mr-1" />
-          Disabled
+          Not Set
         </Badge>
       );
     } else {
@@ -125,6 +169,10 @@ export const PushNotificationSettings = () => {
     return <div className="text-center py-8 text-muted-foreground">Loading notification settings...</div>;
   }
 
+  const needsPermission = Capacitor.isNativePlatform() 
+    ? !isRegistered && !permissionError
+    : permissionStatus !== 'granted';
+
   return (
     <div className="space-y-6">
       {/* Permission Status */}
@@ -141,14 +189,37 @@ export const PushNotificationSettings = () => {
             }
           </CardDescription>
         </CardHeader>
-        {(!isRegistered && Capacitor.isNativePlatform()) || (permissionStatus !== 'granted' && !Capacitor.isNativePlatform()) ? (
-          <CardContent>
-            <Button onClick={requestPermission} className="w-full">
+        <CardContent className="space-y-4">
+          {permissionError && (
+            <div className="p-3 border border-red-200 bg-red-50 rounded-lg">
+              <p className="text-red-700 text-sm">
+                <strong>Error:</strong> {permissionError}
+              </p>
+            </div>
+          )}
+          
+          {needsPermission && (
+            <Button 
+              onClick={requestPermission} 
+              className="w-full"
+              disabled={isInitializing}
+            >
               <Bell className="w-4 h-4 mr-2" />
-              Enable Push Notifications
+              {isInitializing ? 'Setting up...' : 'Enable Push Notifications'}
             </Button>
-          </CardContent>
-        ) : null}
+          )}
+
+          {(isRegistered || permissionStatus === 'granted') && (
+            <Button 
+              onClick={handleTestNotification} 
+              variant="outline" 
+              className="w-full"
+            >
+              <TestTube className="w-4 h-4 mr-2" />
+              Send Test Notification
+            </Button>
+          )}
+        </CardContent>
       </Card>
 
       {/* Main Settings */}
