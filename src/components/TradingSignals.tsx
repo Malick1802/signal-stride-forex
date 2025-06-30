@@ -64,20 +64,6 @@ const TradingSignals = memo(() => {
     };
   }, [signals, lastUpdate]);
 
-  const loadingPlaceholder = useMemo(() => (
-    <div className="text-center py-4">
-      <RefreshCw className="inline-block h-6 w-6 animate-spin mr-2" />
-      Loading Signals...
-    </div>
-  ), []);
-
-  const noSignalsPlaceholder = useMemo(() => (
-    <div className="text-center py-4 text-gray-500">
-      <Activity className="inline-block h-6 w-6 mr-2" />
-      No signals available at this time.
-    </div>
-  ), []);
-
   return (
     <div className="space-y-6">
       <SignalStats 
@@ -85,8 +71,27 @@ const TradingSignals = memo(() => {
         avgConfidence={signalStats.avgConfidence}
         lastUpdate={signalStats.lastUpdate}
       />
-      
-      {signals.length === 0 && !loading && (
+
+      {/* Signal Grid or Loading */}
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {Array.from({ length: 6 }, (_, i) => (
+            <SignalCardLoading key={i} pair="Loading..." />
+          ))}
+        </div>
+      ) : signals.length > 0 ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {signals.map((signal) => (
+            <SignalCard 
+              key={signal.id} 
+              signal={signal}
+              analysis={analysis}
+              analyzingSignal={analyzingSignal}
+              onGetAIAnalysis={handleGetAIAnalysis}
+            />
+          ))}
+        </div>
+      ) : (
         <Card className="border-gray-200 bg-gray-50 dark:bg-gray-800/50">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2 text-gray-700 dark:text-gray-300">
@@ -119,30 +124,6 @@ const TradingSignals = memo(() => {
             </div>
           </CardContent>
         </Card>
-      )}
-
-      {/* Signal Grid */}
-      {signals.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {signals.map((signal) => (
-            <SignalCard 
-              key={signal.id} 
-              signal={signal}
-              analysis={analysis}
-              analyzingSignal={analyzingSignal}
-              onGetAIAnalysis={handleGetAIAnalysis}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Loading State */}
-      {loading && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {Array.from({ length: 6 }, (_, i) => (
-            <SignalCardLoading key={i} pair="Loading..." />
-          ))}
-        </div>
       )}
     </div>
   );
