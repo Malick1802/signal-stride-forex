@@ -7,32 +7,32 @@ import { Badge } from '@/components/ui/badge';
 import { Bell, Volume2, Vibrate, AlertCircle, TestTube, Smartphone, Globe, CheckCircle } from 'lucide-react';
 import { useProfile } from '@/hooks/useProfile';
 import { useToast } from '@/hooks/use-toast';
-import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useMobileNotificationManager } from '@/hooks/useMobileNotificationManager';
 import { MobileNotificationManager } from '@/utils/mobileNotifications';
 import { Capacitor } from '@capacitor/core';
 
-interface PlatformInfo {
+interface NotificationState {
+  isSupported: boolean;
   isNative: boolean;
   platform: string;
-  supportsNotifications: boolean;
-  browserName?: string;
+  permission: 'default' | 'granted' | 'denied' | 'unsupported';
+  isInitialized: boolean;
 }
 
 export const PushNotificationSettings = () => {
   const { profile, updateProfile, loading } = useProfile();
   const { toast } = useToast();
-  const { isRegistered, permissionError, initializePushNotifications } = usePushNotifications();
   const { sendTestNotification } = useMobileNotificationManager();
   
-  const [platformInfo, setPlatformInfo] = useState<PlatformInfo>({
+  const [notificationState, setNotificationState] = useState<NotificationState>({
+    isSupported: false,
     isNative: false,
     platform: 'web',
-    supportsNotifications: false
+    permission: 'default',
+    isInitialized: false
   });
-  const [permissionStatus, setPermissionStatus] = useState<'default' | 'granted' | 'denied' | 'unsupported'>('default');
+  
   const [isInitializing, setIsInitializing] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<string[]>([]);
 
   // Local state for form values
   const [settings, setSettings] = useState({
@@ -46,62 +46,43 @@ export const PushNotificationSettings = () => {
     push_vibration_enabled: profile?.push_vibration_enabled ?? true,
   });
 
-  // Initialize platform detection and permission status
+  // Initialize notification state
   useEffect(() => {
-    const detectPlatform = () => {
+    const initializeNotificationState = () => {
       const isNative = Capacitor.isNativePlatform();
       const platform = isNative ? Capacitor.getPlatform() : 'web';
       
-      let supportsNotifications = false;
-      let browserName = '';
+      let isSupported = false;
+      let permission: 'default' | 'granted' | 'denied' | 'unsupported' = 'unsupported';
       
       if (isNative) {
-        supportsNotifications = true;
+        isSupported = true;
+        permission = 'default'; // We'll check actual permission later
       } else if (typeof window !== 'undefined' && 'Notification' in window) {
-        supportsNotifications = true;
-        browserName = navigator.userAgent.includes('Chrome') ? 'Chrome' :
-                     navigator.userAgent.includes('Firefox') ? 'Firefox' :
-                     navigator.userAgent.includes('Safari') ? 'Safari' : 'Unknown';
+        isSupported = true;
+        permission = Notification.permission as any;
       }
 
-      const info: PlatformInfo = {
+      setNotificationState({
+        isSupported,
         isNative,
         platform,
-        supportsNotifications,
-        browserName
-      };
+        permission,
+        isInitialized: false
+      });
 
-      setPlatformInfo(info);
-      
-      const debug = [
-        `Platform: ${platform}`,
-        `Native: ${isNative}`,
-        `Supports Notifications: ${supportsNotifications}`,
-        ...(browserName ? [`Browser: ${browserName}`] : [])
-      ];
-      setDebugInfo(debug);
-
-      console.log('🔍 Platform Detection:', info);
+      console.log('🔍 Notification State Initialized:', {
+        isSupported,
+        isNative,
+        platform,
+        permission
+      });
     };
 
-    const checkPermissionStatus = () => {
-      if (platformInfo.isNative) {
-        // For native, we'll check via the hook
-        return;
-      } else if (typeof window !== 'undefined' && 'Notification' in window) {
-        const status = Notification.permission;
-        setPermissionStatus(status);
-        console.log('🔍 Web Notification Permission:', status);
-      } else {
-        setPermissionStatus('unsupported');
-        console.log('🔍 Notifications not supported on this platform');
-      }
-    };
+    initializeNotificationState();
+  }, []);
 
-    detectPlatform();
-    checkPermissionStatus();
-  }, [platformInfo.isNative]);
-
+  // Update settings when profile changes
   useEffect(() => {
     if (profile) {
       setSettings({
@@ -143,39 +124,57 @@ export const PushNotificationSettings = () => {
     try {
       console.log('🔔 Requesting notification permissions...');
       
-      if (platformInfo.isNative) {
+      if (notificationState.isNative) {
         // Mobile app permissions
         console.log('📱 Initializing mobile notifications...');
-        await MobileNotificationManager.initialize();
-        await initializePushNotifications();
+        const success = await MobileNotificationManager.initialize();
         
-        toast({
-          title: 'Mobile notifications initialized',
-          description: 'Push notifications are now enabled for the mobile app.',
-        });
-      } else if (platformInfo.supportsNotifications) {
+        if (success) {
+          setNotificationState(prev => ({ 
+            ...prev, 
+            permission: 'granted',
+            isInitialized: true 
+          }));
+          
+          toast({
+            title: 'Mobile notifications enabled',
+            description: 'Push notifications are now active for the mobile app.',
+          });
+        } else {
+          throw new Error('Failed to initialize mobile notifications');
+        }
+      } else if (notificationState.isSupported) {
         // Web browser permissions
         console.log('🌐 Requesting browser notification permission...');
         const permission = await Notification.requestPermission();
-        setPermissionStatus(permission);
+        
+        setNotificationState(prev => ({ 
+          ...prev, 
+          permission: permission as any 
+        }));
         
         if (permission === 'granted') {
           await MobileNotificationManager.initialize();
+          setNotificationState(prev => ({ 
+            ...prev, 
+            isInitialized: true 
+          }));
+          
           toast({
             title: 'Notifications enabled',
-            description: 'Browser notifications are now enabled.',
+            description: 'Browser notifications are now active.',
           });
         } else {
           toast({
             title: 'Permission denied',
-            description: 'Please enable notifications in your browser settings to receive alerts.',
+            description: 'Please enable notifications in your browser settings.',
             variant: 'destructive',
           });
         }
       } else {
         toast({
           title: 'Not supported',
-          description: 'Notifications are not supported on this browser/device.',
+          description: 'Notifications are not supported on this platform.',
           variant: 'destructive',
         });
       }
@@ -195,23 +194,19 @@ export const PushNotificationSettings = () => {
     try {
       console.log('🧪 Sending test notification...');
       
-      if (platformInfo.isNative) {
-        await sendTestNotification();
-      } else if (platformInfo.supportsNotifications && permissionStatus === 'granted') {
+      if (notificationState.permission === 'granted') {
         await MobileNotificationManager.testNotification();
+        toast({
+          title: 'Test sent',
+          description: 'Check if you received the test notification.',
+        });
       } else {
         toast({
           title: 'Cannot send test',
           description: 'Notifications must be enabled first.',
           variant: 'destructive',
         });
-        return;
       }
-      
-      toast({
-        title: 'Test sent',
-        description: 'Check if you received the test notification.',
-      });
     } catch (error) {
       console.error('❌ Test notification failed:', error);
       toast({
@@ -223,74 +218,44 @@ export const PushNotificationSettings = () => {
   };
 
   const getPermissionBadge = () => {
-    if (platformInfo.isNative) {
-      if (permissionError) {
+    switch (notificationState.permission) {
+      case 'granted':
+        return (
+          <Badge variant="default" className="bg-green-500">
+            <CheckCircle className="w-3 h-3 mr-1" />
+            Enabled
+          </Badge>
+        );
+      case 'denied':
         return (
           <Badge variant="destructive">
             <AlertCircle className="w-3 h-3 mr-1" />
-            Error
+            Blocked
           </Badge>
         );
-      }
-      return isRegistered ? (
-        <Badge variant="default" className="bg-green-500">
-          <CheckCircle className="w-3 h-3 mr-1" />
-          Enabled
-        </Badge>
-      ) : (
-        <Badge variant="secondary">
-          <AlertCircle className="w-3 h-3 mr-1" />
-          Setup Required
-        </Badge>
-      );
-    } else {
-      switch (permissionStatus) {
-        case 'granted':
-          return (
-            <Badge variant="default" className="bg-green-500">
-              <CheckCircle className="w-3 h-3 mr-1" />
-              Enabled
-            </Badge>
-          );
-        case 'denied':
-          return (
-            <Badge variant="destructive">
-              <AlertCircle className="w-3 h-3 mr-1" />
-              Blocked
-            </Badge>
-          );
-        case 'unsupported':
-          return (
-            <Badge variant="outline">
-              <AlertCircle className="w-3 h-3 mr-1" />
-              Not Supported
-            </Badge>
-          );
-        default:
-          return (
-            <Badge variant="secondary">
-              <Bell className="w-3 h-3 mr-1" />
-              Setup Required
-            </Badge>
-          );
-      }
+      case 'unsupported':
+        return (
+          <Badge variant="outline">
+            <AlertCircle className="w-3 h-3 mr-1" />
+            Not Supported
+          </Badge>
+        );
+      default:
+        return (
+          <Badge variant="secondary">
+            <Bell className="w-3 h-3 mr-1" />
+            Setup Required
+          </Badge>
+        );
     }
   };
 
   const canSendNotifications = () => {
-    if (platformInfo.isNative) {
-      return isRegistered && !permissionError;
-    } else {
-      return permissionStatus === 'granted';
-    }
+    return notificationState.permission === 'granted' && notificationState.isInitialized;
   };
 
   const needsPermission = () => {
-    if (platformInfo.isNative) {
-      return !isRegistered && !permissionError;
-    } else {
-      return permissionStatus === 'default' && platformInfo.supportsNotifications;
-    }
+    return notificationState.permission === 'default' && notificationState.isSupported;
   };
 
   if (loading) {
@@ -304,40 +269,21 @@ export const PushNotificationSettings = () => {
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
-              {platformInfo.isNative ? <Smartphone className="w-5 h-5" /> : <Globe className="w-5 h-5" />}
+              {notificationState.isNative ? <Smartphone className="w-5 h-5" /> : <Globe className="w-5 h-5" />}
               <span>Notification Status</span>
             </div>
             {getPermissionBadge()}
           </CardTitle>
           <CardDescription>
-            {platformInfo.isNative 
-              ? `Mobile app on ${platformInfo.platform} - native push notifications available`
-              : `Web browser${platformInfo.browserName ? ` (${platformInfo.browserName})` : ''} - ${platformInfo.supportsNotifications ? 'browser notifications available' : 'notifications not supported'}`
+            {notificationState.isNative 
+              ? `Mobile app on ${notificationState.platform} - native push notifications available`
+              : `Web browser - ${notificationState.isSupported ? 'browser notifications available' : 'notifications not supported'}`
             }
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Debug Information */}
-          <div className="text-xs text-muted-foreground space-y-1">
-            {debugInfo.map((info, index) => (
-              <div key={index}>• {info}</div>
-            ))}
-          </div>
-
           {/* Permission Error */}
-          {permissionError && (
-            <div className="p-3 border border-red-200 bg-red-50 rounded-lg">
-              <p className="text-red-700 text-sm">
-                <strong>Error:</strong> {permissionError}
-              </p>
-              <p className="text-red-600 text-xs mt-1">
-                Try restarting the app or check your device notification settings.
-              </p>
-            </div>
-          )}
-
-          {/* Blocked Permission Help */}
-          {permissionStatus === 'denied' && (
+          {notificationState.permission === 'denied' && (
             <div className="p-3 border border-orange-200 bg-orange-50 rounded-lg">
               <p className="text-orange-700 text-sm">
                 <strong>Notifications Blocked:</strong> You've previously denied notification permissions.
@@ -349,7 +295,7 @@ export const PushNotificationSettings = () => {
           )}
 
           {/* Unsupported Platform */}
-          {permissionStatus === 'unsupported' && (
+          {notificationState.permission === 'unsupported' && (
             <div className="p-3 border border-gray-200 bg-gray-50 rounded-lg">
               <p className="text-gray-700 text-sm">
                 <strong>Not Supported:</strong> Your browser doesn't support notifications.
@@ -388,7 +334,7 @@ export const PushNotificationSettings = () => {
       </Card>
 
       {/* Notification Preferences - Only show if notifications are supported */}
-      {platformInfo.supportsNotifications && (
+      {notificationState.isSupported && (
         <Card>
           <CardHeader>
             <CardTitle>Notification Preferences</CardTitle>
@@ -486,8 +432,8 @@ export const PushNotificationSettings = () => {
         </Card>
       )}
 
-      {/* Sound & Vibration Settings - Only for mobile or when notifications are enabled */}
-      {settings.push_notifications_enabled && (platformInfo.isNative || canSendNotifications()) && (
+      {/* Sound & Vibration Settings */}
+      {settings.push_notifications_enabled && canSendNotifications() && (
         <Card>
           <CardHeader>
             <CardTitle>Notification Style</CardTitle>
@@ -512,7 +458,7 @@ export const PushNotificationSettings = () => {
               />
             </div>
 
-            {platformInfo.isNative && (
+            {notificationState.isNative && (
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <Vibrate className="w-4 h-4 text-muted-foreground" />

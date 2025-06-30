@@ -1,3 +1,4 @@
+
 import { Capacitor } from '@capacitor/core';
 
 interface SignalNotification {
@@ -10,7 +11,7 @@ interface SignalNotification {
 }
 
 export class MobileNotificationManager {
-  static async initialize() {
+  static async initialize(): Promise<boolean> {
     console.log('📱 Initializing MobileNotificationManager...');
     
     if (!Capacitor.isNativePlatform()) {
@@ -21,7 +22,7 @@ export class MobileNotificationManager {
     return await this.initializeMobileNotifications();
   }
 
-  static async initializeWebNotifications() {
+  static async initializeWebNotifications(): Promise<boolean> {
     if (!('Notification' in window)) {
       console.log('❌ Browser notifications not supported');
       return false;
@@ -37,12 +38,12 @@ export class MobileNotificationManager {
       return false;
     }
 
-    // Permission is 'default', we'll let the component handle the request
+    // Permission is 'default', return false but don't throw error
     console.log('ℹ️ Web notification permissions not yet requested');
     return false;
   }
 
-  static async initializeMobileNotifications() {
+  static async initializeMobileNotifications(): Promise<boolean> {
     try {
       const { LocalNotifications } = await import('@capacitor/local-notifications');
       console.log('📱 Requesting mobile notification permissions...');
@@ -68,7 +69,7 @@ export class MobileNotificationManager {
       }
     } catch (error) {
       console.error('❌ Error initializing mobile notifications:', error);
-      throw new Error(`Mobile notification setup failed: ${(error as Error).message}`);
+      return false;
     }
   }
 
@@ -95,15 +96,6 @@ export class MobileNotificationManager {
           visibility: 1,
           sound: 'default',
           vibration: true
-        },
-        {
-          id: 'market_alerts',
-          name: 'Market Alerts',
-          description: 'Important market updates and news',
-          importance: 3,
-          visibility: 1,
-          sound: 'default',
-          vibration: false
         }
       ];
 
@@ -135,48 +127,11 @@ export class MobileNotificationManager {
       // Listen for notification action performed (tap, etc.)
       LocalNotifications.addListener('localNotificationActionPerformed', (notification) => {
         console.log('📱 Notification action performed:', notification);
-        // Handle notification tap - could navigate to specific screen
       });
 
       console.log('✅ Notification listeners set up');
     } catch (error) {
       console.error('❌ Error setting up notification listeners:', error);
-    }
-  }
-
-  static async scheduleSignalAlert(signal: SignalNotification, delay: number = 0) {
-    if (!Capacitor.isNativePlatform()) {
-      return this.showWebNotification(signal);
-    }
-
-    try {
-      const { LocalNotifications } = await import('@capacitor/local-notifications');
-      const notificationTime = new Date(Date.now() + delay);
-      
-      const notificationId = Date.now();
-      console.log('📱 Scheduling notification:', { id: notificationId, title: signal.title });
-      
-      await LocalNotifications.schedule({
-        notifications: [
-          {
-            title: signal.title,
-            body: signal.body,
-            id: notificationId,
-            schedule: { at: notificationTime },
-            sound: signal.sound !== false ? 'default' : undefined,
-            attachments: undefined,
-            actionTypeId: 'FOREX_SIGNAL',
-            extra: signal.data,
-            channelId: 'forex_signals',
-            smallIcon: 'ic_stat_notification',
-            iconColor: '#10b981'
-          }
-        ]
-      });
-      
-      console.log('✅ Forex signal notification scheduled:', signal.title);
-    } catch (error) {
-      console.error('❌ Error scheduling signal notification:', error);
     }
   }
 
@@ -249,39 +204,6 @@ export class MobileNotificationManager {
       console.error('❌ Error showing outcome notification:', error);
       throw new Error(`Failed to send outcome notification: ${(error as Error).message}`);
     }
-  }
-
-  static async clearAllNotifications() {
-    if (!Capacitor.isNativePlatform()) return;
-
-    try {
-      const { LocalNotifications } = await import('@capacitor/local-notifications');
-      await LocalNotifications.removeAllDeliveredNotifications();
-      console.log('📱 All notifications cleared');
-    } catch (error) {
-      console.error('❌ Error clearing notifications:', error);
-    }
-  }
-
-  static async requestWebNotificationPermission() {
-    if (!('Notification' in window)) {
-      console.log('🌐 Browser notifications not supported');
-      return false;
-    }
-
-    if (Notification.permission === 'granted') {
-      console.log('✅ Web notifications already granted');
-      return true;
-    }
-
-    if (Notification.permission !== 'denied') {
-      const permission = await Notification.requestPermission();
-      console.log('🌐 Web notification permission:', permission);
-      return permission === 'granted';
-    }
-
-    console.log('❌ Web notifications denied');
-    return false;
   }
 
   static showWebNotification(signal: SignalNotification) {
