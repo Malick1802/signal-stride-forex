@@ -2,18 +2,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 
-// Dynamically import Network to handle cases where it might not be available
-let Network: any = null;
-try {
-  if (Capacitor.isNativePlatform()) {
-    import('@capacitor/network').then(module => {
-      Network = module.Network;
-    });
-  }
-} catch (error) {
-  console.warn('Network plugin not available:', error);
-}
-
 interface ConnectivityState {
   isOnline: boolean;
   connectionType: string;
@@ -33,17 +21,30 @@ export const useMobileConnectivity = () => {
 
   const checkConnectivity = useCallback(async () => {
     try {
-      if (Capacitor.isNativePlatform() && Network) {
-        const status = await Network.getStatus();
-        setConnectivity(prev => ({
-          ...prev,
-          isOnline: status.connected,
-          connectionType: status.connectionType,
-          isConnected: status.connected,
-          lastConnected: status.connected ? new Date() : prev.lastConnected
-        }));
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const { Network } = await import('@capacitor/network');
+          const status = await Network.getStatus();
+          setConnectivity(prev => ({
+            ...prev,
+            isOnline: status.connected,
+            connectionType: status.connectionType,
+            isConnected: status.connected,
+            lastConnected: status.connected ? new Date() : prev.lastConnected
+          }));
+        } catch (error) {
+          console.warn('❌ Network plugin not available:', error);
+          // Fall back to web connectivity check
+          setConnectivity(prev => ({
+            ...prev,
+            isOnline: navigator.onLine,
+            connectionType: 'wifi',
+            isConnected: navigator.onLine,
+            lastConnected: navigator.onLine ? new Date() : prev.lastConnected
+          }));
+        }
       } else {
-        // Web fallback - test actual connectivity
+        // Web connectivity check
         try {
           const response = await fetch('/favicon.ico', { 
             method: 'HEAD',
@@ -89,12 +90,12 @@ export const useMobileConnectivity = () => {
     checkConnectivity();
 
     const handleOnline = () => {
-      console.log('📶 Mobile: Network came online');
+      console.log('📶 Network came online');
       checkConnectivity();
     };
 
     const handleOffline = () => {
-      console.log('📵 Mobile: Network went offline');
+      console.log('📵 Network went offline');
       setConnectivity(prev => ({
         ...prev,
         isOnline: false,
@@ -108,23 +109,30 @@ export const useMobileConnectivity = () => {
 
     // Native network listener
     let networkListener: any = null;
-    if (Capacitor.isNativePlatform() && Network) {
-      Network.addListener('networkStatusChange', (status: any) => {
-        console.log('📱 Mobile: Network status changed:', status);
-        setConnectivity(prev => ({
-          ...prev,
-          isOnline: status.connected,
-          connectionType: status.connectionType,
-          isConnected: status.connected,
-          lastConnected: status.connected ? new Date() : prev.lastConnected
-        }));
-      }).then((listener: any) => {
-        networkListener = listener;
-      });
+    if (Capacitor.isNativePlatform()) {
+      const setupNetworkListener = async () => {
+        try {
+          const { Network } = await import('@capacitor/network');
+          networkListener = await Network.addListener('networkStatusChange', (status: any) => {
+            console.log('📱 Network status changed:', status);
+            setConnectivity(prev => ({
+              ...prev,
+              isOnline: status.connected,
+              connectionType: status.connectionType,
+              isConnected: status.connected,
+              lastConnected: status.connected ? new Date() : prev.lastConnected
+            }));
+          });
+        } catch (error) {
+          console.warn('❌ Network listener setup failed:', error);
+        }
+      };
+      
+      setupNetworkListener();
     }
 
     // Periodic connectivity check
-    const interval = setInterval(checkConnectivity, 30000); // Check every 30 seconds
+    const interval = setInterval(checkConnectivity, 30000);
 
     return () => {
       window.removeEventListener('online', handleOnline);

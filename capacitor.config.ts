@@ -5,7 +5,6 @@ const config: CapacitorConfig = {
   appId: 'app.lovable.da46b9852e6844b390bc922d481bf104',
   appName: 'ForexSignal Pro',
   webDir: 'dist',
-  // Removed server configuration to run standalone
   plugins: {
     SplashScreen: {
       launchShowDuration: 2000,
@@ -41,7 +40,8 @@ const config: CapacitorConfig = {
     App: {
       launchUrl: undefined,
       allowBackgroundProcessing: true
-    }
+    },
+    Haptics: {}
   },
   ios: {
     contentInset: 'automatic',
@@ -52,9 +52,9 @@ const config: CapacitorConfig = {
   android: {
     allowMixedContent: true,
     captureInput: true,
-    webContentsDebuggingEnabled: true,
+    webContentsDebuggingEnabled: false,
     appendUserAgent: 'ForexSignalPro/1.0',
-    loggingBehavior: 'debug',
+    loggingBehavior: 'none',
     useLegacyBridge: false
   }
 };
