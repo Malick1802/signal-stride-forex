@@ -10,14 +10,16 @@ interface DashboardStatsProps {
   avgConfidence?: number;
   lastUpdateTime?: string;
   isAutomated?: boolean;
+  loading?: boolean;
 }
 
 const DashboardStats = ({ 
-  activeSignalsCount = 2, 
+  activeSignalsCount = 0, 
   totalSignalsCount = 20, 
-  avgConfidence = 80, 
-  lastUpdateTime = "7:01:58 PM",
-  isAutomated = true 
+  avgConfidence = 0, 
+  lastUpdateTime = "Never",
+  isAutomated = true,
+  loading = false
 }: DashboardStatsProps) => {
   const [api, setApi] = React.useState<CarouselApi>();
   const [isPaused, setIsPaused] = React.useState(false);
@@ -26,7 +28,7 @@ const DashboardStats = ({
     {
       id: 'active-signals',
       icon: TrendingUp,
-      value: `${activeSignalsCount}/${totalSignalsCount}`,
+      value: loading ? '...' : `${activeSignalsCount}/${totalSignalsCount}`,
       label: 'Active Signals',
       color: 'text-emerald-400',
       bgColor: 'bg-emerald-500/10'
@@ -34,7 +36,7 @@ const DashboardStats = ({
     {
       id: 'confidence',
       icon: Target,
-      value: `${avgConfidence}%`,
+      value: loading ? '...' : `${avgConfidence}%`,
       label: 'Avg Confidence',
       color: 'text-blue-400',
       bgColor: 'bg-blue-500/10'
@@ -42,7 +44,7 @@ const DashboardStats = ({
     {
       id: 'automation',
       icon: Bot,
-      value: 'AI',
+      value: loading ? '...' : 'AI',
       label: 'Automated',
       color: 'text-purple-400',
       bgColor: 'bg-purple-500/10'
@@ -50,7 +52,7 @@ const DashboardStats = ({
     {
       id: 'last-update',
       icon: Clock,
-      value: lastUpdateTime,
+      value: loading ? '...' : lastUpdateTime,
       label: 'Last Update',
       color: 'text-orange-400',
       bgColor: 'bg-orange-500/10'
@@ -104,10 +106,10 @@ const DashboardStats = ({
                   <CardContent className="p-6">
                     <div className="flex items-center justify-center space-x-4">
                       <div className={`p-3 rounded-xl bg-white/10`}>
-                        <IconComponent className={`h-6 w-6 ${stat.color}`} />
+                        <IconComponent className={`h-6 w-6 ${stat.color} ${loading ? 'animate-pulse' : ''}`} />
                       </div>
                       <div className="flex-1 text-center">
-                        <div className={`text-2xl font-bold ${stat.color} mb-1`}>
+                        <div className={`text-2xl font-bold ${stat.color} mb-1 ${loading ? 'animate-pulse' : ''}`}>
                           {stat.value}
                         </div>
                         <div className="text-gray-300 text-sm font-medium">

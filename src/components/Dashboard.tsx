@@ -8,6 +8,7 @@ import DashboardStats from './DashboardStats';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '../contexts/AuthContext';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
+import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -37,8 +38,33 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
   const { profile } = useProfile();
   const { subscription, createCheckout, openCustomerPortal, signOut } = useAuth();
   const { isAdmin } = useAdminAccess();
+  const { signals, loading, lastUpdate, signalDistribution } = useTradingSignals();
 
   console.log('Dashboard: User is admin:', isAdmin);
+
+  // Calculate real statistics from signals data
+  const calculateStats = () => {
+    const activeSignalsCount = signals.length;
+    const totalSignalsCount = 20; // MAX_ACTIVE_SIGNALS from useTradingSignals
+    
+    // Calculate average confidence from all active signals
+    const avgConfidence = signals.length > 0 
+      ? Math.round(signals.reduce((sum, signal) => sum + signal.confidence, 0) / signals.length)
+      : 0;
+    
+    // Format last update time
+    const formattedLastUpdate = lastUpdate || 'Never';
+    
+    return {
+      activeSignalsCount,
+      totalSignalsCount,
+      avgConfidence,
+      lastUpdateTime: formattedLastUpdate,
+      isAutomated: true
+    };
+  };
+
+  const stats = calculateStats();
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -366,13 +392,14 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
         </div>
       </div>
 
-      {/* Dashboard Stats Slider - Mobile Only */}
+      {/* Dashboard Stats Slider - Mobile Only with Real Data */}
       <DashboardStats 
-        activeSignalsCount={2}
-        totalSignalsCount={20}
-        avgConfidence={80}
-        lastUpdateTime="7:01:58 PM"
-        isAutomated={true}
+        activeSignalsCount={stats.activeSignalsCount}
+        totalSignalsCount={stats.totalSignalsCount}
+        avgConfidence={stats.avgConfidence}
+        lastUpdateTime={stats.lastUpdateTime}
+        isAutomated={stats.isAutomated}
+        loading={loading}
       />
 
       {/* Content Area - With Pull to Refresh for Mobile */}
