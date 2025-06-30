@@ -10,7 +10,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { RefreshCw, Activity, Signal, BarChart3 } from 'lucide-react';
 import SignalCard from './SignalCard';
 import SignalCardLoading from './SignalCardLoading';
-import SignalStats from './SignalStats';
 import Logger from '@/utils/logger';
 
 const TradingSignals = memo(() => {
@@ -49,29 +48,8 @@ const TradingSignals = memo(() => {
     }
   }, [analyzingSignal, toast]);
 
-  const signalStats = useMemo(() => {
-    const buySignals = signals.filter(signal => signal.type === 'BUY').length;
-    const sellSignals = signals.filter(signal => signal.type === 'SELL').length;
-    const totalSignals = signals.length;
-    const avgConfidence = signals.length > 0 
-      ? Math.round(signals.reduce((sum, signal) => sum + signal.confidence, 0) / signals.length)
-      : 0;
-
-    return {
-      signalsCount: totalSignals,
-      avgConfidence,
-      lastUpdate: lastUpdate || 'Never'
-    };
-  }, [signals, lastUpdate]);
-
   return (
     <div className="space-y-6">
-      <SignalStats 
-        signalsCount={signalStats.signalsCount}
-        avgConfidence={signalStats.avgConfidence}
-        lastUpdate={signalStats.lastUpdate}
-      />
-
       {/* Signal Grid or Loading */}
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
