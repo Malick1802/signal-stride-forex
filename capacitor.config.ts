@@ -1,4 +1,3 @@
-
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
@@ -12,7 +11,8 @@ const config: CapacitorConfig = {
     allowNavigation: [
       'https://da46b985-2e68-44b3-90bc-922d481bf104.lovableproject.com',
       'https://id-preview--da46b985-2e68-44b3-90bc-922d481bf104.lovable.app'
-    ]
+    ],
+    androidScheme: 'https'
   },
   plugins: {
     SplashScreen: {
@@ -71,7 +71,13 @@ const config: CapacitorConfig = {
     loggingBehavior: 'debug',
     useLegacyBridge: false,
     overrideUserAgent: 'ForexSignalPro/1.0 (Android)',
-    backgroundColor: '#0f172a'
+    backgroundColor: '#0f172a',
+    allowNavigation: [
+      'https://da46b985-2e68-44b3-90bc-922d481bf104.lovableproject.com',
+      'https://id-preview--da46b985-2e68-44b3-90bc-922d481bf104.lovable.app',
+      'capacitor://localhost',
+      'http://localhost'
+    ]
   }
 };
 
