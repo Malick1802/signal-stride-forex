@@ -1,4 +1,3 @@
-
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
@@ -27,8 +26,8 @@ const config: CapacitorConfig = {
       splashImmersive: true
     },
     StatusBar: {
-      style: 'dark',
-      backgroundColor: '#0f172a',
+      style: 'light',
+      backgroundColor: '#1e293b',
       overlay: true
     },
     PushNotifications: {
