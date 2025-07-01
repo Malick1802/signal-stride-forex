@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
@@ -59,9 +60,14 @@ export const PushNotificationSettings = () => {
   useEffect(() => {
     const initializeNotificationState = async () => {
       const isNative = Capacitor.isNativePlatform();
-      const platform = isNative ? Capacitor.getPlatform() : 'web';
+      const platform = Capacitor.getPlatform();
       
-      console.log('🔍 Initializing notification state:', { isNative, platform });
+      console.log('🔍 Initializing notification state:', {
+        isNative,
+        platform,
+        userAgent: navigator.userAgent,
+        capacitorAvailable: !!window.Capacitor
+      });
       
       // Detect available APIs
       const detectedAPIs = {
@@ -71,51 +77,59 @@ export const PushNotificationSettings = () => {
       };
 
       // Check for Capacitor LocalNotifications (native)
-      try {
-        const hasNative = await MobileNotificationManager.checkNativeNotificationSupport();
-        detectedAPIs.hasLocalNotifications = hasNative;
-        console.log('✅ LocalNotifications check result:', hasNative);
-      } catch (error) {
-        console.log('❌ LocalNotifications API not available:', error);
+      if (isNative) {
+        try {
+          const hasNative = await MobileNotificationManager.checkNativeNotificationSupport();
+          detectedAPIs.hasLocalNotifications = hasNative;
+          console.log('✅ LocalNotifications check result:', hasNative);
+        } catch (error) {
+          console.log('❌ LocalNotifications API not available:', error);
+        }
+
+        // Check for Capacitor PushNotifications (native)
+        try {
+          await import('@capacitor/push-notifications');
+          detectedAPIs.hasPushNotifications = true;
+          console.log('✅ PushNotifications API available');
+        } catch (error) {
+          console.log('❌ PushNotifications API not available:', error);
+        }
       }
 
-      // Check for Capacitor PushNotifications (native)
-      try {
-        await import('@capacitor/push-notifications');
-        detectedAPIs.hasPushNotifications = true;
-        console.log('✅ PushNotifications API available');
-      } catch (error) {
-        console.log('❌ PushNotifications API not available:', error);
-      }
-
-      // Check for Web Notifications (browser) - only if no native notifications
-      if (!detectedAPIs.hasLocalNotifications && 'Notification' in window && 'serviceWorker' in navigator) {
-        detectedAPIs.hasWebNotifications = true;
-        console.log('✅ Web Notifications API available');
+      // Check for Web Notifications (browser) - only if not native or if native notifications failed
+      if (!isNative || !detectedAPIs.hasLocalNotifications) {
+        if ('Notification' in window && 'serviceWorker' in navigator) {
+          detectedAPIs.hasWebNotifications = true;
+          console.log('✅ Web Notifications API available');
+        }
       }
 
       let isSupported = false;
       let permission: 'default' | 'granted' | 'denied' | 'unsupported' = 'unsupported';
+      let useNative = false;
 
       if (detectedAPIs.hasLocalNotifications) {
         // Native platform with LocalNotifications
         isSupported = true;
+        useNative = true;
         permission = 'default';
         console.log('📱 Using native LocalNotifications');
       } else if (detectedAPIs.hasWebNotifications) {
-        // Web platform with browser notifications
+        // Web platform or fallback with browser notifications
         isSupported = true;
+        useNative = false;
         permission = Notification.permission as any;
         console.log('🌐 Using web notifications, permission:', permission);
       } else {
         console.log('❌ No notification APIs available');
         isSupported = false;
+        useNative = false;
         permission = 'unsupported';
       }
 
       setNotificationState({
         isSupported,
-        isNative: detectedAPIs.hasLocalNotifications, // Use native if LocalNotifications is available
+        isNative: useNative,
         platform,
         permission,
         isInitialized: false,
@@ -124,7 +138,7 @@ export const PushNotificationSettings = () => {
 
       console.log('🔍 Final notification state:', {
         isSupported,
-        isNative: detectedAPIs.hasLocalNotifications,
+        isNative: useNative,
         platform,
         permission,
         detectedAPIs
@@ -310,13 +324,14 @@ export const PushNotificationSettings = () => {
           {/* API Detection Debug Info */}
           <div className="p-3 border border-blue-200 bg-blue-50 rounded-lg">
             <p className="text-blue-700 text-sm font-medium">
-              Detected APIs
+              Platform Detection
             </p>
             <div className="text-blue-600 text-xs mt-1 space-y-1">
+              <div>Capacitor Native: {Capacitor.isNativePlatform() ? '✅ Yes' : '❌ No'}</div>
+              <div>Platform: {Capacitor.getPlatform()}</div>
               <div>Local Notifications: {notificationState.detectedAPIs.hasLocalNotifications ? '✅ Available' : '❌ Missing'}</div>
               <div>Push Notifications: {notificationState.detectedAPIs.hasPushNotifications ? '✅ Available' : '❌ Missing'}</div>
               <div>Web Notifications: {notificationState.detectedAPIs.hasWebNotifications ? '✅ Available' : '❌ Missing'}</div>
-              <div>Platform: {notificationState.platform} ({notificationState.isNative ? 'Native' : 'Web'})</div>
               <div>Using: {notificationState.isNative ? 'Capacitor LocalNotifications' : 'Browser Notification API'}</div>
             </div>
           </div>
