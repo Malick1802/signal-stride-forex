@@ -1,7 +1,13 @@
-
 interface PWAInstallPrompt {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
+}
+
+// Extend Navigator interface to include standalone property
+declare global {
+  interface Navigator {
+    standalone?: boolean;
+  }
 }
 
 export class PWAManager {
@@ -45,7 +51,7 @@ export class PWAManager {
       return;
     }
 
-    // Check if running in WebView (mobile app)
+    // Check if running in WebView (mobile app) - properly typed now
     if (window.navigator.standalone === true) {
       console.log('📱 PWA is running in iOS standalone mode');
       this.isInstalled = true;
