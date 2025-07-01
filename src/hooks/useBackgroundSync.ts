@@ -66,29 +66,50 @@ export const useBackgroundSync = (options: BackgroundSyncOptions = {}) => {
     }
   }, [isConnected, syncInterval, cacheSignals, onSignalsFetched]);
 
-  const setupBackgroundMode = useCallback(async () => {
-    if (!Capacitor.isNativePlatform() || !enableBackgroundFetch) {
-      return;
+  const setupAppStateListeners = useCallback(() => {
+    // Listen for visibility changes (web)
+    const handleVisibilityChange = () => {
+      if (!document.hidden && isConnected) {
+        console.log('📱 App became visible - triggering sync');
+        performBackgroundSync();
+      }
+    };
+
+    // Listen for focus events
+    const handleFocus = () => {
+      if (isConnected) {
+        console.log('📱 App focused - triggering sync');
+        performBackgroundSync();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', handleFocus);
+
+    // For Capacitor apps, listen to app state changes if available
+    if (Capacitor.isNativePlatform()) {
+      try {
+        // Use Capacitor's App plugin for native app state changes
+        import('@capacitor/app').then(({ App }) => {
+          App.addListener('appStateChange', ({ isActive }) => {
+            if (isActive && isConnected) {
+              console.log('📱 Native app became active - triggering sync');
+              performBackgroundSync();
+            }
+          });
+        }).catch(() => {
+          console.warn('⚠️ App plugin not available');
+        });
+      } catch (error) {
+        console.warn('⚠️ Native app state monitoring not available:', error);
+      }
     }
 
-    try {
-      const { BackgroundMode } = await import('@capacitor/background-mode');
-      
-      // Enable background mode
-      await BackgroundMode.enable();
-      console.log('📱 Background mode enabled');
-
-      // Listen for app state changes
-      BackgroundMode.addListener('appStateChange', ({ isActive }) => {
-        if (isActive) {
-          console.log('📱 App became active - triggering sync');
-          performBackgroundSync();
-        }
-      });
-    } catch (error) {
-      console.warn('⚠️ Background mode not available:', error);
-    }
-  }, [enableBackgroundFetch, performBackgroundSync]);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, [isConnected, performBackgroundSync]);
 
   // Set up foreground sync interval
   useEffect(() => {
@@ -111,25 +132,10 @@ export const useBackgroundSync = (options: BackgroundSyncOptions = {}) => {
     };
   }, [isConnected, enableBackgroundFetch, syncInterval, performBackgroundSync]);
 
-  // Set up background mode on mount
+  // Set up app state listeners on mount
   useEffect(() => {
-    setupBackgroundMode();
-  }, [setupBackgroundMode]);
-
-  // Handle visibility change for web
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden && isConnected) {
-        console.log('📡 App became visible - triggering sync');
-        performBackgroundSync();
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [isConnected, performBackgroundSync]);
+    return setupAppStateListeners();
+  }, [setupAppStateListeners]);
 
   return {
     performBackgroundSync,
