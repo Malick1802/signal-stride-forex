@@ -12,10 +12,20 @@ interface RouteDebugInfo {
 }
 
 const MobileRouteDebugger: React.FC = () => {
-  const location = useLocation();
   const [debugHistory, setDebugHistory] = useState<RouteDebugInfo[]>([]);
+  
+  // Safely get location with error handling
+  let location;
+  try {
+    location = useLocation();
+  } catch (error) {
+    console.error('🚨 MobileRouteDebugger: useLocation failed:', error);
+    return null;
+  }
 
   useEffect(() => {
+    if (!location) return;
+
     const debugInfo: RouteDebugInfo = {
       timestamp: new Date().toISOString(),
       route: location.pathname,

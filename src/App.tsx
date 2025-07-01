@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -39,10 +40,10 @@ const App = () => {
       <TooltipProvider>
         <MobileAppWrapper>
           <MobileDebugger />
-          <MobileRouteDebugger />
           <Toaster />
           <Sonner />
           <BrowserRouter basename={Capacitor.isNativePlatform() ? '/' : undefined}>
+            <MobileRouteDebugger />
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/test" element={<TestPage />} />
