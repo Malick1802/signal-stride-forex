@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
@@ -56,11 +55,20 @@ export const PushNotificationSettings = () => {
       let permission: 'default' | 'granted' | 'denied' | 'unsupported' = 'unsupported';
       
       if (isNative) {
+        // Native apps always support notifications
         isSupported = true;
-        permission = 'default'; // We'll check actual permission later
-      } else if (typeof window !== 'undefined' && 'Notification' in window) {
-        isSupported = true;
-        permission = Notification.permission as any;
+        permission = 'default';
+      } else {
+        // Check for web notification support more thoroughly
+        if ('Notification' in window && 'serviceWorker' in navigator) {
+          isSupported = true;
+          permission = Notification.permission as any;
+          console.log('🔍 Web notifications supported, permission:', permission);
+        } else {
+          console.log('🔍 Web notifications not supported - missing APIs');
+          isSupported = false;
+          permission = 'unsupported';
+        }
       }
 
       setNotificationState({
@@ -75,7 +83,9 @@ export const PushNotificationSettings = () => {
         isSupported,
         isNative,
         platform,
-        permission
+        permission,
+        hasNotification: 'Notification' in window,
+        hasServiceWorker: 'serviceWorker' in navigator
       });
     };
 
@@ -146,7 +156,27 @@ export const PushNotificationSettings = () => {
       } else if (notificationState.isSupported) {
         // Web browser permissions
         console.log('🌐 Requesting browser notification permission...');
+        
+        // Check if already granted
+        if (Notification.permission === 'granted') {
+          console.log('✅ Permission already granted');
+          const initSuccess = await MobileNotificationManager.initialize();
+          
+          setNotificationState(prev => ({ 
+            ...prev, 
+            permission: 'granted',
+            isInitialized: initSuccess
+          }));
+          
+          toast({
+            title: 'Notifications ready',
+            description: 'Browser notifications are already enabled.',
+          });
+          return;
+        }
+        
         const permission = await Notification.requestPermission();
+        console.log('🌐 Permission result:', permission);
         
         setNotificationState(prev => ({ 
           ...prev, 
@@ -154,10 +184,10 @@ export const PushNotificationSettings = () => {
         }));
         
         if (permission === 'granted') {
-          await MobileNotificationManager.initialize();
+          const initSuccess = await MobileNotificationManager.initialize();
           setNotificationState(prev => ({ 
             ...prev, 
-            isInitialized: true 
+            isInitialized: initSuccess
           }));
           
           toast({
@@ -174,7 +204,7 @@ export const PushNotificationSettings = () => {
       } else {
         toast({
           title: 'Not supported',
-          description: 'Notifications are not supported on this platform.',
+          description: 'Notifications are not supported on this browser/device.',
           variant: 'destructive',
         });
       }
@@ -251,11 +281,11 @@ export const PushNotificationSettings = () => {
   };
 
   const canSendNotifications = () => {
-    return notificationState.permission === 'granted' && notificationState.isInitialized;
+    return notificationState.permission === 'granted';
   };
 
   const needsPermission = () => {
-    return notificationState.permission === 'default' && notificationState.isSupported;
+    return (notificationState.permission === 'default' || notificationState.permission === 'denied') && notificationState.isSupported;
   };
 
   if (loading) {
@@ -282,26 +312,28 @@ export const PushNotificationSettings = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Permission Error */}
-          {notificationState.permission === 'denied' && (
+          {/* Debug Information */}
+          {!notificationState.isSupported && (
             <div className="p-3 border border-orange-200 bg-orange-50 rounded-lg">
-              <p className="text-orange-700 text-sm">
-                <strong>Notifications Blocked:</strong> You've previously denied notification permissions.
+              <p className="text-orange-700 text-sm font-medium">
+                Browser Compatibility Issue
               </p>
               <p className="text-orange-600 text-xs mt-1">
-                To enable: Go to your browser settings → Site permissions → Notifications → Allow for this site
+                Notification API: {'Notification' in window ? '✅ Available' : '❌ Missing'}<br/>
+                Service Worker: {'serviceWorker' in navigator ? '✅ Available' : '❌ Missing'}<br/>
+                Browser: {navigator.userAgent.split(' ').slice(-2).join(' ')}
               </p>
             </div>
           )}
 
-          {/* Unsupported Platform */}
-          {notificationState.permission === 'unsupported' && (
-            <div className="p-3 border border-gray-200 bg-gray-50 rounded-lg">
-              <p className="text-gray-700 text-sm">
-                <strong>Not Supported:</strong> Your browser doesn't support notifications.
+          {/* Permission Error */}
+          {notificationState.permission === 'denied' && (
+            <div className="p-3 border border-red-200 bg-red-50 rounded-lg">
+              <p className="text-red-700 text-sm font-medium">
+                Notifications Blocked
               </p>
-              <p className="text-gray-600 text-xs mt-1">
-                Try using Chrome, Firefox, or Safari for the best experience.
+              <p className="text-red-600 text-xs mt-1">
+                To enable: Go to your browser settings → Site permissions → Notifications → Allow for this site
               </p>
             </div>
           )}
@@ -361,6 +393,7 @@ export const PushNotificationSettings = () => {
             {settings.push_notifications_enabled && (
               <div className="space-y-4">
                 <div className="grid gap-4">
+                  {/* ... keep existing code (notification type switches) */}
                   <div className="flex items-center justify-between">
                     <div className="space-y-1">
                       <div className="font-medium">New Trading Signals</div>
