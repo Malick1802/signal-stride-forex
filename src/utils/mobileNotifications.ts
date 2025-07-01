@@ -14,12 +14,13 @@ export class MobileNotificationManager {
   static async initialize(): Promise<boolean> {
     console.log('📱 Initializing MobileNotificationManager...');
     
-    if (!Capacitor.isNativePlatform()) {
-      console.log('🌐 Web platform - initializing browser notifications');
+    if (Capacitor.isNativePlatform()) {
+      console.log('📱 Native platform detected - using LocalNotifications');
+      return await this.initializeMobileNotifications();
+    } else {
+      console.log('🌐 Web platform detected - using browser notifications');
       return await this.initializeWebNotifications();
     }
-
-    return await this.initializeMobileNotifications();
   }
 
   static async initializeWebNotifications(): Promise<boolean> {
@@ -58,9 +59,11 @@ export class MobileNotificationManager {
 
   static async initializeMobileNotifications(): Promise<boolean> {
     try {
+      // Import LocalNotifications dynamically to handle cases where it's not available
       const { LocalNotifications } = await import('@capacitor/local-notifications');
-      console.log('📱 Requesting mobile notification permissions...');
+      console.log('📱 LocalNotifications plugin imported successfully');
       
+      console.log('📱 Requesting mobile notification permissions...');
       const permission = await LocalNotifications.requestPermissions();
       console.log('📱 Mobile permission result:', permission);
       
@@ -82,6 +85,7 @@ export class MobileNotificationManager {
       }
     } catch (error) {
       console.error('❌ Error initializing mobile notifications:', error);
+      console.error('❌ This usually means LocalNotifications plugin is not installed or not available');
       return false;
     }
   }
@@ -264,9 +268,13 @@ export class MobileNotificationManager {
     console.log('🧪 Testing notification system...');
     
     try {
+      const testMessage = Capacitor.isNativePlatform() ? 
+        'Native mobile notification test - you should see this on your device!' :
+        'Web browser notification test - you should see this in your browser!';
+      
       await this.showInstantSignalNotification({
         title: '🧪 Test Notification',
-        body: 'This is a test to verify notifications are working correctly',
+        body: testMessage,
         data: { type: 'test' },
         sound: true,
         vibrate: true
