@@ -4,7 +4,7 @@ import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Bell, Volume2, Vibrate, AlertCircle, TestTube, Smartphone, Globe, CheckCircle } from 'lucide-react';
+import { Bell, Volume2, Vibrate, AlertCircle, TestTube, Smartphone, Globe, CheckCircle, Loader2 } from 'lucide-react';
 import { useProfile } from '@/hooks/useProfile';
 import { useToast } from '@/hooks/use-toast';
 import { useMobileNotificationManager } from '@/hooks/useMobileNotificationManager';
@@ -17,6 +17,8 @@ interface NotificationState {
   platform: string;
   permission: 'default' | 'granted' | 'denied' | 'unsupported';
   isInitialized: boolean;
+  isLoading: boolean;
+  error: string | null;
   detectedAPIs: {
     hasLocalNotifications: boolean;
     hasWebNotifications: boolean;
@@ -35,6 +37,8 @@ export const PushNotificationSettings = () => {
     platform: 'web',
     permission: 'default',
     isInitialized: false,
+    isLoading: true,
+    error: null,
     detectedAPIs: {
       hasLocalNotifications: false,
       hasWebNotifications: false,
@@ -59,88 +63,90 @@ export const PushNotificationSettings = () => {
   // Initialize notification state with proper API detection
   useEffect(() => {
     const initializeNotificationState = async () => {
-      const isNative = Capacitor.isNativePlatform();
-      const platform = Capacitor.getPlatform();
+      console.log('🔄 Starting notification state initialization...');
       
-      console.log('🔍 Initializing notification state:', {
-        isNative,
-        platform,
-        userAgent: navigator.userAgent
-      });
-      
-      // Detect available APIs using the updated methods
-      const detectedAPIs = {
-        hasLocalNotifications: false,
-        hasWebNotifications: false,
-        hasPushNotifications: false
-      };
+      try {
+        setNotificationState(prev => ({ 
+          ...prev, 
+          isLoading: true,
+          error: null 
+        }));
 
-      // Check for Capacitor LocalNotifications (native)
-      if (isNative) {
-        try {
-          const hasNative = await MobileNotificationManager.checkNativeNotificationSupport();
-          detectedAPIs.hasLocalNotifications = hasNative;
-          console.log('✅ LocalNotifications check result:', hasNative);
-        } catch (error) {
-          console.log('❌ LocalNotifications API not available:', error);
-        }
+        const isNative = Capacitor.isNativePlatform();
+        const platform = Capacitor.getPlatform();
+        
+        console.log('🔍 Platform detection:', { isNative, platform });
+        
+        // Detect available APIs
+        const detectedAPIs = {
+          hasLocalNotifications: false,
+          hasWebNotifications: false,
+          hasPushNotifications: false
+        };
 
-        // Check for Capacitor PushNotifications (native)
-        try {
+        // Check native capabilities first if on native platform
+        if (isNative) {
+          console.log('📱 Checking native notification capabilities...');
+          detectedAPIs.hasLocalNotifications = await MobileNotificationManager.checkNativeNotificationSupport();
           detectedAPIs.hasPushNotifications = await MobileNotificationManager.checkPushNotificationSupport();
-          console.log('✅ PushNotifications check result:', detectedAPIs.hasPushNotifications);
-        } catch (error) {
-          console.log('❌ PushNotifications API not available:', error);
+          console.log('📱 Native capabilities:', detectedAPIs);
         }
-      }
 
-      // Check for Web Notifications (browser) - always check this for web platforms
-      if (!isNative) {
+        // Always check web capabilities for fallback
+        console.log('🌐 Checking web notification capabilities...');
         detectedAPIs.hasWebNotifications = await MobileNotificationManager.checkWebNotificationSupport();
-        detectedAPIs.hasPushNotifications = await MobileNotificationManager.checkPushNotificationSupport();
-        console.log('🌐 Web notifications check result:', detectedAPIs.hasWebNotifications);
-        console.log('🌐 Push notifications check result:', detectedAPIs.hasPushNotifications);
+        if (!isNative) {
+          detectedAPIs.hasPushNotifications = await MobileNotificationManager.checkPushNotificationSupport();
+        }
+        console.log('🌐 Web capabilities:', detectedAPIs);
+
+        // Determine final configuration
+        let isSupported = false;
+        let permission: 'default' | 'granted' | 'denied' | 'unsupported' = 'unsupported';
+        let useNative = false;
+
+        if (detectedAPIs.hasLocalNotifications && isNative) {
+          // Native platform with LocalNotifications
+          isSupported = true;
+          useNative = true;
+          permission = 'default';
+          console.log('✅ Using native LocalNotifications');
+        } else if (detectedAPIs.hasWebNotifications) {
+          // Web platform or fallback with browser notifications
+          isSupported = true;
+          useNative = false;
+          permission = Notification.permission as any;
+          console.log('✅ Using web notifications, permission:', permission);
+        } else {
+          console.log('❌ No notification APIs available');
+          isSupported = false;
+          useNative = false;
+          permission = 'unsupported';
+        }
+
+        const finalState = {
+          isSupported,
+          isNative: useNative,
+          platform,
+          permission,
+          isInitialized: false,
+          isLoading: false,
+          error: null,
+          detectedAPIs
+        };
+
+        console.log('🎯 Final notification state:', finalState);
+        setNotificationState(finalState);
+
+      } catch (error) {
+        console.error('❌ Error during notification initialization:', error);
+        setNotificationState(prev => ({
+          ...prev,
+          isLoading: false,
+          error: `Initialization failed: ${(error as Error).message}`,
+          isSupported: false
+        }));
       }
-
-      let isSupported = false;
-      let permission: 'default' | 'granted' | 'denied' | 'unsupported' = 'unsupported';
-      let useNative = false;
-
-      if (detectedAPIs.hasLocalNotifications) {
-        // Native platform with LocalNotifications
-        isSupported = true;
-        useNative = true;
-        permission = 'default';
-        console.log('📱 Using native LocalNotifications');
-      } else if (detectedAPIs.hasWebNotifications) {
-        // Web platform with browser notifications
-        isSupported = true;
-        useNative = false;
-        permission = Notification.permission as any;
-        console.log('🌐 Using web notifications, permission:', permission);
-      } else {
-        console.log('❌ No notification APIs available');
-        isSupported = false;
-        useNative = false;
-        permission = 'unsupported';
-      }
-
-      setNotificationState({
-        isSupported,
-        isNative: useNative,
-        platform,
-        permission,
-        isInitialized: false,
-        detectedAPIs
-      });
-
-      console.log('🔍 Final notification state:', {
-        isSupported,
-        isNative: useNative,
-        platform,
-        permission,
-        detectedAPIs
-      });
     };
 
     initializeNotificationState();
@@ -299,8 +305,37 @@ export const PushNotificationSettings = () => {
     return <div className="text-center py-8 text-muted-foreground">Loading notification settings...</div>;
   }
 
+  if (notificationState.isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="w-6 h-6 animate-spin mr-2" />
+        <span className="text-muted-foreground">Checking notification capabilities...</span>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      {/* Debug Info - Always show for troubleshooting */}
+      <Card className="border-blue-200 bg-blue-50">
+        <CardHeader>
+          <CardTitle className="text-blue-700 text-sm">Debug Information</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-blue-600 text-xs space-y-1">
+            <div><strong>Loading:</strong> {notificationState.isLoading ? 'Yes' : 'No'}</div>
+            <div><strong>Supported:</strong> {notificationState.isSupported ? '✅ Yes' : '❌ No'}</div>
+            <div><strong>Platform:</strong> {notificationState.platform}</div>
+            <div><strong>Native:</strong> {notificationState.isNative ? '✅ Yes' : '❌ No'}</div>
+            <div><strong>Permission:</strong> {notificationState.permission}</div>
+            <div><strong>Local Notifications:</strong> {notificationState.detectedAPIs.hasLocalNotifications ? '✅' : '❌'}</div>
+            <div><strong>Web Notifications:</strong> {notificationState.detectedAPIs.hasWebNotifications ? '✅' : '❌'}</div>
+            <div><strong>Push Notifications:</strong> {notificationState.detectedAPIs.hasPushNotifications ? '✅' : '❌'}</div>
+            {notificationState.error && <div className="text-red-600"><strong>Error:</strong> {notificationState.error}</div>}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Platform & Permission Status */}
       <Card>
         <CardHeader>
@@ -319,21 +354,6 @@ export const PushNotificationSettings = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* API Detection Debug Info */}
-          <div className="p-3 border border-blue-200 bg-blue-50 rounded-lg">
-            <p className="text-blue-700 text-sm font-medium">
-              Platform Detection
-            </p>
-            <div className="text-blue-600 text-xs mt-1 space-y-1">
-              <div>Capacitor Native: {Capacitor.isNativePlatform() ? '✅ Yes' : '❌ No'}</div>
-              <div>Platform: {Capacitor.getPlatform()}</div>
-              <div>Local Notifications: {notificationState.detectedAPIs.hasLocalNotifications ? '✅ Available' : '❌ Missing'}</div>
-              <div>Push Notifications: {notificationState.detectedAPIs.hasPushNotifications ? '✅ Available' : '❌ Missing'}</div>
-              <div>Web Notifications: {notificationState.detectedAPIs.hasWebNotifications ? '✅ Available' : '❌ Missing'}</div>
-              <div>Using: {notificationState.isNative ? 'Capacitor LocalNotifications' : 'Browser Notification API'}</div>
-            </div>
-          </div>
-
           {/* Unsupported Platform */}
           {!notificationState.isSupported && (
             <div className="p-3 border border-orange-200 bg-orange-50 rounded-lg">
@@ -341,10 +361,7 @@ export const PushNotificationSettings = () => {
                 Notifications Not Available
               </p>
               <p className="text-orange-600 text-xs mt-1">
-                {notificationState.detectedAPIs.hasLocalNotifications ? 
-                  'Native notification APIs detected but initialization failed.' :
-                  'No notification APIs are available. Please use a modern browser or install the mobile app.'
-                }
+                No notification APIs are available. Please use a modern browser or install the mobile app.
               </p>
             </div>
           )}
@@ -391,7 +408,7 @@ export const PushNotificationSettings = () => {
         </CardContent>
       </Card>
 
-      {/* Notification Preferences - Only show if notifications are supported */}
+      {/* Notification Preferences - Show if notifications are supported */}
       {notificationState.isSupported && (
         <Card>
           <CardHeader>
