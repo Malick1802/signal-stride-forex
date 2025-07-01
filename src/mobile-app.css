@@ -1,4 +1,5 @@
 
+
 /* ForexAlert Pro Mobile App Styles */
 .mobile-app {
   /* Prevent overscroll bounce on iOS */
@@ -58,14 +59,25 @@
   overflow-x: hidden;
 }
 
-/* Mobile navigation header safe area handling */
-.mobile-nav-header {
+/* Only apply mobile-specific safe area to native platforms */
+.capacitor-app .mobile-app-wrapper {
+  /* Additional padding for native apps */
+  padding-top: max(env(safe-area-inset-top), 24px);
+}
+
+/* Mobile navigation header - only for native platforms */
+.capacitor-app .mobile-nav-header {
   /* Ensure header respects safe area without double padding */
   padding-top: 0;
   margin-top: 0;
   /* Add backdrop blur for better visibility */
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+}
+
+/* Mobile header safe area class - only for native platforms */
+.capacitor-app .pt-safe {
+  padding-top: env(safe-area-inset-top);
 }
 
 /* Content area adjustment to account for fixed headers */
@@ -75,15 +87,15 @@
   margin-top: 0;
 }
 
-/* Status bar adjustments for trading app */
+/* Status bar adjustments for trading app - only for native platforms */
 @supports (padding: max(0px)) {
-  .mobile-app-wrapper {
+  .capacitor-app .mobile-app-wrapper {
     /* Ensure adequate top padding for status bar */
     padding-top: max(env(safe-area-inset-top), 44px);
   }
   
-  /* Specific adjustment for iPhone with notch */
-  .mobile-nav-header {
+  /* Specific adjustment for iPhone with notch - only for native platforms */
+  .capacitor-app .mobile-nav-header {
     /* Additional top space for devices with notch */
     padding-top: max(env(safe-area-inset-top), 0px);
   }
@@ -115,8 +127,8 @@
   font-feature-settings: "tnum";
 }
 
-/* Notification styling for mobile */
-.mobile-notification {
+/* Notification styling for mobile - only for native platforms */
+.capacitor-app .mobile-notification {
   position: fixed;
   top: max(env(safe-area-inset-top), 20px);
   left: 16px;
@@ -161,17 +173,22 @@
   tap-highlight-color: rgba(16, 185, 129, 0.2);
 }
 
-/* Additional mobile-specific header fixes */
+/* Mobile-specific header background for better status bar visibility */
+.capacitor-app .mobile-header-dark {
+  background-color: rgba(30, 41, 59, 0.95) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Ensure mobile header positioning doesn't affect web */
 .mobile-header-fix {
-  /* Ensure headers don't overlap with status bar */
+  /* Only apply on native platforms */
   position: relative;
   z-index: 50;
-  /* Use safe area insets properly */
+}
+
+.capacitor-app .mobile-header-fix {
+  /* Use safe area insets properly on native platforms */
   padding-top: env(safe-area-inset-top);
 }
 
-/* Capacitor-specific adjustments */
-.capacitor-app .mobile-app-wrapper {
-  /* Additional padding for native apps */
-  padding-top: max(env(safe-area-inset-top), 24px);
-}

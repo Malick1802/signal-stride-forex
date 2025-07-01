@@ -43,6 +43,9 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
 
   console.log('Dashboard: User is admin:', isAdmin);
 
+  // Check if we're on a native mobile platform
+  const isNativePlatform = Capacitor.isNativePlatform();
+
   // Calculate real statistics from signals data
   const calculateStats = () => {
     const activeSignalsCount = signals.length;
@@ -224,12 +227,20 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
     </div>
   );
 
+  // Mobile header background - darker for mobile, semi-transparent for web
+  const headerBgClass = isNativePlatform 
+    ? 'bg-slate-800/95 backdrop-blur-sm border-b border-white/10' 
+    : 'bg-black/20 backdrop-blur-sm border-b border-white/10';
+
+  // Mobile header positioning - safe area padding only for mobile
+  const headerPositionClass = isNativePlatform 
+    ? 'mobile-nav-header mobile-header-fix pt-safe' 
+    : '';
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
-      {/* Mobile-First Top Navigation with Safe Area Support */}
-      <nav className={`mobile-nav-header mobile-header-fix bg-black/20 backdrop-blur-sm border-b border-white/10 px-3 sm:px-6 py-3 sm:py-4 ${
-        Capacitor.isNativePlatform() ? 'pt-safe' : ''
-      }`}>
+      {/* Mobile-First Top Navigation with Conditional Safe Area Support */}
+      <nav className={`${headerBgClass} ${headerPositionClass} px-3 sm:px-6 py-3 sm:py-4`}>
         <div className="flex items-center justify-between">
           {/* Left side - Logo and status */}
           <div className="flex items-center space-x-2 sm:space-x-4 flex-1 min-w-0">
