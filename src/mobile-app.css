@@ -63,6 +63,30 @@
   padding-right: env(safe-area-inset-right);
 }
 
+/* Mobile header classes for status bar handling */
+.mobile-nav-header {
+  position: relative;
+  z-index: 50;
+}
+
+.mobile-header-fix {
+  padding-top: 0;
+}
+
+.pt-safe {
+  padding-top: 0;
+}
+
+/* Status bar spacing for native platforms */
+.capacitor-app .mobile-header-fix {
+  padding-top: calc(env(safe-area-inset-top) + 12px);
+  margin-top: calc(-1 * env(safe-area-inset-top));
+}
+
+.capacitor-app .pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
 /* Mobile header safe area class - clean implementation */
 .mobile-header-safe {
   /* Only apply safe area padding on native platforms */
