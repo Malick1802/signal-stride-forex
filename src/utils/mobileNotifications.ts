@@ -1,4 +1,3 @@
-
 import { Capacitor } from '@capacitor/core';
 
 interface SignalNotification {
@@ -14,12 +13,33 @@ export class MobileNotificationManager {
   static async initialize(): Promise<boolean> {
     console.log('📱 Initializing MobileNotificationManager...');
     
-    if (Capacitor.isNativePlatform()) {
-      console.log('📱 Native platform detected - using LocalNotifications');
-      return await this.initializeMobileNotifications();
-    } else {
+    // First check if we have Capacitor native APIs available
+    const hasNativeNotifications = await this.checkNativeNotificationSupport();
+    
+    if (hasNativeNotifications) {
+      console.log('📱 Native notification APIs detected - using LocalNotifications');
+      return await this.initializeNativeNotifications();
+    } else if (!Capacitor.isNativePlatform()) {
       console.log('🌐 Web platform detected - using browser notifications');
       return await this.initializeWebNotifications();
+    } else {
+      console.log('❌ No notification APIs available');
+      return false;
+    }
+  }
+
+  static async checkNativeNotificationSupport(): Promise<boolean> {
+    try {
+      // Try to import and check if LocalNotifications is available
+      const { LocalNotifications } = await import('@capacitor/local-notifications');
+      
+      // Test if the plugin is actually available by calling checkPermissions
+      await LocalNotifications.checkPermissions();
+      console.log('✅ LocalNotifications plugin is available and functional');
+      return true;
+    } catch (error) {
+      console.log('❌ LocalNotifications not available:', error);
+      return false;
     }
   }
 
@@ -39,7 +59,6 @@ export class MobileNotificationManager {
       return false;
     }
 
-    // Request permission
     try {
       console.log('🔔 Requesting web notification permission...');
       const permission = await Notification.requestPermission();
@@ -57,36 +76,55 @@ export class MobileNotificationManager {
     }
   }
 
-  static async initializeMobileNotifications(): Promise<boolean> {
+  static async initializeNativeNotifications(): Promise<boolean> {
     try {
-      // Import LocalNotifications dynamically to handle cases where it's not available
       const { LocalNotifications } = await import('@capacitor/local-notifications');
       console.log('📱 LocalNotifications plugin imported successfully');
       
-      console.log('📱 Requesting mobile notification permissions...');
+      // Check current permissions first
+      const currentPermissions = await LocalNotifications.checkPermissions();
+      console.log('📱 Current permissions:', currentPermissions);
+      
+      if (currentPermissions.display === 'granted') {
+        console.log('✅ Native notification permissions already granted');
+        await this.setupNativeEnvironment();
+        return true;
+      }
+      
+      // Request permissions if not granted
+      console.log('📱 Requesting native notification permissions...');
       const permission = await LocalNotifications.requestPermissions();
-      console.log('📱 Mobile permission result:', permission);
+      console.log('📱 Permission result:', permission);
       
       if (permission.display === 'granted') {
-        console.log('✅ Mobile notification permissions granted');
-        
-        // Set up notification channels for Android
-        if (Capacitor.getPlatform() === 'android') {
-          await this.createNotificationChannels();
-        }
-        
-        // Set up notification listeners
-        await this.setupNotificationListeners();
-        
+        console.log('✅ Native notification permissions granted');
+        await this.setupNativeEnvironment();
         return true;
       } else {
-        console.warn('⚠️ Mobile notification permissions denied');
+        console.warn('⚠️ Native notification permissions denied');
         return false;
       }
     } catch (error) {
-      console.error('❌ Error initializing mobile notifications:', error);
-      console.error('❌ This usually means LocalNotifications plugin is not installed or not available');
+      console.error('❌ Error initializing native notifications:', error);
       return false;
+    }
+  }
+
+  static async setupNativeEnvironment() {
+    try {
+      const { LocalNotifications } = await import('@capacitor/local-notifications');
+      
+      // Set up notification channels for Android
+      if (Capacitor.getPlatform() === 'android') {
+        await this.createNotificationChannels();
+      }
+      
+      // Set up notification listeners
+      await this.setupNotificationListeners();
+      
+      console.log('✅ Native notification environment setup complete');
+    } catch (error) {
+      console.error('❌ Error setting up native environment:', error);
     }
   }
 
@@ -153,15 +191,24 @@ export class MobileNotificationManager {
   }
 
   static async showInstantSignalNotification(signal: SignalNotification) {
-    if (!Capacitor.isNativePlatform()) {
+    // Check if we should use native notifications
+    const hasNativeNotifications = await this.checkNativeNotificationSupport();
+    
+    if (hasNativeNotifications) {
+      return this.showNativeNotification(signal);
+    } else if (!Capacitor.isNativePlatform()) {
       return this.showWebNotification(signal);
+    } else {
+      throw new Error('No notification APIs available on this platform');
     }
+  }
 
+  static async showNativeNotification(signal: SignalNotification) {
     try {
       const { LocalNotifications } = await import('@capacitor/local-notifications');
       
       const notificationId = Date.now();
-      console.log('📱 Showing instant mobile notification:', { id: notificationId, title: signal.title });
+      console.log('📱 Showing native notification:', { id: notificationId, title: signal.title });
       
       await LocalNotifications.schedule({
         notifications: [
@@ -180,10 +227,10 @@ export class MobileNotificationManager {
         ]
       });
       
-      console.log('✅ Mobile notification sent:', signal.title);
+      console.log('✅ Native notification sent:', signal.title);
     } catch (error) {
-      console.error('❌ Error showing mobile notification:', error);
-      throw new Error(`Failed to send mobile notification: ${(error as Error).message}`);
+      console.error('❌ Error showing native notification:', error);
+      throw new Error(`Failed to send native notification: ${(error as Error).message}`);
     }
   }
 
@@ -192,34 +239,38 @@ export class MobileNotificationManager {
     const title = `${pair} Signal ${isProfit ? 'Profit' : 'Loss'}`;
     const body = `${isProfit ? '✅ Target hit!' : '❌ Stop loss hit'} ${Math.abs(pips)} pips`;
 
-    if (!Capacitor.isNativePlatform()) {
+    const hasNativeNotifications = await this.checkNativeNotificationSupport();
+    
+    if (hasNativeNotifications) {
+      try {
+        const { LocalNotifications } = await import('@capacitor/local-notifications');
+        
+        const notificationId = Date.now();
+        console.log('📱 Showing native outcome notification:', { id: notificationId, title, outcome });
+        
+        await LocalNotifications.schedule({
+          notifications: [
+            {
+              title,
+              body,
+              id: notificationId,
+              sound: 'default',
+              channelId: 'signal_outcomes',
+              smallIcon: 'ic_stat_notification',
+              iconColor: isProfit ? '#10b981' : '#ef4444'
+            }
+          ]
+        });
+        
+        console.log('✅ Native signal outcome notification sent:', title);
+      } catch (error) {
+        console.error('❌ Error showing native outcome notification:', error);
+        throw new Error(`Failed to send native outcome notification: ${(error as Error).message}`);
+      }
+    } else if (!Capacitor.isNativePlatform()) {
       return this.showWebNotification({ title, body });
-    }
-
-    try {
-      const { LocalNotifications } = await import('@capacitor/local-notifications');
-      
-      const notificationId = Date.now();
-      console.log('📱 Showing outcome notification:', { id: notificationId, title, outcome });
-      
-      await LocalNotifications.schedule({
-        notifications: [
-          {
-            title,
-            body,
-            id: notificationId,
-            sound: 'default',
-            channelId: 'signal_outcomes',
-            smallIcon: 'ic_stat_notification',
-            iconColor: isProfit ? '#10b981' : '#ef4444'
-          }
-        ]
-      });
-      
-      console.log('✅ Signal outcome notification sent:', title);
-    } catch (error) {
-      console.error('❌ Error showing outcome notification:', error);
-      throw new Error(`Failed to send outcome notification: ${(error as Error).message}`);
+    } else {
+      throw new Error('No notification APIs available on this platform');
     }
   }
 
@@ -252,7 +303,6 @@ export class MobileNotificationManager {
         notification.close();
       };
 
-      // Auto-close after 8 seconds
       setTimeout(() => {
         notification.close();
       }, 8000);
@@ -268,7 +318,9 @@ export class MobileNotificationManager {
     console.log('🧪 Testing notification system...');
     
     try {
-      const testMessage = Capacitor.isNativePlatform() ? 
+      const hasNativeNotifications = await this.checkNativeNotificationSupport();
+      
+      const testMessage = hasNativeNotifications ? 
         'Native mobile notification test - you should see this on your device!' :
         'Web browser notification test - you should see this in your browser!';
       
