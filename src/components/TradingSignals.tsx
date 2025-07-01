@@ -1,4 +1,3 @@
-
 import React, { useState, memo, useCallback } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useEnhancedSignalMonitoring } from '@/hooks/useEnhancedSignalMonitoring';
@@ -9,6 +8,9 @@ import { RefreshCw } from 'lucide-react';
 import SignalCard from './SignalCard';
 import SignalCardLoading from './SignalCardLoading';
 import Logger from '@/utils/logger';
+import { useOfflineSignals } from '@/hooks/useOfflineSignals';
+import { useMobileConnectivity } from '@/hooks/useMobileConnectivity';
+import { useBackgroundSync } from '@/hooks/useBackgroundSync';
 
 const TradingSignals = memo(() => {
   const { signals, loading, lastUpdate, signalDistribution, triggerAutomaticSignalGeneration, fetchSignals } = useTradingSignals();
@@ -22,6 +24,33 @@ const TradingSignals = memo(() => {
   // AI Analysis state for SignalCard
   const [analysis, setAnalysis] = useState<Record<string, string>>({});
   const [analyzingSignal, setAnalyzingSignal] = useState<string | null>(null);
+
+  // Enhanced offline capabilities
+  const { 
+    cachedSignals, 
+    isUsingCache, 
+    hasCache, 
+    cacheSignals 
+  } = useOfflineSignals();
+  
+  const { isConnected } = useMobileConnectivity();
+
+  // Background sync setup
+  const { performBackgroundSync } = useBackgroundSync({
+    onSignalsFetched: (fetchedSignals) => {
+      cacheSignals(fetchedSignals);
+    }
+  });
+
+  // Determine which signals to display
+  const displaySignals = isConnected ? signals : cachedSignals;
+
+  // Cache online signals when they're fetched
+  React.useEffect(() => {
+    if (isConnected && signals.length > 0) {
+      cacheSignals(signals);
+    }
+  }, [signals, isConnected, cacheSignals]);
 
   // Enhanced signal generation with better error handling
   const handleGenerateSignals = useCallback(async () => {
@@ -94,7 +123,7 @@ const TradingSignals = memo(() => {
 
   return (
     <div className="space-y-6">
-      {/* Signal Grid or Loading */}
+      {/* Enhanced rendering with offline support */}
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {Array.from({ length: 6 }, (_, i) => (
@@ -103,7 +132,7 @@ const TradingSignals = memo(() => {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {signals.map((signal) => (
+          {displaySignals.map((signal) => (
             <SignalCard 
               key={signal.id} 
               signal={signal}
