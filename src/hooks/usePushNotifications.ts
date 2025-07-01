@@ -40,7 +40,7 @@ export const usePushNotifications = () => {
     }
 
     try {
-      console.log('📱 Initializing push notifications...');
+      console.log('📱 Initializing Firebase push notifications...');
       setPermissionError(null);
       
       const { PushNotifications } = await import('@capacitor/push-notifications');
@@ -53,8 +53,8 @@ export const usePushNotifications = () => {
       if (permission.receive === 'granted') {
         console.log('✅ Push notification permission granted');
         
-        // Register with Apple / Google to receive push notifications
-        console.log('📱 Registering for push notifications...');
+        // Register with FCM to receive push notifications
+        console.log('📱 Registering with FCM...');
         await PushNotifications.register();
         setIsRegistered(true);
       } else {
@@ -65,32 +65,35 @@ export const usePushNotifications = () => {
       // Clear any existing listeners first
       await PushNotifications.removeAllListeners();
 
-      // On success, we should be able to receive notifications
+      // On successful registration, we get the FCM token
       PushNotifications.addListener('registration', (token) => {
-        console.log('✅ Push registration success, token: ' + token.value);
+        console.log('✅ FCM registration success, token: ' + token.value);
         setPushToken(token.value);
         localStorage.setItem('pushToken', token.value);
         setIsRegistered(true);
         setPermissionError(null);
+        
+        // TODO: Send this token to your backend server
+        sendTokenToServer(token.value);
       });
 
-      // Some issue with our setup and push will not work
+      // Handle registration errors
       PushNotifications.addListener('registrationError', (error) => {
-        console.error('❌ Error on registration: ' + JSON.stringify(error));
+        console.error('❌ FCM registration error: ' + JSON.stringify(error));
         setIsRegistered(false);
         setPermissionError('Push notification registration failed: ' + error.error);
       });
 
-      // Show us the notification payload if the app is open on our device
+      // Handle notification received while app is in foreground
       PushNotifications.addListener('pushNotificationReceived', (notification) => {
         console.log('📱 Push notification received: ', notification);
-        // Handle the notification while app is in foreground
+        // Show local notification or update UI
       });
 
-      // Method called when tapping on a notification
+      // Handle notification tap
       PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
-        console.log('📱 Push notification action performed', notification.actionId, notification.inputValue);
-        // Handle notification tap
+        console.log('📱 Push notification tapped', notification.actionId, notification.inputValue);
+        // Navigate to specific screen or perform action
       });
 
     } catch (error) {
@@ -100,10 +103,66 @@ export const usePushNotifications = () => {
     }
   };
 
-  const sendNotificationToDevice = async (token: string, title: string, body: string, data?: any) => {
-    // This would typically be called from your backend
-    // Placeholder for sending notifications via your server
-    console.log('📱 Would send notification:', { token, title, body, data });
+  const sendTokenToServer = async (token: string) => {
+    try {
+      console.log('📱 Sending FCM token to server...');
+      
+      // TODO: Replace with your actual backend endpoint
+      // This is where you'd send the token to your Supabase edge function
+      const response = await fetch('/api/register-push-token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          token,
+          platform: 'android',
+          userId: 'current-user-id' // Replace with actual user ID
+        })
+      });
+      
+      if (response.ok) {
+        console.log('✅ Token registered with server');
+      } else {
+        console.warn('⚠️ Failed to register token with server');
+      }
+    } catch (error) {
+      console.error('❌ Error sending token to server:', error);
+    }
+  };
+
+  const sendTestNotification = async () => {
+    if (!pushToken) {
+      console.warn('⚠️ No push token available for test');
+      return;
+    }
+
+    try {
+      console.log('📱 Sending test push notification...');
+      
+      // TODO: This would typically be called from your backend
+      // For now, this is just a placeholder
+      const response = await fetch('/api/send-push-notification', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          token: pushToken,
+          title: '🧪 Test Notification',
+          body: 'Firebase push notification is working!',
+          data: { type: 'test' }
+        })
+      });
+
+      if (response.ok) {
+        console.log('✅ Test notification sent');
+      } else {
+        console.warn('⚠️ Failed to send test notification');
+      }
+    } catch (error) {
+      console.error('❌ Error sending test notification:', error);
+    }
   };
 
   return {
@@ -111,6 +170,6 @@ export const usePushNotifications = () => {
     pushToken,
     permissionError,
     initializePushNotifications,
-    sendNotificationToDevice
+    sendTestNotification
   };
 };
