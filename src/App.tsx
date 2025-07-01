@@ -24,8 +24,10 @@ const App = () => {
     // Initialize mobile routing
     MobileRouteManager.initializeMobileRouting();
 
-    // Log platform information
+    // Add mobile app classes to document
     if (Capacitor.isNativePlatform()) {
+      document.body.classList.add('mobile-app');
+      document.documentElement.classList.add('capacitor-app');
       console.log('🚀 ForexAlert Pro running as native mobile app');
       console.log('📱 Platform:', Capacitor.getPlatform());
       console.log('🌐 Current URL:', window.location.href);
@@ -33,31 +35,38 @@ const App = () => {
     } else {
       console.log('🌐 ForexAlert Pro running as web app');
     }
+
+    // Apply mobile-specific body styles
+    document.body.style.margin = '0';
+    document.body.style.padding = '0';
+    document.body.style.overflow = 'hidden';
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <MobileAppWrapper>
-          <MobileDebugger />
-          <Toaster />
-          <Sonner />
-          <BrowserRouter basename={Capacitor.isNativePlatform() ? '/' : undefined}>
-            <MobileRouteDebugger />
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/test" element={<TestPage />} />
-              {/* Handle common mobile routing issues */}
-              <Route path="/index.html" element={<Navigate to="/" replace />} />
-              <Route path="/app" element={<Navigate to="/" replace />} />
-              <Route path="/android_asset/www/index.html" element={<Navigate to="/" replace />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </MobileAppWrapper>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <div className={`mobile-app-wrapper ${Capacitor.isNativePlatform() ? 'capacitor-app' : ''}`}>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <MobileAppWrapper>
+            <MobileDebugger />
+            <Toaster />
+            <Sonner />
+            <BrowserRouter basename={Capacitor.isNativePlatform() ? '/' : undefined}>
+              <MobileRouteDebugger />
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/test" element={<TestPage />} />
+                {/* Handle common mobile routing issues */}
+                <Route path="/index.html" element={<Navigate to="/" replace />} />
+                <Route path="/app" element={<Navigate to="/" replace />} />
+                <Route path="/android_asset/www/index.html" element={<Navigate to="/" replace />} />
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </MobileAppWrapper>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </div>
   );
 };
 

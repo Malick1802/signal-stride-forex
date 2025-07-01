@@ -1,3 +1,4 @@
+
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
@@ -28,7 +29,7 @@ const config: CapacitorConfig = {
     StatusBar: {
       style: 'dark',
       backgroundColor: '#0f172a',
-      overlay: false
+      overlay: true
     },
     PushNotifications: {
       presentationOptions: ['badge', 'sound', 'alert']

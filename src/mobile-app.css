@@ -44,20 +44,48 @@
   padding-bottom: 40px;
 }
 
-/* Safe area adjustments for modern devices */
+/* Enhanced Safe area adjustments for modern devices */
 .mobile-app-wrapper {
-  padding-top: env(safe-area-inset-top);
+  /* Use max() to ensure minimum padding even on older devices */
+  padding-top: max(env(safe-area-inset-top), 20px);
   padding-bottom: max(env(safe-area-inset-bottom), 20px);
-  padding-left: env(safe-area-inset-left);
-  padding-right: env(safe-area-inset-right);
+  padding-left: max(env(safe-area-inset-left), 0px);
+  padding-right: max(env(safe-area-inset-right), 0px);
   min-height: 100vh;
   min-height: -webkit-fill-available;
+  /* Ensure the wrapper takes full viewport */
+  width: 100vw;
+  overflow-x: hidden;
+}
+
+/* Mobile navigation header safe area handling */
+.mobile-nav-header {
+  /* Ensure header respects safe area without double padding */
+  padding-top: 0;
+  margin-top: 0;
+  /* Add backdrop blur for better visibility */
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Content area adjustment to account for fixed headers */
+.mobile-content-area {
+  /* Account for navigation header height on mobile */
+  padding-top: 0;
+  margin-top: 0;
 }
 
 /* Status bar adjustments for trading app */
 @supports (padding: max(0px)) {
   .mobile-app-wrapper {
-    padding-top: max(env(safe-area-inset-top), 24px);
+    /* Ensure adequate top padding for status bar */
+    padding-top: max(env(safe-area-inset-top), 44px);
+  }
+  
+  /* Specific adjustment for iPhone with notch */
+  .mobile-nav-header {
+    /* Additional top space for devices with notch */
+    padding-top: max(env(safe-area-inset-top), 0px);
   }
 }
 
@@ -90,7 +118,7 @@
 /* Notification styling for mobile */
 .mobile-notification {
   position: fixed;
-  top: env(safe-area-inset-top, 20px);
+  top: max(env(safe-area-inset-top), 20px);
   left: 16px;
   right: 16px;
   z-index: 9999;
@@ -131,4 +159,19 @@
 .mobile-app .touchable {
   -webkit-tap-highlight-color: rgba(16, 185, 129, 0.2);
   tap-highlight-color: rgba(16, 185, 129, 0.2);
+}
+
+/* Additional mobile-specific header fixes */
+.mobile-header-fix {
+  /* Ensure headers don't overlap with status bar */
+  position: relative;
+  z-index: 50;
+  /* Use safe area insets properly */
+  padding-top: env(safe-area-inset-top);
+}
+
+/* Capacitor-specific adjustments */
+.capacitor-app .mobile-app-wrapper {
+  /* Additional padding for native apps */
+  padding-top: max(env(safe-area-inset-top), 24px);
 }
