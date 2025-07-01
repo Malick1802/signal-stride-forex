@@ -226,20 +226,10 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
     </div>
   );
 
-  // Mobile header background - darker for mobile, semi-transparent for web
-  const headerBgClass = isNativePlatform 
-    ? 'bg-slate-800/95 backdrop-blur-sm border-b border-white/10' 
-    : 'bg-black/20 backdrop-blur-sm border-b border-white/10';
-
-  // Mobile header positioning - safe area padding only for mobile
-  const headerPositionClass = isNativePlatform 
-    ? 'mobile-nav-header mobile-header-fix pt-safe' 
-    : '';
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
-      {/* Mobile-First Top Navigation with Conditional Safe Area Support */}
-      <nav className={`${headerBgClass} ${headerPositionClass} px-3 sm:px-6 py-3 sm:py-4`}>
+      {/* Mobile-First Top Navigation with Safe Area Support */}
+      <nav className={`bg-slate-800/95 backdrop-blur-sm border-b border-white/10 ${isNativePlatform ? 'mobile-header-safe' : ''} px-3 sm:px-6 py-3 sm:py-4`}>
         <div className="flex items-center justify-between">
           {/* Left side - Logo and status */}
           <div className="flex items-center space-x-2 sm:space-x-4 flex-1 min-w-0">

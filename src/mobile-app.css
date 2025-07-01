@@ -63,15 +63,18 @@
   padding-right: env(safe-area-inset-right);
 }
 
-/* Mobile header safe area class - clean implementation */
+/* Mobile header safe area class - proper implementation for status bar */
 .mobile-header-safe {
-  /* Only apply safe area padding on native platforms */
+  /* No safe area padding by default (web) */
   padding-top: 0;
 }
 
 .capacitor-app .mobile-header-safe {
-  /* Proper safe area handling for native apps */
+  /* Proper safe area handling for native apps - pushes header below status bar */
   padding-top: env(safe-area-inset-top);
+  /* Extend background into safe area for seamless appearance */
+  margin-top: calc(-1 * env(safe-area-inset-top));
+  padding-top: calc(env(safe-area-inset-top) + 12px);
 }
 
 /* Better button touch targets for trading */
