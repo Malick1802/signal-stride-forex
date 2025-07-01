@@ -46,7 +46,6 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
   // Check if we're on a native mobile platform
   const isNativePlatform = Capacitor.isNativePlatform();
 
-  // Calculate real statistics from signals data
   const calculateStats = () => {
     const activeSignalsCount = signals.length;
     const totalSignalsCount = 20; // MAX_ACTIVE_SIGNALS from useTradingSignals

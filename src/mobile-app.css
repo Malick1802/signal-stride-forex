@@ -1,5 +1,4 @@
 
-
 /* ForexAlert Pro Mobile App Styles */
 .mobile-app {
   /* Prevent overscroll bounce on iOS */
@@ -45,60 +44,34 @@
   padding-bottom: 40px;
 }
 
-/* Enhanced Safe area adjustments for modern devices */
+/* Clean mobile app wrapper - no extra padding by default */
 .mobile-app-wrapper {
-  /* Use max() to ensure minimum padding even on older devices */
-  padding-top: max(env(safe-area-inset-top), 20px);
-  padding-bottom: max(env(safe-area-inset-bottom), 20px);
-  padding-left: max(env(safe-area-inset-left), 0px);
-  padding-right: max(env(safe-area-inset-right), 0px);
   min-height: 100vh;
   min-height: -webkit-fill-available;
-  /* Ensure the wrapper takes full viewport */
   width: 100vw;
   overflow-x: hidden;
+  /* Remove default padding to prevent conflicts */
+  padding: 0;
 }
 
-/* Only apply mobile-specific safe area to native platforms */
+/* Only apply safe area padding to native platforms */
 .capacitor-app .mobile-app-wrapper {
-  /* Additional padding for native apps */
-  padding-top: max(env(safe-area-inset-top), 24px);
-}
-
-/* Mobile navigation header - only for native platforms */
-.capacitor-app .mobile-nav-header {
-  /* Ensure header respects safe area without double padding */
-  padding-top: 0;
-  margin-top: 0;
-  /* Add backdrop blur for better visibility */
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-
-/* Mobile header safe area class - only for native platforms */
-.capacitor-app .pt-safe {
+  /* Safe area padding only for native apps */
   padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
 }
 
-/* Content area adjustment to account for fixed headers */
-.mobile-content-area {
-  /* Account for navigation header height on mobile */
+/* Mobile header safe area class - clean implementation */
+.mobile-header-safe {
+  /* Only apply safe area padding on native platforms */
   padding-top: 0;
-  margin-top: 0;
 }
 
-/* Status bar adjustments for trading app - only for native platforms */
-@supports (padding: max(0px)) {
-  .capacitor-app .mobile-app-wrapper {
-    /* Ensure adequate top padding for status bar */
-    padding-top: max(env(safe-area-inset-top), 44px);
-  }
-  
-  /* Specific adjustment for iPhone with notch - only for native platforms */
-  .capacitor-app .mobile-nav-header {
-    /* Additional top space for devices with notch */
-    padding-top: max(env(safe-area-inset-top), 0px);
-  }
+.capacitor-app .mobile-header-safe {
+  /* Proper safe area handling for native apps */
+  padding-top: env(safe-area-inset-top);
 }
 
 /* Better button touch targets for trading */
@@ -172,23 +145,3 @@
   -webkit-tap-highlight-color: rgba(16, 185, 129, 0.2);
   tap-highlight-color: rgba(16, 185, 129, 0.2);
 }
-
-/* Mobile-specific header background for better status bar visibility */
-.capacitor-app .mobile-header-dark {
-  background-color: rgba(30, 41, 59, 0.95) !important;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-
-/* Ensure mobile header positioning doesn't affect web */
-.mobile-header-fix {
-  /* Only apply on native platforms */
-  position: relative;
-  z-index: 50;
-}
-
-.capacitor-app .mobile-header-fix {
-  /* Use safe area insets properly on native platforms */
-  padding-top: env(safe-area-inset-top);
-}
-
