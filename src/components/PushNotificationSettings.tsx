@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
@@ -65,8 +64,7 @@ export const PushNotificationSettings = () => {
       console.log('🔍 Initializing notification state:', {
         isNative,
         platform,
-        userAgent: navigator.userAgent,
-        capacitorAvailable: !!window.Capacitor
+        userAgent: navigator.userAgent
       });
       
       // Detect available APIs
