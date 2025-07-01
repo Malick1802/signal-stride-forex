@@ -38,9 +38,22 @@ export class MobileNotificationManager {
       return false;
     }
 
-    // Permission is 'default', return false but don't throw error
-    console.log('ℹ️ Web notification permissions not yet requested');
-    return false;
+    // Request permission
+    try {
+      console.log('🔔 Requesting web notification permission...');
+      const permission = await Notification.requestPermission();
+      
+      if (permission === 'granted') {
+        console.log('✅ Web notification permissions granted');
+        return true;
+      } else {
+        console.log('❌ Web notification permissions denied by user');
+        return false;
+      }
+    } catch (error) {
+      console.error('❌ Error requesting notification permission:', error);
+      return false;
+    }
   }
 
   static async initializeMobileNotifications(): Promise<boolean> {

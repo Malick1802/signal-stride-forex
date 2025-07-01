@@ -1,3 +1,4 @@
+
 interface PWAInstallPrompt {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
@@ -62,8 +63,10 @@ export class PWAManager {
   private async registerServiceWorker() {
     if ('serviceWorker' in navigator) {
       try {
-        // Register the service worker from the public directory
-        const registration = await navigator.serviceWorker.register('/sw.js');
+        // Register the service worker - correct path for Vite
+        const registration = await navigator.serviceWorker.register('/sw.js', {
+          scope: '/'
+        });
         console.log('📱 Service Worker registered:', registration);
 
         // Listen for updates
@@ -84,6 +87,8 @@ export class PWAManager {
       } catch (error) {
         console.error('❌ Service Worker registration failed:', error);
       }
+    } else {
+      console.warn('⚠️ Service Worker not supported in this browser');
     }
   }
 
