@@ -1,3 +1,4 @@
+
 import { Capacitor } from '@capacitor/core';
 
 interface SignalNotification {
@@ -33,7 +34,7 @@ export class MobileNotificationManager {
 
   static async checkNativeNotificationSupport(): Promise<boolean> {
     try {
-      // Check if we're in a Capacitor environment first
+      // Only check native notifications if we're actually in a native platform
       if (!Capacitor.isNativePlatform()) {
         console.log('❌ Not a native platform');
         return false;
@@ -49,6 +50,28 @@ export class MobileNotificationManager {
       return true;
     } catch (error) {
       console.log('❌ LocalNotifications not available:', error);
+      return false;
+    }
+  }
+
+  static async checkWebNotificationSupport(): Promise<boolean> {
+    // Check if Notification API is available in the browser
+    if ('Notification' in window) {
+      console.log('✅ Web Notification API is available');
+      return true;
+    } else {
+      console.log('❌ Web Notification API not available');
+      return false;
+    }
+  }
+
+  static async checkPushNotificationSupport(): Promise<boolean> {
+    // Check if Push API is available (for future use)
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      console.log('✅ Push Notification API is available');
+      return true;
+    } else {
+      console.log('❌ Push Notification API not available');
       return false;
     }
   }

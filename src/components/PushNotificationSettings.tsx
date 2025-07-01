@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Switch } from '@/components/ui/switch';
 import { Button } from '@/components/ui/button';
@@ -67,7 +68,7 @@ export const PushNotificationSettings = () => {
         userAgent: navigator.userAgent
       });
       
-      // Detect available APIs
+      // Detect available APIs using the updated methods
       const detectedAPIs = {
         hasLocalNotifications: false,
         hasWebNotifications: false,
@@ -86,20 +87,19 @@ export const PushNotificationSettings = () => {
 
         // Check for Capacitor PushNotifications (native)
         try {
-          await import('@capacitor/push-notifications');
-          detectedAPIs.hasPushNotifications = true;
-          console.log('✅ PushNotifications API available');
+          detectedAPIs.hasPushNotifications = await MobileNotificationManager.checkPushNotificationSupport();
+          console.log('✅ PushNotifications check result:', detectedAPIs.hasPushNotifications);
         } catch (error) {
           console.log('❌ PushNotifications API not available:', error);
         }
       }
 
-      // Check for Web Notifications (browser) - only if not native or if native notifications failed
-      if (!isNative || !detectedAPIs.hasLocalNotifications) {
-        if ('Notification' in window && 'serviceWorker' in navigator) {
-          detectedAPIs.hasWebNotifications = true;
-          console.log('✅ Web Notifications API available');
-        }
+      // Check for Web Notifications (browser) - always check this for web platforms
+      if (!isNative) {
+        detectedAPIs.hasWebNotifications = await MobileNotificationManager.checkWebNotificationSupport();
+        detectedAPIs.hasPushNotifications = await MobileNotificationManager.checkPushNotificationSupport();
+        console.log('🌐 Web notifications check result:', detectedAPIs.hasWebNotifications);
+        console.log('🌐 Push notifications check result:', detectedAPIs.hasPushNotifications);
       }
 
       let isSupported = false;
@@ -113,7 +113,7 @@ export const PushNotificationSettings = () => {
         permission = 'default';
         console.log('📱 Using native LocalNotifications');
       } else if (detectedAPIs.hasWebNotifications) {
-        // Web platform or fallback with browser notifications
+        // Web platform with browser notifications
         isSupported = true;
         useNative = false;
         permission = Notification.permission as any;
