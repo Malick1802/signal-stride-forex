@@ -225,10 +225,10 @@ export const useTradingSignals = () => {
               takeProfit3: takeProfits[2] ? takeProfits[2].toFixed(5) : '0.00000',
               takeProfit4: takeProfits[3] ? takeProfits[3].toFixed(5) : '0.00000',
               takeProfit5: takeProfits[4] ? takeProfits[4].toFixed(5) : '0.00000',
-              confidence: Math.floor(safeParseFloat(signal.confidence, 50)),
+              confidence: Math.floor(safeParseFloat(signal.confidence, 70)),
               timestamp: signal.created_at || new Date().toISOString(),
               status: signal.status || 'active',
-              analysisText: signal.analysis_text || `${signal.type} signal for ${signal.symbol} (${Math.floor(safeParseFloat(signal.confidence, 50))}% confidence)`,
+              analysisText: signal.analysis_text || `${signal.type} signal for ${signal.symbol} (${Math.floor(safeParseFloat(signal.confidence, 70))}% confidence)`,
               chartData: chartData,
               targetsHit: targetsHit
             };
