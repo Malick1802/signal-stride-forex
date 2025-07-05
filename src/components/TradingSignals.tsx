@@ -130,7 +130,7 @@ const TradingSignals = memo(() => {
             <SignalCardLoading key={i} pair="Loading..." />
           ))}
         </div>
-      ) : (
+      ) : displaySignals.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {displaySignals.map((signal) => (
             <SignalCard 
@@ -141,6 +141,33 @@ const TradingSignals = memo(() => {
               onGetAIAnalysis={handleGetAIAnalysis}
             />
           ))}
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center p-8 text-center space-y-4 min-h-[400px]">
+          <div className="text-4xl mb-4">📊</div>
+          <h3 className="text-xl font-semibold text-foreground">No Active Signals</h3>
+          <p className="text-muted-foreground max-w-md">
+            No trading signals are currently active. New signals will be generated automatically.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2 mt-4">
+            <Button
+              onClick={handleRefresh}
+              variant="outline"
+              size="sm"
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Refresh
+            </Button>
+            <Button
+              onClick={handleGenerateSignals}
+              disabled={isGenerating}
+              variant="default"
+              size="sm"
+            >
+              <RefreshCw className={`w-4 h-4 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
+              {isGenerating ? 'Generating...' : 'Generate Now'}
+            </Button>
+          </div>
         </div>
       )}
     </div>

@@ -77,10 +77,22 @@ export const useTradingSignals = () => {
       Logger.debug('signals', `Active centralized signals: ${centralizedSignals?.length || 0}`);
 
       if (!centralizedSignals || centralizedSignals.length === 0) {
-        Logger.info('signals', 'No active centralized signals found');
+        Logger.info('signals', 'No active centralized signals found - triggering automatic generation');
         setSignals([]);
         setSignalDistribution({ buy: 0, sell: 0 });
         setLastUpdate(new Date().toLocaleTimeString());
+        
+        // Automatically trigger signal generation when no signals are found
+        if (!isInitialLoad) {
+          Logger.info('signals', 'Auto-generating signals due to empty signal set');
+          setTimeout(async () => {
+            try {
+              await triggerSignalGeneration();
+            } catch (error) {
+              Logger.error('signals', 'Auto-generation failed:', error);
+            }
+          }, 2000); // Wait 2 seconds before auto-generating
+        }
         return;
       }
 
