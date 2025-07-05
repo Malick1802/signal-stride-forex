@@ -70,17 +70,17 @@ export const calculateStrictRSI = (prices: number[], period: number = 14): { rsi
   return { rsi, bullishDivergence, bearishDivergence };
 };
 
-// STRICT: RSI signal validation with proper thresholds
-export const validateStrictRSISignal = (rsi: number, signalType: 'BUY' | 'SELL', hasDivergence: boolean): { isValid: boolean; strength: 'weak' | 'moderate' | 'strong' | 'extreme' } => {
+// RELAXED: RSI signal validation with relaxed thresholds
+export const validateStrictRSISignal = (rsi: number, signalType: 'BUY' | 'SELL', hasDivergence: boolean = false): { isValid: boolean; strength: 'weak' | 'moderate' | 'strong' | 'extreme' } => {
   if (signalType === 'BUY') {
-    if (rsi < 20 && hasDivergence) return { isValid: true, strength: 'extreme' };
+    if (rsi < 20 || (rsi < 30 && hasDivergence)) return { isValid: true, strength: 'extreme' };
     if (rsi < 25) return { isValid: true, strength: 'strong' };
-    if (rsi < 30) return { isValid: true, strength: 'moderate' };
+    if (rsi < 35) return { isValid: true, strength: 'moderate' };
     return { isValid: false, strength: 'weak' };
   } else {
-    if (rsi > 80 && hasDivergence) return { isValid: true, strength: 'extreme' };
+    if (rsi > 80 || (rsi > 70 && hasDivergence)) return { isValid: true, strength: 'extreme' };
     if (rsi > 75) return { isValid: true, strength: 'strong' };
-    if (rsi > 70) return { isValid: true, strength: 'moderate' };
+    if (rsi > 65) return { isValid: true, strength: 'moderate' };
     return { isValid: false, strength: 'weak' };
   }
 };
@@ -370,7 +370,7 @@ export const calculateStrictTechnicalIndicators = (ohlcvData: EnhancedOHLCVData[
     // MACD validation - require strong momentum
     if ((signalType === 'BUY' && macd.line > macd.signal && macd.histogram > 0) ||
         (signalType === 'SELL' && macd.line < macd.signal && macd.histogram < 0)) {
-      if (macd.strength > 0.00001) { // Higher threshold
+      if (macd.strength > 0.000005) { // Reduced threshold
         validationScore += 3;
         allConfirmations.push('Strong MACD confirmation');
       }
@@ -415,11 +415,11 @@ export const calculateStrictTechnicalIndicators = (ohlcvData: EnhancedOHLCVData[
     multiTimeframeAlignment: signalType ? validateStrictTrendAlignment(currentPrice, ema50, ema200, signalType).multiTimeframeAlignment : false
   };
   
-  // STRICT quality grading - much higher thresholds
+  // RELAXED quality grading - lower thresholds
   let qualityGrade: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR';
-  if (validationScore >= 12 && allConfirmations.length >= 5) qualityGrade = 'EXCELLENT';
-  else if (validationScore >= 8 && allConfirmations.length >= 4) qualityGrade = 'GOOD';
-  else if (validationScore >= 5 && allConfirmations.length >= 3) qualityGrade = 'FAIR';
+  if (validationScore >= 8 && allConfirmations.length >= 4) qualityGrade = 'EXCELLENT';
+  else if (validationScore >= 6 && allConfirmations.length >= 3) qualityGrade = 'GOOD';
+  else if (validationScore >= 4 && allConfirmations.length >= 2) qualityGrade = 'FAIR';
   else qualityGrade = 'POOR';
   
   return {
@@ -452,10 +452,10 @@ export const calculateStrictTechnicalIndicators = (ohlcvData: EnhancedOHLCVData[
 export const calculateStrictSignalScore = (indicators: StrictTechnicalIndicators & { validationScore: number; confirmations: string[]; qualityGrade: string }, signalType: 'BUY' | 'SELL'): { score: number; grade: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR'; isHighQuality: boolean } => {
   let score = indicators.validationScore;
   
-  // Additional strict requirements
-  if (indicators.confirmations.length >= 5) score += 3;
-  else if (indicators.confirmations.length >= 4) score += 2;
-  else if (indicators.confirmations.length >= 3) score += 1;
+  // Additional relaxed requirements
+  if (indicators.confirmations.length >= 4) score += 3;
+  else if (indicators.confirmations.length >= 3) score += 2;
+  else if (indicators.confirmations.length >= 2) score += 1;
   
   // Market regime bonus
   if (indicators.marketRegime === 'trending' && indicators.trendAlignment.isAligned) {
@@ -481,10 +481,9 @@ export const calculateStrictSignalScore = (indicators: StrictTechnicalIndicators
   else if (normalizedScore >= 6) grade = 'FAIR';
   else grade = 'POOR';
   
-  // STRICT: Only accept EXCELLENT and GOOD grades with minimum 4 confirmations
-  const isHighQuality = (grade === 'EXCELLENT' || grade === 'GOOD') && 
-                       indicators.confirmations.length >= 4 &&
-                       indicators.trendAlignment.isAligned &&
+  // RELAXED: Only accept GOOD grades with minimum 2 confirmations
+  const isHighQuality = (grade === 'EXCELLENT' || grade === 'GOOD' || grade === 'FAIR') && 
+                       indicators.confirmations.length >= 2 &&
                        indicators.volatilityProfile !== 'extreme';
   
   return { score: normalizedScore, grade, isHighQuality };

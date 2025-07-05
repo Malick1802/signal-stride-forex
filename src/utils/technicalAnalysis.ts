@@ -48,17 +48,17 @@ export const calculateRSI = (prices: number[], period: number = 14): number => {
   return 100 - (100 / (1 + rs));
 };
 
-// ENHANCED: Stricter RSI signal validation
+// RELAXED: Less strict RSI signal validation
 export const validateRSISignal = (rsi: number, signalType: 'BUY' | 'SELL'): { isValid: boolean; strength: 'weak' | 'moderate' | 'strong' | 'extreme' } => {
   if (signalType === 'BUY') {
-    if (rsi < 20) return { isValid: true, strength: 'extreme' };
-    if (rsi < 25) return { isValid: true, strength: 'strong' };
-    if (rsi < 30) return { isValid: true, strength: 'moderate' };
+    if (rsi < 25) return { isValid: true, strength: 'extreme' };
+    if (rsi < 30) return { isValid: true, strength: 'strong' };
+    if (rsi < 35) return { isValid: true, strength: 'moderate' };
     return { isValid: false, strength: 'weak' };
   } else {
-    if (rsi > 80) return { isValid: true, strength: 'extreme' };
-    if (rsi > 75) return { isValid: true, strength: 'strong' };
-    if (rsi > 70) return { isValid: true, strength: 'moderate' };
+    if (rsi > 75) return { isValid: true, strength: 'extreme' };
+    if (rsi > 70) return { isValid: true, strength: 'strong' };
+    if (rsi > 65) return { isValid: true, strength: 'moderate' };
     return { isValid: false, strength: 'weak' };
   }
 };
@@ -86,11 +86,11 @@ export const validateMACDSignal = (macd: { line: number; signal: number; histogr
   if (signalType === 'BUY') {
     if (macd.line > macd.signal) confirmations.push('MACD Bullish Crossover');
     if (macd.histogram > 0) confirmations.push('Positive Histogram');
-    if (macd.strength > 0.00001) confirmations.push('Strong MACD Signal'); // Increased threshold
+    if (macd.strength > 0.000005) confirmations.push('Strong MACD Signal'); // Reduced threshold
   } else {
     if (macd.line < macd.signal) confirmations.push('MACD Bearish Crossover');
     if (macd.histogram < 0) confirmations.push('Negative Histogram');
-    if (macd.strength > 0.00001) confirmations.push('Strong MACD Signal'); // Increased threshold
+    if (macd.strength > 0.000005) confirmations.push('Strong MACD Signal'); // Reduced threshold
   }
   
   // ENHANCED: Require at least 2 confirmations
@@ -332,10 +332,10 @@ export const calculateConservativeTechnicalIndicators = (ohlcvData: OHLCVData[],
 export const calculateConservativeSignalScore = (indicators: TechnicalIndicators & { validationScore: number; confirmations: string[] }, signalType: 'BUY' | 'SELL'): { score: number; grade: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR'; isConservativeQuality: boolean } => {
   let score = indicators.validationScore;
   
-  // ENHANCED: Higher bonus requirements
-  if (indicators.confirmations.length >= 6) score += 4; // Increased requirement
-  else if (indicators.confirmations.length >= 4) score += 2; // Increased requirement
-  else if (indicators.confirmations.length >= 3) score += 1;
+  // RELAXED: Lower bonus requirements
+  if (indicators.confirmations.length >= 4) score += 4; // Reduced requirement
+  else if (indicators.confirmations.length >= 3) score += 2; // Reduced requirement
+  else if (indicators.confirmations.length >= 2) score += 1;
   
   // Bonus for strong trend alignment
   if (indicators.trendAlignment.isAligned && indicators.trendAlignment.strength > 0.008) { // Increased threshold
@@ -345,17 +345,16 @@ export const calculateConservativeSignalScore = (indicators: TechnicalIndicators
   // Normalize score to 0-15 scale (increased range)
   const normalizedScore = Math.min(score, 15);
   
-  // ENHANCED: Much stricter grading thresholds
+  // RELAXED: Lower grading thresholds  
   let grade: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR';
-  if (normalizedScore >= 12) grade = 'EXCELLENT'; // Much higher threshold
-  else if (normalizedScore >= 9) grade = 'GOOD'; // Much higher threshold
-  else if (normalizedScore >= 6) grade = 'FAIR'; // Much higher threshold
+  if (normalizedScore >= 8) grade = 'EXCELLENT'; // Reduced threshold
+  else if (normalizedScore >= 6) grade = 'GOOD'; // Reduced threshold
+  else if (normalizedScore >= 4) grade = 'FAIR'; // Reduced threshold
   else grade = 'POOR';
   
-  // ENHANCED: Only accept EXCELLENT signals with minimum 4 confirmations
-  const isConservativeQuality = grade === 'EXCELLENT' && 
-                               indicators.confirmations.length >= 4 &&
-                               indicators.trendAlignment.isAligned;
+  // RELAXED: Accept GOOD and EXCELLENT signals with minimum 2 confirmations
+  const isConservativeQuality = (grade === 'EXCELLENT' || grade === 'GOOD' || grade === 'FAIR') && 
+                               indicators.confirmations.length >= 2;
   
   return { score: normalizedScore, grade, isConservativeQuality };
 };

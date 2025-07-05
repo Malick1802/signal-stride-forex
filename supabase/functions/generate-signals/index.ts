@@ -209,9 +209,9 @@ serve(async (req) => {
 
           console.log(`🤖 ENHANCED AI analyzing ${symbol} - Price: ${pair.current_price}`);
 
-          // Get historical price data with extended history
+          // Get historical price data with relaxed history requirement
           const historicalData = await getHistoricalPriceData(supabase, symbol);
-          if (!historicalData || historicalData.length < 100) { // Increased minimum data requirement
+          if (!historicalData || historicalData.length < 50) { // Reduced minimum data requirement
             console.log(`⚠️ Insufficient historical data for ENHANCED AI analysis ${symbol}: ${historicalData?.length || 0} points`);
             return;
           }
@@ -219,7 +219,7 @@ serve(async (req) => {
           // Generate ENHANCED AI-powered signal analysis with market context
           const aiAnalysis = await generateEnhancedAISignalAnalysis(openAIApiKey, pair, historicalData);
           
-          if (!aiAnalysis || aiAnalysis.recommendation === 'HOLD' || aiAnalysis.qualityScore < 85) {
+          if (!aiAnalysis || aiAnalysis.recommendation === 'HOLD' || aiAnalysis.qualityScore < 70) {
             console.log(`🤖 ${symbol} ENHANCED AI recommendation: ${aiAnalysis?.recommendation || 'HOLD'} - Quality score: ${aiAnalysis?.qualityScore || 0} - No signal generated`);
             return;
           }
@@ -228,8 +228,8 @@ serve(async (req) => {
 
           const signal = await convertEnhancedAIAnalysisToSignal(pair, aiAnalysis, historicalData);
 
-          // STRICT quality filter - only accept highest quality signals
-          if (signal && signal.confidence >= 85 && aiAnalysis.qualityScore >= 85) { // Increased thresholds
+          // RELAXED quality filter - accept good quality signals
+          if (signal && signal.confidence >= 75 && aiAnalysis.qualityScore >= 70) { // Reduced thresholds
             generatedSignals.push(signal);
             console.log(`✅ Generated HIGH-QUALITY AI ${signal.type} signal for ${symbol} (${signal.confidence}% confidence, Quality: ${aiAnalysis.qualityScore})`);
           } else {
@@ -306,7 +306,7 @@ serve(async (req) => {
         maxNewSignalsPerRun: optimized ? 4 : 6,
         enhancedAI: true,
         qualityFiltered: true,
-        minimumQualityScore: 85,
+        minimumQualityScore: 70,
         concurrentLimit: batchSize,
         errors: errors.length > 0 ? errors.slice(0, 3) : undefined
       },
@@ -349,7 +349,7 @@ async function getHistoricalPriceData(supabase: any, symbol: string): Promise<Pr
       return null;
     }
 
-    if (!data || data.length < 100) {
+    if (!data || data.length < 50) {
       console.log(`Insufficient historical data for ${symbol}: ${data?.length || 0} points`);
       return null;
     }
@@ -401,8 +401,8 @@ async function generateEnhancedAISignalAnalysis(
     // Helper functions for pip calculations
     const isJPYPair = (symbol: string): boolean => symbol.includes('JPY');
     const getPipValue = (symbol: string): number => isJPYPair(symbol) ? 0.01 : 0.0001;
-    const minStopLossPips = 40; // Increased minimum
-    const minTakeProfitPips = 25; // Increased minimum
+    const minStopLossPips = 25; // Reduced minimum
+    const minTakeProfitPips = 15; // Reduced minimum
     
     const enhancedPrompt = `You are a professional forex trading analyst with 15+ years of experience. Analyze the following COMPREHENSIVE market data for ${symbol} and provide a HIGH-QUALITY trading recommendation.
 
@@ -438,22 +438,22 @@ ENHANCED ANALYSIS REQUIREMENTS:
 STRICT QUALITY REQUIREMENTS:
 - Minimum Stop Loss: ${minStopLossPips} pips (${(minStopLossPips * getPipValue(symbol)).toFixed(5)} price units)
 - Minimum Take Profit: ${minTakeProfitPips} pips (${(minTakeProfitPips * getPipValue(symbol)).toFixed(5)} price units)
-- Minimum R:R Ratio: 2.0:1
-- Confidence Threshold: 85%+
-- Quality Score Threshold: 85/100
+- Minimum R:R Ratio: 1.5:1
+- Confidence Threshold: 75%+
+- Quality Score Threshold: 70/100
 
-Only recommend BUY/SELL if ALL criteria are met:
-✓ Clear technical setup with 3+ confirmations
-✓ Favorable market regime and session
-✓ Proper risk-reward ratio (2:1 minimum)
-✓ Strong trend alignment
-✓ No conflicting economic events
-✓ Quality score 85+
+Only recommend BUY/SELL if criteria are met:
+✓ Clear technical setup with 2+ confirmations
+✓ Reasonable market conditions
+✓ Proper risk-reward ratio (1.5:1 minimum)
+✓ Trend alignment (not necessarily strong)
+✓ No major conflicting economic events
+✓ Quality score 70+
 
 Provide your analysis in this EXACT JSON format:
 {
   "recommendation": "BUY" | "SELL" | "HOLD",
-  "confidence": [number between 85-95 for signals, lower for HOLD],
+  "confidence": [number between 75-95 for signals, lower for HOLD],
   "entryPrice": [current price],
   "stopLoss": [price level meeting minimum ${minStopLossPips} pip requirement],
   "takeProfits": [array of 5 price levels with 2:1, 3:1, 4:1, 5:1, 6:1 ratios],
