@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useMobileConnectivity } from '@/hooks/useMobileConnectivity';
+import { useMobileAppLifecycle } from '@/hooks/useMobileAppLifecycle';
+import { useMobileUIState } from '@/hooks/usePersistentState';
 import { MobileNotificationManager } from '@/utils/mobileNotifications';
 import MobileErrorBoundary from './MobileErrorBoundary';
+import { MobileStateRecovery } from './MobileStateRecovery';
 import { Capacitor } from '@capacitor/core';
 import { MobileRouteManager } from '@/utils/mobileRouteManager';
 
@@ -96,11 +99,30 @@ const initializeNativeFeatures = async (
 
 export default function MobileAppWrapper({ children }: { children: React.ReactNode }) {
   const { isOnline, retryConnection } = useMobileConnectivity();
+  const { state: uiState, setState: setUIState } = useMobileUIState();
   const [initState, setInitState] = useState<InitializationState>({
     isInitialized: false,
     currentStep: 'Preparing...',
     error: null,
     progress: 0
+  });
+  const [showRecovery, setShowRecovery] = useState(false);
+
+  // Enhanced app lifecycle management
+  const { appState, clearStateRecovery, needsRecovery } = useMobileAppLifecycle({
+    onAppResume: () => {
+      console.log('📱 App resumed - refreshing state');
+      MobileRouteManager.handleAppResume();
+    },
+    onAppRestore: () => {
+      console.log('📱 App restored after long inactivity');
+      setShowRecovery(true);
+    },
+    onLongInactivity: (duration) => {
+      console.log(`📱 Long inactivity detected: ${duration}ms`);
+      setShowRecovery(true);
+    },
+    inactivityThreshold: 5 * 60 * 1000 // 5 minutes
   });
 
   const updateInitState = (updates: Partial<InitializationState>) => {
@@ -141,6 +163,19 @@ export default function MobileAppWrapper({ children }: { children: React.ReactNo
       mounted = false;
     };
   }, []);
+
+  // Show state recovery if needed
+  if (showRecovery || needsRecovery) {
+    return (
+      <MobileStateRecovery
+        onRecoveryComplete={() => {
+          setShowRecovery(false);
+          clearStateRecovery();
+        }}
+        inactivityDuration={appState.inactivityDuration}
+      />
+    );
+  }
 
   // Show offline screen with retry option
   if (!isOnline) {

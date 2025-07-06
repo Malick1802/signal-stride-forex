@@ -38,15 +38,23 @@ const MobileRouteDebugger: React.FC = () => {
     
     setDebugHistory(prev => [...prev.slice(-4), debugInfo]);
 
-    // Log additional mobile context
+    // Enhanced mobile context logging
     if (Capacitor.isNativePlatform()) {
       console.log('🔍 Mobile Route Context:', {
         pathname: location.pathname,
         search: location.search,
         hash: location.hash,
         state: location.state,
-        key: location.key
+        key: location.key,
+        appState: {
+          isVisible: !document.hidden,
+          timestamp: Date.now()
+        }
       });
+      
+      // Trigger route handling in MobileRouteManager
+      const { MobileRouteManager } = require('@/utils/mobileRouteManager');
+      MobileRouteManager.handleRouteChange(location.pathname);
     }
   }, [location]);
 
