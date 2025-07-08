@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useSignalNotifications } from '@/hooks/useSignalNotifications';
 import { useMobileUIState } from '@/hooks/usePersistentState';
 import { withMobilePerformanceMonitoring } from './MobilePerformanceMonitor';
+import { MobileStateRecovery } from './MobileStateRecovery';
 import LandingPage from './LandingPage';
 import AuthPage from './AuthPage';
 import MobileLoadingScreen from './MobileLoadingScreen';
