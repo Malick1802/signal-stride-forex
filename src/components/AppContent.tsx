@@ -1,9 +1,6 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useSignalNotifications } from '@/hooks/useSignalNotifications';
-import { useMobileUIState } from '@/hooks/usePersistentState';
-import { withMobilePerformanceMonitoring } from './MobilePerformanceMonitor';
-import { MobileStateRecovery } from './MobileStateRecovery';
 import LandingPage from './LandingPage';
 import AuthPage from './AuthPage';
 import MobileLoadingScreen from './MobileLoadingScreen';
@@ -37,8 +34,7 @@ type ViewType = 'landing' | 'auth' | 'dashboard' | 'subscription' | 'affiliate' 
 
 const AppContent = () => {
   const { user, loading, subscription, session } = useAuth();
-  const { state: uiState, setState: setUIState } = useMobileUIState();
-  const [currentView, setCurrentView] = useState<ViewType>(uiState.currentView as ViewType || 'landing');
+  const [currentView, setCurrentView] = useState<ViewType>('landing');
   const [isAdmin, setIsAdmin] = useState(false);
 
   // Initialize signal notifications for authenticated users
@@ -129,16 +125,12 @@ const AppContent = () => {
   // Create navigation handlers that match the expected string type
   const handleLandingNavigation = (view: string) => {
     console.log('AppContent: Landing navigation to:', view);
-    const newView = view as ViewType;
-    setCurrentView(newView);
-    setUIState(prev => ({ ...prev, currentView: newView }));
+    setCurrentView(view as ViewType);
   };
 
   const handleAuthNavigation = (view: string) => {
     console.log('AppContent: Auth navigation to:', view);
-    const newView = view as ViewType;
-    setCurrentView(newView);
-    setUIState(prev => ({ ...prev, currentView: newView }));
+    setCurrentView(view as ViewType);
   };
 
   if (loading) {
@@ -184,4 +176,4 @@ const AppContent = () => {
   );
 };
 
-export default withMobilePerformanceMonitoring(AppContent);
+export default AppContent;

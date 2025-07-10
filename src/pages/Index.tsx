@@ -1,5 +1,6 @@
 
 import React, { useEffect } from 'react';
+import { AuthProvider } from '../contexts/AuthContext';
 import AppContent from '../components/AppContent';
 import { Capacitor } from '@capacitor/core';
 
@@ -10,7 +11,11 @@ const Index = () => {
     console.log('🛣️ Current location:', window.location.href);
   }, []);
 
-  return <AppContent />;
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
+  );
 };
 
 export default Index;

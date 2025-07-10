@@ -67,82 +67,47 @@ export const useBackgroundSync = (options: BackgroundSyncOptions = {}) => {
   }, [isConnected, syncInterval, cacheSignals, onSignalsFetched]);
 
   const setupAppStateListeners = useCallback(() => {
-    const cleanupFns: (() => void)[] = [];
-    
-    // Enhanced visibility change handling
+    // Listen for visibility changes (web)
     const handleVisibilityChange = () => {
-      const isVisible = !document.hidden;
-      console.log(`📱 Visibility changed: ${isVisible ? 'visible' : 'hidden'}`);
-      
-      if (isVisible && isConnected) {
-        console.log('📱 App became visible - triggering sync with delay');
-        // Add delay to allow app to fully resume
-        setTimeout(performBackgroundSync, 1000);
+      if (!document.hidden && isConnected) {
+        console.log('📱 App became visible - triggering sync');
+        performBackgroundSync();
       }
     };
 
-    // Enhanced focus handling
+    // Listen for focus events
     const handleFocus = () => {
       if (isConnected) {
         console.log('📱 App focused - triggering sync');
-        setTimeout(performBackgroundSync, 500);
-      }
-    };
-
-    // Enhanced page show handling (for mobile back/forward)
-    const handlePageShow = (event: PageTransitionEvent) => {
-      if (event.persisted && isConnected) {
-        console.log('📱 Page restored from cache - triggering sync');
-        setTimeout(performBackgroundSync, 800);
+        performBackgroundSync();
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('focus', handleFocus);
-    window.addEventListener('pageshow', handlePageShow);
-    
-    cleanupFns.push(() => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-      window.removeEventListener('focus', handleFocus);
-      window.removeEventListener('pageshow', handlePageShow);
-    });
 
-    // Enhanced Capacitor app state handling
+    // For Capacitor apps, listen to app state changes if available
     if (Capacitor.isNativePlatform()) {
-      const setupNativeListeners = async () => {
-        try {
-          const { App } = await import('@capacitor/app');
-          
-          const stateListener = await App.addListener('appStateChange', ({ isActive }) => {
-            console.log(`📱 Native app state changed: ${isActive ? 'active' : 'inactive'}`);
+      try {
+        // Use Capacitor's App plugin for native app state changes
+        import('@capacitor/app').then(({ App }) => {
+          App.addListener('appStateChange', ({ isActive }) => {
             if (isActive && isConnected) {
-              console.log('📱 Native app became active - triggering comprehensive sync');
-              // More aggressive sync after app resume
-              setTimeout(performBackgroundSync, 1500);
+              console.log('📱 Native app became active - triggering sync');
+              performBackgroundSync();
             }
           });
-
-          const resumeListener = await App.addListener('resume', () => {
-            console.log('📱 Native app resumed');
-            if (isConnected) {
-              setTimeout(performBackgroundSync, 2000);
-            }
-          });
-
-          cleanupFns.push(() => {
-            stateListener.remove();
-            resumeListener.remove();
-          });
-        } catch (error) {
-          console.warn('⚠️ Native app state monitoring not available:', error);
-        }
-      };
-
-      setupNativeListeners();
+        }).catch(() => {
+          console.warn('⚠️ App plugin not available');
+        });
+      } catch (error) {
+        console.warn('⚠️ Native app state monitoring not available:', error);
+      }
     }
 
     return () => {
-      cleanupFns.forEach(cleanup => cleanup());
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', handleFocus);
     };
   }, [isConnected, performBackgroundSync]);
 
