@@ -77,21 +77,33 @@ export const useTradingSignals = () => {
       Logger.debug('signals', `Active centralized signals: ${centralizedSignals?.length || 0}`);
 
       if (!centralizedSignals || centralizedSignals.length === 0) {
-        Logger.info('signals', 'No active centralized signals found - triggering automatic generation');
+        Logger.info('signals', 'No active centralized signals found - checking auto-generation eligibility');
         setSignals([]);
         setSignalDistribution({ buy: 0, sell: 0 });
         setLastUpdate(new Date().toLocaleTimeString());
         
-        // Automatically trigger signal generation when no signals are found
+        // Smart auto-generation with cooldown to prevent loops
         if (!isInitialLoad) {
-          Logger.info('signals', 'Auto-generating signals due to empty signal set');
-          setTimeout(async () => {
-            try {
-              await triggerSignalGeneration();
-            } catch (error) {
-              Logger.error('signals', 'Auto-generation failed:', error);
-            }
-          }, 2000); // Wait 2 seconds before auto-generating
+          const lastAutoGenKey = 'lastAutoGeneration';
+          const lastAutoGen = localStorage.getItem(lastAutoGenKey);
+          const now = Date.now();
+          const cooldownPeriod = 5 * 60 * 1000; // 5 minutes cooldown
+          
+          if (!lastAutoGen || (now - parseInt(lastAutoGen)) > cooldownPeriod) {
+            Logger.info('signals', 'Auto-generating signals due to empty signal set (cooldown satisfied)');
+            localStorage.setItem(lastAutoGenKey, now.toString());
+            
+            setTimeout(async () => {
+              try {
+                await triggerSignalGeneration();
+              } catch (error) {
+                Logger.error('signals', 'Auto-generation failed:', error);
+              }
+            }, 2000);
+          } else {
+            const remainingCooldown = Math.ceil((cooldownPeriod - (now - parseInt(lastAutoGen))) / 1000 / 60);
+            Logger.info('signals', `Auto-generation on cooldown for ${remainingCooldown} more minutes`);
+          }
         }
         return;
       }
@@ -309,12 +321,12 @@ export const useTradingSignals = () => {
 
   const triggerSignalGeneration = useCallback(async () => {
     try {
-      Logger.info('signals', 'Triggering signal generation...');
+      Logger.info('signals', 'Triggering optimized signal generation...');
       
-      // First check if we can generate signals
+      // Enhanced debugging for generation attempts
       const { data: existingSignals, error: countError } = await supabase
         .from('trading_signals')
-        .select('id')
+        .select('id, symbol, type, confidence, created_at')
         .eq('status', 'active')
         .eq('is_centralized', true)
         .is('user_id', null);
@@ -323,13 +335,35 @@ export const useTradingSignals = () => {
         Logger.error('signals', 'Error checking existing signals:', countError);
       } else {
         Logger.info('signals', `Current active signals: ${existingSignals?.length || 0}/${MAX_ACTIVE_SIGNALS}`);
+        if (existingSignals && existingSignals.length > 0) {
+          Logger.debug('signals', 'Existing signals breakdown:', existingSignals.map(s => `${s.symbol} ${s.type} (${s.confidence}%)`));
+        }
       }
+      
+      // Check market data availability before attempting generation
+      const { data: marketCheck, error: marketError } = await supabase
+        .from('centralized_market_state')
+        .select('symbol, current_price, last_update')
+        .limit(5);
+        
+      if (marketError || !marketCheck || marketCheck.length === 0) {
+        Logger.error('signals', 'No market data available for signal generation');
+        toast({
+          title: "Generation Skipped",
+          description: "No market data available. Please check market data feed.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      Logger.info('signals', `Market data available for ${marketCheck.length} pairs, proceeding with generation`);
       
       const { data: signalResult, error: signalError } = await supabase.functions.invoke('generate-signals', {
         body: { 
           force: true, // Force generation even if at limit
           debug: true,
-          optimized: true
+          optimized: true,
+          trigger: 'manual_optimized'
         }
       });
       
@@ -338,25 +372,48 @@ export const useTradingSignals = () => {
         throw signalError;
       }
       
-      Logger.info('signals', 'Signal generation result:', signalResult);
+      Logger.info('signals', 'OPTIMIZED Signal generation result:', signalResult);
       
-      // Wait for the signals to be processed
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Enhanced result processing with detailed logging
+      const signalsGenerated = signalResult?.stats?.signalsGenerated || 0;
+      const signalsAttempted = signalResult?.stats?.totalGenerated || 0;
+      const totalActiveSignals = signalResult?.stats?.totalActiveSignals || 0;
+      const errors = signalResult?.stats?.errors || [];
+      
+      Logger.info('signals', `Generation summary: ${signalsGenerated} saved/${signalsAttempted} attempted, ${totalActiveSignals} total active`);
+      
+      if (errors.length > 0) {
+        Logger.warn('signals', 'Generation errors:', errors);
+      }
+      
+      // Wait for the signals to be processed and refresh
+      await new Promise(resolve => setTimeout(resolve, 3000));
       await fetchSignals();
       
-      const signalsGenerated = signalResult?.stats?.signalsGenerated || 0;
-      const totalActiveSignals = signalResult?.stats?.totalActiveSignals || 0;
-      
-      toast({
-        title: "✅ Signal Generation Complete",
-        description: `Generated ${signalsGenerated} new signals. Total active: ${totalActiveSignals}`,
-      });
+      // Enhanced user feedback
+      if (signalsGenerated > 0) {
+        toast({
+          title: "✅ Optimized Generation Complete",
+          description: `Generated ${signalsGenerated} quality signals. Total active: ${totalActiveSignals}`,
+        });
+      } else if (signalsAttempted > 0) {
+        toast({
+          title: "⚠️ Generation Complete - No Quality Signals",
+          description: `Analyzed ${signalsAttempted} opportunities but none met quality standards. Market conditions may not favor new signals currently.`,
+          variant: "destructive"
+        });
+      } else {
+        toast({
+          title: "ℹ️ Generation Complete - No Opportunities",
+          description: "No signal opportunities found in current market conditions. This is normal during low-volatility periods.",
+        });
+      }
       
     } catch (error) {
-      Logger.error('signals', 'Error in signal generation:', error);
+      Logger.error('signals', 'Error in optimized signal generation:', error);
       toast({
         title: "Generation Failed",
-        description: `Failed to generate signals: ${error.message}`,
+        description: `Signal generation error: ${error.message}`,
         variant: "destructive"
       });
       throw error;

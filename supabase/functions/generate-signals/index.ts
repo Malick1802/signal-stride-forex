@@ -219,21 +219,35 @@ serve(async (req) => {
           // Generate ENHANCED AI-powered signal analysis with market context
           const aiAnalysis = await generateEnhancedAISignalAnalysis(openAIApiKey, pair, historicalData);
           
-          if (!aiAnalysis || aiAnalysis.recommendation === 'HOLD' || aiAnalysis.qualityScore < 70) {
+          if (!aiAnalysis || aiAnalysis.recommendation === 'HOLD') {
             console.log(`🤖 ${symbol} ENHANCED AI recommendation: ${aiAnalysis?.recommendation || 'HOLD'} - Quality score: ${aiAnalysis?.qualityScore || 0} - No signal generated`);
             return;
           }
 
-          console.log(`🤖 ${symbol} ENHANCED AI recommendation: ${aiAnalysis.recommendation} (${aiAnalysis.confidence}% confidence, Quality: ${aiAnalysis.qualityScore})`);
+          // Enhanced debugging for AI analysis results
+          console.log(`🤖 ${symbol} ENHANCED AI ANALYSIS DETAILS:`);
+          console.log(`   - Recommendation: ${aiAnalysis.recommendation}`);
+          console.log(`   - Confidence: ${aiAnalysis.confidence}%`);
+          console.log(`   - Quality Score: ${aiAnalysis.qualityScore}/100`);
+          console.log(`   - Entry Price: ${aiAnalysis.entryPrice}`);
+          console.log(`   - Stop Loss: ${aiAnalysis.stopLoss} (${Math.abs(aiAnalysis.entryPrice - aiAnalysis.stopLoss) / (pair.symbol.includes('JPY') ? 0.01 : 0.0001)} pips)`);
+          console.log(`   - Take Profit 1: ${aiAnalysis.takeProfits[0]} (${Math.abs(aiAnalysis.takeProfits[0] - aiAnalysis.entryPrice) / (pair.symbol.includes('JPY') ? 0.01 : 0.0001)} pips)`);
+          console.log(`   - R:R Ratio: ${(Math.abs(aiAnalysis.takeProfits[0] - aiAnalysis.entryPrice) / Math.abs(aiAnalysis.entryPrice - aiAnalysis.stopLoss)).toFixed(2)}:1`);
+          console.log(`   - Market Regime: ${aiAnalysis.marketRegime}`);
+          console.log(`   - Technical Factors: ${aiAnalysis.technicalFactors?.join(', ')}`);
 
           const signal = await convertEnhancedAIAnalysisToSignal(pair, aiAnalysis, historicalData);
 
-          // RELAXED quality filter - accept good quality signals
-          if (signal && signal.confidence >= 75 && aiAnalysis.qualityScore >= 70) { // Reduced thresholds
+          // ALIGNED quality filter with debugging
+          if (signal && signal.confidence >= 75 && aiAnalysis.qualityScore >= 70) {
             generatedSignals.push(signal);
-            console.log(`✅ Generated HIGH-QUALITY AI ${signal.type} signal for ${symbol} (${signal.confidence}% confidence, Quality: ${aiAnalysis.qualityScore})`);
+            console.log(`✅ ACCEPTED: Generated QUALITY AI ${signal.type} signal for ${symbol} (${signal.confidence}% confidence, Quality: ${aiAnalysis.qualityScore}/100)`);
           } else {
-            console.log(`❌ ${symbol} ENHANCED AI signal generation failed - Quality standards not met (Confidence: ${signal?.confidence || 0}, Quality: ${aiAnalysis.qualityScore})`);
+            console.log(`❌ REJECTED: ${symbol} signal failed validation:`);
+            console.log(`   - Signal exists: ${!!signal}`);
+            console.log(`   - Signal confidence: ${signal?.confidence || 'N/A'} (need >= 75)`);
+            console.log(`   - AI quality score: ${aiAnalysis.qualityScore} (need >= 70)`);
+            console.log(`   - Rejection reason: ${!signal ? 'Signal conversion failed' : signal.confidence < 75 ? 'Low confidence' : 'Low quality score'}`);
           }
         } catch (error) {
           console.error(`❌ Error in ENHANCED AI analysis for ${symbol}:`, error);
@@ -398,11 +412,19 @@ async function generateEnhancedAISignalAnalysis(
     // Economic calendar context (simplified)
     const economicContext = getEconomicContext(symbol);
     
-    // Helper functions for pip calculations
+    // Session-aware pip calculations for realistic requirements
     const isJPYPair = (symbol: string): boolean => symbol.includes('JPY');
     const getPipValue = (symbol: string): number => isJPYPair(symbol) ? 0.01 : 0.0001;
-    const minStopLossPips = 25; // Reduced minimum
-    const minTakeProfitPips = 15; // Reduced minimum
+    
+    // Dynamic pip requirements based on session and market conditions
+    const sessionInfo = getCurrentSessionAnalysis();
+    const baseStopLossPips = sessionInfo.session === 'Asian' ? 15 : 20; // Lower for low volatility sessions
+    const baseTakeProfitPips = sessionInfo.session === 'Asian' ? 10 : 15; // More achievable targets
+    
+    console.log(`🤖 ${symbol} session-adjusted pip requirements - SL: ${baseStopLossPips}, TP: ${baseTakeProfitPips} (Session: ${sessionInfo.session})`);
+    
+    const minStopLossPips = Math.max(baseStopLossPips, Math.floor(atr / getPipValue(symbol) * 1.5)); // ATR-based minimum
+    const minTakeProfitPips = baseTakeProfitPips;
     
     const enhancedPrompt = `You are a professional forex trading analyst with 15+ years of experience. Analyze the following COMPREHENSIVE market data for ${symbol} and provide a HIGH-QUALITY trading recommendation.
 
@@ -435,28 +457,28 @@ ENHANCED ANALYSIS REQUIREMENTS:
 5. Economic Impact: Any major economic events affecting this pair?
 6. Technical Confluence: Multiple technical factors confirming the setup?
 
-STRICT QUALITY REQUIREMENTS:
+OPTIMIZED QUALITY REQUIREMENTS (Session: ${sessionInfo.session}):
 - Minimum Stop Loss: ${minStopLossPips} pips (${(minStopLossPips * getPipValue(symbol)).toFixed(5)} price units)
 - Minimum Take Profit: ${minTakeProfitPips} pips (${(minTakeProfitPips * getPipValue(symbol)).toFixed(5)} price units)
-- Minimum R:R Ratio: 1.5:1
-- Confidence Threshold: 75%+
-- Quality Score Threshold: 70/100
+- Minimum R:R Ratio: 1.5:1 (relaxed for realistic market conditions)
+- Confidence Threshold: 75%+ (achievable standard)
+- Quality Score Threshold: 70/100 (good quality, not exceptional)
 
-Only recommend BUY/SELL if criteria are met:
-✓ Clear technical setup with 2+ confirmations
-✓ Reasonable market conditions
-✓ Proper risk-reward ratio (1.5:1 minimum)
-✓ Trend alignment (not necessarily strong)
-✓ No major conflicting economic events
-✓ Quality score 70+
+Recommend BUY/SELL if reasonable criteria are met:
+✓ Good technical setup with 2+ confirmations
+✓ Acceptable market conditions (not perfect)
+✓ Achievable risk-reward ratio (1.5:1+ preferred, 1.3:1 acceptable)
+✓ General trend alignment (ranging markets acceptable)
+✓ No major opposing economic events
+✓ Quality score 70+ (good, practical standard)
 
 Provide your analysis in this EXACT JSON format:
 {
   "recommendation": "BUY" | "SELL" | "HOLD",
-  "confidence": [number between 75-95 for signals, lower for HOLD],
+  "confidence": [number between 75-95 for BUY/SELL signals, can be lower for HOLD],
   "entryPrice": [current price],
   "stopLoss": [price level meeting minimum ${minStopLossPips} pip requirement],
-  "takeProfits": [array of 5 price levels with 2:1, 3:1, 4:1, 5:1, 6:1 ratios],
+  "takeProfits": [array of 5 price levels with reasonable ratios: 1.5:1, 2:1, 2.5:1, 3:1, 4:1],
   "reasoning": "[detailed explanation of the setup with specific technical factors]",
   "technicalFactors": ["factor1", "factor2", "factor3", "factor4+"],
   "riskAssessment": "[comprehensive risk evaluation including session, volatility, economic factors]",
@@ -465,7 +487,7 @@ Provide your analysis in this EXACT JSON format:
   "qualityScore": [number 0-100 based on setup quality, confluence, and market conditions]
 }
 
-CRITICAL: Only provide BUY/SELL if quality score >= 85 and confidence >= 85. Use HOLD for anything below these thresholds.`;
+CRITICAL: Provide BUY/SELL if quality score >= 70 and confidence >= 75. This is a practical standard for real market conditions. Use HOLD only if below these achievable thresholds or if no clear setup exists.`;
 
     console.log(`🤖 Sending ENHANCED AI analysis request for ${symbol}...`);
 
@@ -480,7 +502,7 @@ CRITICAL: Only provide BUY/SELL if quality score >= 85 and confidence >= 85. Use
         messages: [
           {
             role: 'system',
-            content: 'You are a professional forex analyst with 15+ years of experience. You only recommend trades with exceptional quality and confluence. Always respond with valid JSON only.'
+            content: 'You are a professional forex analyst with 15+ years of experience. You recommend trades with good quality setups that have realistic profit potential in current market conditions. Always respond with valid JSON only.'
           },
           {
             role: 'user',
@@ -516,13 +538,14 @@ CRITICAL: Only provide BUY/SELL if quality score >= 85 and confidence >= 85. Use
       }
       
       if (analysis.recommendation !== 'HOLD') {
-        if (analysis.confidence < 85 || analysis.confidence > 95) {
-          console.log(`🤖 ${symbol} ENHANCED AI confidence ${analysis.confidence}% below threshold - converting to HOLD`);
-          return { ...analysis, recommendation: 'HOLD' as const, qualityScore: Math.min(analysis.qualityScore || 0, 75) };
+        // ALIGNED validation with code requirements
+        if (analysis.confidence < 75 || analysis.confidence > 95) {
+          console.log(`🤖 ${symbol} ENHANCED AI confidence ${analysis.confidence}% below 75% threshold - converting to HOLD`);
+          return { ...analysis, recommendation: 'HOLD' as const, qualityScore: Math.min(analysis.qualityScore || 0, 69) };
         }
         
-        if ((analysis.qualityScore || 0) < 85) {
-          console.log(`🤖 ${symbol} ENHANCED AI quality score ${analysis.qualityScore || 0} below threshold - converting to HOLD`);
+        if ((analysis.qualityScore || 0) < 70) {
+          console.log(`🤖 ${symbol} ENHANCED AI quality score ${analysis.qualityScore || 0} below 70 threshold - converting to HOLD`);
           return { ...analysis, recommendation: 'HOLD' as const };
         }
         
@@ -540,11 +563,15 @@ CRITICAL: Only provide BUY/SELL if quality score >= 85 and confidence >= 85. Use
           return { ...analysis, recommendation: 'HOLD' as const };
         }
         
-        // Validate R:R ratio
+        // Validate R:R ratio with more flexible requirements
         const rrRatio = takeProfitPips / stopLossPips;
-        if (rrRatio < 2.0) {
-          console.log(`🤖 ${symbol} ENHANCED AI R:R ratio ${rrRatio.toFixed(2)}:1 below 2:1 minimum`);
+        if (rrRatio < 1.3) {
+          console.log(`🤖 ${symbol} ENHANCED AI R:R ratio ${rrRatio.toFixed(2)}:1 below 1.3:1 minimum - converting to HOLD`);
           return { ...analysis, recommendation: 'HOLD' as const };
+        } else if (rrRatio < 1.5) {
+          console.log(`🤖 ${symbol} ENHANCED AI R:R ratio ${rrRatio.toFixed(2)}:1 acceptable (above 1.3:1 minimum)`);
+        } else {
+          console.log(`🤖 ${symbol} ENHANCED AI R:R ratio ${rrRatio.toFixed(2)}:1 good (meets 1.5:1+ target)`);
         }
       }
       
@@ -654,7 +681,9 @@ async function convertEnhancedAIAnalysisToSignal(
   historicalData: PricePoint[]
 ): Promise<SignalData | null> {
   try {
-    if (aiAnalysis.recommendation === 'HOLD' || aiAnalysis.qualityScore < 85) {
+    // ALIGNED with harmonized requirements
+    if (aiAnalysis.recommendation === 'HOLD' || aiAnalysis.qualityScore < 70) {
+      console.log(`🤖 Converting to signal rejected - Recommendation: ${aiAnalysis.recommendation}, Quality: ${aiAnalysis.qualityScore}`);
       return null;
     }
 
