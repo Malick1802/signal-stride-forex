@@ -2,6 +2,7 @@
 import React, { useEffect } from 'react';
 import { AuthProvider } from '../contexts/AuthContext';
 import AppContent from '../components/AppContent';
+import ProgressiveAuthProvider from '../components/ProgressiveAuthProvider';
 import { Capacitor } from '@capacitor/core';
 
 const Index = () => {
@@ -13,7 +14,9 @@ const Index = () => {
 
   return (
     <AuthProvider>
-      <AppContent />
+      <ProgressiveAuthProvider>
+        <AppContent />
+      </ProgressiveAuthProvider>
     </AuthProvider>
   );
 };

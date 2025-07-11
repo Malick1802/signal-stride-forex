@@ -85,11 +85,13 @@ export const useMobileConnectivity = () => {
       retryCount: prev.retryCount + 1
     }));
     
-    // Force a fresh connectivity check
-    await checkConnectivity();
-    
-    // Don't reload the page - just update the state
-    console.log('✅ Connection retry completed');
+    try {
+      // Force a fresh connectivity check
+      await checkConnectivity();
+      console.log('✅ Connection retry completed');
+    } catch (error) {
+      console.error('❌ Connection retry failed:', error);
+    }
   }, [checkConnectivity]);
 
   useEffect(() => {

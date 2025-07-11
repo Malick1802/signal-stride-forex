@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import MobileLoadingScreen from './MobileLoadingScreen';
@@ -33,31 +32,52 @@ const ProgressiveAuthProvider: React.FC<ProgressiveAuthProviderProps> = ({ child
   });
 
   useEffect(() => {
-    // Progressive loading stages
-    if (!loading && user) {
-      setAuthState(prev => ({
-        ...prev,
-        hasBasicAuth: true,
-        loadingStage: 'subscription'
-      }));
-      
-      // Small delay to show progress
-      setTimeout(() => {
-        setAuthState(prev => ({
-          ...prev,
-          hasSubscription: !!subscription,
-          loadingStage: 'complete',
-          isInitialized: true
-        }));
-      }, 300);
-    } else if (!loading && !user) {
+    let timeout: NodeJS.Timeout;
+    
+    // Add timeout to prevent infinite loading
+    timeout = setTimeout(() => {
+      console.warn('ProgressiveAuth: Timeout reached, proceeding anyway');
       setAuthState({
         isInitialized: true,
-        hasBasicAuth: false,
-        hasSubscription: false,
+        hasBasicAuth: !!user,
+        hasSubscription: !!subscription,
         loadingStage: 'complete'
       });
+    }, 10000); // 10 second timeout
+    
+    // Progressive loading stages
+    if (!loading) {
+      clearTimeout(timeout);
+      
+      if (user) {
+        setAuthState(prev => ({
+          ...prev,
+          hasBasicAuth: true,
+          loadingStage: 'subscription'
+        }));
+        
+        // Small delay to show progress
+        setTimeout(() => {
+          setAuthState({
+            isInitialized: true,
+            hasBasicAuth: true,
+            hasSubscription: !!subscription,
+            loadingStage: 'complete'
+          });
+        }, 300);
+      } else {
+        setAuthState({
+          isInitialized: true,
+          hasBasicAuth: false,
+          hasSubscription: false,
+          loadingStage: 'complete'
+        });
+      }
     }
+    
+    return () => {
+      if (timeout) clearTimeout(timeout);
+    };
   }, [user, subscription, loading]);
 
   const getLoadingMessage = () => {

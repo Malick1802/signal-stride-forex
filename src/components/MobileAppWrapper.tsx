@@ -95,7 +95,6 @@ const initializeNativeFeatures = async (
 };
 
 export default function MobileAppWrapper({ children }: { children: React.ReactNode }) {
-  const { isOnline, connectionType, retryConnection } = useMobileConnectivity();
   const [initState, setInitState] = useState<InitializationState>({
     isInitialized: false,
     currentStep: 'Preparing...',
@@ -109,13 +108,29 @@ export default function MobileAppWrapper({ children }: { children: React.ReactNo
 
   useEffect(() => {
     let mounted = true;
+    let timeout: NodeJS.Timeout;
     
     console.log('🚀 MobileAppWrapper: Starting initialization');
     
     const init = async () => {
       try {
+        // Add timeout to prevent infinite loading
+        timeout = setTimeout(() => {
+          if (mounted) {
+            console.warn('⚠️ Initialization timeout, proceeding anyway');
+            setInitState({
+              isInitialized: true,
+              currentStep: 'Ready (timeout fallback)',
+              error: 'Some features may be limited',
+              progress: 100
+            });
+          }
+        }, 10000); // 10 second timeout
+        
         const success = await initializeNativeFeatures(updateInitState);
+        
         if (mounted) {
+          clearTimeout(timeout);
           setInitState(prev => ({
             ...prev,
             isInitialized: true,
@@ -125,6 +140,7 @@ export default function MobileAppWrapper({ children }: { children: React.ReactNo
       } catch (error) {
         console.error('🚨 Critical initialization error:', error);
         if (mounted) {
+          clearTimeout(timeout);
           setInitState(prev => ({
             ...prev,
             isInitialized: true,
@@ -139,31 +155,30 @@ export default function MobileAppWrapper({ children }: { children: React.ReactNo
     
     return () => {
       mounted = false;
+      if (timeout) clearTimeout(timeout);
     };
   }, []);
 
-  // Show detailed loading screen while initializing
+  // Show simple loading screen while initializing
   if (!initState.isInitialized) {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 text-white">
         <div className="text-center max-w-sm mx-auto px-4">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-400 mb-6 mx-auto"></div>
-          
           <h1 className="text-xl font-bold mb-2">ForexAlert Pro</h1>
           <p className="text-gray-300 mb-4">{initState.currentStep}</p>
           
-          {/* Progress bar */}
-          <div className="w-full bg-gray-700 rounded-full h-2 mb-4">
-            <div 
-              className="bg-emerald-400 h-2 rounded-full transition-all duration-300" 
-              style={{ width: `${initState.progress}%` }}
-            ></div>
-          </div>
+          {initState.progress > 0 && (
+            <div className="w-full bg-gray-700 rounded-full h-2 mb-4">
+              <div 
+                className="bg-emerald-400 h-2 rounded-full transition-all duration-300" 
+                style={{ width: `${initState.progress}%` }}
+              ></div>
+            </div>
+          )}
           
-          {Capacitor.isNativePlatform() && (
-            <p className="text-sm text-gray-400">
-              Loading mobile features on {Capacitor.getPlatform()}
-            </p>
+          {initState.error && (
+            <p className="text-yellow-400 text-sm mt-2">{initState.error}</p>
           )}
         </div>
       </div>
@@ -172,22 +187,7 @@ export default function MobileAppWrapper({ children }: { children: React.ReactNo
 
   return (
     <MobileErrorBoundary>
-      {!isOnline && (
-        <div className="fixed top-0 left-0 right-0 z-50 bg-red-500/90 text-white text-center py-2 text-sm">
-          <div className="flex items-center justify-center gap-2">
-            <span>No connection ({connectionType})</span>
-            <button
-              onClick={retryConnection}
-              className="underline hover:no-underline"
-            >
-              Retry
-            </button>
-          </div>
-        </div>
-      )}
-      <div className={!isOnline ? 'pt-10' : ''}>
-        {children}
-      </div>
+      {children}
     </MobileErrorBoundary>
   );
 }

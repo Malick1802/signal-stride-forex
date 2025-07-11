@@ -204,11 +204,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     console.log('AuthContext: Initializing auth state');
+    let mounted = true;
+    let initTimeout: NodeJS.Timeout;
+    
+    // Set timeout to prevent infinite loading
+    initTimeout = setTimeout(() => {
+      if (mounted) {
+        console.warn('AuthContext: Initialization timeout, proceeding without auth');
+        setLoading(false);
+      }
+    }, 15000); // 15 second timeout
     
     // Set up auth state listener FIRST
     const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
+        if (!mounted) return;
+        
         console.log('AuthContext: Auth state changed:', event, session?.user?.email || 'no user');
+        
+        // Clear timeout on first auth event
+        if (initTimeout) {
+          clearTimeout(initTimeout);
+          initTimeout = null as any;
+        }
         
         // Update state immediately
         setSession(session);
@@ -219,7 +237,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('AuthContext: User signed in, checking subscription');
           // Use setTimeout to avoid blocking the auth state change
           setTimeout(() => {
-            checkSubscription(false);
+            if (mounted) checkSubscription(false);
           }, 100);
         } else if (!session) {
           console.log('AuthContext: No session, clearing subscription');
@@ -227,15 +245,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           clearSubscriptionCache();
         }
         
-        // Set loading to false after first auth state change
+        // Set loading to false after auth state change
         setLoading(false);
       }
     );
 
     // THEN check for existing session
     supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (!mounted) return;
+      
       if (error) {
         console.error('AuthContext: Error getting initial session:', error);
+        setLoading(false);
+        return;
       }
       
       console.log('AuthContext: Initial session check:', session?.user?.email || 'no user');
@@ -244,20 +266,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       if (session?.user) {
         console.log('AuthContext: Existing session found, checking subscription');
-        // Use a small delay to ensure everything is initialized
         setTimeout(() => {
-          checkSubscription(false);
+          if (mounted) checkSubscription(false);
         }, 200);
       } else {
         console.log('AuthContext: No existing session');
       }
       
       setLoading(false);
+      
+      // Clear timeout since we got a response
+      if (initTimeout) {
+        clearTimeout(initTimeout);
+        initTimeout = null as any;
+      }
+    }).catch((error) => {
+      if (!mounted) return;
+      console.error('AuthContext: Session check failed:', error);
+      setLoading(false);
+      if (initTimeout) {
+        clearTimeout(initTimeout);
+        initTimeout = null as any;
+      }
     });
 
     return () => {
+      mounted = false;
       console.log('AuthContext: Cleaning up auth subscription');
       authSubscription.unsubscribe();
+      if (initTimeout) {
+        clearTimeout(initTimeout);
+      }
     };
   }, []);
 
