@@ -1,11 +1,9 @@
 
-import React, { useEffect } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
-import { AuthProvider } from "./contexts/AuthContext";
 import MobileAppWrapper from "./components/MobileAppWrapper";
 import MobileDebugger from "./components/MobileDebugger";
 import MobileRouteDebugger from "./components/MobileRouteDebugger";
@@ -13,7 +11,7 @@ import Index from "./pages/Index";
 import TestPage from "./pages/TestPage";
 import NotFound from "./pages/NotFound";
 import { Capacitor } from '@capacitor/core';
-
+import { useEffect } from 'react';
 import { MobileRouteManager } from './utils/mobileRouteManager';
 
 // Import mobile app CSS
@@ -48,30 +46,28 @@ const App = () => {
   return (
     <div className={`mobile-app-wrapper ${Capacitor.isNativePlatform() ? 'capacitor-app' : ''}`}>
       <QueryClientProvider client={queryClient}>
-        <TooltipProvider delayDuration={300}>
-          <AuthProvider>
-            <MobileAppWrapper>
-              <MobileDebugger />
-              <Toaster />
-              <Sonner />
-              <HashRouter>
-                <MobileRouteDebugger />
-                <Routes>
-                  <Route path="/" element={<Index />} />
-                  <Route path="/test" element={<TestPage />} />
-                  {/* Handle common mobile routing issues */}
-                  <Route path="/index.html" element={<Navigate to="/" replace />} />
-                  <Route path="/app" element={<Navigate to="/" replace />} />
-                  <Route path="/android_asset/www/index.html" element={<Navigate to="/" replace />} />
-                  <Route path="/www/*" element={<Navigate to="/" replace />} />
-                  <Route path="/app/*" element={<Navigate to="/" replace />} />
-                  <Route path="/capacitor/*" element={<Navigate to="/" replace />} />
-                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </HashRouter>
-            </MobileAppWrapper>
-          </AuthProvider>
+        <TooltipProvider>
+          <MobileAppWrapper>
+            <MobileDebugger />
+            <Toaster />
+            <Sonner />
+            <HashRouter>
+              <MobileRouteDebugger />
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/test" element={<TestPage />} />
+                {/* Handle common mobile routing issues */}
+                <Route path="/index.html" element={<Navigate to="/" replace />} />
+                <Route path="/app" element={<Navigate to="/" replace />} />
+                <Route path="/android_asset/www/index.html" element={<Navigate to="/" replace />} />
+                <Route path="/www/*" element={<Navigate to="/" replace />} />
+                <Route path="/app/*" element={<Navigate to="/" replace />} />
+                <Route path="/capacitor/*" element={<Navigate to="/" replace />} />
+                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </HashRouter>
+          </MobileAppWrapper>
         </TooltipProvider>
       </QueryClientProvider>
     </div>

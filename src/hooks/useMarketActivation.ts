@@ -1,5 +1,5 @@
 
-import React, { useEffect, useCallback } from 'react';
+import { useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 
 export const useMarketActivation = () => {
