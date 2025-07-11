@@ -39,7 +39,8 @@ const App = () => {
     // Apply mobile-specific body styles
     document.body.style.margin = '0';
     document.body.style.padding = '0';
-    document.body.style.overflow = 'hidden';
+    // Remove overflow hidden to allow scrolling
+    // document.body.style.overflow = 'hidden';
   }, []);
 
   return (
