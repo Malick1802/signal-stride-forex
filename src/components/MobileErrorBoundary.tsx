@@ -75,6 +75,9 @@ class MobileErrorBoundary extends Component<Props, State> {
   handleUnhandledRejection = (event: PromiseRejectionEvent) => {
     console.error('🚨 Unhandled promise rejection:', event.reason);
     this.addDebugInfo(`Promise rejection: ${event.reason?.message || 'Unknown rejection'}`);
+    
+    // Prevent default to avoid showing browser error dialog
+    event.preventDefault();
   };
 
   static getDerivedStateFromError(error: Error): Partial<State> {
