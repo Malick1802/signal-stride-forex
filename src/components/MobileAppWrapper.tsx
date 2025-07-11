@@ -95,7 +95,7 @@ const initializeNativeFeatures = async (
 };
 
 export default function MobileAppWrapper({ children }: { children: React.ReactNode }) {
-  const { isOnline, retryConnection } = useMobileConnectivity();
+  const { isOnline, connectionType, retryConnection } = useMobileConnectivity();
   const [initState, setInitState] = useState<InitializationState>({
     isInitialized: false,
     currentStep: 'Preparing...',
@@ -142,27 +142,6 @@ export default function MobileAppWrapper({ children }: { children: React.ReactNo
     };
   }, []);
 
-  // Show offline screen with retry option
-  if (!isOnline) {
-    return (
-      <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 text-white p-4">
-        <h1 className="text-2xl font-bold mb-4">No Internet Connection</h1>
-        <p className="text-gray-400 mb-6 text-center">
-          ForexAlert Pro requires an internet connection to work properly.
-        </p>
-        <button
-          onClick={retryConnection}
-          className="bg-emerald-500 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-lg transition-colors"
-        >
-          Retry Connection
-        </button>
-        <p className="text-xs text-gray-500 mt-4">
-          {Capacitor.isNativePlatform() ? 'Mobile App' : 'Web App'}
-        </p>
-      </div>
-    );
-  }
-
   // Show detailed loading screen while initializing
   if (!initState.isInitialized) {
     return (
@@ -193,7 +172,22 @@ export default function MobileAppWrapper({ children }: { children: React.ReactNo
 
   return (
     <MobileErrorBoundary>
-      {children}
+      {!isOnline && (
+        <div className="fixed top-0 left-0 right-0 z-50 bg-red-500/90 text-white text-center py-2 text-sm">
+          <div className="flex items-center justify-center gap-2">
+            <span>No connection ({connectionType})</span>
+            <button
+              onClick={retryConnection}
+              className="underline hover:no-underline"
+            >
+              Retry
+            </button>
+          </div>
+        </div>
+      )}
+      <div className={!isOnline ? 'pt-10' : ''}>
+        {children}
+      </div>
     </MobileErrorBoundary>
   );
 }

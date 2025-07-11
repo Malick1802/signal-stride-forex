@@ -12,56 +12,68 @@ interface ConnectivityState {
 
 export const useMobileConnectivity = () => {
   const [connectivity, setConnectivity] = useState<ConnectivityState>({
-    isOnline: navigator.onLine,
+    isOnline: true, // Start optimistic
     connectionType: 'unknown',
-    isConnected: navigator.onLine,
-    lastConnected: navigator.onLine ? new Date() : null,
+    isConnected: true,
+    lastConnected: new Date(),
     retryCount: 0
   });
 
   const checkConnectivity = useCallback(async () => {
     try {
+      console.log('🔍 Checking connectivity...');
+      
       if (Capacitor.isNativePlatform()) {
         try {
           const { Network } = await import('@capacitor/network');
           const status = await Network.getStatus();
           
-          setConnectivity(prev => ({
-            ...prev,
-            isOnline: status.connected,
-            connectionType: status.connectionType,
-            isConnected: status.connected,
-            lastConnected: status.connected ? new Date() : prev.lastConnected
-          }));
+          console.log('📱 Native network status:', status);
           
-          console.log('📱 Native connectivity check:', status);
-        } catch (error) {
-          console.warn('❌ Network plugin not available, using navigator.onLine');
+          // Be more lenient - consider "cellular" and "wifi" as connected
+          const isConnected = status.connected && 
+                             (status.connectionType === 'wifi' || 
+                              status.connectionType === 'cellular' ||
+                              status.connectionType === 'none' ? false : true);
+          
           setConnectivity(prev => ({
             ...prev,
-            isOnline: navigator.onLine,
-            connectionType: 'unknown',
-            isConnected: navigator.onLine,
-            lastConnected: navigator.onLine ? new Date() : prev.lastConnected
+            isOnline: isConnected,
+            connectionType: status.connectionType,
+            isConnected: isConnected,
+            lastConnected: isConnected ? new Date() : prev.lastConnected
+          }));
+        } catch (error) {
+          console.warn('❌ Network plugin not available, falling back to navigator.onLine');
+          // Fallback to browser API with optimistic approach
+          const isOnline = navigator.onLine;
+          setConnectivity(prev => ({
+            ...prev,
+            isOnline: isOnline,
+            connectionType: 'fallback',
+            isConnected: isOnline,
+            lastConnected: isOnline ? new Date() : prev.lastConnected
           }));
         }
       } else {
-        // Simple web connectivity check without aggressive network requests
+        // Web platform - use navigator.onLine but be optimistic
         const isOnline = navigator.onLine;
+        console.log('🌐 Web connectivity:', isOnline);
+        
         setConnectivity(prev => ({
           ...prev,
-          isOnline,
-          connectionType: 'wifi',
+          isOnline: isOnline,
+          connectionType: 'web',
           isConnected: isOnline,
           lastConnected: isOnline ? new Date() : prev.lastConnected
         }));
       }
     } catch (error) {
-      console.error('Error checking connectivity:', error);
+      console.error('❌ Connectivity check failed:', error);
+      // Don't immediately mark as offline on errors - be more tolerant
       setConnectivity(prev => ({
         ...prev,
-        isOnline: false,
-        isConnected: false
+        connectionType: 'error'
       }));
     }
   }, []);
@@ -76,22 +88,8 @@ export const useMobileConnectivity = () => {
     // Force a fresh connectivity check
     await checkConnectivity();
     
-    // Clear any cached offline state if connection is restored
-    if (navigator.onLine && Capacitor.isNativePlatform()) {
-      try {
-        const { Network } = await import('@capacitor/network');
-        const status = await Network.getStatus();
-        if (status.connected) {
-          console.log('✅ Connection restored via retry');
-          // Trigger a page refresh on mobile to clear any cached offline state
-          setTimeout(() => {
-            window.location.reload();
-          }, 1000);
-        }
-      } catch (error) {
-        console.warn('Retry connection check failed:', error);
-      }
-    }
+    // Don't reload the page - just update the state
+    console.log('✅ Connection retry completed');
   }, [checkConnectivity]);
 
   useEffect(() => {
@@ -139,8 +137,8 @@ export const useMobileConnectivity = () => {
       setupNetworkListener();
     }
 
-    // Periodic connectivity check - reduced frequency for mobile
-    const interval = setInterval(checkConnectivity, 2 * 60 * 1000); // 2 minutes
+    // Periodic connectivity check - less frequent for better battery life
+    const interval = setInterval(checkConnectivity, 5 * 60 * 1000); // 5 minutes
 
     return () => {
       window.removeEventListener('online', handleOnline);
