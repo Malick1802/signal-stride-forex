@@ -7,10 +7,6 @@
   /* Optimize for forex trading performance */
   transform: translateZ(0);
   -webkit-backface-visibility: hidden;
-  /* Better mobile scrolling */
-  scroll-behavior: smooth;
-  /* Touch action for better interaction */
-  touch-action: pan-y;
 }
 
 .mobile-app body {
@@ -172,37 +168,4 @@
 .mobile-app .touchable {
   -webkit-tap-highlight-color: rgba(16, 185, 129, 0.2);
   tap-highlight-color: rgba(16, 185, 129, 0.2);
-}
-
-/* Mobile scroll optimizations */
-.mobile-scroll-container {
-  height: 100%;
-  overflow-y: auto;
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
-  scroll-behavior: smooth;
-  overscroll-behavior-y: contain;
-  /* Prevent momentum scrolling from interfering with pull-to-refresh */
-  -webkit-scroll-chaining: none;
-  scroll-chaining: none;
-}
-
-/* Scroll area improvements for mobile */
-.mobile-app .scroll-area-viewport {
-  height: 100%;
-  overflow-y: auto !important;
-  -webkit-overflow-scrolling: touch;
-}
-
-/* Better scrollbar styling for mobile */
-.mobile-app .scroll-area-scrollbar {
-  width: 2px;
-  opacity: 0.3;
-}
-
-/* Trading signals container mobile optimization */
-.mobile-signals-container {
-  height: calc(100vh - 120px);
-  overflow: hidden;
-  position: relative;
 }
