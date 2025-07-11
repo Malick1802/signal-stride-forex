@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useMobileConnectivity } from '@/hooks/useMobileConnectivity';
 import { useOptimizedBackgroundSync } from '@/hooks/useOptimizedBackgroundSync';
 import { useStableRealTimeConnection } from '@/hooks/useStableRealTimeConnection';
