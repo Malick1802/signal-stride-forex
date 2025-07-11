@@ -197,11 +197,6 @@ export default function MobileAppWrapper({ children }: { children: React.ReactNo
 
   return (
     <MobileErrorBoundary>
-      {initState.error && (
-        <div className="bg-yellow-500/10 border-l-4 border-yellow-500 p-3 mb-2">
-          <p className="text-yellow-400 text-sm">{initState.error}</p>
-        </div>
-      )}
       {children}
     </MobileErrorBoundary>
   );
