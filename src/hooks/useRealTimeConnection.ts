@@ -34,11 +34,20 @@ export const useRealTimeConnection = () => {
 
   const handleConnectionError = useCallback((error: string) => {
     if (!mountedRef.current) return;
-    console.error('🔌 Real-time connection error:', error);
+    
+    // Filter out non-critical connection errors for mobile
+    const isCriticalError = !error.includes('timeout') && !error.includes('Channel subscription failed');
+    
+    if (isCriticalError) {
+      console.error('🔌 Critical real-time connection error:', error);
+    } else {
+      console.warn('⚠️ Non-critical real-time connection issue:', error);
+    }
+    
     setStatus(prev => ({
       ...prev,
       isConnected: false,
-      error,
+      error: isCriticalError ? error : null, // Don't set error for non-critical issues
       reconnectAttempts: prev.reconnectAttempts + 1
     }));
   }, []);
@@ -93,16 +102,19 @@ export const useRealTimeConnection = () => {
       const lastUpdate = new Date(status.lastHeartbeat).getTime();
       const timeSinceUpdate = now - lastUpdate;
       
-      if (timeSinceUpdate > 30000) { // 30 seconds without update
-        handleConnectionError('Heartbeat timeout');
+      if (timeSinceUpdate > 60000) { // 60 seconds without update (less aggressive for mobile)
+        console.warn('⚠️ Real-time heartbeat timeout - attempting silent reconnect');
         
-        // Auto-reconnect after 5 seconds
+        // Auto-reconnect after 10 seconds (less aggressive)
         if (reconnectTimeoutRef.current) {
           clearTimeout(reconnectTimeoutRef.current);
         }
-        reconnectTimeoutRef.current = setTimeout(reconnect, 5000);
+        reconnectTimeoutRef.current = setTimeout(() => {
+          console.log('🔄 Silent real-time reconnect attempt');
+          reconnect();
+        }, 10000);
       }
-    }, 10000); // Check every 10 seconds
+    }, 30000); // Check every 30 seconds (less frequent)
   }, [status.lastHeartbeat, updateHeartbeat, handleConnectionError]);
 
   useEffect(() => {

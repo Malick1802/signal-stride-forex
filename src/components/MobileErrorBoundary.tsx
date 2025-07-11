@@ -139,41 +139,36 @@ class MobileErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
+      // Log errors but don't show visual warning for mobile users
       const errorMessage = this.state.error?.message || 'An unexpected error occurred';
       const isNetworkError = errorMessage.includes('fetch') || errorMessage.includes('network') || !this.state.isOnline;
       
+      console.log('🚨 Mobile Error Boundary: Error detected but hidden from UI', {
+        error: errorMessage,
+        isNetworkError,
+        online: this.state.isOnline,
+        platform: Capacitor.isNativePlatform() ? Capacitor.getPlatform() : 'web'
+      });
+      
+      // For non-critical errors, just log and continue
+      if (isNetworkError || errorMessage.includes('Cannot read properties of null')) {
+        console.log('🔄 Non-critical error detected - continuing normal operation');
+        return this.props.children;
+      }
+      
+      // Only show error UI for critical application errors
       return (
         <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center p-6">
           <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 w-full max-w-md border border-white/20 text-center">
             <AlertTriangle className="h-16 w-16 text-red-400 mx-auto mb-6" />
             
             <h2 className="text-2xl font-bold text-white mb-4">
-              {isNetworkError ? 'Connection Problem' : 'App Error'}
+              Critical App Error
             </h2>
             
             <div className="space-y-4 mb-6">
-              <div className="flex items-center justify-center space-x-2">
-                {this.state.isOnline ? (
-                  <Wifi className="h-5 w-5 text-emerald-400" />
-                ) : (
-                  <WifiOff className="h-5 w-5 text-red-400" />
-                )}
-                <span className={`text-sm ${this.state.isOnline ? 'text-emerald-400' : 'text-red-400'}`}>
-                  {this.state.isOnline ? 'Connected' : 'No Internet Connection'}
-                </span>
-              </div>
-              
-              {!this.state.isOnline && (
-                <p className="text-gray-300 text-sm">
-                  Please check your internet connection and try again.
-                </p>
-              )}
-              
               <p className="text-gray-300 text-sm">
-                {isNetworkError 
-                  ? 'Unable to load the app. This might be a network issue.'
-                  : errorMessage
-                }
+                A critical error occurred. Please restart the app.
               </p>
               
               {Capacitor.isNativePlatform() && (
@@ -201,16 +196,6 @@ class MobileErrorBoundary extends Component<Props, State> {
                   Reload App
                 </Button>
               )}
-              
-              <Button
-                onClick={this.handleShowDebug}
-                variant="ghost"
-                size="sm"
-                className="w-full text-gray-400 hover:text-white"
-              >
-                <Bug className="h-4 w-4 mr-2" />
-                Show Debug Info
-              </Button>
             </div>
           </div>
         </div>
