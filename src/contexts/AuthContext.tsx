@@ -23,6 +23,8 @@ interface AuthContextType {
   checkSubscription: () => Promise<void>;
   createCheckout: () => Promise<{ url?: string; error?: string }>;
   openCustomerPortal: () => Promise<{ url?: string; error?: string }>;
+  sessionState: 'initializing' | 'authenticated' | 'unauthenticated';
+  validateSession: () => Promise<Session | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -89,18 +91,59 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isCheckingSubscription, setIsCheckingSubscription] = useState(false);
+  const [sessionState, setSessionState] = useState<'initializing' | 'authenticated' | 'unauthenticated'>('initializing');
+  const [lastTokenRefresh, setLastTokenRefresh] = useState<number>(0);
+
+  const validateSession = async (): Promise<Session | null> => {
+    try {
+      const { data: { session: currentSession }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.error('AuthContext: Session validation error:', error);
+        return null;
+      }
+
+      // Check if token needs refresh (refresh 5 minutes before expiry)
+      if (currentSession?.expires_at) {
+        const expiryTime = currentSession.expires_at * 1000;
+        const now = Date.now();
+        const refreshBuffer = 5 * 60 * 1000; // 5 minutes
+        
+        if (now >= (expiryTime - refreshBuffer)) {
+          console.log('AuthContext: Token near expiry, refreshing...');
+          const { data: { session: refreshedSession }, error: refreshError } = await supabase.auth.refreshSession();
+          
+          if (refreshError) {
+            console.error('AuthContext: Token refresh failed:', refreshError);
+            return null;
+          }
+          
+          setLastTokenRefresh(Date.now());
+          return refreshedSession;
+        }
+      }
+      
+      return currentSession;
+    } catch (error) {
+      console.error('AuthContext: Session validation failed:', error);
+      return null;
+    }
+  };
 
   const checkSubscription = async (forceRefresh: boolean = false) => {
-    // Get the current session directly instead of relying on state
-    const { data: { session: currentSession } } = await supabase.auth.getSession();
+    // Validate session first
+    const currentSession = await validateSession();
     
     if (!currentSession?.user) {
-      console.log('AuthContext: No current session, skipping subscription check');
+      console.log('AuthContext: No valid session, skipping subscription check');
       setSubscription(null);
+      setSessionState('unauthenticated');
       return;
     }
     
-    // Prevent multiple concurrent calls
+    setSessionState('authenticated');
+    
+    // Prevent multiple concurrent calls with lock
     if (isCheckingSubscription) {
       console.log('AuthContext: Subscription check already in progress');
       return;
@@ -205,25 +248,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     console.log('AuthContext: Initializing auth state');
     
-    // Set up auth state listener FIRST
+    // Set up auth state listener FIRST with enhanced error handling
     const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         console.log('AuthContext: Auth state changed:', event, session?.user?.email || 'no user');
         
-        // Update state immediately
+        // Update state immediately (synchronous only)
         setSession(session);
         setUser(session?.user ?? null);
         
-        // Handle subscription check after state update
-        if (session?.user && event === 'SIGNED_IN') {
-          console.log('AuthContext: User signed in, checking subscription');
-          // Use setTimeout to avoid blocking the auth state change
-          setTimeout(() => {
-            checkSubscription(false);
-          }, 100);
-        } else if (!session) {
-          console.log('AuthContext: No session, clearing subscription');
+        // Handle different auth events
+        if (session?.user) {
+          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+            console.log('AuthContext: User authenticated, scheduling subscription check');
+            setSessionState('authenticated');
+            // Defer subscription check to avoid deadlock
+            setTimeout(() => {
+              checkSubscription(event === 'TOKEN_REFRESHED');
+            }, 50);
+          }
+        } else {
+          console.log('AuthContext: No session, clearing state');
           setSubscription(null);
+          setSessionState('unauthenticated');
           clearSubscriptionCache();
         }
         
@@ -324,6 +371,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     checkSubscription: () => checkSubscription(true), // Expose force refresh
     createCheckout,
     openCustomerPortal,
+    sessionState,
+    validateSession,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
