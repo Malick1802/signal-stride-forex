@@ -74,39 +74,58 @@ export class MobileRouteManager {
   }
 
   static initializeMobileRouting(): void {
-    console.log('🛣️ MobileRouteManager: Initializing routing');
-    console.log('🛣️ Platform:', Capacitor.isNativePlatform() ? Capacitor.getPlatform() : 'web');
-    console.log('🛣️ Initial URL:', window.location.href);
-    console.log('🛣️ Initial pathname:', window.location.pathname);
-
-    // Handle routing for both web and mobile
     const currentPath = window.location.pathname;
+    const currentHash = window.location.hash;
+    const currentHref = window.location.href;
     
-    // For mobile apps, handle common problematic URLs
+    console.log('🔧 MobileRouteManager: Initializing mobile routing', { 
+      currentPath, 
+      currentHash,
+      currentHref,
+      platform: Capacitor.getPlatform(),
+      isNative: Capacitor.isNativePlatform()
+    });
+
+    // For mobile apps using HashRouter, check hash instead of pathname
     if (Capacitor.isNativePlatform()) {
-      // Handle file:// URLs or android_asset URLs
-      if (window.location.protocol === 'file:' || 
-          window.location.href.includes('android_asset') ||
-          window.location.href.includes('capacitor://')) {
-        console.log('🛣️ Mobile app detected, ensuring proper routing');
-        
-        // If we're not on a valid route, redirect to home
-        if (!this.validateRoute(currentPath)) {
-          console.log('🛣️ Invalid route detected, redirecting to home');
-          window.history.replaceState(null, '', '/');
-        }
+      const hashPath = currentHash.replace('#', '') || '/';
+      console.log('🔧 MobileRouteManager: Mobile app detected, using hash routing', { hashPath });
+      
+      if (!this.validateRoute(hashPath)) {
+        console.log('🔧 MobileRouteManager: Invalid hash route, redirecting to home', { from: hashPath });
+        window.location.hash = '#/';
+        return;
       }
     }
 
-    // Add listener for route changes
-    window.addEventListener('popstate', (event) => {
-      const newPath = window.location.pathname;
-      console.log('🛣️ Route changed to:', newPath);
+    // Handle specific mobile URL patterns
+    if (currentHref.includes('file://') || 
+        currentHref.includes('android_asset') || 
+        currentHref.includes('capacitor://')) {
+      console.log('🔧 MobileRouteManager: Detected mobile URL scheme');
       
-      if (!this.validateRoute(newPath)) {
-        console.log('🛣️ Invalid route detected on navigation, redirecting to home');
-        window.history.replaceState(null, '', '/');
+      // Ensure we start with the correct hash route
+      if (!currentHash || currentHash === '#') {
+        console.log('🔧 MobileRouteManager: No hash found, setting default');
+        window.location.hash = '#/';
+        return;
       }
-    });
+    }
+
+    // Listen for hash changes in mobile environment
+    if (Capacitor.isNativePlatform()) {
+      window.addEventListener('hashchange', (event) => {
+        const newHash = window.location.hash.replace('#', '') || '/';
+        console.log('🔧 MobileRouteManager: Hash change detected', { newHash });
+        
+        if (!this.validateRoute(newHash)) {
+          console.log('🔧 MobileRouteManager: Invalid hash route, redirecting', {
+            from: newHash,
+            to: '/'
+          });
+          window.location.hash = '#/';
+        }
+      });
+    }
   }
 }
