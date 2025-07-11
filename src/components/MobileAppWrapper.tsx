@@ -186,10 +186,6 @@ export default function MobileAppWrapper({ children }: { children: React.ReactNo
               Loading mobile features on {Capacitor.getPlatform()}
             </p>
           )}
-          
-          {initState.error && (
-            <p className="text-yellow-400 text-xs mt-2">{initState.error}</p>
-          )}
         </div>
       </div>
     );
