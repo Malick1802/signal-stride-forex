@@ -1,4 +1,5 @@
 
+import React from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -47,7 +48,7 @@ const App = () => {
   return (
     <div className={`mobile-app-wrapper ${Capacitor.isNativePlatform() ? 'capacitor-app' : ''}`}>
       <QueryClientProvider client={queryClient}>
-        <TooltipProvider>
+        <TooltipProvider delayDuration={300}>
           <AuthProvider>
             <MobileAppWrapper>
               <MobileDebugger />
