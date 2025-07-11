@@ -355,43 +355,6 @@ export default function MobileAppWrapper({ children }: { children: React.ReactNo
 
   return (
     <MobileErrorBoundary>
-      {/* Health status indicators */}
-      {(!appHealth.isHealthy || initState.error) && (
-        <div className="bg-yellow-500/10 border-l-4 border-yellow-500 p-3 mb-2">
-          {initState.error && (
-            <p className="text-yellow-400 text-sm mb-1">{initState.error}</p>
-          )}
-          {!appHealth.isHealthy && (
-            <div className="text-yellow-400 text-sm">
-              <p className="font-medium">App Health Issues:</p>
-              <ul className="text-xs mt-1 space-y-1">
-                {appHealth.issues.map((issue, index) => (
-                  <li key={index}>• {issue}</li>
-                ))}
-              </ul>
-              {!initState.isRecovering && (
-                <button
-                  onClick={performAppRecovery}
-                  className="mt-2 text-xs bg-yellow-500/20 hover:bg-yellow-500/30 px-2 py-1 rounded transition-colors"
-                >
-                  Attempt Recovery
-                </button>
-              )}
-            </div>
-          )}
-          {initState.isRecovering && (
-            <p className="text-blue-400 text-sm">🔄 Recovering app state...</p>
-          )}
-        </div>
-      )}
-      
-      {/* Sync status indicator for debugging */}
-      {syncState.isActive && (
-        <div className="bg-blue-500/10 border-l-4 border-blue-500 p-2">
-          <p className="text-blue-400 text-xs">📡 Syncing data...</p>
-        </div>
-      )}
-      
       {children}
     </MobileErrorBoundary>
   );
