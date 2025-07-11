@@ -31,7 +31,7 @@ const MobileRouteDebugger: React.FC = () => {
       route: location.pathname,
       platform: Capacitor.isNativePlatform() ? Capacitor.getPlatform() : 'web',
       href: window.location.href,
-      isValid: ['/', '/test'].includes(location.pathname)
+      isValid: ['/', '/test', '/dashboard', '/signals', '/settings', '/profile', '/auth', '/login', '/signup', '/subscription', '/affiliate', '/admin'].includes(location.pathname)
     };
 
     console.log('🔍 MobileRouteDebugger: Route change detected', debugInfo);

@@ -60,6 +60,9 @@ const App = () => {
                 <Route path="/index.html" element={<Navigate to="/" replace />} />
                 <Route path="/app" element={<Navigate to="/" replace />} />
                 <Route path="/android_asset/www/index.html" element={<Navigate to="/" replace />} />
+                <Route path="/www/*" element={<Navigate to="/" replace />} />
+                <Route path="/app/*" element={<Navigate to="/" replace />} />
+                <Route path="/capacitor/*" element={<Navigate to="/" replace />} />
                 {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
                 <Route path="*" element={<NotFound />} />
               </Routes>
