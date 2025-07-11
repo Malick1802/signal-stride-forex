@@ -9,7 +9,6 @@ import { useToast } from '@/hooks/use-toast';
 import { useMobileConnectivity } from '@/hooks/useMobileConnectivity';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
-import { OfflineIndicator } from './OfflineIndicator';
 import SignalCard from './SignalCard';
 import SignalCardLoading from './SignalCardLoading';
 import Logger from '@/utils/logger';
@@ -137,9 +136,6 @@ const EnhancedTradingSignals = memo(() => {
 
   return (
     <div className="space-y-4">
-      {/* Connection and Cache Status */}
-      <OfflineIndicator />
-
       {/* Action Buttons */}
       <div className="flex flex-wrap gap-2">
         <Button
