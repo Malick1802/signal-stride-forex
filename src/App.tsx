@@ -4,7 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter, Routes, Route, Navigate } from "react-router-dom";
-import MobileAppWrapper from "./components/MobileAppWrapper";
+
 import MobileDebugger from "./components/MobileDebugger";
 import MobileRouteDebugger from "./components/MobileRouteDebugger";
 import Index from "./pages/Index";
@@ -47,7 +47,6 @@ const App = () => {
     <div className={`mobile-app-wrapper ${Capacitor.isNativePlatform() ? 'capacitor-app' : ''}`}>
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>
-          <MobileAppWrapper>
             <MobileDebugger />
             <Toaster />
             <Sonner />
@@ -67,7 +66,6 @@ const App = () => {
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </HashRouter>
-          </MobileAppWrapper>
         </TooltipProvider>
       </QueryClientProvider>
     </div>
