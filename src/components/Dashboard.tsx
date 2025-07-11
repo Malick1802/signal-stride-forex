@@ -415,24 +415,29 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
         loading={loading}
       />
 
-      {/* Content Area - With Pull to Refresh for Mobile */}
-      <PullToRefresh onRefresh={handleRefresh} className="flex-1 mobile-content-area">
-        <div className="p-3 sm:p-6">
-          {/* Trial Expiration Banner */}
-          {!bannerDismissed && (
-            <TrialExpirationBanner
-              subscription={subscription}
-              onUpgrade={handleUpgrade}
-              onDismiss={() => setBannerDismissed(true)}
-            />
-          )}
+      {/* Content Area - Proper scrollable container */}
+      <div className="flex-1 overflow-hidden">
+        <PullToRefresh 
+          onRefresh={handleRefresh} 
+          className="h-full mobile-content-area"
+        >
+          <div className="p-3 sm:p-6 space-y-4">
+            {/* Trial Expiration Banner */}
+            {!bannerDismissed && (
+              <TrialExpirationBanner
+                subscription={subscription}
+                onUpgrade={handleUpgrade}
+                onDismiss={() => setBannerDismissed(true)}
+              />
+            )}
 
-          <Suspense fallback={<MobileLoadingScreen message="Loading signals..." />}>
-            {activeTab === 'signals' && <LazyTradingSignals />}
-            {activeTab === 'expired' && <LazyExpiredSignals />}
-          </Suspense>
-        </div>
-      </PullToRefresh>
+            <Suspense fallback={<MobileLoadingScreen message="Loading signals..." />}>
+              {activeTab === 'signals' && <LazyTradingSignals />}
+              {activeTab === 'expired' && <LazyExpiredSignals />}
+            </Suspense>
+          </div>
+        </PullToRefresh>
+      </div>
     </div>
   );
 };

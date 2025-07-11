@@ -86,14 +86,15 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({
   return (
     <div 
       ref={containerRef}
-      className={`relative overflow-auto ${className}`}
+      className={`relative h-full overflow-y-auto ${className}`}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       style={{ 
         transform: `translateY(${Math.min(pullDistance * 0.5, 30)}px)`,
         transition: isPulling ? 'none' : 'transform 0.3s ease-out',
-        WebkitOverflowScrolling: 'touch'
+        WebkitOverflowScrolling: 'touch',
+        overscrollBehaviorY: 'contain'
       }}
     >
       {/* Pull to refresh indicator */}
