@@ -11,7 +11,7 @@ import Index from "./pages/Index";
 import TestPage from "./pages/TestPage";
 import NotFound from "./pages/NotFound";
 import { Capacitor } from '@capacitor/core';
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { MobileRouteManager } from './utils/mobileRouteManager';
 
 // Import mobile app CSS
