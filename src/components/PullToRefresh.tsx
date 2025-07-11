@@ -27,17 +27,30 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (containerRef.current?.scrollTop === 0) {
       startY.current = e.touches[0].clientY;
-      setIsPulling(true);
+      // Don't set isPulling yet - wait for actual downward movement
     }
   }, []);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isPulling || isRefreshing) return;
+    if (isRefreshing || !containerRef.current) return;
+
+    // Only proceed if we're at the top of the container
+    if (containerRef.current.scrollTop !== 0) {
+      setIsPulling(false);
+      setPullDistance(0);
+      return;
+    }
 
     currentY.current = e.touches[0].clientY;
     const distance = Math.max(0, currentY.current - startY.current);
     
-    if (distance > 0) {
+    // Only start pulling mode if we have significant downward movement (10px threshold)
+    if (distance > 10 && !isPulling) {
+      setIsPulling(true);
+    }
+    
+    // Only prevent default scrolling if we're actively pulling to refresh
+    if (distance > 10 && isPulling) {
       e.preventDefault();
       setPullDistance(Math.min(distance, threshold * 1.5));
       
@@ -57,6 +70,8 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({
       setIsRefreshing(true);
       try {
         await onRefresh();
+      } catch (error) {
+        console.error('Refresh failed:', error);
       } finally {
         setIsRefreshing(false);
       }
@@ -77,7 +92,8 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({
       onTouchEnd={handleTouchEnd}
       style={{ 
         transform: `translateY(${Math.min(pullDistance * 0.5, 30)}px)`,
-        transition: isPulling ? 'none' : 'transform 0.3s ease-out'
+        transition: isPulling ? 'none' : 'transform 0.3s ease-out',
+        WebkitOverflowScrolling: 'touch'
       }}
     >
       {/* Pull to refresh indicator */}

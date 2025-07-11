@@ -7,6 +7,8 @@
   /* Optimize for forex trading performance */
   transform: translateZ(0);
   -webkit-backface-visibility: hidden;
+  /* Improve touch responsiveness */
+  touch-action: manipulation;
 }
 
 .mobile-app body {
@@ -52,6 +54,9 @@
   overflow-x: hidden;
   /* Remove default padding to prevent conflicts */
   padding: 0;
+  /* Improve scroll performance */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
 }
 
 /* Only apply safe area padding to native platforms */
@@ -103,6 +108,9 @@
   min-height: 44px;
   min-width: 44px;
   touch-action: manipulation;
+  /* Prevent double-tap zoom */
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 /* Optimize charts for mobile */
@@ -168,4 +176,15 @@
 .mobile-app .touchable {
   -webkit-tap-highlight-color: rgba(16, 185, 129, 0.2);
   tap-highlight-color: rgba(16, 185, 129, 0.2);
+}
+
+/* Mobile content area optimizations */
+.mobile-content-area {
+  /* Ensure proper scrolling on iOS */
+  -webkit-overflow-scrolling: touch;
+  /* Improve scroll performance */
+  overscroll-behavior-y: contain;
+  /* Hardware acceleration for smooth scrolling */
+  transform: translateZ(0);
+  will-change: scroll-position;
 }
