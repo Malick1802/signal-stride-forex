@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { offlineSignalCache } from '@/utils/offlineSignalCache';
 import { useMobileConnectivity } from './useMobileConnectivity';
 

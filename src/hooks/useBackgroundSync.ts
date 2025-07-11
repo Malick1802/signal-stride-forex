@@ -1,5 +1,5 @@
 
-import { useEffect, useCallback, useRef } from 'react';
+import React, { useEffect, useCallback, useRef } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { useMobileConnectivity } from './useMobileConnectivity';
 import { useOfflineSignals } from './useOfflineSignals';

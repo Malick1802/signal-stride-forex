@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useCentralizedMarketData } from './useCentralizedMarketData';
 import { calculateSignalPerformance } from '@/utils/pipCalculator';
 
