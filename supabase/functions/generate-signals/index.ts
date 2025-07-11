@@ -154,7 +154,7 @@ serve(async (req) => {
 
     const currentSignalCount = existingSignals?.length || 0;
     const maxSignals = 20;
-    const maxNewSignals = optimized ? Math.min(4, maxSignals - currentSignalCount) : Math.min(6, maxSignals - currentSignalCount); // Reduced for quality
+    const maxNewSignals = optimized ? Math.min(6, maxSignals - currentSignalCount) : Math.min(8, maxSignals - currentSignalCount); // Increased for more opportunities
 
     console.log(`📋 ENHANCED AI Signal status - Current: ${currentSignalCount}/${maxSignals}, Can generate: ${maxNewSignals}, ENHANCED AI-powered mode`);
 
@@ -167,7 +167,7 @@ serve(async (req) => {
           signalsGenerated: 0,
           totalActiveSignals: currentSignalCount,
           signalLimit: maxSignals,
-          maxNewSignalsPerRun: optimized ? 4 : 6
+          maxNewSignalsPerRun: optimized ? 6 : 8
         }
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -195,8 +195,8 @@ serve(async (req) => {
 
     console.log(`🤖 ENHANCED AI analyzing ${prioritizedPairs.length} currency pairs for HIGH-QUALITY signal generation`);
 
-    // Process pairs for ENHANCED AI analysis with stricter filtering
-    const batchSize = optimized ? 2 : 3;
+    // Process pairs for ENHANCED AI analysis with balanced filtering
+    const batchSize = optimized ? 3 : 4;
     for (let i = 0; i < prioritizedPairs.length && generatedSignals.length < maxNewSignals; i += batchSize) {
       const batch = prioritizedPairs.slice(i, i + batchSize);
       
@@ -209,9 +209,9 @@ serve(async (req) => {
 
           console.log(`🤖 ENHANCED AI analyzing ${symbol} - Price: ${pair.current_price}`);
 
-          // Get historical price data with relaxed history requirement
+          // Get historical price data with flexible history requirement
           const historicalData = await getHistoricalPriceData(supabase, symbol);
-          if (!historicalData || historicalData.length < 50) { // Reduced minimum data requirement
+          if (!historicalData || historicalData.length < 40) { // Further reduced for more opportunities
             console.log(`⚠️ Insufficient historical data for ENHANCED AI analysis ${symbol}: ${historicalData?.length || 0} points`);
             return;
           }
@@ -317,7 +317,7 @@ serve(async (req) => {
         signalLimit: maxSignals,
         executionTime: `${executionTime}ms`,
         signalDistribution,
-        maxNewSignalsPerRun: optimized ? 4 : 6,
+        maxNewSignalsPerRun: optimized ? 6 : 8,
         enhancedAI: true,
         qualityFiltered: true,
         minimumQualityScore: 70,
@@ -363,7 +363,7 @@ async function getHistoricalPriceData(supabase: any, symbol: string): Promise<Pr
       return null;
     }
 
-    if (!data || data.length < 50) {
+    if (!data || data.length < 40) {
       console.log(`Insufficient historical data for ${symbol}: ${data?.length || 0} points`);
       return null;
     }
@@ -412,14 +412,14 @@ async function generateEnhancedAISignalAnalysis(
     // Economic calendar context (simplified)
     const economicContext = getEconomicContext(symbol);
     
-    // Session-aware pip calculations for realistic requirements
+    // Session-aware pip calculations for more flexible requirements
     const isJPYPair = (symbol: string): boolean => symbol.includes('JPY');
     const getPipValue = (symbol: string): number => isJPYPair(symbol) ? 0.01 : 0.0001;
     
-    // Dynamic pip requirements based on session and market conditions
+    // Dynamic pip requirements based on session and market conditions - Less Conservative
     const sessionInfo = getCurrentSessionAnalysis();
-    const baseStopLossPips = sessionInfo.session === 'Asian' ? 15 : 20; // Lower for low volatility sessions
-    const baseTakeProfitPips = sessionInfo.session === 'Asian' ? 10 : 15; // More achievable targets
+    const baseStopLossPips = sessionInfo.session === 'Asian' ? 12 : 15; // Reduced for more opportunities
+    const baseTakeProfitPips = sessionInfo.session === 'Asian' ? 8 : 12; // Lower targets for better hit rates
     
     console.log(`🤖 ${symbol} session-adjusted pip requirements - SL: ${baseStopLossPips}, TP: ${baseTakeProfitPips} (Session: ${sessionInfo.session})`);
     
@@ -457,20 +457,20 @@ ENHANCED ANALYSIS REQUIREMENTS:
 5. Economic Impact: Any major economic events affecting this pair?
 6. Technical Confluence: Multiple technical factors confirming the setup?
 
-OPTIMIZED QUALITY REQUIREMENTS (Session: ${sessionInfo.session}):
+BALANCED QUALITY REQUIREMENTS (Session: ${sessionInfo.session}):
 - Minimum Stop Loss: ${minStopLossPips} pips (${(minStopLossPips * getPipValue(symbol)).toFixed(5)} price units)
 - Minimum Take Profit: ${minTakeProfitPips} pips (${(minTakeProfitPips * getPipValue(symbol)).toFixed(5)} price units)
-- Minimum R:R Ratio: 1.5:1 (relaxed for realistic market conditions)
-- Confidence Threshold: 75%+ (achievable standard)
-- Quality Score Threshold: 70/100 (good quality, not exceptional)
+- Target R:R Ratio: 1.5:1 (preferred), 1.3:1 (acceptable minimum)
+- Confidence Threshold: 75%+ (solid standard)
+- Quality Score Threshold: 70/100 (good practical quality)
 
-Recommend BUY/SELL if reasonable criteria are met:
-✓ Good technical setup with 2+ confirmations
-✓ Acceptable market conditions (not perfect)
-✓ Achievable risk-reward ratio (1.5:1+ preferred, 1.3:1 acceptable)
-✓ General trend alignment (ranging markets acceptable)
-✓ No major opposing economic events
-✓ Quality score 70+ (good, practical standard)
+Recommend BUY/SELL for viable trading opportunities:
+✓ Solid technical setup with 2+ strong confirmations (quality over quantity)
+✓ Reasonable market conditions (practical trading environment)
+✓ Realistic risk-reward ratio (1.3:1+ acceptable, 1.5:1+ preferred)
+✓ Directional alignment or clear ranging patterns
+✓ No major conflicting economic events
+✓ Quality score 70+ (practical trading standard)
 
 Provide your analysis in this EXACT JSON format:
 {
