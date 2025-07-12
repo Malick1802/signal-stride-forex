@@ -1,5 +1,5 @@
 
-import { useEffect, useCallback } from 'react';
+// Bulletproof mobile connectivity hook that works even when React is compromised
 import { Capacitor } from '@capacitor/core';
 import reactRecovery from '../utils/reactRecovery';
 
@@ -111,24 +111,57 @@ const safeUseState = <T>(initialState: T): [T, React.Dispatch<React.SetStateActi
   }
 };
 
-// Safe useEffect alternative
-const safeUseEffect = (effect: () => void | (() => void), deps?: React.DependencyList) => {
+// Completely safe hook implementations that work without React
+const safeUseEffect = (effect: () => void | (() => void), deps?: any[]) => {
   try {
-    if (useEffect) {
-      return useEffect(effect, deps);
+    // Try to get React hooks through our recovery system
+    const React = reactRecovery.isReactHealthy() ? (window as any).React : null;
+    
+    if (React && React.useEffect) {
+      return React.useEffect(effect, deps);
     }
+    
+    throw new Error('React useEffect not available');
   } catch (error) {
-    console.warn('useEffect compromised, running effect immediately:', error);
-    // Run effect immediately as fallback
+    console.warn('useEffect compromised, using immediate execution fallback:', error);
+    
+    // Execute effect immediately as fallback
     try {
       const cleanup = effect();
-      // Store cleanup for later if needed
+      
+      // Store cleanup for later execution if needed
       if (cleanup && typeof cleanup === 'function') {
-        window.addEventListener('beforeunload', cleanup);
+        // Store cleanup in a global registry for later execution
+        if (typeof window !== 'undefined') {
+          if (!(window as any).__cleanupRegistry) {
+            (window as any).__cleanupRegistry = [];
+          }
+          (window as any).__cleanupRegistry.push(cleanup);
+          
+          // Clean up on page unload
+          window.addEventListener('beforeunload', cleanup, { once: true });
+        }
       }
     } catch (effectError) {
       console.error('Effect execution failed:', effectError);
     }
+  }
+};
+
+const safeUseCallback = <T extends (...args: any[]) => any>(callback: T, deps?: any[]): T => {
+  try {
+    const React = reactRecovery.isReactHealthy() ? (window as any).React : null;
+    
+    if (React && React.useCallback) {
+      return React.useCallback(callback, deps);
+    }
+    
+    throw new Error('React useCallback not available');
+  } catch (error) {
+    console.warn('useCallback compromised, using direct function fallback:', error);
+    
+    // Return the function directly as fallback
+    return callback;
   }
 };
 
@@ -145,7 +178,7 @@ export const useMobileConnectivity = () => {
     retryCount: 0
   });
 
-  const checkConnectivity = useCallback(async () => {
+  const checkConnectivity = safeUseCallback(async () => {
     try {
       if (Capacitor.isNativePlatform()) {
         try {
@@ -203,7 +236,7 @@ export const useMobileConnectivity = () => {
     }
   }, []);
 
-  const retryConnection = useCallback(async () => {
+  const retryConnection = safeUseCallback(async () => {
     setConnectivity(prev => ({
       ...prev,
       retryCount: prev.retryCount + 1
