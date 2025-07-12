@@ -3,7 +3,28 @@ import * as TooltipPrimitive from "@radix-ui/react-tooltip"
 
 import { cn } from "@/lib/utils"
 
-const TooltipProvider = TooltipPrimitive.Provider
+// Safe TooltipProvider that handles React null errors
+const TooltipProvider: React.FC<{ children: React.ReactNode; delayDuration?: number }> = ({ 
+  children, 
+  delayDuration = 700 
+}) => {
+  // Check if React is properly initialized
+  if (!React || typeof React.useState !== 'function') {
+    console.warn('React hooks not available, rendering children without tooltip functionality');
+    return <>{children}</>;
+  }
+
+  try {
+    return (
+      <TooltipPrimitive.Provider delayDuration={delayDuration}>
+        {children}
+      </TooltipPrimitive.Provider>
+    );
+  } catch (error) {
+    console.error('TooltipProvider error:', error);
+    return <>{children}</>;
+  }
+};
 
 const Tooltip = TooltipPrimitive.Root
 
