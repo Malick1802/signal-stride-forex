@@ -1,7 +1,6 @@
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
-import { Capacitor } from '@capacitor/core';
 import { supabase } from '@/integrations/supabase/client';
 
 interface SubscriptionData {
@@ -204,26 +203,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   useEffect(() => {
-    const isMobile = Capacitor.isNativePlatform();
-    console.log('📱 AuthContext: Initializing auth state', {
-      platform: Capacitor.getPlatform(),
-      isMobile,
-      userAgent: navigator.userAgent
-    });
-    
+    console.log('AuthContext: Initializing auth state');
     let mounted = true;
     let initTimeout: NodeJS.Timeout;
-    
-    // Longer timeout for mobile platforms due to potential network issues
-    const timeoutDuration = isMobile ? 20000 : 15000;
     
     // Set timeout to prevent infinite loading
     initTimeout = setTimeout(() => {
       if (mounted) {
-        console.warn('📱 AuthContext: Initialization timeout, proceeding without auth');
+        console.warn('AuthContext: Initialization timeout, proceeding without auth');
         setLoading(false);
       }
-    }, timeoutDuration);
+    }, 15000); // 15 second timeout
     
     // Set up auth state listener FIRST
     const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
