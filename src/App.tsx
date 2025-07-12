@@ -6,6 +6,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import SimpleMobileWrapper from "./components/SimpleMobileWrapper";
 import MobileDebugger from "./components/MobileDebugger";
 import BulletproofErrorBoundary from "./components/BulletproofErrorBoundary";
+import ProgressiveLoader from "./components/ProgressiveLoader";
+import EmergencyRenderer from "./components/EmergencyRenderer";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { Capacitor } from '@capacitor/core';
@@ -37,22 +39,26 @@ const App = () => {
   }, []);
 
   return (
-    <BulletproofErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <SimpleMobileWrapper>
-          <MobileDebugger />
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </SimpleMobileWrapper>
-      </QueryClientProvider>
-    </BulletproofErrorBoundary>
+    <EmergencyRenderer>
+      <ProgressiveLoader>
+        <BulletproofErrorBoundary>
+          <QueryClientProvider client={queryClient}>
+            <SimpleMobileWrapper>
+              <MobileDebugger />
+              <Toaster />
+              <Sonner />
+              <BrowserRouter>
+                <Routes>
+                  <Route path="/" element={<Index />} />
+                  {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+                  <Route path="*" element={<NotFound />} />
+                </Routes>
+              </BrowserRouter>
+            </SimpleMobileWrapper>
+          </QueryClientProvider>
+        </BulletproofErrorBoundary>
+      </ProgressiveLoader>
+    </EmergencyRenderer>
   );
 };
 

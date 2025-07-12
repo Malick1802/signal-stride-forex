@@ -19,6 +19,33 @@ declare global {
 extensionDetector.init();
 reactRecovery.init();
 
+// Enhanced React protection - capture React immediately
+let originalReact: any = null;
+let originalHooks: any = {};
+
+try {
+  // Capture React before extensions can interfere
+  if (typeof window !== 'undefined') {
+    originalReact = window.React;
+    if (originalReact) {
+      originalHooks = {
+        useState: originalReact.useState,
+        useEffect: originalReact.useEffect,
+        useContext: originalReact.useContext,
+        useReducer: originalReact.useReducer,
+        useCallback: originalReact.useCallback,
+        useMemo: originalReact.useMemo,
+        useRef: originalReact.useRef,
+        useImperativeHandle: originalReact.useImperativeHandle,
+        useLayoutEffect: originalReact.useLayoutEffect,
+        useDebugValue: originalReact.useDebugValue
+      };
+    }
+  }
+} catch (error) {
+  console.warn('🔒 Failed to capture React early:', error);
+}
+
 // Create a React reference holder that can't be nullified
 const ReactHolder = {
   _react: null as any,

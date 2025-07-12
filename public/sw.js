@@ -118,69 +118,15 @@ self.addEventListener('fetch', (event) => {
       event.respondWith(handleJavaScriptRequest(request));
       return;
     }
+    
+    // Handle API requests with network-first strategy
+    if (API_CACHE_PATTERNS.some(pattern => pattern.test(url.pathname))) {
+      event.respondWith(handleApiRequest(request));
+      return;
+    }
   } catch (error) {
     console.error('❌ URL parsing failed:', error);
-    event.respondWith(new Response('Invalid request', { status: 400 }));
-    return;
-  }
-  
-  // Handle API requests with network-first strategy
-  if (API_CACHE_PATTERNS.some(pattern => pattern.test(url.pathname))) {
-    event.respondWith(
-      fetch(request)
-        .then(response => {
-          if (!response.ok) {
-            return response;
-          }
-          
-          // Clone the response for caching with error handling
-          try {
-            const responseClone = response.clone();
-            
-            // Cache successful responses with error handling
-            caches.open(OFFLINE_CACHE_NAME)
-              .then(cache => {
-                if (isSafeRequest(request)) {
-                  return cache.put(request, responseClone);
-                }
-              })
-              .catch(cacheError => {
-                console.warn('📱 Cache put failed:', cacheError);
-              });
-          } catch (cloneError) {
-            console.warn('📱 Response clone failed:', cloneError);
-          }
-          
-          return response;
-        })
-        .catch(() => {
-          // Network failed, try cache
-          return caches.match(request)
-            .then(cachedResponse => {
-              if (cachedResponse) {
-                console.log('📱 Serving from cache:', request.url);
-                return cachedResponse;
-              }
-              
-              // Return offline fallback
-              return new Response(
-                JSON.stringify({ 
-                  error: 'Offline', 
-                  message: 'No cached data available' 
-                }),
-                {
-                  status: 503,
-                  statusText: 'Service Unavailable',
-                  headers: { 'Content-Type': 'application/json' }
-                }
-              );
-            })
-            .catch(cacheError => {
-              console.error('📱 Cache match failed:', cacheError);
-              return new Response('Cache error', { status: 500 });
-            });
-        })
-    );
+    // Don't respond to invalid URLs, let them fail naturally
     return;
   }
   
@@ -390,5 +336,57 @@ async function fetchWithRetry(request, cacheKey) {
     }
     
     throw error;
+  }
+}
+
+// API request handler
+async function handleApiRequest(request) {
+  try {
+    const response = await fetch(request);
+    
+    if (!response.ok) {
+      return response;
+    }
+    
+    // Clone the response for caching with error handling
+    try {
+      const responseClone = response.clone();
+      
+      // Cache successful responses with error handling
+      const cache = await caches.open(OFFLINE_CACHE_NAME);
+      if (isSafeRequest(request)) {
+        await cache.put(request, responseClone);
+      }
+    } catch (cacheError) {
+      console.warn('📱 Cache put failed:', cacheError);
+    }
+    
+    return response;
+  } catch (networkError) {
+    console.warn('📱 Network request failed:', networkError);
+    
+    // Network failed, try cache
+    try {
+      const cachedResponse = await caches.match(request);
+      if (cachedResponse) {
+        console.log('📱 Serving from cache:', request.url);
+        return cachedResponse;
+      }
+    } catch (cacheError) {
+      console.error('📱 Cache match failed:', cacheError);
+    }
+    
+    // Return offline fallback
+    return new Response(
+      JSON.stringify({ 
+        error: 'Offline', 
+        message: 'No cached data available' 
+      }),
+      {
+        status: 503,
+        statusText: 'Service Unavailable',
+        headers: { 'Content-Type': 'application/json' }
+      }
+    );
   }
 }
