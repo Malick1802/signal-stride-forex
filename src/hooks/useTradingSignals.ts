@@ -36,29 +36,13 @@ export const useTradingSignals = () => {
 
   const fetchSignals = useCallback(async () => {
     try {
+      // Only show loading for initial load to prevent race conditions
       if (isInitialLoad) {
         setLoading(true);
       }
       
       Logger.debug('signals', `Fetching active signals (limit: ${MAX_ACTIVE_SIGNALS})...`);
       
-      // First check if we have any signals at all
-      const { data: allSignals, error: allError } = await supabase
-        .from('trading_signals')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(50);
-
-      if (allError) {
-        Logger.error('signals', 'Error fetching all signals:', allError);
-      } else {
-        Logger.debug('signals', `Total signals in database: ${allSignals?.length || 0}`);
-        if (allSignals && allSignals.length > 0) {
-          Logger.debug('signals', `Sample signal:`, allSignals[0]);
-        }
-      }
-
-      // Now fetch active centralized signals
       const { data: centralizedSignals, error } = await supabase
         .from('trading_signals')
         .select('*')
@@ -70,14 +54,17 @@ export const useTradingSignals = () => {
         .limit(MAX_ACTIVE_SIGNALS);
 
       if (error) {
-        Logger.error('signals', 'Error fetching centralized signals:', error);
-        throw error;
+        Logger.error('signals', 'Error fetching signals:', error);
+        if (isInitialLoad) {
+          setSignals([]);
+        }
+        return;
       }
 
-      Logger.debug('signals', `Active centralized signals: ${centralizedSignals?.length || 0}`);
+      Logger.debug('signals', `RAW SIGNALS FETCHED: ${centralizedSignals?.length || 0} signals from database`);
 
       if (!centralizedSignals || centralizedSignals.length === 0) {
-        Logger.info('signals', 'No active centralized signals found');
+        Logger.debug('signals', 'No signals found in database');
         setSignals([]);
         setSignalDistribution({ buy: 0, sell: 0 });
         setLastUpdate(new Date().toLocaleTimeString());
@@ -86,14 +73,19 @@ export const useTradingSignals = () => {
 
       const processedSignals = processSignals(centralizedSignals);
       
+      // Calculate natural signal type distribution
       const buyCount = processedSignals.filter(s => s.type === 'BUY').length;
       const sellCount = processedSignals.filter(s => s.type === 'SELL').length;
       setSignalDistribution({ buy: buyCount, sell: sellCount });
       
-      Logger.info('signals', `Processed ${processedSignals.length}/${centralizedSignals.length} signals (BUY: ${buyCount}, SELL: ${sellCount})`);
+      Logger.info('signals', `PROCESSED SIGNALS: ${processedSignals.length}/${centralizedSignals.length} signals passed processing (BUY: ${buyCount}, SELL: ${sellCount}) - Natural distribution`);
       
       setSignals(processedSignals);
       setLastUpdate(new Date().toLocaleTimeString());
+      
+      if (processedSignals.length > 0) {
+        Logger.info('signals', `Loaded ${processedSignals.length}/${MAX_ACTIVE_SIGNALS} pure market signals (BUY: ${buyCount}, SELL: ${sellCount})`);
+      }
       
     } catch (error) {
       Logger.error('signals', 'Error in fetchSignals:', error);
@@ -101,7 +93,6 @@ export const useTradingSignals = () => {
         setSignals([]);
         setSignalDistribution({ buy: 0, sell: 0 });
       }
-      throw error;
     } finally {
       if (isInitialLoad) {
         setLoading(false);
@@ -297,57 +288,42 @@ export const useTradingSignals = () => {
 
   const triggerSignalGeneration = useCallback(async () => {
     try {
-      Logger.info('signals', 'Triggering signal generation...');
+      Logger.info('signals', `Triggering pure market signal generation...`);
       
-      // First check if we can generate signals
-      const { data: existingSignals, error: countError } = await supabase
-        .from('trading_signals')
-        .select('id')
-        .eq('status', 'active')
-        .eq('is_centralized', true)
-        .is('user_id', null);
-
-      if (countError) {
-        Logger.error('signals', 'Error checking existing signals:', countError);
-      } else {
-        Logger.info('signals', `Current active signals: ${existingSignals?.length || 0}/${MAX_ACTIVE_SIGNALS}`);
-      }
-      
-      const { data: signalResult, error: signalError } = await supabase.functions.invoke('generate-signals', {
-        body: { 
-          force: true, // Force generation even if at limit
-          debug: true,
-          optimized: true
-        }
-      });
+      const { data: signalResult, error: signalError } = await supabase.functions.invoke('generate-signals');
       
       if (signalError) {
-        Logger.error('signals', 'Signal generation failed:', signalError);
-        throw signalError;
+        Logger.error('signals', 'Pure market signal generation failed:', signalError);
+        toast({
+          title: "Generation Failed",
+          description: "Failed to detect new trading opportunities",
+          variant: "destructive"
+        });
+        return;
       }
       
-      Logger.info('signals', 'Signal generation result:', signalResult);
+      Logger.info('signals', 'Pure market signal generation completed');
       
-      // Wait for the signals to be processed
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise(resolve => setTimeout(resolve, 1500));
       await fetchSignals();
       
       const signalsGenerated = signalResult?.stats?.signalsGenerated || 0;
       const totalActiveSignals = signalResult?.stats?.totalActiveSignals || 0;
+      const signalLimit = signalResult?.stats?.signalLimit || MAX_ACTIVE_SIGNALS;
+      const distribution = signalResult?.stats?.signalDistribution || {};
       
       toast({
-        title: "✅ Signal Generation Complete",
-        description: `Generated ${signalsGenerated} new signals. Total active: ${totalActiveSignals}`,
+        title: "🎯 Pure Market Signals Generated",
+        description: `${signalsGenerated} signals generated (BUY: ${distribution.newBuySignals || 0}, SELL: ${distribution.newSellSignals || 0}) - ${totalActiveSignals}/${signalLimit} total`,
       });
       
     } catch (error) {
-      Logger.error('signals', 'Error in signal generation:', error);
+      Logger.error('signals', 'Error in pure market signal generation:', error);
       toast({
-        title: "Generation Failed",
-        description: `Failed to generate signals: ${error.message}`,
+        title: "Generation Error",
+        description: "Failed to detect new trading opportunities",
         variant: "destructive"
       });
-      throw error;
     }
   }, [fetchSignals, toast]);
 

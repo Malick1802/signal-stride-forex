@@ -32,7 +32,7 @@ const RealTimePriceDisplay = ({
     return price.toFixed(5);
   };
 
-  // Calculate signal performance if we have entry data
+  // Calculate signal performance using the proper pip calculator
   const signalPerformance = entryPrice && currentPrice && signalType && pair ? 
     calculateSignalPerformance(entryPrice, currentPrice, signalType as 'BUY' | 'SELL', pair) : 
     { pips: 0, percentage: 0, isProfit: false };

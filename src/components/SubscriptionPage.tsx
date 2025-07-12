@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { TrendingUp, Check, Clock, CreditCard, Settings, ArrowLeft, Home } from 'lucide-react';
+import { TrendingUp, Check, Clock, CreditCard, Settings, ArrowLeft } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { getTimeRemaining, formatDate } from '../utils/subscriptionUtils';
 
@@ -75,38 +75,31 @@ const SubscriptionPage: React.FC<SubscriptionPageProps> = ({ onNavigate }) => {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div className="flex items-center space-x-4">
-            {/* Always show back button for authenticated users */}
-            <button
-              onClick={() => onNavigate('dashboard')}
-              className="p-2 text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-white/10 touch-manipulation"
-              aria-label="Back to Dashboard"
-            >
-              <ArrowLeft className="h-6 w-6" />
-            </button>
+            {subscription?.has_access && (
+              <button
+                onClick={() => onNavigate('dashboard')}
+                className="p-2 text-gray-400 hover:text-white transition-colors"
+                aria-label="Back to Dashboard"
+              >
+                <ArrowLeft className="h-6 w-6" />
+              </button>
+            )}
             <div className="flex items-center space-x-2">
               <TrendingUp className="h-8 w-8 text-emerald-400" />
               <h1 className="text-3xl font-bold text-white">Subscription</h1>
             </div>
           </div>
-          <div className="flex items-center space-x-2 sm:space-x-4">
-            {/* Dashboard shortcut for easy navigation */}
-            <button
-              onClick={() => onNavigate('dashboard')}
-              className="hidden sm:flex items-center space-x-2 px-3 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors text-sm"
-            >
-              <Home className="h-4 w-4" />
-              <span>Dashboard</span>
-            </button>
+          <div className="flex items-center space-x-4">
             <button
               onClick={handleRefresh}
               disabled={isLoading}
-              className="px-3 sm:px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors disabled:opacity-50 text-sm"
+              className="px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors disabled:opacity-50"
             >
               {isLoading ? 'Refreshing...' : 'Refresh Status'}
             </button>
             <button
               onClick={() => signOut()}
-              className="px-3 sm:px-4 py-2 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 transition-colors text-sm"
+              className="px-4 py-2 bg-red-500/20 text-red-300 rounded-lg hover:bg-red-500/30 transition-colors"
             >
               Sign Out
             </button>

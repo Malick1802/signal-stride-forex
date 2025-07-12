@@ -1,108 +1,164 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useCentralizedMarketData } from './useCentralizedMarketData';
-import { calculateSignalPerformance } from '@/utils/pipCalculator';
+import { useGlobalRefresh } from './useGlobalRefresh';
+
+interface PriceData {
+  timestamp: number;
+  time: string;
+  price: number;
+  volume?: number;
+}
 
 interface UseRealTimeMarketDataProps {
   pair: string;
-  entryPrice: string | number;
-  enabled?: boolean; // New prop for conditional fetching
+  entryPrice: string;
 }
 
-interface PriceChangeData {
-  change: number;
-  percentage: number;
-  isProfit: boolean;
-}
+// All pairs use centralized data
+const CENTRALIZED_PAIRS = [
+  'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
+  'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY',
+  'GBPNZD', 'AUDNZD', 'CADCHF', 'EURAUD', 'EURNZD', 'GBPCAD', 'NZDCAD',
+  'NZDCHF', 'NZDJPY', 'AUDJPY', 'CHFJPY'
+];
 
-export const useRealTimeMarketData = ({ 
-  pair, 
-  entryPrice, 
-  enabled = true 
-}: UseRealTimeMarketDataProps) => {
-  const [priceData, setPriceData] = useState<Array<{ timestamp: number; time: string; price: number }>>([]);
-  const [currentPrice, setCurrentPrice] = useState<number | null>(null);
-  const [lastUpdateTime, setLastUpdateTime] = useState<string>('');
-  const [dataSource, setDataSource] = useState<string>('Initializing...');
-  const [isConnected, setIsConnected] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+export const useRealTimeMarketData = ({ pair, entryPrice }: UseRealTimeMarketDataProps) => {
+  const shouldUseCentralized = CENTRALIZED_PAIRS.includes(pair);
   
-  const timeoutRef = useRef<NodeJS.Timeout>();
+  // Use global refresh state for coordinated updates
+  const { lastPriceUpdate, isUpdating, isConnected: globalConnected } = useGlobalRefresh();
+  
+  const { 
+    marketData, 
+    isConnected, 
+    dataSource, 
+    triggerMarketUpdate, 
+    isInitialLoad, 
+    isLoading,
+    refetch 
+  } = useCentralizedMarketData(shouldUseCentralized ? pair : '');
+  
   const mountedRef = useRef(true);
+  const [lastDataUpdate, setLastDataUpdate] = useState<number>(0);
+  const lastGlobalUpdateRef = useRef<number>(0);
 
-  // Only fetch centralized data when enabled
-  const {
-    marketData,
-    isConnected: centralizedConnected,
-    dataSource: centralizedDataSource,
-    isLoading: centralizedLoading
-  } = useCentralizedMarketData(enabled ? pair : '');
-
-  useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
+  // Enhanced market hours check
+  const checkMarketHours = useCallback(() => {
+    const now = new Date();
+    const utcHour = now.getUTCHours();
+    const utcDay = now.getUTCDay();
+    
+    const isFridayEvening = utcDay === 5 && utcHour >= 22;
+    const isSaturday = utcDay === 6;
+    const isSundayBeforeOpen = utcDay === 0 && utcHour < 22;
+    
+    return !(isFridayEvening || isSaturday || isSundayBeforeOpen);
   }, []);
 
+  // React to global refresh updates ONLY when market is open
   useEffect(() => {
-    if (!enabled || !mountedRef.current) {
-      setIsLoading(false);
-      return;
+    const isMarketCurrentlyOpen = checkMarketHours();
+    
+    if (shouldUseCentralized && 
+        lastPriceUpdate > lastGlobalUpdateRef.current && 
+        mountedRef.current && 
+        isMarketCurrentlyOpen) {
+      console.log(`🔄 [${pair}] Responding to global refresh update (market open)`);
+      lastGlobalUpdateRef.current = lastPriceUpdate;
+      
+      // Fetch fresh data in response to global update
+      setTimeout(() => {
+        if (mountedRef.current) {
+          refetch();
+        }
+      }, 100);
+    } else if (!isMarketCurrentlyOpen) {
+      console.log(`💤 [${pair}] Market closed - ignoring price updates`);
+    }
+  }, [lastPriceUpdate, pair, shouldUseCentralized, refetch, checkMarketHours]);
+
+  // Enhanced auto-trigger for initial load
+  useEffect(() => {
+    mountedRef.current = true;
+    
+    if (shouldUseCentralized && isInitialLoad && !marketData && !isLoading) {
+      console.log(`🚀 [${pair}] Auto-triggering initial data fetch`);
+      const timer = setTimeout(() => {
+        if (mountedRef.current && !marketData) {
+          triggerMarketUpdate();
+        }
+      }, 500);
+      
+      return () => clearTimeout(timer);
     }
 
+    return () => {
+      mountedRef.current = false;
+    };
+  }, [pair, shouldUseCentralized, marketData, triggerMarketUpdate, isInitialLoad, isLoading]);
+
+  // Track data updates for freshness
+  useEffect(() => {
     if (marketData && marketData.priceHistory.length > 0) {
-      const transformedData = marketData.priceHistory.map(point => ({
-        timestamp: point.timestamp,
-        time: point.time,
-        price: point.price
-      }));
-
-      setPriceData(transformedData);
-      setCurrentPrice(marketData.currentPrice);
-      setLastUpdateTime(marketData.lastUpdate);
-      setDataSource(centralizedDataSource);
-      setIsConnected(centralizedConnected && marketData.isMarketOpen);
-      setIsLoading(false);
-    } else if (!centralizedLoading) {
-      // Fallback when no market data but not loading
-      const fallbackPrice = parseFloat(entryPrice.toString());
-      if (!isNaN(fallbackPrice)) {
-        setCurrentPrice(fallbackPrice);
-        setDataSource('Entry Price (Market Closed)');
-        setIsConnected(false);
-      }
-      setIsLoading(false);
+      setLastDataUpdate(Date.now());
     }
-  }, [marketData, centralizedConnected, centralizedDataSource, centralizedLoading, entryPrice, enabled]);
+  }, [marketData]);
 
-  const getPriceChange = useCallback((): PriceChangeData => {
-    if (!currentPrice || !entryPrice || !enabled) {
-      return { change: 0, percentage: 0, isProfit: false };
+  const getPriceChange = useCallback(() => {
+    const isMarketCurrentlyOpen = checkMarketHours();
+    
+    if (shouldUseCentralized && marketData && isMarketCurrentlyOpen) {
+      return {
+        change: marketData.change24h,
+        percentage: marketData.changePercentage
+      };
     }
+    
+    // During market closure, return zero change
+    return { change: 0, percentage: 0 };
+  }, [shouldUseCentralized, marketData, checkMarketHours]);
 
-    const entryPriceNum = parseFloat(entryPrice.toString());
-    const change = currentPrice - entryPriceNum;
-    const percentage = entryPriceNum > 0 ? (change / entryPriceNum) * 100 : 0;
+  const getSparklineData = useCallback(() => {
+    if (shouldUseCentralized && marketData) {
+      return marketData.priceHistory.slice(-20);
+    }
+    return [];
+  }, [shouldUseCentralized, marketData]);
+
+  // Enhanced return for centralized data with market closure handling
+  if (shouldUseCentralized) {
+    const hasData = marketData && marketData.priceHistory.length > 0;
+    const dataAge = lastDataUpdate > 0 ? Date.now() - lastDataUpdate : 0;
+    const isDataFresh = dataAge < 300000; // 5 minutes
+    const isMarketCurrentlyOpen = checkMarketHours();
+    
+    // Use global connection status combined with local status
+    const connectionStatus = (isConnected || globalConnected) && hasData && !isUpdating && isMarketCurrentlyOpen;
     
     return {
-      change,
-      percentage,
-      isProfit: change > 0
+      priceData: marketData?.priceHistory || [],
+      currentPrice: marketData?.currentPrice || null,
+      isMarketOpen: isMarketCurrentlyOpen,
+      lastUpdateTime: marketData?.lastUpdate || '',
+      dataSource: `${dataSource}${!hasData ? ' - Loading...' : ''}${isUpdating ? ' - Updating...' : ''}${!isDataFresh && hasData ? ' - Stale' : ''}${!isMarketCurrentlyOpen ? ' - Market Closed' : ''}`,
+      isConnected: connectionStatus && isDataFresh,
+      getPriceChange,
+      getSparklineData,
+      isLoading: isLoading || isUpdating
     };
-  }, [currentPrice, entryPrice, enabled]);
+  }
 
+  // For unsupported pairs
   return {
-    priceData: enabled ? priceData : [],
-    currentPrice: enabled ? currentPrice : null,
+    priceData: [],
+    currentPrice: null,
+    isMarketOpen: false,
+    lastUpdateTime: '',
+    dataSource: `${pair} not supported`,
+    isConnected: false,
     getPriceChange,
-    dataSource: enabled ? dataSource : 'Disabled',
-    lastUpdateTime: enabled ? lastUpdateTime : '',
-    isConnected: enabled ? isConnected : false,
-    isMarketOpen: enabled ? (marketData?.isMarketOpen ?? false) : false,
-    isLoading: enabled ? isLoading : false
+    getSparklineData,
+    isLoading: false
   };
 };

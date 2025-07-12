@@ -1,12 +1,12 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useSignalOutcomeTracker } from '@/hooks/useSignalOutcomeTracker';
-import { useSignalStatusManager } from '@/hooks/useSignalStatusManager';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RefreshCw, Search, AlertTriangle, CheckCircle, Clock, BarChart3, Wrench, Zap } from 'lucide-react';
+import { RefreshCw, Search, AlertTriangle, CheckCircle, Clock, BarChart3, Wrench } from 'lucide-react';
 import SignalOptimizationMetrics from './SignalOptimizationMetrics';
 
 interface SignalDebugInfo {
@@ -44,8 +44,7 @@ const SignalDebuggingDashboard = () => {
     successRate: 0
   });
 
-  const { repairExpiredSignalsWithoutOutcomes } = useSignalOutcomeTracker();
-  const { forceExpireCompletedSignals } = useSignalStatusManager();
+  const { investigateExpiredSignalsWithoutOutcomes } = useSignalOutcomeTracker();
 
   const calculatePipDistance = (price1: number, price2: number, symbol: string): number => {
     const multiplier = symbol.includes('JPY') ? 100 : 10000;
@@ -211,22 +210,7 @@ const SignalDebuggingDashboard = () => {
   const handleRepairMissingOutcomes = async () => {
     setLoading(true);
     try {
-      await repairExpiredSignalsWithoutOutcomes();
-      await fetchDebugInfo(); // Refresh data after repair
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleForceExpireCompletedSignals = async () => {
-    setLoading(true);
-    try {
-      const result = await forceExpireCompletedSignals();
-      
-      if (result.repaired > 0) {
-        console.log(`🔧 REPAIR SUCCESS: Fixed ${result.repaired} signals with all targets hit`);
-      }
-      
+      await investigateExpiredSignalsWithoutOutcomes();
       await fetchDebugInfo(); // Refresh data after repair
     } finally {
       setLoading(false);
@@ -315,7 +299,7 @@ const SignalDebuggingDashboard = () => {
             </Card>
           </div>
 
-          {/* Enhanced Controls */}
+          {/* Controls */}
           <div className="flex space-x-4">
             <Button
               onClick={fetchDebugInfo}
@@ -331,24 +315,6 @@ const SignalDebuggingDashboard = () => {
                 <>
                   <Search className="h-4 w-4 mr-2" />
                   Refresh Debug Info
-                </>
-              )}
-            </Button>
-
-            <Button
-              onClick={handleForceExpireCompletedSignals}
-              disabled={loading}
-              className="bg-green-600 hover:bg-green-700"
-            >
-              {loading ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Repairing...
-                </>
-              ) : (
-                <>
-                  <Zap className="h-4 w-4 mr-2" />
-                  Fix Active Signals with All Targets Hit
                 </>
               )}
             </Button>
