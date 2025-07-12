@@ -6,12 +6,26 @@ import extensionDetector from './utils/extensionDetector'
 // Initialize extension detection
 extensionDetector.init();
 
+// Force clear any cached React references that extensions might have corrupted
+if (typeof window !== 'undefined') {
+  // Clear any extension-injected React references
+  delete (window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__;
+  
+  // Ensure React is properly available
+  import('react').then((React) => {
+    (window as any).React = React;
+  });
+}
+
 // Defensive React rendering with extension conflict handling
 try {
   const rootElement = document.getElementById("root");
   if (!rootElement) {
     throw new Error("Root element not found");
   }
+
+  // Clear any existing content that might be causing conflicts
+  rootElement.innerHTML = '';
 
   const root = createRoot(rootElement);
   root.render(<App />);
@@ -44,6 +58,8 @@ try {
           border-radius: 5px; 
           cursor: pointer;
         ">Reload Page</button>
+        <br><br>
+        <small style="opacity: 0.7;">Try disabling browser extensions or use incognito mode</small>
       </div>
     </div>
   `;

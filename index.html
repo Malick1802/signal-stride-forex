@@ -22,6 +22,22 @@
 
   <body>
     <div id="root"></div>
+    <!-- Extension conflict protection script -->
+    <script>
+      // Immediately protect React from extension interference
+      window.__REACT_PROTECTION__ = true;
+      
+      // Block common extension interference patterns
+      const originalAppendChild = Element.prototype.appendChild;
+      Element.prototype.appendChild = function(child) {
+        // Block extension scripts from modifying our app
+        if (child && child.src && (child.src.includes('extension://') || child.src.includes('chrome-extension://'))) {
+          console.warn('Blocked extension script injection:', child.src);
+          return child;
+        }
+        return originalAppendChild.call(this, child);
+      };
+    </script>
     <!-- IMPORTANT: DO NOT REMOVE THIS SCRIPT TAG OR THIS VERY COMMENT! -->
     <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
     <script type="module" src="/src/main.tsx"></script>
