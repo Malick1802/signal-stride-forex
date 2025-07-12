@@ -130,7 +130,7 @@ const TradingSignals = memo(() => {
             <SignalCardLoading key={i} pair="Loading..." />
           ))}
         </div>
-      ) : (
+      ) : displaySignals.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {displaySignals.map((signal) => (
             <SignalCard 
@@ -141,6 +141,17 @@ const TradingSignals = memo(() => {
               onGetAIAnalysis={handleGetAIAnalysis}
             />
           ))}
+        </div>
+      ) : (
+        <div className="bg-muted/50 border border-border rounded-lg p-8 text-center">
+          <div className="text-muted-foreground">
+            <div className="text-4xl mb-4">📊</div>
+            <div className="text-lg font-medium mb-2">No Active Signals</div>
+            <div className="text-sm">
+              No trading signals are currently active.
+              Check back later or refresh to see new signals.
+            </div>
+          </div>
         </div>
       )}
     </div>
