@@ -35,7 +35,7 @@ const App = () => {
           <MobileDebugger />
           <Toaster />
           <Sonner />
-          <BrowserRouter>
+          <BrowserRouter basename={Capacitor.isNativePlatform() ? '' : undefined}>
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/test" element={<TestPage />} />
