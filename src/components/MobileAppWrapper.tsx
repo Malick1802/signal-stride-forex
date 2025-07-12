@@ -1,9 +1,9 @@
-
 import { useState, useEffect } from 'react';
 import { useMobileConnectivity } from '@/hooks/useMobileConnectivity';
 import { MobileNotificationManager } from '@/utils/mobileNotifications';
 import MobileErrorBoundary from './MobileErrorBoundary';
 import { Capacitor } from '@capacitor/core';
+import { MobileRouteManager } from '@/utils/mobileRouteManager';
 
 interface InitializationState {
   isInitialized: boolean;
@@ -28,6 +28,16 @@ const initializeNativeFeatures = async (
 
     console.log('📱 Native platform detected:', Capacitor.getPlatform());
     setInitState({ currentStep: 'Configuring native features...', progress: 25 });
+
+    // Initialize mobile routing first
+    try {
+      setInitState({ currentStep: 'Setting up mobile routing...', progress: 30 });
+      MobileRouteManager.initializeMobileRouting();
+      console.log('✅ Mobile routing initialized');
+    } catch (error) {
+      console.warn('⚠️ Mobile routing initialization failed:', error);
+      setInitState({ error: 'Routing setup failed (non-critical)' });
+    }
 
     // Dynamically import native features only when needed
     try {

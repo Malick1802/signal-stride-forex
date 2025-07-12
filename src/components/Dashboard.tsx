@@ -15,6 +15,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { PullToRefresh } from './PullToRefresh';
 import { NotificationCenter } from './NotificationCenter';
 import { SettingsDialog } from './SettingsDialog';
+import { Capacitor } from '@capacitor/core';
 
 // Lazy load heavy components
 const LazyTradingSignals = lazy(() => import('./LazyTradingSignals'));
@@ -42,7 +43,9 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
 
   console.log('Dashboard: User is admin:', isAdmin);
 
-  // Calculate real statistics from signals data
+  // Check if we're on a native mobile platform
+  const isNativePlatform = Capacitor.isNativePlatform();
+
   const calculateStats = () => {
     const activeSignalsCount = signals.length;
     const totalSignalsCount = 20; // MAX_ACTIVE_SIGNALS from useTradingSignals
@@ -223,10 +226,20 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
     </div>
   );
 
+  // Mobile header background - darker for mobile, semi-transparent for web
+  const headerBgClass = isNativePlatform 
+    ? 'bg-slate-800/95 backdrop-blur-sm border-b border-white/10' 
+    : 'bg-black/20 backdrop-blur-sm border-b border-white/10';
+
+  // Mobile header positioning - safe area padding only for mobile
+  const headerPositionClass = isNativePlatform 
+    ? 'mobile-nav-header mobile-header-fix pt-safe' 
+    : '';
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
-      {/* Mobile-First Top Navigation */}
-      <nav className="bg-black/20 backdrop-blur-sm border-b border-white/10 px-3 sm:px-6 py-3 sm:py-4">
+      {/* Mobile-First Top Navigation with Conditional Safe Area Support */}
+      <nav className={`${headerBgClass} ${headerPositionClass} px-3 sm:px-6 py-3 sm:py-4`}>
         <div className="flex items-center justify-between">
           {/* Left side - Logo and status */}
           <div className="flex items-center space-x-2 sm:space-x-4 flex-1 min-w-0">
@@ -360,7 +373,7 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
         </div>
       </nav>
 
-      {/*UserProfile Modal */}
+      {/* UserProfile Modal */}
       <UserProfile open={profileOpen} onOpenChange={setProfileOpen} />
 
       {/* Desktop Tab Navigation */}
@@ -403,7 +416,7 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
       />
 
       {/* Content Area - With Pull to Refresh for Mobile */}
-      <PullToRefresh onRefresh={handleRefresh} className="flex-1">
+      <PullToRefresh onRefresh={handleRefresh} className="flex-1 mobile-content-area">
         <div className="p-3 sm:p-6">
           {/* Trial Expiration Banner */}
           {!bannerDismissed && (

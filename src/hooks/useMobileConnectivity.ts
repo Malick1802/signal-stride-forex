@@ -1,7 +1,6 @@
 
-// Bulletproof mobile connectivity hook that works even when React is compromised
+import { useState, useEffect, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
-import reactRecovery from '../utils/reactRecovery';
 
 interface ConnectivityState {
   isOnline: boolean;
@@ -11,166 +10,8 @@ interface ConnectivityState {
   retryCount: number;
 }
 
-// Create a completely independent state management system for when React is compromised
-class FallbackStateManager {
-  private state: ConnectivityState;
-  private listeners: Set<(state: ConnectivityState) => void> = new Set();
-
-  constructor(initialState: ConnectivityState) {
-    this.state = initialState;
-  }
-
-  getState(): ConnectivityState {
-    return { ...this.state };
-  }
-
-  setState(updater: Partial<ConnectivityState> | ((prev: ConnectivityState) => ConnectivityState)): void {
-    if (typeof updater === 'function') {
-      this.state = updater(this.state);
-    } else {
-      this.state = { ...this.state, ...updater };
-    }
-    
-    // Notify all listeners
-    this.listeners.forEach(listener => {
-      try {
-        listener(this.getState());
-      } catch (error) {
-        console.warn('Listener error:', error);
-      }
-    });
-  }
-
-  subscribe(listener: (state: ConnectivityState) => void): () => void {
-    this.listeners.add(listener);
-    return () => this.listeners.delete(listener);
-  }
-}
-
-// Global fallback state manager
-let fallbackManager: FallbackStateManager | null = null;
-
-// Bulletproof React hook implementation with multiple fallback strategies
-const safeUseState = <T>(initialState: T): [T, React.Dispatch<React.SetStateAction<T>>] => {
-  try {
-    // Strategy 1: Try window.React first
-    if (typeof window !== 'undefined' && window.React && window.React.useState) {
-      return window.React.useState(initialState);
-    }
-    
-    // Strategy 2: Try direct import
-    const { useState } = require('react');
-    if (useState) {
-      return useState(initialState);
-    }
-    
-    throw new Error('All React strategies failed');
-  } catch (error) {
-    console.warn('🚨 React hooks compromised, using bulletproof fallback:', error);
-    
-    // Bulletproof fallback using closure-based state
-    let currentValue = initialState;
-    let rerenderTrigger = 0;
-    
-    const setValue = (newValue: T | ((prev: T) => T)) => {
-      const nextValue = typeof newValue === 'function' 
-        ? (newValue as (prev: T) => T)(currentValue)
-        : newValue;
-      
-      if (currentValue !== nextValue) {
-        currentValue = nextValue;
-        rerenderTrigger++;
-        
-        // Try multiple re-render strategies
-        try {
-          // Strategy 1: Custom event
-          if (typeof window !== 'undefined' && document.body) {
-            document.body.dispatchEvent(new CustomEvent('force-rerender', { 
-              detail: { value: nextValue, trigger: rerenderTrigger } 
-            }));
-          }
-          
-          // Strategy 2: Update a hidden DOM element to trigger observers
-          const hiddenElement = document.getElementById('react-fallback-trigger');
-          if (hiddenElement) {
-            hiddenElement.setAttribute('data-value', String(rerenderTrigger));
-          } else if (document.body) {
-            const trigger = document.createElement('div');
-            trigger.id = 'react-fallback-trigger';
-            trigger.style.display = 'none';
-            trigger.setAttribute('data-value', String(rerenderTrigger));
-            document.body.appendChild(trigger);
-          }
-        } catch (triggerError) {
-          console.warn('Re-render trigger failed:', triggerError);
-        }
-      }
-    };
-    
-    return [currentValue, setValue as React.Dispatch<React.SetStateAction<T>>];
-  }
-};
-
-// Completely safe hook implementations that work without React
-const safeUseEffect = (effect: () => void | (() => void), deps?: any[]) => {
-  try {
-    // Try to get React hooks through our recovery system
-    const React = reactRecovery.isReactHealthy() ? (window as any).React : null;
-    
-    if (React && React.useEffect) {
-      return React.useEffect(effect, deps);
-    }
-    
-    throw new Error('React useEffect not available');
-  } catch (error) {
-    console.warn('useEffect compromised, using immediate execution fallback:', error);
-    
-    // Execute effect immediately as fallback
-    try {
-      const cleanup = effect();
-      
-      // Store cleanup for later execution if needed
-      if (cleanup && typeof cleanup === 'function') {
-        // Store cleanup in a global registry for later execution
-        if (typeof window !== 'undefined') {
-          if (!(window as any).__cleanupRegistry) {
-            (window as any).__cleanupRegistry = [];
-          }
-          (window as any).__cleanupRegistry.push(cleanup);
-          
-          // Clean up on page unload
-          window.addEventListener('beforeunload', cleanup, { once: true });
-        }
-      }
-    } catch (effectError) {
-      console.error('Effect execution failed:', effectError);
-    }
-  }
-};
-
-const safeUseCallback = <T extends (...args: any[]) => any>(callback: T, deps?: any[]): T => {
-  try {
-    const React = reactRecovery.isReactHealthy() ? (window as any).React : null;
-    
-    if (React && React.useCallback) {
-      return React.useCallback(callback, deps);
-    }
-    
-    throw new Error('React useCallback not available');
-  } catch (error) {
-    console.warn('useCallback compromised, using direct function fallback:', error);
-    
-    // Return the function directly as fallback
-    return callback;
-  }
-};
-
 export const useMobileConnectivity = () => {
-  // Use React recovery system for maximum reliability
-  const [connectivity, setConnectivity] = reactRecovery.wrapHook(
-    safeUseState<ConnectivityState>,
-    'useState'
-  )({
+  const [connectivity, setConnectivity] = useState<ConnectivityState>({
     isOnline: navigator.onLine,
     connectionType: 'unknown',
     isConnected: navigator.onLine,
@@ -178,7 +19,7 @@ export const useMobileConnectivity = () => {
     retryCount: 0
   });
 
-  const checkConnectivity = safeUseCallback(async () => {
+  const checkConnectivity = useCallback(async () => {
     try {
       if (Capacitor.isNativePlatform()) {
         try {
@@ -236,7 +77,7 @@ export const useMobileConnectivity = () => {
     }
   }, []);
 
-  const retryConnection = safeUseCallback(async () => {
+  const retryConnection = useCallback(async () => {
     setConnectivity(prev => ({
       ...prev,
       retryCount: prev.retryCount + 1
@@ -245,7 +86,7 @@ export const useMobileConnectivity = () => {
     await checkConnectivity();
   }, [checkConnectivity]);
 
-  safeUseEffect(() => {
+  useEffect(() => {
     checkConnectivity();
 
     const handleOnline = () => {
