@@ -5,6 +5,7 @@ const config: CapacitorConfig = {
   appName: 'ForexSignal Pro',
   webDir: 'dist',
   server: {
+    url: 'https://da46b985-2e68-44b3-90bc-922d481bf104.lovableproject.com',
     androidScheme: 'https',
     cleartext: true
   },
