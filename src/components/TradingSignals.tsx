@@ -143,13 +143,40 @@ const TradingSignals = memo(() => {
           ))}
         </div>
       ) : (
-        <div className="bg-muted/50 border border-border rounded-lg p-8 text-center">
-          <div className="text-muted-foreground">
-            <div className="text-4xl mb-4">📊</div>
-            <div className="text-lg font-medium mb-2">No Active Signals</div>
-            <div className="text-sm">
-              No trading signals are currently active.
-              Check back later or refresh to see new signals.
+        <div className="relative overflow-hidden bg-gradient-to-br from-background to-muted/30 border border-border/50 rounded-xl p-12 text-center shadow-sm">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent" />
+          <div className="relative">
+            <div className="w-16 h-16 mx-auto mb-6 bg-muted/50 rounded-full flex items-center justify-center">
+              <div className="text-2xl text-muted-foreground/70">📊</div>
+            </div>
+            <h3 className="text-xl font-semibold text-foreground mb-3">
+              No Active Trading Signals
+            </h3>
+            <p className="text-muted-foreground text-sm leading-relaxed mb-6 max-w-md mx-auto">
+              Our AI is continuously monitoring the markets. New high-quality signals will appear here when market conditions are favorable.
+            </p>
+            <div className="flex justify-center gap-3">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleRefresh}
+                className="hover:bg-muted/50 transition-colors"
+              >
+                <RefreshCw className="w-4 h-4 mr-2" />
+                Check for Signals
+              </Button>
+              <Button 
+                variant="secondary" 
+                size="sm" 
+                onClick={handleGenerateSignals}
+                disabled={isGenerating}
+                className="bg-primary/10 hover:bg-primary/20 text-primary border-primary/20"
+              >
+                {isGenerating ? "Analyzing..." : "Generate Signals"}
+              </Button>
+            </div>
+            <div className="mt-4 text-xs text-muted-foreground/60">
+              Last updated: {lastUpdate ? new Date(lastUpdate).toLocaleTimeString() : 'Never'}
             </div>
           </div>
         </div>
