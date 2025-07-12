@@ -1,6 +1,7 @@
 
 import { useEffect, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
+import reactRecovery from '../utils/reactRecovery';
 
 interface ConnectivityState {
   isOnline: boolean;
@@ -49,46 +50,60 @@ class FallbackStateManager {
 // Global fallback state manager
 let fallbackManager: FallbackStateManager | null = null;
 
-// Enhanced safe useState that completely bypasses React when compromised
+// Bulletproof React hook implementation with multiple fallback strategies
 const safeUseState = <T>(initialState: T): [T, React.Dispatch<React.SetStateAction<T>>] => {
   try {
-    // First, check if React and useState are available
+    // Strategy 1: Try window.React first
     if (typeof window !== 'undefined' && window.React && window.React.useState) {
       return window.React.useState(initialState);
     }
     
-    // Try to dynamically import React
-    const React = require('react');
-    if (React && React.useState) {
-      return React.useState(initialState);
+    // Strategy 2: Try direct import
+    const { useState } = require('react');
+    if (useState) {
+      return useState(initialState);
     }
     
-    throw new Error('React hooks not available');
+    throw new Error('All React strategies failed');
   } catch (error) {
-    console.warn('🚨 React hooks compromised, using fallback state management:', error);
+    console.warn('🚨 React hooks compromised, using bulletproof fallback:', error);
     
-    // Create fallback state manager if it doesn't exist
-    if (!fallbackManager) {
-      fallbackManager = new FallbackStateManager({
-        isOnline: navigator.onLine,
-        connectionType: 'unknown',
-        isConnected: navigator.onLine,
-        lastConnected: navigator.onLine ? new Date() : null,
-        retryCount: 0
-      });
-    }
-    
-    // Return a fallback state implementation
+    // Bulletproof fallback using closure-based state
     let currentValue = initialState;
+    let rerenderTrigger = 0;
+    
     const setValue = (newValue: T | ((prev: T) => T)) => {
-      if (typeof newValue === 'function') {
-        currentValue = (newValue as (prev: T) => T)(currentValue);
-      } else {
-        currentValue = newValue;
-      }
-      // Force re-render by updating the DOM if possible
-      if (typeof window !== 'undefined' && document.body) {
-        document.body.dispatchEvent(new CustomEvent('fallback-state-update'));
+      const nextValue = typeof newValue === 'function' 
+        ? (newValue as (prev: T) => T)(currentValue)
+        : newValue;
+      
+      if (currentValue !== nextValue) {
+        currentValue = nextValue;
+        rerenderTrigger++;
+        
+        // Try multiple re-render strategies
+        try {
+          // Strategy 1: Custom event
+          if (typeof window !== 'undefined' && document.body) {
+            document.body.dispatchEvent(new CustomEvent('force-rerender', { 
+              detail: { value: nextValue, trigger: rerenderTrigger } 
+            }));
+          }
+          
+          // Strategy 2: Update a hidden DOM element to trigger observers
+          const hiddenElement = document.getElementById('react-fallback-trigger');
+          if (hiddenElement) {
+            hiddenElement.setAttribute('data-value', String(rerenderTrigger));
+          } else if (document.body) {
+            const trigger = document.createElement('div');
+            trigger.id = 'react-fallback-trigger';
+            trigger.style.display = 'none';
+            trigger.setAttribute('data-value', String(rerenderTrigger));
+            document.body.appendChild(trigger);
+          }
+        } catch (triggerError) {
+          console.warn('Re-render trigger failed:', triggerError);
+        }
       }
     };
     
@@ -118,7 +133,11 @@ const safeUseEffect = (effect: () => void | (() => void), deps?: React.Dependenc
 };
 
 export const useMobileConnectivity = () => {
-  const [connectivity, setConnectivity] = safeUseState<ConnectivityState>({
+  // Use React recovery system for maximum reliability
+  const [connectivity, setConnectivity] = reactRecovery.wrapHook(
+    safeUseState<ConnectivityState>,
+    'useState'
+  )({
     isOnline: navigator.onLine,
     connectionType: 'unknown',
     isConnected: navigator.onLine,

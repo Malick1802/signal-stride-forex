@@ -3,9 +3,11 @@ import { createRoot } from 'react-dom/client'
 import App from './App.tsx'
 import './index.css'
 import extensionDetector from './utils/extensionDetector'
+import reactRecovery from './utils/reactRecovery'
 
-// Initialize extension detection immediately
+// Initialize protection systems immediately
 extensionDetector.init();
+reactRecovery.init();
 
 // Create a React reference holder that can't be nullified
 const ReactHolder = {

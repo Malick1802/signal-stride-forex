@@ -61,13 +61,46 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch event - implement caching strategy
-self.addEventListener('fetch', (event) => {
-  const { request } = event;
+// Utility functions for URL validation
+const isValidCacheableURL = (url) => {
+  // Only cache HTTP/HTTPS requests from our origin
+  return (url.protocol === 'http:' || url.protocol === 'https:') && 
+         (url.origin === self.location.origin || !url.origin);
+};
+
+const isSafeRequest = (request) => {
   const url = new URL(request.url);
   
-  // Skip non-GET requests
-  if (request.method !== 'GET') {
+  // Block extension URLs and other unsafe schemes
+  const unsafeSchemes = ['chrome-extension:', 'moz-extension:', 'safari-extension:', 'edge-extension:'];
+  if (unsafeSchemes.some(scheme => url.protocol === scheme)) {
+    console.warn('🚫 Blocked unsafe request:', url.href);
+    return false;
+  }
+  
+  return isValidCacheableURL(url);
+};
+
+// Enhanced fetch event with comprehensive error handling
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
+  
+  try {
+    const url = new URL(request.url);
+    
+    // Skip non-GET requests
+    if (request.method !== 'GET') {
+      return;
+    }
+    
+    // Block unsafe requests early
+    if (!isSafeRequest(request)) {
+      event.respondWith(new Response('Request blocked', { status: 403 }));
+      return;
+    }
+  } catch (error) {
+    console.error('❌ URL parsing failed:', error);
+    event.respondWith(new Response('Invalid request', { status: 400 }));
     return;
   }
   
@@ -76,15 +109,26 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       fetch(request)
         .then(response => {
-          // Clone the response for caching
-          const responseClone = response.clone();
+          if (!response.ok) {
+            return response;
+          }
           
-          // Cache successful responses
-          if (response.ok) {
+          // Clone the response for caching with error handling
+          try {
+            const responseClone = response.clone();
+            
+            // Cache successful responses with error handling
             caches.open(OFFLINE_CACHE_NAME)
               .then(cache => {
-                cache.put(request, responseClone);
+                if (isSafeRequest(request)) {
+                  return cache.put(request, responseClone);
+                }
+              })
+              .catch(cacheError => {
+                console.warn('📱 Cache put failed:', cacheError);
               });
+          } catch (cloneError) {
+            console.warn('📱 Response clone failed:', cloneError);
           }
           
           return response;
@@ -110,6 +154,10 @@ self.addEventListener('fetch', (event) => {
                   headers: { 'Content-Type': 'application/json' }
                 }
               );
+            })
+            .catch(cacheError => {
+              console.error('📱 Cache match failed:', cacheError);
+              return new Response('Cache error', { status: 500 });
             });
         })
     );
@@ -124,7 +172,7 @@ self.addEventListener('fetch', (event) => {
           return cachedResponse;
         }
         
-        // Not in cache, fetch from network
+        // Not in cache, fetch from network with error handling
         return fetch(request)
           .then(response => {
             // Don't cache non-successful responses
@@ -132,25 +180,46 @@ self.addEventListener('fetch', (event) => {
               return response;
             }
             
-            // Clone the response for caching
-            const responseClone = response.clone();
-            
-            caches.open(CACHE_NAME)
-              .then(cache => {
-                cache.put(request, responseClone);
-              });
+            // Clone and cache with comprehensive error handling
+            try {
+              const responseClone = response.clone();
+              
+              if (isSafeRequest(request)) {
+                caches.open(CACHE_NAME)
+                  .then(cache => {
+                    return cache.put(request, responseClone);
+                  })
+                  .catch(cacheError => {
+                    console.warn('📱 Static asset cache failed:', cacheError);
+                  });
+              }
+            } catch (cloneError) {
+              console.warn('📱 Static asset clone failed:', cloneError);
+            }
             
             return response;
           })
-          .catch(() => {
+          .catch(fetchError => {
+            console.warn('📱 Network fetch failed:', fetchError);
+            
             // Network failed and not in cache
             if (request.destination === 'document') {
               // Return offline page for navigation requests
-              return caches.match('/offline.html');
+              return caches.match('/offline.html')
+                .then(offlinePage => {
+                  return offlinePage || new Response(
+                    '<!DOCTYPE html><html><head><title>Offline</title></head><body><h1>App is offline</h1><p>Please check your connection</p></body></html>',
+                    { headers: { 'Content-Type': 'text/html' } }
+                  );
+                });
             }
             
             return new Response('Offline', { status: 503 });
           });
+      })
+      .catch(cacheError => {
+        console.error('📱 Cache match failed:', cacheError);
+        return new Response('Cache error', { status: 500 });
       })
   );
 });

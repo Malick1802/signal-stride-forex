@@ -5,11 +5,12 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import SimpleMobileWrapper from "./components/SimpleMobileWrapper";
 import MobileDebugger from "./components/MobileDebugger";
-import MobileErrorBoundary from "./components/MobileErrorBoundary";
+import BulletproofErrorBoundary from "./components/BulletproofErrorBoundary";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import { Capacitor } from '@capacitor/core';
 import { useEffect } from 'react';
+import reactRecovery from './utils/reactRecovery';
 
 // Import mobile app CSS
 import './mobile-app.css';
@@ -17,7 +18,9 @@ import './mobile-app.css';
 const queryClient = new QueryClient();
 
 const App = () => {
-  useEffect(() => {
+  const wrappedUseEffect = reactRecovery.wrapHook(useEffect, 'useEffect');
+  
+  wrappedUseEffect(() => {
     // Log platform information
     if (Capacitor.isNativePlatform()) {
       console.log('🚀 ForexAlert Pro running as native mobile app');
@@ -25,10 +28,16 @@ const App = () => {
     } else {
       console.log('🌐 ForexAlert Pro running as web app');
     }
+    
+    // Log React recovery status
+    const stats = reactRecovery.getRecoveryStats();
+    if (stats.recoveryAttempts > 0) {
+      console.log('🛡️ React recovery active:', stats);
+    }
   }, []);
 
   return (
-    <MobileErrorBoundary>
+    <BulletproofErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <SimpleMobileWrapper>
           <MobileDebugger />
@@ -43,7 +52,7 @@ const App = () => {
           </BrowserRouter>
         </SimpleMobileWrapper>
       </QueryClientProvider>
-    </MobileErrorBoundary>
+    </BulletproofErrorBoundary>
   );
 };
 
