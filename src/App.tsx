@@ -5,13 +5,10 @@ import './mobile-app.css';
 
 // Add debugging to check React availability
 console.log('React object:', React);
-console.log('React.useState:', React?.useState);
+console.log('React version available:', React?.version);
 
 const App = () => {
   console.log('App component rendering...');
-  
-  // Try to use useState to verify React is working
-  const [isLoaded, setIsLoaded] = React.useState(true);
   
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -22,7 +19,7 @@ const App = () => {
           <h2 className="text-lg font-semibold">Status</h2>
           <p className="text-green-600">✅ React initialized correctly</p>
           <p className="text-green-600">✅ Mobile app running</p>
-          <p className="text-green-600">✅ useState working: {isLoaded ? 'Yes' : 'No'}</p>
+          <p className="text-blue-600">🔧 React debugging mode active</p>
         </div>
       </div>
     </div>
