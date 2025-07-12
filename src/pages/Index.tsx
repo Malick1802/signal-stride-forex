@@ -2,6 +2,7 @@
 import React, { useEffect } from 'react';
 import { AuthProvider } from '../contexts/AuthContext';
 import AppContent from '../components/AppContent';
+import MobileAppContent from '../components/MobileAppContent';
 import ProgressiveAuthProvider from '../components/ProgressiveAuthProvider';
 import { Capacitor } from '@capacitor/core';
 
@@ -12,10 +13,13 @@ const Index = () => {
     console.log('🛣️ Current location:', window.location.href);
   }, []);
 
+  // Use simplified mobile content for native platforms
+  const ContentComponent = Capacitor.isNativePlatform() ? MobileAppContent : AppContent;
+
   return (
     <AuthProvider>
       <ProgressiveAuthProvider>
-        <AppContent />
+        <ContentComponent />
       </ProgressiveAuthProvider>
     </AuthProvider>
   );
