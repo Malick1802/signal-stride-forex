@@ -27,30 +27,17 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     if (containerRef.current?.scrollTop === 0) {
       startY.current = e.touches[0].clientY;
-      // Don't set isPulling yet - wait for actual downward movement
+      setIsPulling(true);
     }
   }, []);
 
   const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (isRefreshing || !containerRef.current) return;
-
-    // Only proceed if we're at the top of the container
-    if (containerRef.current.scrollTop !== 0) {
-      setIsPulling(false);
-      setPullDistance(0);
-      return;
-    }
+    if (!isPulling || isRefreshing) return;
 
     currentY.current = e.touches[0].clientY;
     const distance = Math.max(0, currentY.current - startY.current);
     
-    // Only start pulling mode if we have significant downward movement (10px threshold)
-    if (distance > 10 && !isPulling) {
-      setIsPulling(true);
-    }
-    
-    // Only prevent default scrolling if we're actively pulling to refresh
-    if (distance > 10 && isPulling) {
+    if (distance > 0) {
       e.preventDefault();
       setPullDistance(Math.min(distance, threshold * 1.5));
       
@@ -70,8 +57,6 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({
       setIsRefreshing(true);
       try {
         await onRefresh();
-      } catch (error) {
-        console.error('Refresh failed:', error);
       } finally {
         setIsRefreshing(false);
       }
@@ -86,15 +71,13 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({
   return (
     <div 
       ref={containerRef}
-      className={`relative h-full overflow-y-auto ${className}`}
+      className={`relative overflow-auto ${className}`}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
       style={{ 
         transform: `translateY(${Math.min(pullDistance * 0.5, 30)}px)`,
-        transition: isPulling ? 'none' : 'transform 0.3s ease-out',
-        WebkitOverflowScrolling: 'touch',
-        overscrollBehaviorY: 'contain'
+        transition: isPulling ? 'none' : 'transform 0.3s ease-out'
       }}
     >
       {/* Pull to refresh indicator */}

@@ -1,4 +1,8 @@
+
 import React, { Component, ErrorInfo, ReactNode } from 'react';
+import { AlertTriangle, RefreshCw, Wifi, WifiOff, Bug } from 'lucide-react';
+import { Capacitor } from '@capacitor/core';
+import { Button } from '@/components/ui/button';
 
 interface Props {
   children: ReactNode;
@@ -6,52 +10,205 @@ interface Props {
 
 interface State {
   hasError: boolean;
-  error?: Error;
+  error: Error | null;
+  errorInfo: ErrorInfo | null;
+  isOnline: boolean;
+  debugInfo: string[];
 }
 
 class MobileErrorBoundary extends Component<Props, State> {
-  public state: State = {
-    hasError: false,
-  };
+  private networkListener: (() => void) | null = null;
 
-  public static getDerivedStateFromError(error: Error): State {
-    console.error('ErrorBoundary caught error:', error);
-    return { hasError: true, error };
+  constructor(props: Props) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null,
+      errorInfo: null,
+      isOnline: navigator.onLine,
+      debugInfo: []
+    };
   }
 
-  public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('ErrorBoundary details:', error, errorInfo);
+  componentDidMount() {
+    this.addDebugInfo('MobileErrorBoundary mounted');
+    
+    // Listen for network changes
+    this.networkListener = () => {
+      this.setState({ isOnline: navigator.onLine });
+      this.addDebugInfo(`Network status changed: ${navigator.onLine ? 'online' : 'offline'}`);
+    };
+    
+    window.addEventListener('online', this.networkListener);
+    window.addEventListener('offline', this.networkListener);
+    
+    // Listen for unhandled errors
+    window.addEventListener('error', this.handleGlobalError);
+    window.addEventListener('unhandledrejection', this.handleUnhandledRejection);
+    
+    this.addDebugInfo(`Platform: ${Capacitor.isNativePlatform() ? Capacitor.getPlatform() : 'web'}`);
+    this.addDebugInfo(`Initial network status: ${navigator.onLine ? 'online' : 'offline'}`);
   }
 
-  private reload = () => {
-    window.location.reload();
+  componentWillUnmount() {
+    if (this.networkListener) {
+      window.removeEventListener('online', this.networkListener);
+      window.removeEventListener('offline', this.networkListener);
+    }
+    window.removeEventListener('error', this.handleGlobalError);
+    window.removeEventListener('unhandledrejection', this.handleUnhandledRejection);
+  }
+
+  addDebugInfo = (info: string) => {
+    const timestamp = new Date().toISOString();
+    console.log(`🐛 [MobileErrorBoundary] ${timestamp}: ${info}`);
+    this.setState(prev => ({
+      debugInfo: [...prev.debugInfo.slice(-9), `${timestamp}: ${info}`]
+    }));
   };
 
-  public render() {
+  handleGlobalError = (event: ErrorEvent) => {
+    console.error('🚨 Global error caught:', event.error);
+    this.addDebugInfo(`Global error: ${event.error?.message || 'Unknown error'}`);
+  };
+
+  handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+    console.error('🚨 Unhandled promise rejection:', event.reason);
+    this.addDebugInfo(`Promise rejection: ${event.reason?.message || 'Unknown rejection'}`);
+  };
+
+  static getDerivedStateFromError(error: Error): Partial<State> {
+    return {
+      hasError: true,
+      error,
+      isOnline: navigator.onLine
+    };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('🚨 Mobile Error Boundary caught an error:', error, errorInfo);
+    
+    this.addDebugInfo(`Error caught: ${error.message}`);
+    this.addDebugInfo(`Error stack: ${error.stack?.substring(0, 200) || 'No stack'}`);
+    
+    // Log additional mobile context
+    if (Capacitor.isNativePlatform()) {
+      this.addDebugInfo(`Mobile Platform: ${Capacitor.getPlatform()}`);
+      this.addDebugInfo(`Network Status: ${navigator.onLine ? 'Online' : 'Offline'}`);
+    }
+    
+    this.setState({
+      error,
+      errorInfo,
+      isOnline: navigator.onLine
+    });
+  }
+
+  handleRetry = () => {
+    this.addDebugInfo('User initiated retry');
+    this.setState({
+      hasError: false,
+      error: null,
+      errorInfo: null,
+      debugInfo: []
+    });
+    
+    // Force reload on mobile if still having issues
+    if (Capacitor.isNativePlatform() && !this.state.isOnline) {
+      window.location.reload();
+    }
+  };
+
+  handleShowDebug = () => {
+    const debugData = {
+      error: this.state.error?.message,
+      stack: this.state.error?.stack,
+      platform: Capacitor.isNativePlatform() ? Capacitor.getPlatform() : 'web',
+      online: this.state.isOnline,
+      url: window.location.href,
+      userAgent: navigator.userAgent,
+      debugInfo: this.state.debugInfo
+    };
+    
+    console.log('🐛 Debug Info:', debugData);
+    alert('Debug info logged to console. Please check the developer tools.');
+  };
+
+  render() {
     if (this.state.hasError) {
+      const errorMessage = this.state.error?.message || 'An unexpected error occurred';
+      const isNetworkError = errorMessage.includes('fetch') || errorMessage.includes('network') || !this.state.isOnline;
+      
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 text-white p-4">
-          <div className="text-center max-w-md">
-            <h1 className="text-xl font-bold mb-4">Something went wrong</h1>
-            <p className="text-gray-300 mb-6">
-              The app encountered an error. You can try reloading the page.
-            </p>
-            <button
-              onClick={this.reload}
-              className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2 rounded-lg"
-            >
-              Reload App
-            </button>
-            {this.state.error && (
-              <details className="mt-6 text-left">
-                <summary className="cursor-pointer text-sm text-gray-400">
-                  Error Details
-                </summary>
-                <pre className="mt-2 p-2 bg-red-900/20 rounded text-xs overflow-auto">
-                  {this.state.error.message}
-                </pre>
-              </details>
-            )}
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center p-6">
+          <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 w-full max-w-md border border-white/20 text-center">
+            <AlertTriangle className="h-16 w-16 text-red-400 mx-auto mb-6" />
+            
+            <h2 className="text-2xl font-bold text-white mb-4">
+              {isNetworkError ? 'Connection Problem' : 'App Error'}
+            </h2>
+            
+            <div className="space-y-4 mb-6">
+              <div className="flex items-center justify-center space-x-2">
+                {this.state.isOnline ? (
+                  <Wifi className="h-5 w-5 text-emerald-400" />
+                ) : (
+                  <WifiOff className="h-5 w-5 text-red-400" />
+                )}
+                <span className={`text-sm ${this.state.isOnline ? 'text-emerald-400' : 'text-red-400'}`}>
+                  {this.state.isOnline ? 'Connected' : 'No Internet Connection'}
+                </span>
+              </div>
+              
+              {!this.state.isOnline && (
+                <p className="text-gray-300 text-sm">
+                  Please check your internet connection and try again.
+                </p>
+              )}
+              
+              <p className="text-gray-300 text-sm">
+                {isNetworkError 
+                  ? 'Unable to load the app. This might be a network issue.'
+                  : errorMessage
+                }
+              </p>
+              
+              {Capacitor.isNativePlatform() && (
+                <p className="text-gray-400 text-xs">
+                  Running on {Capacitor.getPlatform()} platform
+                </p>
+              )}
+            </div>
+            
+            <div className="space-y-3">
+              <Button
+                onClick={this.handleRetry}
+                className="w-full bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Try Again
+              </Button>
+              
+              {Capacitor.isNativePlatform() && (
+                <Button
+                  onClick={() => window.location.reload()}
+                  variant="outline"
+                  className="w-full border-white/20 text-white hover:bg-white/10"
+                >
+                  Reload App
+                </Button>
+              )}
+              
+              <Button
+                onClick={this.handleShowDebug}
+                variant="ghost"
+                size="sm"
+                className="w-full text-gray-400 hover:text-white"
+              >
+                <Bug className="h-4 w-4 mr-2" />
+                Show Debug Info
+              </Button>
+            </div>
           </div>
         </div>
       );

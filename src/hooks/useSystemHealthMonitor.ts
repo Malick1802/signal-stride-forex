@@ -38,14 +38,11 @@ export const useSystemHealthMonitor = () => {
 
       if (veryOldSignals.length > 0) {
         console.log(`✅ HEALTH CHECK: ${veryOldSignals.length} signals running >24h - PURE OUTCOME SYSTEM WORKING`);
-        // Disable toast notifications for mobile to avoid "health issues" warnings
-        if (!window.location.href.includes('capacitor://')) {
-          toast({
-            title: "Pure Outcome System Active",
-            description: `${veryOldSignals.length} signals running beyond old time limits - market-based expiration only`,
-            duration: 4000,
-          });
-        }
+        toast({
+          title: "Pure Outcome System Active",
+          description: `${veryOldSignals.length} signals running beyond old time limits - market-based expiration only`,
+          duration: 4000,
+        });
       }
 
       // Check for recent expired signals to verify they have outcomes

@@ -2,7 +2,7 @@ import React, { useState, lazy, Suspense } from 'react';
 import { TrendingUp, RefreshCw, Bell, Settings, LogOut, CreditCard, Users, Shield, Menu, X } from 'lucide-react';
 import UserProfile from './UserProfile';
 import SubscriptionStatusWidget from './SubscriptionStatusWidget';
-
+import TrialExpirationBanner from './TrialExpirationBanner';
 import MobileLoadingScreen from './MobileLoadingScreen';
 import DashboardStats from './DashboardStats';
 import { useProfile } from '@/hooks/useProfile';
@@ -33,7 +33,7 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
   const [activeTab, setActiveTab] = useState('signals');
   const [refreshing, setRefreshing] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  
+  const [bannerDismissed, setBannerDismissed] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { profile } = useProfile();
@@ -415,21 +415,24 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
         loading={loading}
       />
 
-      {/* Content Area - Proper scrollable container */}
-      <div className="flex-1 overflow-hidden">
-        <PullToRefresh 
-          onRefresh={handleRefresh} 
-          className="h-full mobile-content-area"
-        >
-          <div className="p-3 sm:p-6 space-y-4">
+      {/* Content Area - With Pull to Refresh for Mobile */}
+      <PullToRefresh onRefresh={handleRefresh} className="flex-1 mobile-content-area">
+        <div className="p-3 sm:p-6">
+          {/* Trial Expiration Banner */}
+          {!bannerDismissed && (
+            <TrialExpirationBanner
+              subscription={subscription}
+              onUpgrade={handleUpgrade}
+              onDismiss={() => setBannerDismissed(true)}
+            />
+          )}
 
-            <Suspense fallback={<MobileLoadingScreen message="Loading signals..." />}>
-              {activeTab === 'signals' && <LazyTradingSignals />}
-              {activeTab === 'expired' && <LazyExpiredSignals />}
-            </Suspense>
-          </div>
-        </PullToRefresh>
-      </div>
+          <Suspense fallback={<MobileLoadingScreen message="Loading signals..." />}>
+            {activeTab === 'signals' && <LazyTradingSignals />}
+            {activeTab === 'expired' && <LazyExpiredSignals />}
+          </Suspense>
+        </div>
+      </PullToRefresh>
     </div>
   );
 };

@@ -15,7 +15,6 @@ export const useBackgroundSync = (options: BackgroundSyncOptions = {}) => {
   const { cacheSignals } = useOfflineSignals();
   const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastSyncRef = useRef<number>(0);
-  const syncInProgressRef = useRef<boolean>(false);
   
   const {
     onSignalsFetched,
@@ -35,15 +34,8 @@ export const useBackgroundSync = (options: BackgroundSyncOptions = {}) => {
       return;
     }
 
-    // Prevent multiple sync operations running simultaneously
-    if (syncInProgressRef.current) {
-      console.log('📡 Skipping background sync - already in progress');
-      return;
-    }
-
     try {
       console.log('📡 Starting background sync...');
-      syncInProgressRef.current = true;
       lastSyncRef.current = now;
 
       // Import supabase here to avoid circular dependencies
@@ -71,8 +63,6 @@ export const useBackgroundSync = (options: BackgroundSyncOptions = {}) => {
       }
     } catch (error) {
       console.error('❌ Background sync failed:', error);
-    } finally {
-      syncInProgressRef.current = false;
     }
   }, [isConnected, syncInterval, cacheSignals, onSignalsFetched]);
 

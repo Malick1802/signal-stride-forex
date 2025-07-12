@@ -3,9 +3,11 @@
 const CACHE_NAME = 'forex-signals-v1';
 const OFFLINE_CACHE_NAME = 'forex-signals-offline-v1';
 
-// Assets to cache for offline functionality - Vite asset paths
+// Assets to cache for offline functionality
 const STATIC_ASSETS = [
   '/',
+  '/static/js/bundle.js',
+  '/static/css/main.css',
   '/favicon.ico',
   '/manifest.json'
 ];
@@ -66,11 +68,6 @@ self.addEventListener('fetch', (event) => {
   
   // Skip non-GET requests
   if (request.method !== 'GET') {
-    return;
-  }
-  
-  // Skip chrome-extension requests to prevent conflicts
-  if (url.protocol === 'chrome-extension:') {
     return;
   }
   

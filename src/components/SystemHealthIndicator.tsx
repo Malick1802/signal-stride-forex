@@ -7,11 +7,6 @@ import { CheckCircle, AlertTriangle } from 'lucide-react';
 export const SystemHealthIndicator = () => {
   const { systemHealth } = useSystemHealthMonitor();
 
-  // Hide health indicator on mobile APK to avoid "App Health Issues" warnings
-  if (window.location.href.includes('capacitor://') || window.navigator.userAgent.includes('Mobile')) {
-    return null;
-  }
-
   return (
     <div className="flex items-center gap-2 text-sm">
       <div className="flex items-center gap-1">

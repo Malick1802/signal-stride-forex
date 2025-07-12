@@ -5,10 +5,14 @@ const config: CapacitorConfig = {
   appName: 'ForexSignal Pro',
   webDir: 'dist',
   server: {
-    androidScheme: 'https',
-    cleartext: false,
-    hostname: 'localhost',
-    url: undefined
+    url: 'https://da46b985-2e68-44b3-90bc-922d481bf104.lovableproject.com?forceHideBadge=true',
+    cleartext: true,
+    errorPath: '/404.html',
+    allowNavigation: [
+      'https://da46b985-2e68-44b3-90bc-922d481bf104.lovableproject.com',
+      'https://id-preview--da46b985-2e68-44b3-90bc-922d481bf104.lovable.app'
+    ],
+    androidScheme: 'https'
   },
   plugins: {
     SplashScreen: {
@@ -60,19 +64,20 @@ const config: CapacitorConfig = {
     preferredContentMode: 'mobile'
   },
   android: {
-    allowMixedContent: false,
+    allowMixedContent: true,
     captureInput: true,
-    webContentsDebuggingEnabled: false,
+    webContentsDebuggingEnabled: true,
     appendUserAgent: 'ForexSignalPro/1.0',
-    loggingBehavior: 'none',
+    loggingBehavior: 'debug',
     useLegacyBridge: false,
     overrideUserAgent: 'ForexSignalPro/1.0 (Android)',
     backgroundColor: '#0f172a',
     allowNavigation: [
-      'capacitor://localhost'
-    ],
-    mixedContentMode: 'never',
-    handleAppUrlLoadInPlace: true
+      'https://da46b985-2e68-44b3-90bc-922d481bf104.lovableproject.com',
+      'https://id-preview--da46b985-2e68-44b3-90bc-922d481bf104.lovable.app',
+      'capacitor://localhost',
+      'http://localhost'
+    ]
   }
 };
 

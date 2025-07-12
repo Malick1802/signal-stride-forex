@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 
 interface ConnectivityState {
@@ -12,86 +12,78 @@ interface ConnectivityState {
 
 export const useMobileConnectivity = () => {
   const [connectivity, setConnectivity] = useState<ConnectivityState>({
-    isOnline: true, // Start optimistic
+    isOnline: navigator.onLine,
     connectionType: 'unknown',
-    isConnected: true,
-    lastConnected: new Date(),
+    isConnected: navigator.onLine,
+    lastConnected: navigator.onLine ? new Date() : null,
     retryCount: 0
   });
 
   const checkConnectivity = useCallback(async () => {
     try {
-      console.log('🔍 Checking connectivity...');
-      
       if (Capacitor.isNativePlatform()) {
         try {
           const { Network } = await import('@capacitor/network');
           const status = await Network.getStatus();
-          
-          console.log('📱 Native network status:', status);
-          
-          // Be more lenient - consider "cellular" and "wifi" as connected
-          const isConnected = status.connected && 
-                             (status.connectionType === 'wifi' || 
-                              status.connectionType === 'cellular' ||
-                              status.connectionType === 'none' ? false : true);
-          
           setConnectivity(prev => ({
             ...prev,
-            isOnline: isConnected,
+            isOnline: status.connected,
             connectionType: status.connectionType,
-            isConnected: isConnected,
-            lastConnected: isConnected ? new Date() : prev.lastConnected
+            isConnected: status.connected,
+            lastConnected: status.connected ? new Date() : prev.lastConnected
           }));
         } catch (error) {
-          console.warn('❌ Network plugin not available, falling back to navigator.onLine');
-          // Fallback to browser API with optimistic approach
-          const isOnline = navigator.onLine;
+          console.warn('❌ Network plugin not available:', error);
+          // Fall back to web connectivity check
           setConnectivity(prev => ({
             ...prev,
-            isOnline: isOnline,
-            connectionType: 'fallback',
-            isConnected: isOnline,
-            lastConnected: isOnline ? new Date() : prev.lastConnected
+            isOnline: navigator.onLine,
+            connectionType: 'wifi',
+            isConnected: navigator.onLine,
+            lastConnected: navigator.onLine ? new Date() : prev.lastConnected
           }));
         }
       } else {
-        // Web platform - use navigator.onLine but be optimistic
-        const isOnline = navigator.onLine;
-        console.log('🌐 Web connectivity:', isOnline);
-        
-        setConnectivity(prev => ({
-          ...prev,
-          isOnline: isOnline,
-          connectionType: 'web',
-          isConnected: isOnline,
-          lastConnected: isOnline ? new Date() : prev.lastConnected
-        }));
+        // Web connectivity check
+        try {
+          const response = await fetch('/favicon.ico', { 
+            method: 'HEAD',
+            cache: 'no-cache'
+          });
+          const isReallyOnline = response.ok;
+          
+          setConnectivity(prev => ({
+            ...prev,
+            isOnline: navigator.onLine && isReallyOnline,
+            connectionType: 'wifi',
+            isConnected: navigator.onLine && isReallyOnline,
+            lastConnected: (navigator.onLine && isReallyOnline) ? new Date() : prev.lastConnected
+          }));
+        } catch (error) {
+          setConnectivity(prev => ({
+            ...prev,
+            isOnline: false,
+            isConnected: false
+          }));
+        }
       }
     } catch (error) {
-      console.error('❌ Connectivity check failed:', error);
-      // Don't immediately mark as offline on errors - be more tolerant
+      console.error('Error checking connectivity:', error);
       setConnectivity(prev => ({
         ...prev,
-        connectionType: 'error'
+        isOnline: false,
+        isConnected: false
       }));
     }
   }, []);
 
   const retryConnection = useCallback(async () => {
-    console.log('🔄 Retrying connection...');
     setConnectivity(prev => ({
       ...prev,
       retryCount: prev.retryCount + 1
     }));
     
-    try {
-      // Force a fresh connectivity check
-      await checkConnectivity();
-      console.log('✅ Connection retry completed');
-    } catch (error) {
-      console.error('❌ Connection retry failed:', error);
-    }
+    await checkConnectivity();
   }, [checkConnectivity]);
 
   useEffect(() => {
@@ -139,8 +131,8 @@ export const useMobileConnectivity = () => {
       setupNetworkListener();
     }
 
-    // Periodic connectivity check - less frequent for better battery life
-    const interval = setInterval(checkConnectivity, 5 * 60 * 1000); // 5 minutes
+    // Periodic connectivity check
+    const interval = setInterval(checkConnectivity, 30000);
 
     return () => {
       window.removeEventListener('online', handleOnline);
