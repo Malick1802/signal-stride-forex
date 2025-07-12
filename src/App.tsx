@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import MobileAppWrapper from "./components/MobileAppWrapper";
 import MobileDebugger from "./components/MobileDebugger";
+import MobileErrorBoundary from "./components/MobileErrorBoundary";
 import Index from "./pages/Index";
 import TestPage from "./pages/TestPage";
 import NotFound from "./pages/NotFound";
@@ -28,21 +29,23 @@ const App = () => {
   }, []);
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <MobileAppWrapper>
-        <MobileDebugger />
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/test" element={<TestPage />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </MobileAppWrapper>
-    </QueryClientProvider>
+    <MobileErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <MobileAppWrapper>
+          <MobileDebugger />
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/test" element={<TestPage />} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </MobileAppWrapper>
+      </QueryClientProvider>
+    </MobileErrorBoundary>
   );
 };
 
