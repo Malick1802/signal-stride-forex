@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useEffect, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 
 interface ConnectivityState {
@@ -57,9 +57,10 @@ const safeUseState = <T>(initialState: T): [T, React.Dispatch<React.SetStateActi
       return window.React.useState(initialState);
     }
     
-    // Try to import useState directly
-    if (useState) {
-      return useState(initialState);
+    // Try to dynamically import React
+    const React = require('react');
+    if (React && React.useState) {
+      return React.useState(initialState);
     }
     
     throw new Error('React hooks not available');
@@ -92,6 +93,27 @@ const safeUseState = <T>(initialState: T): [T, React.Dispatch<React.SetStateActi
     };
     
     return [currentValue, setValue as React.Dispatch<React.SetStateAction<T>>];
+  }
+};
+
+// Safe useEffect alternative
+const safeUseEffect = (effect: () => void | (() => void), deps?: React.DependencyList) => {
+  try {
+    if (useEffect) {
+      return useEffect(effect, deps);
+    }
+  } catch (error) {
+    console.warn('useEffect compromised, running effect immediately:', error);
+    // Run effect immediately as fallback
+    try {
+      const cleanup = effect();
+      // Store cleanup for later if needed
+      if (cleanup && typeof cleanup === 'function') {
+        window.addEventListener('beforeunload', cleanup);
+      }
+    } catch (effectError) {
+      console.error('Effect execution failed:', effectError);
+    }
   }
 };
 
@@ -170,27 +192,6 @@ export const useMobileConnectivity = () => {
     
     await checkConnectivity();
   }, [checkConnectivity]);
-
-  // Safe useEffect alternative
-  const safeUseEffect = (effect: () => void | (() => void), deps?: React.DependencyList) => {
-    try {
-      if (useEffect) {
-        return useEffect(effect, deps);
-      }
-    } catch (error) {
-      console.warn('useEffect compromised, running effect immediately:', error);
-      // Run effect immediately as fallback
-      try {
-        const cleanup = effect();
-        // Store cleanup for later if needed
-        if (cleanup && typeof cleanup === 'function') {
-          window.addEventListener('beforeunload', cleanup);
-        }
-      } catch (effectError) {
-        console.error('Effect execution failed:', effectError);
-      }
-    }
-  };
 
   safeUseEffect(() => {
     checkConnectivity();

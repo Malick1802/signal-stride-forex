@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import MobileAppWrapper from "./components/MobileAppWrapper";
+import SimpleMobileWrapper from "./components/SimpleMobileWrapper";
 import MobileDebugger from "./components/MobileDebugger";
 import MobileErrorBoundary from "./components/MobileErrorBoundary";
 import Index from "./pages/Index";
@@ -30,7 +30,7 @@ const App = () => {
   return (
     <MobileErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <MobileAppWrapper>
+        <SimpleMobileWrapper>
           <MobileDebugger />
           <Toaster />
           <Sonner />
@@ -41,7 +41,7 @@ const App = () => {
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
-        </MobileAppWrapper>
+        </SimpleMobileWrapper>
       </QueryClientProvider>
     </MobileErrorBoundary>
   );
