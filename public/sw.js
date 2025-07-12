@@ -1,16 +1,19 @@
 
-// Service Worker for PWA functionality
-const CACHE_NAME = 'forex-signals-v1';
-const OFFLINE_CACHE_NAME = 'forex-signals-offline-v1';
+// Enhanced Service Worker with Dynamic Asset Management
+const CACHE_VERSION = '2025-01-12-v1';
+const CACHE_NAME = `forex-signals-${CACHE_VERSION}`;
+const OFFLINE_CACHE_NAME = `forex-signals-offline-${CACHE_VERSION}`;
 
-// Assets to cache for offline functionality
-const STATIC_ASSETS = [
+// Dynamic asset discovery - no hardcoded paths
+const CORE_ASSETS = [
   '/',
-  '/static/js/bundle.js',
-  '/static/css/main.css',
   '/favicon.ico',
   '/manifest.json'
 ];
+
+// Chunk loading retry logic
+const chunkRetryMap = new Map();
+const MAX_RETRY_ATTEMPTS = 3;
 
 // API endpoints that should be cached
 const API_CACHE_PATTERNS = [
@@ -18,15 +21,24 @@ const API_CACHE_PATTERNS = [
   /\/api\/market-data/
 ];
 
-// Install event - cache static assets
+// Install event - cache core assets with fallback
 self.addEventListener('install', (event) => {
   console.log('📱 Service Worker installing...');
   
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('📱 Caching static assets...');
-        return cache.addAll(STATIC_ASSETS);
+        console.log('📱 Caching core assets...');
+        // Only cache essential assets, discover others dynamically
+        return cache.addAll(CORE_ASSETS.filter(asset => {
+          try {
+            new URL(asset, self.location.origin);
+            return true;
+          } catch {
+            console.warn('📱 Skipping invalid asset:', asset);
+            return false;
+          }
+        }));
       })
       .then(() => {
         console.log('📱 Service Worker installation complete');
@@ -34,6 +46,8 @@ self.addEventListener('install', (event) => {
       })
       .catch(error => {
         console.error('❌ Service Worker installation failed:', error);
+        // Continue with installation even if caching fails
+        return self.skipWaiting();
       })
   );
 });
@@ -81,7 +95,7 @@ const isSafeRequest = (request) => {
   return isValidCacheableURL(url);
 };
 
-// Enhanced fetch event with comprehensive error handling
+// Enhanced fetch with chunk retry and fallback logic
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   
@@ -96,6 +110,12 @@ self.addEventListener('fetch', (event) => {
     // Block unsafe requests early
     if (!isSafeRequest(request)) {
       event.respondWith(new Response('Request blocked', { status: 403 }));
+      return;
+    }
+    
+    // Handle JavaScript chunks with retry logic
+    if (url.pathname.includes('.js') && (url.pathname.includes('chunk-') || url.pathname.includes('node_modules'))) {
+      event.respondWith(handleJavaScriptRequest(request));
       return;
     }
   } catch (error) {
@@ -290,3 +310,85 @@ self.addEventListener('notificationclick', (event) => {
     );
   }
 });
+
+// JavaScript chunk handling with retry logic
+async function handleJavaScriptRequest(request) {
+  const url = new URL(request.url);
+  const cacheKey = url.pathname;
+  
+  try {
+    // Try cache first for chunks
+    const cachedResponse = await caches.match(request);
+    if (cachedResponse) {
+      return cachedResponse;
+    }
+    
+    // Try network with retry logic
+    const response = await fetchWithRetry(request, cacheKey);
+    
+    // Cache successful responses
+    if (response.ok) {
+      try {
+        const cache = await caches.open(CACHE_NAME);
+        await cache.put(request, response.clone());
+      } catch (cacheError) {
+        console.warn('📱 Cache put failed for chunk:', cacheError);
+      }
+    }
+    
+    return response;
+  } catch (error) {
+    console.error('📱 JavaScript chunk loading failed:', error);
+    
+    // Return a fallback chunk that prevents the app from breaking
+    return new Response(`
+      console.error('Chunk loading failed: ${cacheKey}');
+      // Fallback chunk - try to recover gracefully
+      if (window.__CHUNK_LOAD_ERROR__) {
+        window.__CHUNK_LOAD_ERROR__(new Error('${cacheKey} failed to load'));
+      }
+    `, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/javascript',
+        'Cache-Control': 'no-cache'
+      }
+    });
+  }
+}
+
+// Fetch with exponential backoff retry
+async function fetchWithRetry(request, cacheKey) {
+  const maxRetries = chunkRetryMap.get(cacheKey) || 0;
+  
+  if (maxRetries >= MAX_RETRY_ATTEMPTS) {
+    throw new Error(`Max retries exceeded for ${cacheKey}`);
+  }
+  
+  try {
+    const response = await fetch(request);
+    
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+    
+    // Reset retry count on success
+    chunkRetryMap.delete(cacheKey);
+    return response;
+  } catch (error) {
+    const retryCount = maxRetries + 1;
+    chunkRetryMap.set(cacheKey, retryCount);
+    
+    console.warn(`📱 Fetch attempt ${retryCount} failed for ${cacheKey}:`, error);
+    
+    if (retryCount < MAX_RETRY_ATTEMPTS) {
+      // Exponential backoff: 500ms, 1000ms, 2000ms
+      const delay = Math.min(500 * Math.pow(2, retryCount - 1), 2000);
+      await new Promise(resolve => setTimeout(resolve, delay));
+      
+      return fetchWithRetry(request, cacheKey);
+    }
+    
+    throw error;
+  }
+}

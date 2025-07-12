@@ -5,6 +5,16 @@ import './index.css'
 import extensionDetector from './utils/extensionDetector'
 import reactRecovery from './utils/reactRecovery'
 
+// Global interface declarations
+declare global {
+  interface Window {
+    __CHUNK_LOAD_ERROR__?: (error: Error) => void;
+    __REACT_PROTECTION__?: boolean;
+    __EXTENSION_CONFLICTS__?: string[];
+    React?: any;
+  }
+}
+
 // Initialize protection systems immediately
 extensionDetector.init();
 reactRecovery.init();
@@ -76,7 +86,7 @@ if (typeof window !== 'undefined') {
   });
 }
 
-// Defensive React rendering with comprehensive error handling
+// Enhanced app initialization with chunk loading fallbacks
 const initializeApp = async () => {
   try {
     const rootElement = document.getElementById("root");
@@ -84,25 +94,44 @@ const initializeApp = async () => {
       throw new Error("Root element not found");
     }
 
+    // Set up chunk loading error handler
+    window.__CHUNK_LOAD_ERROR__ = (error) => {
+      console.error('🚨 Chunk loading error:', error);
+      showChunkErrorFallback(rootElement);
+    };
+
     // Clear any existing content that might be causing conflicts
     rootElement.innerHTML = '';
 
-    // Verify React is available before creating root
+    // Enhanced React module loading with retries
     let React, ReactDOM;
     
-    try {
-      React = await import('react');
-      ReactDOM = await import('react-dom/client');
-      
-      // Update the React holder
-      ReactHolder.React = React;
-      
-      if (!React.useState) {
-        throw new Error('React hooks are not available - extension conflict detected');
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        console.log(`🔄 React import attempt ${attempt}/3`);
+        
+        React = await import('react');
+        ReactDOM = await import('react-dom/client');
+        
+        // Update the React holder
+        ReactHolder.React = React;
+        
+        if (!React.useState) {
+          throw new Error('React hooks are not available - extension conflict detected');
+        }
+        
+        console.log('✅ React modules loaded successfully');
+        break;
+      } catch (importError) {
+        console.error(`❌ React import attempt ${attempt} failed:`, importError);
+        
+        if (attempt === 3) {
+          throw new Error('React modules failed to load after 3 attempts');
+        }
+        
+        // Wait before retry with exponential backoff
+        await new Promise(resolve => setTimeout(resolve, attempt * 1000));
       }
-    } catch (importError) {
-      console.error('❌ Failed to import React modules:', importError);
-      throw new Error('React modules failed to load');
     }
 
     const root = ReactDOM.createRoot(rootElement);
@@ -196,6 +225,66 @@ const initializeApp = async () => {
     
     document.body.innerHTML = errorHtml;
   }
+};
+
+// Chunk loading error fallback
+const showChunkErrorFallback = (rootElement) => {
+  const fallbackHtml = `
+    <div style="
+      display: flex; 
+      align-items: center; 
+      justify-content: center; 
+      min-height: 100vh; 
+      background: linear-gradient(135deg, #1e293b 0%, #1e40af 100%);
+      color: white;
+      font-family: system-ui, -apple-system, sans-serif;
+      text-align: center;
+      padding: 20px;
+    ">
+      <div style="max-width: 500px;">
+        <h1 style="font-size: 1.8rem; margin-bottom: 1rem; color: #f59e0b;">⚡ Loading Issue</h1>
+        <p style="margin-bottom: 1rem;">Some app components failed to load. This is usually caused by:</p>
+        <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 8px; padding: 16px; margin: 20px 0; text-align: left;">
+          <ul style="margin: 0; padding-left: 20px; line-height: 1.6;">
+            <li>Browser extensions interfering with the app</li>
+            <li>Network connectivity issues</li>
+            <li>Cached outdated files</li>
+          </ul>
+        </div>
+        <button onclick="window.location.reload(true)" style="
+          background: #10b981; 
+          color: white; 
+          border: none; 
+          padding: 12px 24px; 
+          border-radius: 6px; 
+          cursor: pointer;
+          font-size: 1rem;
+          margin: 10px;
+        ">🔄 Force Reload</button>
+        <button onclick="
+          if ('caches' in window) {
+            caches.keys().then(names => {
+              names.forEach(name => caches.delete(name));
+              window.location.reload(true);
+            });
+          } else {
+            window.location.reload(true);
+          }
+        " style="
+          background: #3b82f6; 
+          color: white; 
+          border: none; 
+          padding: 12px 24px; 
+          border-radius: 6px; 
+          cursor: pointer;
+          font-size: 1rem;
+          margin: 10px;
+        ">🗑️ Clear Cache & Reload</button>
+      </div>
+    </div>
+  `;
+  
+  rootElement.innerHTML = fallbackHtml;
 };
 
 // Initialize app when DOM is ready

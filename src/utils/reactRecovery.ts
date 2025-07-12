@@ -242,12 +242,27 @@ class ReactRecoveryManager {
     return { ...this.state };
   }
 
-  // Hook wrapper that automatically handles recovery
+  // Enhanced hook wrapper with better fallbacks
   wrapHook<T extends any[], R>(hookFn: (...args: T) => R, hookName: string): (...args: T) => R {
     return (...args: T): R => {
       try {
         if (!this.isReactHealthy()) {
+          console.warn(`🚨 React unhealthy when calling ${hookName}, attempting recovery...`);
           this.triggerRecovery();
+          
+          // Provide immediate fallbacks for critical hooks
+          if (hookName === 'useState') {
+            return this.createFallbackUseState(args[0]) as R;
+          }
+          
+          if (hookName === 'useEffect') {
+            return this.createFallbackUseEffect() as R;
+          }
+          
+          if (hookName === 'useCallback') {
+            return (args[0] || (() => {})) as R;
+          }
+          
           throw new Error(`React compromised when calling ${hookName}`);
         }
         
@@ -255,23 +270,66 @@ class ReactRecoveryManager {
       } catch (error) {
         console.error(`${hookName} failed:`, error);
         
-        // Try immediate recovery for critical hooks
+        // Enhanced fallbacks for different hook types
         if (hookName === 'useState') {
-          this.triggerRecovery();
-          
-          // Return a basic fallback for useState
-          if (args.length === 1) {
-            let state = args[0];
-            const setState = (newState: any) => {
-              state = typeof newState === 'function' ? newState(state) : newState;
-            };
-            return [state, setState] as R;
-          }
+          return this.createFallbackUseState(args[0]) as R;
+        }
+        
+        if (hookName === 'useEffect') {
+          return this.createFallbackUseEffect() as R;
+        }
+        
+        if (hookName === 'useCallback') {
+          return (args[0] || (() => {})) as R;
+        }
+        
+        if (hookName === 'useMemo') {
+          return (args[0] ? args[0]() : undefined) as R;
         }
         
         throw error;
       }
     };
+  }
+
+  private createFallbackUseState(initialState: any): [any, (newState: any) => void] {
+    console.warn('🔄 Using fallback useState implementation');
+    
+    let state = typeof initialState === 'function' ? initialState() : initialState;
+    const setState = (newState: any) => {
+      const prevState = state;
+      state = typeof newState === 'function' ? newState(prevState) : newState;
+      
+      // Try to trigger a re-render if React is available
+      try {
+        if (this.isReactHealthy() && typeof window !== 'undefined') {
+          // Force a minimal re-render
+          window.dispatchEvent(new CustomEvent('fallback-state-change', { detail: { prevState, newState: state } }));
+        }
+      } catch (error) {
+        console.warn('Fallback re-render failed:', error);
+      }
+    };
+    
+    return [state, setState];
+  }
+
+  private createFallbackUseEffect(): void {
+    console.warn('🔄 Using fallback useEffect implementation');
+    // useEffect fallback - just execute the effect immediately
+    if (arguments.length > 0 && typeof arguments[0] === 'function') {
+      try {
+        const cleanup = arguments[0]();
+        
+        // If there's a cleanup function, store it for later
+        if (typeof cleanup === 'function') {
+          // Store cleanup for when React is restored
+          window.addEventListener('beforeunload', cleanup);
+        }
+      } catch (error) {
+        console.warn('Fallback useEffect execution failed:', error);
+      }
+    }
   }
 
   cleanup(): void {
