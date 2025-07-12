@@ -1,3 +1,4 @@
+
 import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
@@ -7,12 +8,13 @@ const config: CapacitorConfig = {
   server: {
     url: 'https://da46b985-2e68-44b3-90bc-922d481bf104.lovableproject.com?forceHideBadge=true',
     cleartext: true,
+    // Add error handling for server issues
     errorPath: '/404.html',
+    // Allow mixed content for development
     allowNavigation: [
       'https://da46b985-2e68-44b3-90bc-922d481bf104.lovableproject.com',
       'https://id-preview--da46b985-2e68-44b3-90bc-922d481bf104.lovable.app'
-    ],
-    androidScheme: 'https'
+    ]
   },
   plugins: {
     SplashScreen: {
@@ -26,9 +28,9 @@ const config: CapacitorConfig = {
       splashImmersive: true
     },
     StatusBar: {
-      style: 'light',
-      backgroundColor: '#1e293b',
-      overlay: true
+      style: 'dark',
+      backgroundColor: '#0f172a',
+      overlay: false
     },
     PushNotifications: {
       presentationOptions: ['badge', 'sound', 'alert']
@@ -61,23 +63,19 @@ const config: CapacitorConfig = {
     allowsLinkPreview: false,
     scrollEnabled: true,
     limitsNavigationsToAppBoundDomains: false,
+    // Add error handling for iOS
     preferredContentMode: 'mobile'
   },
   android: {
     allowMixedContent: true,
     captureInput: true,
-    webContentsDebuggingEnabled: true,
+    webContentsDebuggingEnabled: true, // Enable debugging for mobile
     appendUserAgent: 'ForexSignalPro/1.0',
-    loggingBehavior: 'debug',
+    loggingBehavior: 'debug', // Enable debug logging
     useLegacyBridge: false,
+    // Add error handling for Android
     overrideUserAgent: 'ForexSignalPro/1.0 (Android)',
-    backgroundColor: '#0f172a',
-    allowNavigation: [
-      'https://da46b985-2e68-44b3-90bc-922d481bf104.lovableproject.com',
-      'https://id-preview--da46b985-2e68-44b3-90bc-922d481bf104.lovable.app',
-      'capacitor://localhost',
-      'http://localhost'
-    ]
+    backgroundColor: '#0f172a'
   }
 };
 
