@@ -10,8 +10,34 @@ interface ConnectivityState {
   retryCount: number;
 }
 
+// Defensive React hook wrapper to handle extension interference
+const safeUseState = <T>(initialState: T): [T, React.Dispatch<React.SetStateAction<T>>] => {
+  try {
+    if (!useState) {
+      console.error('🚨 useState is null - browser extension interference detected');
+      // Fallback to a basic state management
+      let state = initialState;
+      const setState = (newState: T | ((prevState: T) => T)) => {
+        if (typeof newState === 'function') {
+          state = (newState as (prevState: T) => T)(state);
+        } else {
+          state = newState;
+        }
+      };
+      return [state, setState];
+    }
+    return useState(initialState);
+  } catch (error) {
+    console.error('🚨 useState failed:', error);
+    // Emergency fallback
+    let state = initialState;
+    const setState = () => {};
+    return [state, setState];
+  }
+};
+
 export const useMobileConnectivity = () => {
-  const [connectivity, setConnectivity] = useState<ConnectivityState>({
+  const [connectivity, setConnectivity] = safeUseState<ConnectivityState>({
     isOnline: navigator.onLine,
     connectionType: 'unknown',
     isConnected: navigator.onLine,

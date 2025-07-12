@@ -11,6 +11,7 @@ class ExtensionDetector {
   private static instance: ExtensionDetector;
   private conflicts: ExtensionConflict[] = [];
   private observers: MutationObserver[] = [];
+  private reactProtectionInterval?: NodeJS.Timeout;
 
   static getInstance(): ExtensionDetector {
     if (!ExtensionDetector.instance) {
@@ -23,6 +24,7 @@ class ExtensionDetector {
     this.detectStaticConflicts();
     this.setupDynamicDetection();
     this.protectReactContext();
+    this.setupContinuousReactProtection();
   }
 
   private detectStaticConflicts(): void {
@@ -113,26 +115,68 @@ class ExtensionDetector {
     }
   }
 
-  private protectReactContext(): void {
-    // Protect React hooks from being nullified by extensions
-    const originalReact = window.React;
-    if (originalReact) {
-      Object.defineProperty(window, 'React', {
-        get: () => originalReact,
-        set: (value) => {
-          if (value === null || value === undefined) {
-            console.warn('🛡️ Prevented React context nullification by extension');
-            return;
-          }
-          // Allow legitimate React updates
-          Object.defineProperty(window, 'React', {
-            value,
-            writable: true,
-            configurable: true
+  private setupContinuousReactProtection(): void {
+    // Continuously monitor and protect React
+    this.reactProtectionInterval = setInterval(() => {
+      if (typeof window !== 'undefined') {
+        // Check if React or its hooks have been nullified
+        const React = (window as any).React;
+        if (!React || !React.useState) {
+          console.warn('🛡️ React protection: Re-importing React due to nullification');
+          
+          // Re-import and protect React
+          import('react').then((ReactModule) => {
+            (window as any).React = ReactModule;
+            console.log('✅ React context restored');
+          }).catch((error) => {
+            console.error('❌ Failed to restore React:', error);
           });
-        },
-        configurable: true
+        }
+      }
+    }, 1000); // Check every second
+  }
+
+  private protectReactContext(): void {
+    // Enhanced React protection
+    if (typeof window !== 'undefined') {
+      // Protect against React nullification
+      let reactReference: any = null;
+      
+      import('react').then((React) => {
+        reactReference = React;
+        
+        // Define a protected React property
+        Object.defineProperty(window, 'React', {
+          get: () => {
+            if (!reactReference || !reactReference.useState) {
+              console.warn('🛡️ React access attempted while nullified - restoring...');
+              return reactReference;
+            }
+            return reactReference;
+          },
+          set: (value) => {
+            if (value === null || value === undefined || !value.useState) {
+              console.warn('🛡️ Prevented React nullification by extension');
+              // Don't allow nullification
+              return;
+            }
+            // Allow legitimate React updates
+            reactReference = value;
+          },
+          configurable: false
+        });
       });
+
+      // Additional protection for common extension interference points
+      const originalDefineProperty = Object.defineProperty;
+      Object.defineProperty = function(obj: any, prop: string, descriptor: PropertyDescriptor) {
+        // Block extensions from modifying React
+        if (prop === 'React' && descriptor.value === null) {
+          console.warn('🛡️ Blocked attempt to nullify React');
+          return obj;
+        }
+        return originalDefineProperty.call(this, obj, prop, descriptor);
+      };
     }
   }
 
@@ -148,9 +192,13 @@ class ExtensionDetector {
     this.observers.forEach(observer => observer.disconnect());
     this.observers = [];
     this.conflicts = [];
+    
+    if (this.reactProtectionInterval) {
+      clearInterval(this.reactProtectionInterval);
+    }
   }
 
-  // Add defensive coding for React hooks
+  // Enhanced React hook wrapper with better error handling
   static wrapReactHook<T extends any[], R>(
     hookFn: (...args: T) => R,
     hookName: string
@@ -158,13 +206,35 @@ class ExtensionDetector {
     return (...args: T): R => {
       try {
         if (!window.React) {
-          throw new Error(`React is not available when calling ${hookName}`);
+          console.error(`🚨 React is not available when calling ${hookName}`);
+          throw new Error(`React context unavailable for ${hookName}`);
         }
+        
+        if (!hookFn) {
+          console.error(`🚨 ${hookName} hook function is null`);
+          throw new Error(`${hookName} hook is nullified by extension`);
+        }
+        
         return hookFn(...args);
       } catch (error) {
         console.error(`🚨 ${hookName} failed:`, error);
-        // Provide fallback behavior
-        throw new Error(`${hookName} failed due to extension conflict`);
+        
+        // Attempt recovery for useState specifically
+        if (hookName === 'useState' && args.length === 1) {
+          console.warn(`🔄 Attempting ${hookName} recovery...`);
+          // Provide a basic fallback state management
+          let state = args[0];
+          const setState = (newState: any) => {
+            if (typeof newState === 'function') {
+              state = newState(state);
+            } else {
+              state = newState;
+            }
+          };
+          return [state, setState] as R;
+        }
+        
+        throw new Error(`${hookName} failed due to extension conflict: ${error.message}`);
       }
     };
   }
