@@ -24,6 +24,7 @@ const DashboardStats = ({
   const [api, setApi] = React.useState<CarouselApi>();
   const [isPaused, setIsPaused] = React.useState(false);
 
+  // Fixed stats array with unique data for each card
   const stats = [
     {
       id: 'active-signals',
@@ -44,15 +45,15 @@ const DashboardStats = ({
     {
       id: 'automation',
       icon: Bot,
-      value: loading ? '...' : 'AI',
-      label: 'Automated',
+      value: loading ? '...' : (isAutomated ? 'AI' : 'Manual'),
+      label: 'Mode',
       color: 'text-purple-400',
       bgColor: 'bg-purple-500/10'
     },
     {
       id: 'last-update',
       icon: Clock,
-      value: loading ? '...' : lastUpdateTime,
+      value: loading ? '...' : (lastUpdateTime === 'Never' ? 'Never' : lastUpdateTime),
       label: 'Last Update',
       color: 'text-orange-400',
       bgColor: 'bg-orange-500/10'
