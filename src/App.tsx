@@ -7,7 +7,6 @@ import MobileAppWrapper from "./components/MobileAppWrapper";
 import MobileDebugger from "./components/MobileDebugger";
 import MobileErrorBoundary from "./components/MobileErrorBoundary";
 import Index from "./pages/Index";
-import TestPage from "./pages/TestPage";
 import NotFound from "./pages/NotFound";
 import { Capacitor } from '@capacitor/core';
 import { useEffect } from 'react';
@@ -38,7 +37,6 @@ const App = () => {
           <BrowserRouter>
             <Routes>
               <Route path="/" element={<Index />} />
-              <Route path="/test" element={<TestPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
