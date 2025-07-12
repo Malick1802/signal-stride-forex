@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
 import SignalCard from './SignalCard';
 import SignalCardLoading from './SignalCardLoading';
+import { ProductionConnectionStatus } from './ProductionConnectionStatus';
 import Logger from '@/utils/logger';
 import { useOfflineSignals } from '@/hooks/useOfflineSignals';
 import { useMobileConnectivity } from '@/hooks/useMobileConnectivity';
@@ -123,6 +124,8 @@ const TradingSignals = memo(() => {
 
   return (
     <div className="space-y-6">
+      <ProductionConnectionStatus />
+      
       {/* Enhanced rendering with offline support */}
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
