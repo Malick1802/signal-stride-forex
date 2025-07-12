@@ -63,113 +63,94 @@ export const PushNotificationSettings = () => {
   // Initialize notification state with proper API detection
   useEffect(() => {
     const initializeNotificationState = async () => {
-      console.log('🔄 [NOTIFICATION STATE] Starting initialization...');
+      console.log('🔄 Starting notification state initialization...');
       
       try {
-        // First, update loading state
-        setNotificationState(prev => {
-          console.log('🔄 [STATE UPDATE] Setting loading to true, previous state:', prev);
-          return { 
-            ...prev, 
-            isLoading: true,
-            error: null 
-          };
-        });
+        setNotificationState(prev => ({ 
+          ...prev, 
+          isLoading: true,
+          error: null 
+        }));
 
         const isNative = Capacitor.isNativePlatform();
         const platform = Capacitor.getPlatform();
         
-        console.log('🔍 [PLATFORM] Detection:', { isNative, platform });
+        console.log('🔍 Platform detection:', { isNative, platform });
         
-        let finalSupported = false;
-        let finalPermission: 'default' | 'granted' | 'denied' | 'unsupported' = 'unsupported';
-        let detectedAPIs = {
+        // Detect available APIs
+        const detectedAPIs = {
           hasLocalNotifications: false,
           hasWebNotifications: false,
           hasPushNotifications: false
         };
 
-        // Check web notifications first (always available check)
-        console.log('🌐 [WEB CHECK] Checking web notification support...');
-        detectedAPIs.hasWebNotifications = 'Notification' in window && typeof Notification !== 'undefined';
-        console.log('🌐 [WEB CHECK] Web notifications available:', detectedAPIs.hasWebNotifications);
-
-        if (detectedAPIs.hasWebNotifications) {
-          finalSupported = true;
-          finalPermission = Notification.permission as any;
-          console.log('✅ [WEB CHECK] Web notifications supported, permission:', finalPermission);
-        }
-
-        // Check native capabilities if on native platform
+        // Check native capabilities first if on native platform
         if (isNative) {
-          console.log('📱 [NATIVE CHECK] Checking native capabilities...');
-          try {
-            const nativeSupported = await MobileNotificationManager.checkNativeNotificationSupport();
-            detectedAPIs.hasLocalNotifications = nativeSupported;
-            console.log('📱 [NATIVE CHECK] Native support result:', nativeSupported);
-            
-            if (nativeSupported) {
-              finalSupported = true;
-              finalPermission = 'default'; // Native starts as default
-              console.log('✅ [NATIVE CHECK] Native notifications supported');
-            }
-          } catch (error) {
-            console.warn('⚠️ [NATIVE CHECK] Native check failed:', error);
-          }
+          console.log('📱 Checking native notification capabilities...');
+          detectedAPIs.hasLocalNotifications = await MobileNotificationManager.checkNativeNotificationSupport();
+          detectedAPIs.hasPushNotifications = await MobileNotificationManager.checkPushNotificationSupport();
+          console.log('📱 Native capabilities:', detectedAPIs);
         }
 
-        // Force update state with final results
+        // Always check web capabilities for fallback
+        console.log('🌐 Checking web notification capabilities...');
+        detectedAPIs.hasWebNotifications = await MobileNotificationManager.checkWebNotificationSupport();
+        if (!isNative) {
+          detectedAPIs.hasPushNotifications = await MobileNotificationManager.checkPushNotificationSupport();
+        }
+        console.log('🌐 Web capabilities:', detectedAPIs);
+
+        // Determine final configuration
+        let isSupported = false;
+        let permission: 'default' | 'granted' | 'denied' | 'unsupported' = 'unsupported';
+        let useNative = false;
+
+        if (detectedAPIs.hasLocalNotifications && isNative) {
+          // Native platform with LocalNotifications
+          isSupported = true;
+          useNative = true;
+          permission = 'default';
+          console.log('✅ Using native LocalNotifications');
+        } else if (detectedAPIs.hasWebNotifications) {
+          // Web platform or fallback with browser notifications
+          isSupported = true;
+          useNative = false;
+          permission = Notification.permission as any;
+          console.log('✅ Using web notifications, permission:', permission);
+        } else {
+          console.log('❌ No notification APIs available');
+          isSupported = false;
+          useNative = false;
+          permission = 'unsupported';
+        }
+
         const finalState = {
-          isSupported: finalSupported,
-          isNative,
+          isSupported,
+          isNative: useNative,
           platform,
-          permission: finalPermission,
+          permission,
           isInitialized: false,
           isLoading: false,
           error: null,
           detectedAPIs
         };
 
-        console.log('🎯 [FINAL STATE] About to set final state:', finalState);
-        
+        console.log('🎯 Final notification state:', finalState);
         setNotificationState(finalState);
-        
-        // Double-check state was actually set
-        setTimeout(() => {
-          console.log('🔍 [STATE VERIFY] State after update should be applied now');
-        }, 100);
 
       } catch (error) {
-        console.error('❌ [INIT ERROR] Notification initialization failed:', error);
-        const errorState = {
-          isSupported: false,
-          isNative: false,
-          platform: 'web',
-          permission: 'unsupported' as const,
-          isInitialized: false,
+        console.error('❌ Error during notification initialization:', error);
+        setNotificationState(prev => ({
+          ...prev,
           isLoading: false,
           error: `Initialization failed: ${(error as Error).message}`,
-          detectedAPIs: {
-            hasLocalNotifications: false,
-            hasWebNotifications: false,
-            hasPushNotifications: false
-          }
-        };
-        
-        console.log('❌ [ERROR STATE] Setting error state:', errorState);
-        setNotificationState(errorState);
+          isSupported: false
+        }));
       }
     };
 
     initializeNotificationState();
   }, []);
-
-  // Debug state changes
-  useEffect(() => {
-    console.log('🔍 [STATE CHANGE] Notification state updated:', notificationState);
-    console.log('🔍 [STATE CHANGE] isSupported:', notificationState.isSupported);
-    console.log('🔍 [STATE CHANGE] isLoading:', notificationState.isLoading);
-  }, [notificationState]);
 
   // Update settings when profile changes
   useEffect(() => {
@@ -211,7 +192,7 @@ export const PushNotificationSettings = () => {
     setIsInitializing(true);
     
     try {
-      console.log('🔔 [PERMISSION] Requesting notification permissions...');
+      console.log('🔔 Requesting notification permissions...');
       
       const success = await MobileNotificationManager.initialize();
       
@@ -241,7 +222,7 @@ export const PushNotificationSettings = () => {
         });
       }
     } catch (error) {
-      console.error('❌ [PERMISSION] Error requesting permissions:', error);
+      console.error('❌ Error requesting permissions:', error);
       toast({
         title: 'Permission error',
         description: `Failed to enable notifications: ${(error as Error).message}`,
@@ -254,7 +235,7 @@ export const PushNotificationSettings = () => {
 
   const handleTestNotification = async () => {
     try {
-      console.log('🧪 [TEST] Sending test notification...');
+      console.log('🧪 Sending test notification...');
       
       if (notificationState.permission === 'granted') {
         await MobileNotificationManager.testNotification();
@@ -270,7 +251,7 @@ export const PushNotificationSettings = () => {
         });
       }
     } catch (error) {
-      console.error('❌ [TEST] Test notification failed:', error);
+      console.error('❌ Test notification failed:', error);
       toast({
         title: 'Test failed',
         description: `Could not send test notification: ${(error as Error).message}`,
@@ -332,12 +313,6 @@ export const PushNotificationSettings = () => {
       </div>
     );
   }
-
-  console.log('🎨 [RENDER] Rendering component with state:', {
-    isSupported: notificationState.isSupported,
-    isLoading: notificationState.isLoading,
-    permission: notificationState.permission
-  });
 
   return (
     <div className="space-y-6">

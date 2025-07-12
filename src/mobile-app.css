@@ -44,58 +44,21 @@
   padding-bottom: 40px;
 }
 
-/* Clean mobile app wrapper - no extra padding by default */
+/* Safe area adjustments for modern devices */
 .mobile-app-wrapper {
-  min-height: 100vh;
-  min-height: -webkit-fill-available;
-  width: 100vw;
-  overflow-x: hidden;
-  /* Remove default padding to prevent conflicts */
-  padding: 0;
-}
-
-/* Only apply safe area padding to native platforms */
-.capacitor-app .mobile-app-wrapper {
-  /* Safe area padding only for native apps */
   padding-top: env(safe-area-inset-top);
-  padding-bottom: env(safe-area-inset-bottom);
+  padding-bottom: max(env(safe-area-inset-bottom), 20px);
   padding-left: env(safe-area-inset-left);
   padding-right: env(safe-area-inset-right);
+  min-height: 100vh;
+  min-height: -webkit-fill-available;
 }
 
-/* Mobile header classes for status bar handling */
-.mobile-nav-header {
-  position: relative;
-  z-index: 50;
-}
-
-.mobile-header-fix {
-  padding-top: 0;
-}
-
-.pt-safe {
-  padding-top: 0;
-}
-
-/* Status bar spacing for native platforms */
-.capacitor-app .mobile-header-fix {
-  padding-top: calc(env(safe-area-inset-top) + 12px);
-  margin-top: calc(-1 * env(safe-area-inset-top));
-}
-
-.capacitor-app .pt-safe {
-  padding-top: env(safe-area-inset-top);
-}
-
-/* Mobile header safe area class - clean implementation */
-.mobile-header-safe {
-  /* Only apply safe area padding on native platforms */
-  padding-top: 0;
-}
-
-.capacitor-app .mobile-header-safe {
-  /* Proper safe area handling for native apps */
-  padding-top: env(safe-area-inset-top);
+/* Status bar adjustments for trading app */
+@supports (padding: max(0px)) {
+  .mobile-app-wrapper {
+    padding-top: max(env(safe-area-inset-top), 24px);
+  }
 }
 
 /* Better button touch targets for trading */
@@ -124,10 +87,10 @@
   font-feature-settings: "tnum";
 }
 
-/* Notification styling for mobile - only for native platforms */
-.capacitor-app .mobile-notification {
+/* Notification styling for mobile */
+.mobile-notification {
   position: fixed;
-  top: max(env(safe-area-inset-top), 20px);
+  top: env(safe-area-inset-top, 20px);
   left: 16px;
   right: 16px;
   z-index: 9999;

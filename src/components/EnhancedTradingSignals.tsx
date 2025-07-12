@@ -211,33 +211,14 @@ const EnhancedTradingSignals = memo(() => {
           ))}
         </div>
       ) : isConnected ? (
-        <div className="flex flex-col items-center justify-center p-8 text-center space-y-4 min-h-[400px]">
-          <div className="text-4xl mb-4">📊</div>
-          <h3 className="text-xl font-semibold text-foreground">No Active Signals</h3>
-          <p className="text-muted-foreground max-w-md">
-            No trading signals are currently active. New signals will be generated automatically.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-2 mt-4">
-            <Button
-              onClick={handleRefresh}
-              disabled={loading}
-              variant="outline"
-              size="sm"
-            >
-              <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
-            {isConnected && (
-              <Button
-                onClick={handleGenerateSignals}
-                disabled={isGenerating || loading}
-                variant="default"
-                size="sm"
-              >
-                <RefreshCw className={`w-4 h-4 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
-                {isGenerating ? 'Generating...' : 'Generate Now'}
-              </Button>
-            )}
+        <div className="bg-gray-500/10 border border-gray-500/20 rounded-lg p-4 text-center">
+          <div className="text-gray-400">
+            <div className="text-lg mb-2">📊</div>
+            <div className="font-medium">No Active Signals</div>
+            <div className="text-sm mt-1">
+              No trading signals are currently active.
+              Try generating new signals or check back later.
+            </div>
           </div>
         </div>
       ) : null}
