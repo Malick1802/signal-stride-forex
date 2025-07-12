@@ -1,102 +1,162 @@
-
-import React, { useEffect, useState } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { useReferralTracking } from '@/hooks/useReferralTracking';
-import { useAdminAccess } from '@/hooks/useAdminAccess';
-import Dashboard from './Dashboard';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { useSignalNotifications } from '@/hooks/useSignalNotifications';
 import LandingPage from './LandingPage';
 import AuthPage from './AuthPage';
-import AffiliatePage from './AffiliatePage';
-import AdminDashboard from './AdminDashboard';
-import SubscriptionPage from './SubscriptionPage';
+import MobileLoadingScreen from './MobileLoadingScreen';
+import ProgressiveAuthProvider from './ProgressiveAuthProvider';
+import { supabase } from '@/integrations/supabase/client';
+import { Capacitor } from '@capacitor/core';
+
+// Lazy load heavy components
+const LazyDashboard = lazy(() => import('./LazyDashboard'));
+const LazySubscriptionPage = lazy(() => import('./SubscriptionPage'));
+const LazyAffiliatePage = lazy(() => import('./AffiliatePage'));
+const LazyAdminDashboard = lazy(() => import('./AdminDashboard'));
+
+type ViewType = 'landing' | 'auth' | 'dashboard' | 'subscription' | 'affiliate' | 'admin';
 
 const AppContent = () => {
-  const { user, loading, subscription } = useAuth();
-  const { trackSignup, trackSubscription } = useReferralTracking();
-  const { isAdmin } = useAdminAccess();
-  const [currentView, setCurrentView] = useState('landing');
+  const { user, loading, subscription, session } = useAuth();
+  const [currentView, setCurrentView] = useState<ViewType>('landing');
+  const [isAdmin, setIsAdmin] = useState(false);
 
-  // Initialize referral tracking
-  useReferralTracking();
+  // Initialize signal notifications for authenticated users
+  useSignalNotifications();
+
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (user && session) {
+        try {
+          console.log('AppContent: Checking admin status for user:', user.email);
+          
+          // Use direct Supabase query instead of Netlify function
+          const { data, error } = await supabase
+            .from('user_roles')
+            .select('role')
+            .eq('user_id', user.id)
+            .eq('role', 'admin')
+            .maybeSingle();
+
+          if (error) {
+            console.error('AppContent: Error checking admin status:', error);
+            setIsAdmin(false);
+            return;
+          }
+
+          const hasAdminRole = !!data;
+          setIsAdmin(hasAdminRole);
+          console.log('AppContent: Admin status check result:', hasAdminRole);
+        } catch (error) {
+          console.error('AppContent: Failed to check admin status:', error);
+          setIsAdmin(false);
+        }
+      } else {
+        setIsAdmin(false);
+      }
+    };
+
+    checkAdminStatus();
+  }, [user, session]);
 
   useEffect(() => {
     console.log('AppContent: Auth state changed', {
       user: user?.email || 'none',
       loading,
-      subscription,
+      subscription: subscription?.subscribed ? 'active' : 'none',
       currentView,
       isAdmin
     });
 
-    if (loading) return;
-
-    // Simple navigation logic based on auth state
-    if (user) {
-      // Track signup for new users (only once)
-      if (currentView !== 'dashboard' && currentView !== 'admin' && currentView !== 'subscription') {
-        trackSignup(user.id);
-      }
-      
-      // Show dashboard for authenticated users (maintain current view if already on admin, subscription, or affiliate)
-      if (currentView !== 'admin' && currentView !== 'affiliate' && currentView !== 'subscription') {
-        setCurrentView('dashboard');
-      }
-    } else {
-      // Show landing page for unauthenticated users
-      if (currentView === 'dashboard' || currentView === 'admin' || currentView === 'subscription') {
-        setCurrentView('landing');
+    if (!loading) {
+      if (user) {
+        // Only navigate to dashboard if currently on landing or auth page
+        if (currentView === 'landing' || currentView === 'auth') {
+          console.log('AppContent: User authenticated, navigating to dashboard');
+          setCurrentView('dashboard');
+        }
+      } else {
+        // Only navigate to landing if not already there
+        if (currentView !== 'landing') {
+          console.log('AppContent: No user, showing landing page');
+          setCurrentView('landing');
+        }
       }
     }
-  }, [user, loading, trackSignup, isAdmin]);
+  }, [user, loading, subscription, isAdmin]); // Removed currentView from dependencies
 
-  // Handle subscription events for commission tracking
-  useEffect(() => {
-    if (user && subscription?.subscribed) {
-      // Estimate subscription amount based on tier
-      const subscriptionAmount = subscription.subscription_tier === 'premium' ? 99 : 49;
-      trackSubscription(user.id, subscriptionAmount);
-    }
-  }, [user, subscription?.subscribed, trackSubscription]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
-      </div>
-    );
-  }
-
-  const handleNavigation = (view: string) => {
-    console.log('AppContent: Navigating to:', view);
-    setCurrentView(view);
+  const handleLogout = () => {
+    console.log('AppContent: Handling logout');
+    setCurrentView('landing');
   };
 
-  // Render based on current view
-  switch (currentView) {
-    case 'auth':
-      return <AuthPage onNavigate={handleNavigation} />;
-    case 'affiliate':
-      return <AffiliatePage onNavigate={handleNavigation} />;
-    case 'admin':
-      return <AdminDashboard onNavigate={handleNavigation} />;
-    case 'subscription':
-      return <SubscriptionPage onNavigate={handleNavigation} />;
-    case 'dashboard':
-      return user ? (
-        <Dashboard 
-          user={user} 
-          onLogout={() => {}} // Will be handled by Dashboard component
-          onNavigateToAffiliate={() => handleNavigation('affiliate')}
-          onNavigateToAdmin={() => handleNavigation('admin')}
-          onNavigateToSubscription={() => handleNavigation('subscription')}
-        />
-      ) : (
-        <LandingPage onNavigate={handleNavigation} />
-      );
-    case 'landing':
-    default:
-      return <LandingPage onNavigate={handleNavigation} />;
+  const navigateToSubscription = () => {
+    console.log('AppContent: Navigating to subscription page');
+    setCurrentView('subscription');
+  };
+
+  const navigateToAffiliate = () => {
+    console.log('AppContent: Navigating to affiliate page');
+    setCurrentView('affiliate');
+  };
+
+  const navigateToAdmin = () => {
+    console.log('AppContent: Navigating to admin page');
+    setCurrentView('admin');
+  };
+
+  // Create navigation handlers that match the expected string type
+  const handleLandingNavigation = (view: string) => {
+    console.log('AppContent: Landing navigation to:', view);
+    setCurrentView(view as ViewType);
+  };
+
+  const handleAuthNavigation = (view: string) => {
+    console.log('AppContent: Auth navigation to:', view);
+    setCurrentView(view as ViewType);
+  };
+
+  if (loading) {
+    return <MobileLoadingScreen message="Initializing ForexAlert Pro..." />;
   }
+
+  console.log('AppContent: Rendering current view:', currentView);
+
+  return (
+    <ProgressiveAuthProvider>
+      <div className="w-full min-h-screen">
+        {currentView === 'landing' && (
+          <LandingPage onNavigate={handleLandingNavigation} />
+        )}
+        {currentView === 'auth' && (
+          <AuthPage onNavigate={handleAuthNavigation} />
+        )}
+        
+        {user && (
+          <Suspense fallback={<MobileLoadingScreen message="Loading dashboard..." />}>
+            {currentView === 'dashboard' && (
+              <LazyDashboard
+                user={user}
+                onLogout={handleLogout}
+                onNavigateToAffiliate={navigateToAffiliate}
+                onNavigateToAdmin={navigateToAdmin}
+                onNavigateToSubscription={navigateToSubscription}
+              />
+            )}
+            {currentView === 'subscription' && (
+              <LazySubscriptionPage onNavigate={handleAuthNavigation} />
+            )}
+            {currentView === 'affiliate' && (
+              <LazyAffiliatePage onNavigate={handleAuthNavigation} />
+            )}
+            {currentView === 'admin' && isAdmin && (
+              <LazyAdminDashboard onNavigate={handleAuthNavigation} />
+            )}
+          </Suspense>
+        )}
+      </div>
+    </ProgressiveAuthProvider>
+  );
 };
 
 export default AppContent;

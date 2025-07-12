@@ -13,12 +13,57 @@ const config: CapacitorConfig = {
     SplashScreen: {
       launchShowDuration: 2000,
       backgroundColor: '#0f172a',
-      showSpinner: false
+      showSpinner: false,
+      androidSpinnerStyle: 'large',
+      iosSpinnerStyle: 'small',
+      spinnerColor: '#10b981',
+      splashFullScreen: true,
+      splashImmersive: true
     },
     StatusBar: {
       style: 'dark',
-      backgroundColor: '#0f172a'
+      backgroundColor: '#0f172a',
+      overlay: false
+    },
+    PushNotifications: {
+      presentationOptions: ['badge', 'sound', 'alert']
+    },
+    LocalNotifications: {
+      smallIcon: 'ic_stat_notification',
+      iconColor: '#10b981',
+      sound: 'default',
+      requestPermissions: true,
+      scheduleOn: 'trigger'
+    },
+    Keyboard: {
+      resize: 'body',
+      style: 'dark',
+      resizeOnFullScreen: true
+    },
+    Network: {
+      autoStart: true
+    },
+    App: {
+      launchUrl: undefined,
+      allowBackgroundProcessing: true
+    },
+    Haptics: {
+      requestPermissions: true
     }
+  },
+  ios: {
+    contentInset: 'automatic',
+    allowsLinkPreview: false,
+    scrollEnabled: true,
+    limitsNavigationsToAppBoundDomains: false
+  },
+  android: {
+    allowMixedContent: true,
+    captureInput: true,
+    webContentsDebuggingEnabled: false,
+    appendUserAgent: 'ForexSignalPro/1.0',
+    loggingBehavior: 'none',
+    useLegacyBridge: false
   }
 };
 

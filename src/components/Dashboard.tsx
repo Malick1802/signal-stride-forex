@@ -1,16 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import { TrendingUp, RefreshCw, Bell, Settings, LogOut, CreditCard, Users, Shield, Menu, X } from 'lucide-react';
-import TradingSignals from './TradingSignals';
-import ExpiredSignals from './ExpiredSignals';
 import UserProfile from './UserProfile';
 import SubscriptionStatusWidget from './SubscriptionStatusWidget';
 import TrialExpirationBanner from './TrialExpirationBanner';
+import MobileLoadingScreen from './MobileLoadingScreen';
+import DashboardStats from './DashboardStats';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '../contexts/AuthContext';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
+import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { PullToRefresh } from './PullToRefresh';
+import { NotificationCenter } from './NotificationCenter';
+import { SettingsDialog } from './SettingsDialog';
+
+// Lazy load heavy components
+const LazyTradingSignals = lazy(() => import('./LazyTradingSignals'));
+const LazyExpiredSignals = lazy(() => import('./LazyExpiredSignals'));
 
 interface DashboardProps {
   user: any;
@@ -30,11 +38,40 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
   const { profile } = useProfile();
   const { subscription, createCheckout, openCustomerPortal, signOut } = useAuth();
   const { isAdmin } = useAdminAccess();
+  const { signals, loading, lastUpdate, signalDistribution } = useTradingSignals();
 
   console.log('Dashboard: User is admin:', isAdmin);
 
+  // Calculate real statistics from signals data
+  const calculateStats = () => {
+    const activeSignalsCount = signals.length;
+    const totalSignalsCount = 20; // MAX_ACTIVE_SIGNALS from useTradingSignals
+    
+    // Calculate average confidence from all active signals
+    const avgConfidence = signals.length > 0 
+      ? Math.round(signals.reduce((sum, signal) => sum + signal.confidence, 0) / signals.length)
+      : 0;
+    
+    // Format last update time
+    const formattedLastUpdate = lastUpdate || 'Never';
+    
+    return {
+      activeSignalsCount,
+      totalSignalsCount,
+      avgConfidence,
+      lastUpdateTime: formattedLastUpdate,
+      isAutomated: true
+    };
+  };
+
+  const stats = calculateStats();
+
   const handleRefresh = async () => {
     setRefreshing(true);
+    // Add haptic feedback for mobile
+    if (typeof window !== 'undefined' && 'navigator' in window && 'vibrate' in navigator) {
+      navigator.vibrate(50);
+    }
     await new Promise(resolve => setTimeout(resolve, 1000));
     setRefreshing(false);
   };
@@ -103,6 +140,11 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
     }
   };
 
+  const handleNotificationClick = () => {
+    setProfileOpen(true);
+    // TODO: Could add logic to directly open the push notifications tab
+  };
+
   const tabItems = [
     { id: 'signals', label: 'Active Signals', shortLabel: 'Active' },
     { id: 'expired', label: 'Expired Signals', shortLabel: 'Expired' },
@@ -113,11 +155,11 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
 
   const handleTabClick = (tabId: string) => {
     if (tabId === 'subscription') {
-      navigateToSubscription();
+      onNavigateToSubscription?.();
     } else if (tabId === 'affiliate') {
-      navigateToAffiliate();
+      onNavigateToAffiliate?.();
     } else if (tabId === 'admin') {
-      navigateToAdmin();
+      onNavigateToAdmin?.();
     } else {
       setActiveTab(tabId);
     }
@@ -191,8 +233,8 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
             <div className="flex items-center space-x-1 sm:space-x-2">
               <TrendingUp className="h-6 w-6 sm:h-8 sm:w-8 text-emerald-400" />
               <span className="text-lg sm:text-2xl font-bold text-white truncate">
-                <span className="hidden sm:inline">ForexSignal Pro</span>
-                <span className="sm:hidden">FSP</span>
+                <span className="hidden sm:inline">ForexAlert Pro</span>
+                <span className="sm:hidden">FAP</span>
               </span>
             </div>
             
@@ -222,7 +264,7 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
               />
             </div>
             
-            {/* Action buttons - Responsive */}
+            {/* Action buttons - Desktop */}
             <div className="hidden sm:flex items-center space-x-2">
               <button
                 onClick={handleRefresh}
@@ -232,16 +274,36 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
               >
                 <RefreshCw className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
               </button>
-              <button className="p-2 text-gray-400 hover:text-white transition-colors" aria-label="Notifications">
-                <Bell className="h-5 w-5" />
-              </button>
-              <button
-                className="p-2 text-gray-400 hover:text-white transition-colors"
-                aria-label="Profile"
-                onClick={() => setProfileOpen(true)}
-              >
-                <Settings className="h-5 w-5" />
-              </button>
+              
+              {/* Notification Center */}
+              <NotificationCenter>
+                <button className="p-2 text-gray-400 hover:text-white transition-colors" aria-label="Notifications">
+                  <Bell className="h-5 w-5" />
+                </button>
+              </NotificationCenter>
+
+              {/* Settings */}
+              <SettingsDialog>
+                <button className="p-2 text-gray-400 hover:text-white transition-colors" aria-label="Settings">
+                  <Settings className="h-5 w-5" />
+                </button>
+              </SettingsDialog>
+            </div>
+
+            {/* Mobile Action Menu - Simplified */}
+            <div className="sm:hidden flex items-center space-x-1">
+              <NotificationCenter>
+                <button className="p-2 text-gray-400 hover:text-white transition-colors" aria-label="Notifications">
+                  <Bell className="h-5 w-5" />
+                </button>
+              </NotificationCenter>
+              
+              {/* Settings Button */}
+              <SettingsDialog>
+                <button className="p-2 text-gray-400 hover:text-white transition-colors" aria-label="Settings">
+                  <Settings className="h-5 w-5" />
+                </button>
+              </SettingsDialog>
             </div>
 
             {/* User profile - Mobile optimized */}
@@ -298,7 +360,7 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
         </div>
       </nav>
 
-      {/* UserProfile Modal */}
+      {/*UserProfile Modal */}
       <UserProfile open={profileOpen} onOpenChange={setProfileOpen} />
 
       {/* Desktop Tab Navigation */}
@@ -330,20 +392,34 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
         </div>
       </div>
 
-      {/* Content Area - Mobile optimized */}
-      <div className="p-3 sm:p-6">
-        {/* Trial Expiration Banner */}
-        {!bannerDismissed && (
-          <TrialExpirationBanner
-            subscription={subscription}
-            onUpgrade={handleUpgrade}
-            onDismiss={() => setBannerDismissed(true)}
-          />
-        )}
+      {/* Dashboard Stats Slider - Mobile Only with Real Data */}
+      <DashboardStats 
+        activeSignalsCount={stats.activeSignalsCount}
+        totalSignalsCount={stats.totalSignalsCount}
+        avgConfidence={stats.avgConfidence}
+        lastUpdateTime={stats.lastUpdateTime}
+        isAutomated={stats.isAutomated}
+        loading={loading}
+      />
 
-        {activeTab === 'signals' && <TradingSignals />}
-        {activeTab === 'expired' && <ExpiredSignals />}
-      </div>
+      {/* Content Area - With Pull to Refresh for Mobile */}
+      <PullToRefresh onRefresh={handleRefresh} className="flex-1">
+        <div className="p-3 sm:p-6">
+          {/* Trial Expiration Banner */}
+          {!bannerDismissed && (
+            <TrialExpirationBanner
+              subscription={subscription}
+              onUpgrade={handleUpgrade}
+              onDismiss={() => setBannerDismissed(true)}
+            />
+          )}
+
+          <Suspense fallback={<MobileLoadingScreen message="Loading signals..." />}>
+            {activeTab === 'signals' && <LazyTradingSignals />}
+            {activeTab === 'expired' && <LazyExpiredSignals />}
+          </Suspense>
+        </div>
+      </PullToRefresh>
     </div>
   );
 };

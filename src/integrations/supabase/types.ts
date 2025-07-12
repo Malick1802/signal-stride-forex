@@ -750,6 +750,14 @@ export type Database = {
           id: string
           last_name: string | null
           phone_number: string | null
+          push_market_updates: boolean | null
+          push_new_signals: boolean | null
+          push_notifications_enabled: boolean | null
+          push_signal_complete: boolean | null
+          push_sound_enabled: boolean | null
+          push_stop_loss: boolean | null
+          push_targets_hit: boolean | null
+          push_vibration_enabled: boolean | null
           sms_new_signals: boolean | null
           sms_notifications_enabled: boolean | null
           sms_stop_loss: boolean | null
@@ -766,6 +774,14 @@ export type Database = {
           id: string
           last_name?: string | null
           phone_number?: string | null
+          push_market_updates?: boolean | null
+          push_new_signals?: boolean | null
+          push_notifications_enabled?: boolean | null
+          push_signal_complete?: boolean | null
+          push_sound_enabled?: boolean | null
+          push_stop_loss?: boolean | null
+          push_targets_hit?: boolean | null
+          push_vibration_enabled?: boolean | null
           sms_new_signals?: boolean | null
           sms_notifications_enabled?: boolean | null
           sms_stop_loss?: boolean | null
@@ -782,6 +798,14 @@ export type Database = {
           id?: string
           last_name?: string | null
           phone_number?: string | null
+          push_market_updates?: boolean | null
+          push_new_signals?: boolean | null
+          push_notifications_enabled?: boolean | null
+          push_signal_complete?: boolean | null
+          push_sound_enabled?: boolean | null
+          push_stop_loss?: boolean | null
+          push_targets_hit?: boolean | null
+          push_vibration_enabled?: boolean | null
           sms_new_signals?: boolean | null
           sms_notifications_enabled?: boolean | null
           sms_stop_loss?: boolean | null
@@ -1244,6 +1268,42 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
           volume?: number | null
+        }
+        Relationships: []
+      }
+      user_notifications: {
+        Row: {
+          created_at: string
+          data: Json | null
+          id: string
+          message: string
+          read: boolean
+          title: string
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          data?: Json | null
+          id?: string
+          message: string
+          read?: boolean
+          title: string
+          type?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          data?: Json | null
+          id?: string
+          message?: string
+          read?: boolean
+          title?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }

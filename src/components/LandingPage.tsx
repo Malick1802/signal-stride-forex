@@ -1,11 +1,16 @@
+
 import React, { useState, useEffect } from 'react';
-import { TrendingUp } from 'lucide-react';
+import { TrendingUp, Star, Users, Shield, TrendingDown, Clock } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
 
 interface Stat {
   label: string;
   value: string | number;
   description: string;
+  icon: React.ComponentType<any>;
+  color: string;
 }
 
 interface LandingPageProps {
@@ -13,194 +18,287 @@ interface LandingPageProps {
 }
 
 const LandingPage = ({ onNavigate }: LandingPageProps) => {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const [stats, setStats] = useState<Stat[]>([
-    { label: 'Accuracy', value: '85-95%', description: 'Signal Win Rate' },
-    { label: 'Signals Sent', value: '100+', description: 'Per Month' },
-    { label: 'Average Pips', value: 500, description: 'Monthly Target' },
+    { 
+      label: 'Accuracy', 
+      value: '85-95%', 
+      description: 'Signal Win Rate',
+      icon: TrendingUp,
+      color: 'text-emerald-400'
+    },
+    { 
+      label: 'Active Users', 
+      value: '2.5K+', 
+      description: 'Traders Worldwide',
+      icon: Users,
+      color: 'text-blue-400'
+    },
+    { 
+      label: 'Monthly Pips', 
+      value: '500+', 
+      description: 'Average Target',
+      icon: Star,
+      color: 'text-yellow-400'
+    },
   ]);
 
+  const features = [
+    {
+      icon: TrendingUp,
+      title: 'AI-Powered Signals',
+      description: 'Advanced algorithms analyze market data to identify high-probability trading opportunities in real-time.',
+      color: 'bg-emerald-500/20 text-emerald-400'
+    },
+    {
+      icon: Clock,
+      title: 'Real-Time Alerts',
+      description: 'Get instant notifications on your mobile device when new signals are available.',
+      color: 'bg-blue-500/20 text-blue-400'
+    },
+    {
+      icon: Shield,
+      title: 'Risk Management',
+      description: 'Every signal includes stop-loss and take-profit levels to help manage your trading risk.',
+      color: 'bg-purple-500/20 text-purple-400'
+    },
+    {
+      icon: Users,
+      title: 'Expert Analysis',
+      description: 'Benefit from insights of experienced forex traders and market analysts.',
+      color: 'bg-orange-500/20 text-orange-400'
+    }
+  ];
+
   useEffect(() => {
-    // Simulate fetching stats from an API
-    setTimeout(() => {
-      setStats([
-        { label: 'Accuracy', value: '88-92%', description: 'Updated Signal Win Rate' },
-        { label: 'Signals Sent', value: '120+', description: 'Per Month' },
-        { label: 'Average Pips', value: 550, description: 'New Monthly Target' },
-      ]);
-    }, 3000);
+    // Simulate live stats update
+    const interval = setInterval(() => {
+      setStats(prev => prev.map(stat => {
+        if (stat.label === 'Active Users') {
+          const baseValue = 2500;
+          const variation = Math.floor(Math.random() * 100);
+          return { ...stat, value: `${((baseValue + variation) / 1000).toFixed(1)}K+` };
+        }
+        return stat;
+      }));
+    }, 5000);
+
+    return () => clearInterval(interval);
   }, []);
 
-  const handleAuthNavigation = async () => {
-    // If user is already logged in, sign them out first to show fresh auth page
-    if (user) {
-      console.log('User already logged in, signing out to show fresh auth page');
-      await signOut();
-    }
-    // Navigate to auth page
+  const handleAuthNavigation = () => {
     onNavigate('auth');
+  };
+
+  const handleDashboardNavigation = () => {
+    onNavigate('dashboard');
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
-      {/* Header */}
-      <header className="p-6">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
+      {/* Mobile-First Header */}
+      <header className="sticky top-0 z-50 bg-black/20 backdrop-blur-lg border-b border-white/10 px-4 py-3">
+        <div className="flex items-center justify-between max-w-7xl mx-auto">
           <div className="flex items-center space-x-2">
-            <TrendingUp className="h-8 w-8 text-emerald-400" />
-            <span className="text-2xl font-bold text-white">ForexSignals</span>
+            <div className="p-2 bg-emerald-500/20 rounded-lg">
+              <TrendingUp className="h-6 w-6 text-emerald-400" />
+            </div>
+            <div>
+              <span className="text-lg font-bold text-white">ForexAlert</span>
+              <div className="text-xs text-emerald-400 font-medium">Pro</div>
+            </div>
           </div>
-          <div className="space-x-4">
+          
+          <div className="flex items-center space-x-2">
             {user ? (
               <>
-                <button
-                  onClick={() => onNavigate('dashboard')}
-                  className="px-6 py-2 text-white hover:text-emerald-400 transition-colors"
+                <Button
+                  onClick={handleDashboardNavigation}
+                  variant="ghost"
+                  size="sm"
+                  className="text-white hover:text-emerald-400 hover:bg-white/10"
                 >
                   Dashboard
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={handleAuthNavigation}
-                  className="px-6 py-2 text-white hover:text-emerald-400 transition-colors"
+                  variant="outline"
+                  size="sm"
+                  className="border-white/20 text-white hover:bg-white/10"
                 >
-                  Switch Account
-                </button>
+                  Switch
+                </Button>
               </>
             ) : (
               <>
-                <button
+                <Button
                   onClick={handleAuthNavigation}
-                  className="px-6 py-2 text-white hover:text-emerald-400 transition-colors"
+                  variant="ghost"
+                  size="sm"
+                  className="text-white hover:text-emerald-400 hover:bg-white/10"
                 >
                   Sign In
-                </button>
-                <button
+                </Button>
+                <Button
                   onClick={handleAuthNavigation}
-                  className="px-6 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-colors"
+                  size="sm"
+                  className="bg-gradient-to-r from-emerald-500 to-blue-500 hover:shadow-lg hover:shadow-emerald-500/25"
                 >
                   Get Started
-                </button>
+                </Button>
               </>
             )}
           </div>
         </div>
       </header>
 
-      {/* Hero Section */}
-      <section className="py-24 px-6">
-        <div className="max-w-5xl mx-auto text-center">
-          <h1 className="text-5xl font-bold text-white mb-8">
-            Unlock Your Trading Potential with AI-Powered Forex Signals
+      {/* Hero Section - Mobile Optimized */}
+      <section className="px-4 py-12 text-center">
+        <div className="max-w-4xl mx-auto">
+          {/* Live Status Indicator */}
+          <div className="inline-flex items-center space-x-2 bg-emerald-500/20 px-4 py-2 rounded-full mb-6">
+            <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+            <span className="text-emerald-400 text-sm font-medium">Live Trading Signals</span>
+          </div>
+
+          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-6 leading-tight">
+            AI-Powered Forex Signals
+            <span className="block text-emerald-400 mt-2">For Mobile Traders</span>
           </h1>
-          <p className="text-xl text-gray-300 mb-12">
-            Get high-probability forex signals, backed by advanced AI analysis, delivered straight to your inbox.
+          
+          <p className="text-lg text-gray-300 mb-8 max-w-2xl mx-auto leading-relaxed">
+            Get high-probability forex signals with real-time notifications, advanced analysis, and expert insights - all optimized for mobile trading.
           </p>
-          {!user && (
-            <button
+
+          {!user ? (
+            <Button
               onClick={handleAuthNavigation}
-              className="px-8 py-4 bg-gradient-to-r from-emerald-500 to-blue-500 text-white font-semibold rounded-lg text-lg hover:shadow-lg hover:shadow-emerald-500/25 transition-all"
+              size="lg"
+              className="bg-gradient-to-r from-emerald-500 to-blue-500 hover:shadow-lg hover:shadow-emerald-500/25 text-lg px-8 py-4 rounded-xl"
             >
               Start Free Trial
-            </button>
-          )}
-          {user && (
-            <button
-              onClick={() => onNavigate('dashboard')}
-              className="px-8 py-4 bg-gradient-to-r from-emerald-500 to-blue-500 text-white font-semibold rounded-lg text-lg hover:shadow-lg hover:shadow-emerald-500/25 transition-all"
+            </Button>
+          ) : (
+            <Button
+              onClick={handleDashboardNavigation}
+              size="lg"
+              className="bg-gradient-to-r from-emerald-500 to-blue-500 hover:shadow-lg hover:shadow-emerald-500/25 text-lg px-8 py-4 rounded-xl"
             >
-              Go to Dashboard
-            </button>
+              Open Dashboard
+            </Button>
           )}
         </div>
       </section>
 
-      {/* Stats Section */}
-      <section className="bg-white/5 backdrop-blur-sm py-16 px-6">
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
-          {stats.map((stat, index) => (
-            <div key={index} className="text-center">
-              <div className="text-4xl font-bold text-white mb-2">{stat.value}</div>
-              <div className="text-gray-400 text-sm uppercase tracking-wider mb-1">{stat.label}</div>
-              <div className="text-gray-300">{stat.description}</div>
-            </div>
-          ))}
+      {/* Stats Section - Mobile Cards */}
+      <section className="px-4 py-12">
+        <div className="max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {stats.map((stat, index) => {
+              const IconComponent = stat.icon;
+              return (
+                <Card key={index} className="bg-white/5 backdrop-blur-sm border-white/10 hover:bg-white/10 transition-all duration-200">
+                  <CardContent className="p-6 text-center">
+                    <div className={`inline-flex items-center justify-center w-12 h-12 rounded-full bg-white/10 mb-4`}>
+                      <IconComponent className={`h-6 w-6 ${stat.color}`} />
+                    </div>
+                    <div className="text-2xl sm:text-3xl font-bold text-white mb-2">{stat.value}</div>
+                    <div className="text-gray-400 text-sm uppercase tracking-wider mb-1">{stat.label}</div>
+                    <div className="text-gray-300 text-sm">{stat.description}</div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="py-20 px-6">
-        <div className="max-w-6xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-12">
-          <div>
-            <h2 className="text-3xl font-bold text-white mb-6">
-              Why Choose ForexSignals?
+      {/* Features Section - Mobile Grid */}
+      <section className="px-4 py-12">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
+              Why Choose ForexAlert Pro?
             </h2>
-            <ul className="space-y-4">
-              <li className="flex items-start space-x-4">
-                <div className="flex-shrink-0">
-                  <TrendingUp className="h-6 w-6 text-emerald-400" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-white">AI-Powered Signals</h3>
-                  <p className="text-gray-300">Our signals are generated using advanced AI algorithms that analyze market data to identify high-probability trading opportunities.</p>
-                </div>
-              </li>
-              <li className="flex items-start space-x-4">
-                <div className="flex-shrink-0">
-                  <TrendingUp className="h-6 w-6 text-emerald-400" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-white">Real-Time Market Data</h3>
-                  <p className="text-gray-300">Stay ahead of the curve with real-time market data and analysis, ensuring you never miss a profitable trade.</p>
-                </div>
-              </li>
-              <li className="flex items-start space-x-4">
-                <div className="flex-shrink-0">
-                  <TrendingUp className="h-6 w-6 text-emerald-400" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-semibold text-white">Expert Analysis</h3>
-                  <p className="text-gray-300">Benefit from expert analysis and insights from our team of experienced forex traders, helping you make informed trading decisions.</p>
-                </div>
-              </li>
-            </ul>
+            <p className="text-gray-300 max-w-2xl mx-auto">
+              Everything you need for successful mobile forex trading in one powerful app.
+            </p>
           </div>
-          <div>
-            <img
-              src="https://images.unsplash.com/photo-1614313293856-4043a93c07b6?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=1770&q=80"
-              alt="Forex Trading Chart"
-              className="rounded-2xl shadow-lg"
-            />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {features.map((feature, index) => {
+              const IconComponent = feature.icon;
+              return (
+                <Card key={index} className="bg-white/5 backdrop-blur-sm border-white/10 hover:bg-white/10 transition-all duration-200">
+                  <CardContent className="p-6">
+                    <div className={`inline-flex items-center justify-center w-12 h-12 rounded-xl ${feature.color} mb-4`}>
+                      <IconComponent className="h-6 w-6" />
+                    </div>
+                    <h3 className="text-lg font-semibold text-white mb-3">{feature.title}</h3>
+                    <p className="text-gray-300 leading-relaxed">{feature.description}</p>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </div>
       </section>
 
-      {/* CTA Section */}
-      <section className="py-20 px-6">
+      {/* CTA Section - Mobile Optimized */}
+      <section className="px-4 py-16">
         <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-4xl font-bold text-white mb-8">
-            Start Your 7-Day Free Trial
-          </h2>
-          <p className="text-xl text-gray-300 mb-8">
-            Get unlimited access to premium forex signals. No credit card required.
-          </p>
-          {!user && (
-            <button
-              onClick={handleAuthNavigation}
-              className="px-8 py-4 bg-gradient-to-r from-emerald-500 to-blue-500 text-white font-semibold rounded-lg text-lg hover:shadow-lg hover:shadow-emerald-500/25 transition-all"
-            >
-              Start Free Trial
-            </button>
-          )}
-          {user && (
-            <button
-              onClick={() => onNavigate('dashboard')}
-              className="px-8 py-4 bg-gradient-to-r from-emerald-500 to-blue-500 text-white font-semibold rounded-lg text-lg hover:shadow-lg hover:shadow-emerald-500/25 transition-all"
-            >
-              Go to Dashboard
-            </button>
-          )}
+          <Card className="bg-gradient-to-r from-emerald-500/10 to-blue-500/10 backdrop-blur-sm border-emerald-500/20">
+            <CardContent className="p-8">
+              <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
+                Ready to Start Trading?
+              </h2>
+              <p className="text-gray-300 mb-8 text-lg">
+                Join thousands of successful traders. Start your free trial today.
+              </p>
+              
+              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                {!user ? (
+                  <>
+                    <Button
+                      onClick={handleAuthNavigation}
+                      size="lg"
+                      className="bg-gradient-to-r from-emerald-500 to-blue-500 hover:shadow-lg hover:shadow-emerald-500/25 text-lg px-8 py-4 rounded-xl w-full sm:w-auto"
+                    >
+                      Start Free Trial
+                    </Button>
+                    <div className="text-gray-400 text-sm">
+                      No credit card required • 7-day free trial
+                    </div>
+                  </>
+                ) : (
+                  <Button
+                    onClick={handleDashboardNavigation}
+                    size="lg"
+                    className="bg-gradient-to-r from-emerald-500 to-blue-500 hover:shadow-lg hover:shadow-emerald-500/25 text-lg px-8 py-4 rounded-xl w-full sm:w-auto"
+                  >
+                    Go to Dashboard
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </section>
+
+      {/* Footer */}
+      <footer className="px-4 py-8 border-t border-white/10">
+        <div className="max-w-6xl mx-auto text-center">
+          <div className="flex items-center justify-center space-x-2 mb-4">
+            <div className="p-2 bg-emerald-500/20 rounded-lg">
+              <TrendingUp className="h-5 w-5 text-emerald-400" />
+            </div>
+            <span className="text-lg font-bold text-white">ForexAlert Pro</span>
+          </div>
+          <p className="text-gray-400 text-sm">
+            © 2024 ForexAlert Pro. Professional forex trading signals for mobile traders.
+          </p>
+        </div>
+      </footer>
     </div>
   );
 };

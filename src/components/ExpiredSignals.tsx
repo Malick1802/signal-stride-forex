@@ -46,12 +46,12 @@ const ExpiredSignals = () => {
           <div className="text-blue-400 text-xs mt-1">{stats.wins} wins / {stats.totalSignals} total</div>
         </div>
         <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
-          <div className={`text-2xl font-bold ${stats.totalPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-            {stats.totalPnL >= 0 ? '+' : ''}${stats.totalPnL.toFixed(2)}
+          <div className={`text-2xl font-bold ${stats.avgPips >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            {stats.avgPips >= 0 ? '+' : ''}{stats.avgPips} pips
           </div>
-          <div className="text-gray-400 text-sm">Total P&L</div>
-          <div className={`text-xs mt-1 ${stats.totalPnL >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-            {stats.totalPnL >= 0 ? 'Profit' : 'Loss'}
+          <div className="text-gray-400 text-sm">Avg Pips</div>
+          <div className={`text-xs mt-1 ${stats.avgPips >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+            Per signal
           </div>
         </div>
         <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
@@ -109,9 +109,9 @@ const ExpiredSignals = () => {
 
                   <div className="text-right">
                     <div className={`text-lg font-bold ${
-                      signal.result === 'WIN' ? 'text-emerald-400' : 'text-red-400'
+                      signal.pips.includes('+') ? 'text-emerald-400' : 'text-red-400'
                     }`}>
-                      {signal.pnl}
+                      {signal.pips}
                     </div>
                     <div className="text-gray-400 text-sm">{signal.duration}</div>
                   </div>
