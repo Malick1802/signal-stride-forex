@@ -6,8 +6,9 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   server: {
     androidScheme: 'https',
-    cleartext: true,
-    hostname: 'localhost'
+    cleartext: false,
+    hostname: 'localhost',
+    url: undefined
   },
   plugins: {
     SplashScreen: {
@@ -59,22 +60,18 @@ const config: CapacitorConfig = {
     preferredContentMode: 'mobile'
   },
   android: {
-    allowMixedContent: true,
+    allowMixedContent: false,
     captureInput: true,
-    webContentsDebuggingEnabled: true,
+    webContentsDebuggingEnabled: false,
     appendUserAgent: 'ForexSignalPro/1.0',
-    loggingBehavior: 'debug',
+    loggingBehavior: 'none',
     useLegacyBridge: false,
     overrideUserAgent: 'ForexSignalPro/1.0 (Android)',
     backgroundColor: '#0f172a',
     allowNavigation: [
-      'https://da46b985-2e68-44b3-90bc-922d481bf104.lovableproject.com',
-      'https://id-preview--da46b985-2e68-44b3-90bc-922d481bf104.lovable.app',
-      'capacitor://localhost',
-      'http://localhost'
+      'capacitor://localhost'
     ],
-    webContentsDebuggingEnabled: true,
-    mixedContentMode: 'always',
+    mixedContentMode: 'never',
     handleAppUrlLoadInPlace: true
   }
 };

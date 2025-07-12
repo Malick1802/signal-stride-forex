@@ -12,6 +12,49 @@ import SubscriptionPage from './SubscriptionPage';
 import AffiliatePage from './AffiliatePage';
 import AdminDashboard from './AdminDashboard';
 
+// Mobile Error Boundary
+class MobileErrorBoundary extends React.Component<
+  { children: React.ReactNode; fallback?: React.ReactNode },
+  { hasError: boolean; error?: Error }
+> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    console.error('📱 Mobile Error Boundary caught:', error);
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: any) {
+    console.error('📱 Mobile Error Details:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return this.props.fallback || (
+        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 text-white p-4">
+          <div className="text-center max-w-md">
+            <h1 className="text-xl font-bold mb-4">App Error</h1>
+            <p className="text-gray-300 mb-6">
+              Something went wrong. The app will try to recover.
+            </p>
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-2 rounded-lg"
+            >
+              Reload App
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
 type ViewType = 'landing' | 'auth' | 'dashboard' | 'subscription' | 'affiliate' | 'admin';
 
 const MobileAppContent = () => {
@@ -200,77 +243,100 @@ const MobileAppContent = () => {
     );
   }
 
-  // Render the appropriate view
+  // Render the appropriate view with error boundary
   console.log('🎯 Rendering view:', currentView);
   
-  try {
-    switch (currentView) {
-      case 'landing':
-        return <LandingPage onNavigate={handleLandingNavigation} />;
+  const renderView = () => {
+    try {
+      switch (currentView) {
+        case 'landing':
+          return <LandingPage onNavigate={handleLandingNavigation} />;
 
-      case 'auth':
-        return <AuthPage onNavigate={handleAuthNavigation} />;
+        case 'auth':
+          return <AuthPage onNavigate={handleAuthNavigation} />;
 
-      case 'dashboard':
-        return (
-          <Dashboard
-            onLogout={handleLogout}
-            onNavigateToSubscription={navigateToSubscription}
-            onNavigateToAffiliate={navigateToAffiliate}
-            onNavigateToAdmin={isAdmin ? navigateToAdmin : undefined}
-            user={user}
-          />
-        );
+        case 'dashboard':
+          return (
+            <Dashboard
+              onLogout={handleLogout}
+              onNavigateToSubscription={navigateToSubscription}
+              onNavigateToAffiliate={navigateToAffiliate}
+              onNavigateToAdmin={isAdmin ? navigateToAdmin : undefined}
+              user={user}
+            />
+          );
 
-      case 'subscription':
-        return (
-          <SubscriptionPage 
-            onNavigate={(action: string) => {
-              if (action === 'dashboard') setCurrentView('dashboard');
-              if (action === 'logout') handleLogout();
-            }} 
-          />
-        );
+        case 'subscription':
+          return (
+            <SubscriptionPage 
+              onNavigate={(action: string) => {
+                if (action === 'dashboard') setCurrentView('dashboard');
+                if (action === 'logout') handleLogout();
+              }} 
+            />
+          );
 
-      case 'affiliate':
-        return <AffiliatePage />;
+        case 'affiliate':
+          return <AffiliatePage />;
 
-      case 'admin':
-        if (!isAdmin) {
-          console.log('🚫 Non-admin trying to access admin, redirecting to dashboard');
-          setCurrentView('dashboard');
-          return null;
-        }
-        return (
-          <AdminDashboard 
-            onNavigate={(action: string) => {
-              if (action === 'dashboard') setCurrentView('dashboard');
-              if (action === 'logout') handleLogout();
-            }} 
-          />
-        );
+        case 'admin':
+          if (!isAdmin) {
+            console.log('🚫 Non-admin trying to access admin, redirecting to dashboard');
+            setCurrentView('dashboard');
+            return null;
+          }
+          return (
+            <AdminDashboard 
+              onNavigate={(action: string) => {
+                if (action === 'dashboard') setCurrentView('dashboard');
+                if (action === 'logout') handleLogout();
+              }} 
+            />
+          );
 
-      default:
-        console.log('❓ Unknown view, showing landing');
-        return <LandingPage onNavigate={handleLandingNavigation} />;
-    }
-  } catch (renderError) {
-    console.error('❌ Error rendering view:', renderError);
-    return (
-      <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-slate-900 via-red-900 to-slate-800 text-white p-4">
-        <div className="text-center max-w-md">
-          <h1 className="text-xl font-bold mb-4 text-red-400">Render Error</h1>
-          <p className="text-gray-300 mb-6">Failed to render the current view</p>
-          <button
-            onClick={() => setCurrentView('landing')}
-            className="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg"
-          >
-            Go to Home
-          </button>
+        default:
+          console.log('❓ Unknown view, showing landing');
+          return <LandingPage onNavigate={handleLandingNavigation} />;
+      }
+    } catch (renderError) {
+      console.error('❌ Error rendering view:', renderError);
+      return (
+        <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-slate-900 via-red-900 to-slate-800 text-white p-4">
+          <div className="text-center max-w-md">
+            <h1 className="text-xl font-bold mb-4 text-red-400">Render Error</h1>
+            <p className="text-gray-300 mb-6">Failed to render the current view</p>
+            <button
+              onClick={() => setCurrentView('landing')}
+              className="bg-red-500 hover:bg-red-600 text-white px-6 py-2 rounded-lg"
+            >
+              Go to Home
+            </button>
+          </div>
         </div>
-      </div>
-    );
-  }
+      );
+    }
+  };
+
+  return (
+    <MobileErrorBoundary 
+      fallback={
+        <div className="flex items-center justify-center h-screen bg-slate-900 text-white">
+          <div className="text-center">
+            <h2 className="text-lg font-bold mb-2">Loading Error</h2>
+            <p className="text-gray-300 mb-4">Failed to load view</p>
+            <button
+              onClick={() => setCurrentView('landing')}
+              className="bg-emerald-500 px-4 py-2 rounded"
+            >
+              Go to Home
+            </button>
+          </div>
+        </div>
+      }
+    >
+      {renderView()}
+    </MobileErrorBoundary>
+  );
 };
 
 export default MobileAppContent;
