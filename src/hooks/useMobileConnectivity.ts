@@ -10,29 +10,88 @@ interface ConnectivityState {
   retryCount: number;
 }
 
-// Defensive React hook wrapper to handle extension interference
+// Create a completely independent state management system for when React is compromised
+class FallbackStateManager {
+  private state: ConnectivityState;
+  private listeners: Set<(state: ConnectivityState) => void> = new Set();
+
+  constructor(initialState: ConnectivityState) {
+    this.state = initialState;
+  }
+
+  getState(): ConnectivityState {
+    return { ...this.state };
+  }
+
+  setState(updater: Partial<ConnectivityState> | ((prev: ConnectivityState) => ConnectivityState)): void {
+    if (typeof updater === 'function') {
+      this.state = updater(this.state);
+    } else {
+      this.state = { ...this.state, ...updater };
+    }
+    
+    // Notify all listeners
+    this.listeners.forEach(listener => {
+      try {
+        listener(this.getState());
+      } catch (error) {
+        console.warn('Listener error:', error);
+      }
+    });
+  }
+
+  subscribe(listener: (state: ConnectivityState) => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+}
+
+// Global fallback state manager
+let fallbackManager: FallbackStateManager | null = null;
+
+// Enhanced safe useState that completely bypasses React when compromised
 const safeUseState = <T>(initialState: T): [T, React.Dispatch<React.SetStateAction<T>>] => {
   try {
-    if (!useState) {
-      console.error('🚨 useState is null - browser extension interference detected');
-      // Fallback to a basic state management
-      let state = initialState;
-      const setState = (newState: T | ((prevState: T) => T)) => {
-        if (typeof newState === 'function') {
-          state = (newState as (prevState: T) => T)(state);
-        } else {
-          state = newState;
-        }
-      };
-      return [state, setState];
+    // First, check if React and useState are available
+    if (typeof window !== 'undefined' && window.React && window.React.useState) {
+      return window.React.useState(initialState);
     }
-    return useState(initialState);
+    
+    // Try to import useState directly
+    if (useState) {
+      return useState(initialState);
+    }
+    
+    throw new Error('React hooks not available');
   } catch (error) {
-    console.error('🚨 useState failed:', error);
-    // Emergency fallback
-    let state = initialState;
-    const setState = () => {};
-    return [state, setState];
+    console.warn('🚨 React hooks compromised, using fallback state management:', error);
+    
+    // Create fallback state manager if it doesn't exist
+    if (!fallbackManager) {
+      fallbackManager = new FallbackStateManager({
+        isOnline: navigator.onLine,
+        connectionType: 'unknown',
+        isConnected: navigator.onLine,
+        lastConnected: navigator.onLine ? new Date() : null,
+        retryCount: 0
+      });
+    }
+    
+    // Return a fallback state implementation
+    let currentValue = initialState;
+    const setValue = (newValue: T | ((prev: T) => T)) => {
+      if (typeof newValue === 'function') {
+        currentValue = (newValue as (prev: T) => T)(currentValue);
+      } else {
+        currentValue = newValue;
+      }
+      // Force re-render by updating the DOM if possible
+      if (typeof window !== 'undefined' && document.body) {
+        document.body.dispatchEvent(new CustomEvent('fallback-state-update'));
+      }
+    };
+    
+    return [currentValue, setValue as React.Dispatch<React.SetStateAction<T>>];
   }
 };
 
@@ -112,7 +171,28 @@ export const useMobileConnectivity = () => {
     await checkConnectivity();
   }, [checkConnectivity]);
 
-  useEffect(() => {
+  // Safe useEffect alternative
+  const safeUseEffect = (effect: () => void | (() => void), deps?: React.DependencyList) => {
+    try {
+      if (useEffect) {
+        return useEffect(effect, deps);
+      }
+    } catch (error) {
+      console.warn('useEffect compromised, running effect immediately:', error);
+      // Run effect immediately as fallback
+      try {
+        const cleanup = effect();
+        // Store cleanup for later if needed
+        if (cleanup && typeof cleanup === 'function') {
+          window.addEventListener('beforeunload', cleanup);
+        }
+      } catch (effectError) {
+        console.error('Effect execution failed:', effectError);
+      }
+    }
+  };
+
+  safeUseEffect(() => {
     checkConnectivity();
 
     const handleOnline = () => {

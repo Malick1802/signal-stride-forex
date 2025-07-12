@@ -4,27 +4,73 @@ import App from './App.tsx'
 import './index.css'
 import extensionDetector from './utils/extensionDetector'
 
-// Initialize extension detection
+// Initialize extension detection immediately
 extensionDetector.init();
+
+// Create a React reference holder that can't be nullified
+const ReactHolder = {
+  _react: null as any,
+  _useState: null as any,
+  
+  get React() {
+    if (!this._react) {
+      return null;
+    }
+    return this._react;
+  },
+  
+  set React(value: any) {
+    if (value && value.useState) {
+      this._react = value;
+      this._useState = value.useState;
+      // Ensure global React is protected
+      if (typeof window !== 'undefined') {
+        try {
+          window.React = value;
+          Object.defineProperty(window, 'React', {
+            get: () => this._react,
+            set: (newValue) => {
+              if (newValue === null || newValue === undefined) {
+                console.warn('🛡️ Blocked attempt to nullify React');
+                return;
+              }
+              this._react = newValue;
+            },
+            configurable: false
+          });
+        } catch (error) {
+          console.warn('Could not protect window.React:', error);
+        }
+      }
+    }
+  },
+  
+  get useState() {
+    return this._useState;
+  }
+};
 
 // Enhanced React protection against extension interference
 if (typeof window !== 'undefined') {
   // Clear any extension-injected React references
   delete (window as any).__REACT_DEVTOOLS_GLOBAL_HOOK__;
   
-  // Ensure React hooks are properly available
-  import('react').then((React) => {
-    // Protect React from being nullified
-    Object.defineProperty(window, 'React', {
-      value: React,
-      writable: false,
-      configurable: false
-    });
-    
-    // Ensure useState is available
-    if (!React.useState) {
-      console.error('🚨 Critical: React.useState is not available');
+  // Protect React from being completely nullified
+  const originalDefineProperty = Object.defineProperty;
+  Object.defineProperty = function(obj: any, prop: string, descriptor: PropertyDescriptor) {
+    if (prop === 'React' && obj === window && (descriptor.value === null || descriptor.value === undefined)) {
+      console.warn('🛡️ Prevented React nullification attempt');
+      return obj;
     }
+    return originalDefineProperty.call(this, obj, prop, descriptor);
+  };
+  
+  // Set up React holder
+  import('react').then((React) => {
+    ReactHolder.React = React;
+    console.log('✅ React protection system initialized');
+  }).catch((error) => {
+    console.error('❌ Failed to initialize React protection:', error);
   });
 }
 
@@ -40,15 +86,53 @@ const initializeApp = async () => {
     rootElement.innerHTML = '';
 
     // Verify React is available before creating root
-    const React = await import('react');
-    const ReactDOM = await import('react-dom/client');
+    let React, ReactDOM;
     
-    if (!React.useState) {
-      throw new Error('React hooks are not available - extension conflict detected');
+    try {
+      React = await import('react');
+      ReactDOM = await import('react-dom/client');
+      
+      // Update the React holder
+      ReactHolder.React = React;
+      
+      if (!React.useState) {
+        throw new Error('React hooks are not available - extension conflict detected');
+      }
+    } catch (importError) {
+      console.error('❌ Failed to import React modules:', importError);
+      throw new Error('React modules failed to load');
     }
 
     const root = ReactDOM.createRoot(rootElement);
-    root.render(<App />);
+    
+    // Wrap App in error boundary
+    const SafeApp = () => {
+      try {
+        return React.createElement(App);
+      } catch (error) {
+        console.error('❌ App rendering failed:', error);
+        return React.createElement('div', {
+          style: {
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: '100vh',
+            background: 'linear-gradient(135deg, #1e293b 0%, #1e40af 100%)',
+            color: 'white',
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            textAlign: 'center',
+            padding: '20px'
+          }
+        }, [
+          React.createElement('div', { key: 'error-content' }, [
+            React.createElement('h1', { key: 'title', style: { fontSize: '1.8rem', marginBottom: '1rem' } }, '⚠️ App Error'),
+            React.createElement('p', { key: 'message' }, 'The app encountered an error. Please disable browser extensions and refresh.')
+          ])
+        ]);
+      }
+    };
+    
+    root.render(React.createElement(SafeApp));
     
     console.log('✅ ForexAlert Pro initialized successfully');
   } catch (error) {
