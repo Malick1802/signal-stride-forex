@@ -7,8 +7,7 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   // Production configuration - points to custom domain
   server: {
-    // Replace with your custom domain URL
-    url: 'YOUR_CUSTOM_DOMAIN_HERE',
+    url: 'https://www.forexalert.app',
     androidScheme: 'https',
     iosScheme: 'https'
   },
