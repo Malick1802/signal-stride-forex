@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -17,7 +17,7 @@ import './mobile-app.css';
 const queryClient = new QueryClient();
 
 const App = () => {
-  useEffect(() => {
+  React.useEffect(() => {
     // Log platform information
     if (Capacitor.isNativePlatform()) {
       console.log('🚀 ForexAlert Pro running as native mobile app');
