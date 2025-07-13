@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { HashRouter, Routes, Route } from "react-router-dom";
 import MobileAppWrapper from "./components/MobileAppWrapper";
 import MobileDebugger from "./components/MobileDebugger";
 import Index from "./pages/Index";
@@ -23,6 +23,8 @@ const App = () => {
     if (Capacitor.isNativePlatform()) {
       console.log('🚀 ForexAlert Pro running as native mobile app');
       console.log('📱 Platform:', Capacitor.getPlatform());
+      console.log('🌍 Current URL:', window.location.href);
+      console.log('🔗 Current path:', window.location.pathname);
     } else {
       console.log('🌐 ForexAlert Pro running as web app');
     }
@@ -35,14 +37,14 @@ const App = () => {
           <MobileDebugger />
           <Toaster />
           <Sonner />
-          <BrowserRouter>
+          <HashRouter>
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/test" element={<TestPage />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </BrowserRouter>
+          </HashRouter>
         </MobileAppWrapper>
       </TooltipProvider>
     </QueryClientProvider>
