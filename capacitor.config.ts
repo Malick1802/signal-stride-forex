@@ -5,16 +5,11 @@ const config: CapacitorConfig = {
   appId: 'app.lovable.da46b9852e6844b390bc922d481bf104',
   appName: 'ForexSignal Pro',
   webDir: 'dist',
+  // Production configuration - no development server
   server: {
-    url: 'https://da46b985-2e68-44b3-90bc-922d481bf104.lovableproject.com?forceHideBadge=true',
-    cleartext: true,
-    // Add error handling for server issues
-    errorPath: '/404.html',
-    // Allow mixed content for development
-    allowNavigation: [
-      'https://da46b985-2e68-44b3-90bc-922d481bf104.lovableproject.com',
-      'https://id-preview--da46b985-2e68-44b3-90bc-922d481bf104.lovable.app'
-    ]
+    // Remove URL to use local assets
+    androidScheme: 'https',
+    iosScheme: 'https'
   },
   plugins: {
     SplashScreen: {
