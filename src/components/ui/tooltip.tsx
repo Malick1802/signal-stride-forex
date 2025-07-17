@@ -1,47 +1,28 @@
 import * as React from "react"
+import * as TooltipPrimitive from "@radix-ui/react-tooltip"
 
-// Temporarily disable TooltipPrimitive to prevent React null errors
-console.log('tooltip.tsx: Loading, React object:', React);
+import { cn } from "@/lib/utils"
 
-// Create stub components that don't use React hooks
-const TooltipProvider = ({ children, delayDuration, ...props }: { 
-  children: React.ReactNode; 
-  delayDuration?: number;
-  [key: string]: any;
-}) => {
-  console.log('TooltipProvider: Rendering stub version, delayDuration:', delayDuration);
-  return <div data-tooltip-provider {...props}>{children}</div>;
-};
+const TooltipProvider = TooltipPrimitive.Provider
 
-const Tooltip = ({ children }: { children: React.ReactNode }) => {
-  console.log('Tooltip: Rendering stub version');
-  return <div data-tooltip-root>{children}</div>;
-};
+const Tooltip = TooltipPrimitive.Root
 
-const TooltipTrigger = ({ children, asChild, ...props }: any) => {
-  console.log('TooltipTrigger: Rendering stub version');
-  if (asChild && React.isValidElement(children)) {
-    return React.cloneElement(children, props);
-  }
-  return <div data-tooltip-trigger {...props}>{children}</div>;
-};
+const TooltipTrigger = TooltipPrimitive.Trigger
 
-const TooltipContent = React.forwardRef<HTMLDivElement, any>(
-  ({ className, sideOffset = 4, children, ...props }, ref) => {
-    console.log('TooltipContent: Rendering stub version');
-    return (
-      <div
-        ref={ref}
-        data-tooltip-content
-        className={className}
-        {...props}
-      >
-        {children}
-      </div>
-    );
-  }
-);
-
-TooltipContent.displayName = "TooltipContent";
+const TooltipContent = React.forwardRef<
+  React.ElementRef<typeof TooltipPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof TooltipPrimitive.Content>
+>(({ className, sideOffset = 4, ...props }, ref) => (
+  <TooltipPrimitive.Content
+    ref={ref}
+    sideOffset={sideOffset}
+    className={cn(
+      "z-50 overflow-hidden rounded-md border bg-popover px-3 py-1.5 text-sm text-popover-foreground shadow-md animate-in fade-in-0 zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2",
+      className
+    )}
+    {...props}
+  />
+))
+TooltipContent.displayName = TooltipPrimitive.Content.displayName
 
 export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider }

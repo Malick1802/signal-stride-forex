@@ -19,27 +19,21 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    // Optimize for mobile app with better compatibility
-    target: 'es2020',
+    // Optimize for mobile app
+    target: 'es2015',
     minify: mode === 'production' ? 'terser' : false,
     sourcemap: mode === 'development',
-    // Ensure assets are properly resolved for mobile
-    assetsDir: 'assets',
     rollupOptions: {
       output: {
-        assetFileNames: 'assets/[name]-[hash][extname]',
-        chunkFileNames: 'assets/[name]-[hash].js',
-        entryFileNames: 'assets/[name]-[hash].js',
         manualChunks: {
           vendor: ['react', 'react-dom'],
           ui: ['@radix-ui/react-dialog', '@radix-ui/react-toast'],
-          router: ['react-router-dom'],
         }
       }
     },
     terserOptions: mode === 'production' ? {
       compress: {
-        drop_console: false, // Keep console logs for mobile debugging
+        drop_console: true,
         drop_debugger: true,
       },
     } : undefined,

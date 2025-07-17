@@ -5,16 +5,12 @@ const config: CapacitorConfig = {
   appId: 'app.lovable.da46b9852e6844b390bc922d481bf104',
   appName: 'ForexSignal Pro',
   webDir: 'dist',
-  // Production configuration - use custom domain for mobile app
+  // Production configuration - points to custom domain
   server: {
-    url: 'https://da46b985-2e68-44b3-90bc-922d481bf104.lovableproject.com',
-    cleartext: false,
+    // Replace with your custom domain URL
+    url: 'YOUR_CUSTOM_DOMAIN_HERE',
     androidScheme: 'https',
-    iosScheme: 'https',
-    allowNavigation: [
-      'https://da46b985-2e68-44b3-90bc-922d481bf104.lovableproject.com',
-      'https://*.lovableproject.com'
-    ]
+    iosScheme: 'https'
   },
   plugins: {
     SplashScreen: {
