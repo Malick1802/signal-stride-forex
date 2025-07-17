@@ -1,7 +1,11 @@
 
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
-import MobileApp from "./components/MobileApp";
+import { HashRouter, Routes, Route } from "react-router-dom";
+import MobileAppWrapper from "./components/MobileAppWrapper";
+import MobileDebugger from "./components/MobileDebugger";
 import Index from "./pages/Index";
 import TestPage from "./pages/TestPage";
 import NotFound from "./pages/NotFound";
@@ -19,31 +23,30 @@ const App = () => {
     if (Capacitor.isNativePlatform()) {
       console.log('🚀 ForexAlert Pro running as native mobile app');
       console.log('📱 Platform:', Capacitor.getPlatform());
+      console.log('🌍 Current URL:', window.location.href);
+      console.log('🔗 Current path:', window.location.pathname);
     } else {
       console.log('🌐 ForexAlert Pro running as web app');
     }
   }, []);
 
-  // Use mobile app for native platforms, web app for browsers
-  if (Capacitor.isNativePlatform()) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        <MobileApp />
-      </QueryClientProvider>
-    );
-  }
-
-  // Web app fallback
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/test" element={<TestPage />} />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
+      <TooltipProvider>
+        <MobileAppWrapper>
+          <MobileDebugger />
+          <Toaster />
+          <Sonner />
+          <HashRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/test" element={<TestPage />} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </HashRouter>
+        </MobileAppWrapper>
+      </TooltipProvider>
     </QueryClientProvider>
   );
 };

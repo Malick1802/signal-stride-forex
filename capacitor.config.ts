@@ -5,9 +5,10 @@ const config: CapacitorConfig = {
   appId: 'app.lovable.da46b9852e6844b390bc922d481bf104',
   appName: 'ForexSignal Pro',
   webDir: 'dist',
-  // Production configuration - no development server
+  // Production configuration - points to custom domain
   server: {
-    // Remove URL to use local assets
+    // Replace with your custom domain URL
+    url: 'YOUR_CUSTOM_DOMAIN_HERE',
     androidScheme: 'https',
     iosScheme: 'https'
   },
