@@ -1,12 +1,12 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
+import MinimalPage from "./pages/MinimalPage";
 
 const SimpleApp = () => {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<Index />} />
+        <Route path="/" element={<MinimalPage />} />
         <Route path="*" element={<div>Page not found</div>} />
       </Routes>
     </BrowserRouter>
