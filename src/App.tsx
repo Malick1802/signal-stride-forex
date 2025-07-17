@@ -1,24 +1,51 @@
-import React from 'react';
+
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
+import MobileAppWrapper from "./components/MobileAppWrapper";
+import MobileDebugger from "./components/MobileDebugger";
+import Index from "./pages/Index";
+import TestPage from "./pages/TestPage";
+import NotFound from "./pages/NotFound";
+import { Capacitor } from '@capacitor/core';
+import { useEffect } from 'react';
+
+// Import mobile app CSS
+import './mobile-app.css';
+
+const queryClient = new QueryClient();
 
 const App = () => {
+  useEffect(() => {
+    // Log platform information
+    if (Capacitor.isNativePlatform()) {
+      console.log('🚀 ForexAlert Pro running as native mobile app');
+      console.log('📱 Platform:', Capacitor.getPlatform());
+    } else {
+      console.log('🌐 ForexAlert Pro running as web app');
+    }
+  }, []);
+
   return (
-    <div style={{ 
-      minHeight: '100vh', 
-      display: 'flex', 
-      alignItems: 'center', 
-      justifyContent: 'center',
-      fontFamily: 'Arial, sans-serif',
-      backgroundColor: '#f5f5f5'
-    }}>
-      <div style={{ textAlign: 'center' }}>
-        <h1 style={{ fontSize: '2rem', fontWeight: 'bold', marginBottom: '1rem', color: '#333' }}>
-          ForexAlert Pro
-        </h1>
-        <p style={{ color: '#666' }}>
-          Application is running successfully!
-        </p>
-      </div>
-    </div>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <MobileAppWrapper>
+          <MobileDebugger />
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/test" element={<TestPage />} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </BrowserRouter>
+        </MobileAppWrapper>
+      </TooltipProvider>
+    </QueryClientProvider>
   );
 };
 
