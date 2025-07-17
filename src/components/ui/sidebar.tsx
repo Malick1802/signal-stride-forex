@@ -562,27 +562,8 @@ const SidebarMenuButton = React.forwardRef<
       />
     )
 
-    if (!tooltip) {
-      return button
-    }
-
-    if (typeof tooltip === "string") {
-      tooltip = {
-        children: tooltip,
-      }
-    }
-
-    return (
-      <Tooltip>
-        <TooltipTrigger asChild>{button}</TooltipTrigger>
-        <TooltipContent
-          side="right"
-          align="center"
-          hidden={state !== "collapsed" || isMobile}
-          {...tooltip}
-        />
-      </Tooltip>
-    )
+    // Tooltip functionality disabled to prevent React hook errors
+    return button
   }
 )
 SidebarMenuButton.displayName = "SidebarMenuButton"
