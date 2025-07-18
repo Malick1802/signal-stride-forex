@@ -1,22 +1,18 @@
 
 import React from "react";
-import { HashRouter, Routes, Route } from "react-router-dom";
-import Index from "./pages/Index";
-import TestPage from "./pages/TestPage";
-import NotFound from "./pages/NotFound";
+import AppErrorBoundary from "./components/AppErrorBoundary";
+import ProgressiveAppLoader from "./components/ProgressiveAppLoader";
 
 // Import mobile app CSS
 import './mobile-app.css';
 
 const App = () => {
+  console.log('🎯 App component rendering');
+  
   return (
-    <HashRouter>
-      <Routes>
-        <Route path="/" element={<Index />} />
-        <Route path="/test" element={<TestPage />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </HashRouter>
+    <AppErrorBoundary>
+      <ProgressiveAppLoader />
+    </AppErrorBoundary>
   );
 };
 
