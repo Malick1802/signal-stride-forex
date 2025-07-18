@@ -10,7 +10,7 @@ import Index from "./pages/Index";
 import TestPage from "./pages/TestPage";
 import NotFound from "./pages/NotFound";
 import { Capacitor } from '@capacitor/core';
-import { useEffect } from 'react';
+// import { useEffect } from 'react';
 
 // Import mobile app CSS
 import './mobile-app.css';
@@ -18,17 +18,17 @@ import './mobile-app.css';
 const queryClient = new QueryClient();
 
 const App = () => {
-  useEffect(() => {
-    // Log platform information
-    if (Capacitor.isNativePlatform()) {
-      console.log('🚀 ForexAlert Pro running as native mobile app');
-      console.log('📱 Platform:', Capacitor.getPlatform());
-      console.log('🌍 Current URL:', window.location.href);
-      console.log('🔗 Current path:', window.location.pathname);
-    } else {
-      console.log('🌐 ForexAlert Pro running as web app');
-    }
-  }, []);
+  // useEffect(() => {
+  //   // Log platform information
+  //   if (Capacitor.isNativePlatform()) {
+  //     console.log('🚀 ForexAlert Pro running as native mobile app');
+  //     console.log('📱 Platform:', Capacitor.getPlatform());
+  //     console.log('🌍 Current URL:', window.location.href);
+  //     console.log('🔗 Current path:', window.location.pathname);
+  //   } else {
+  //     console.log('🌐 ForexAlert Pro running as web app');
+  //   }
+  // }, []);
 
   return (
     <QueryClientProvider client={queryClient}>
