@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/SafeAuthContext';
 import { useSignalNotifications } from '@/hooks/useSignalNotifications';
 import LandingPage from './LandingPage';
 import AuthPage from './AuthPage';
