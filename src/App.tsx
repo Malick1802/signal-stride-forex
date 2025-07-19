@@ -11,6 +11,8 @@ import NotFound from "./pages/NotFound";
 import { Capacitor } from '@capacitor/core';
 import { useEffect } from 'react';
 
+// Force cache clear - TooltipProvider fix v2
+
 // Import mobile app CSS
 import './mobile-app.css';
 

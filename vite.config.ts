@@ -15,7 +15,6 @@ export default defineConfig(({ mode }) => ({
   },
   plugins: [
     react(),
-    // Removed componentTagger as it's a Lovable-specific dev tool
   ].filter(Boolean),
   resolve: {
     alias: {
