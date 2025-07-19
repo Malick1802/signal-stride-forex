@@ -21,17 +21,15 @@ const queryClient = new QueryClient({
 const ProgressiveAppLoader: React.FC = () => {
   console.log('🚀 ProgressiveAppLoader: Rendering app');
 
-  // Render full app directly without progressive loading
+  // Temporary minimal version without AuthProvider to debug React issue
   return (
     <QueryClientProvider client={queryClient}>
       <HashRouter>
-        <AuthProvider>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/test" element={<TestPage />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthProvider>
+        <Routes>
+          <Route path="/" element={<div className="p-8"><h1>App is loading...</h1><p>Testing React without auth context</p></div>} />
+          <Route path="/test" element={<TestPage />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
       </HashRouter>
     </QueryClientProvider>
   );
