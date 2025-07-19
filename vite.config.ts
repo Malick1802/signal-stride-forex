@@ -9,6 +9,10 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
   },
+  optimizeDeps: {
+    exclude: ['@radix-ui/react-tooltip'],
+    force: true
+  },
   plugins: [
     react(),
     // Removed componentTagger as it's a Lovable-specific dev tool
