@@ -1,35 +1,33 @@
 
 import React from 'react';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { HashRouter, Routes, Route } from "react-router-dom";
-import { AuthProvider } from '../contexts/SafeAuthContext';
-import Index from "../pages/Index";
-import TestPage from "../pages/TestPage";
-import NotFound from "../pages/NotFound";
-
-// Create QueryClient outside component to prevent recreation
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      refetchOnWindowFocus: false,
-      staleTime: 5 * 60 * 1000, // 5 minutes
-    },
-  },
-});
 
 const ProgressiveAppLoader: React.FC = () => {
-  console.log('🚀 ProgressiveAppLoader: Rendering app');
+  console.log('🚀 ProgressiveAppLoader: Rendering minimal app');
 
-  // Testing React without complex UI libraries
+  // Absolute minimal React app without any external libraries
   return (
-    <HashRouter>
-      <Routes>
-        <Route path="/" element={<div className="p-8"><h1>App is loading...</h1><p>Testing React without auth context or query client</p></div>} />
-        <Route path="/test" element={<TestPage />} />
-        <Route path="*" element={<NotFound />} />
-      </Routes>
-    </HashRouter>
+    <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
+      <h1 style={{ color: '#333' }}>React is Working</h1>
+      <p style={{ color: '#666' }}>
+        This is a minimal React component without any external dependencies.
+      </p>
+      <p style={{ color: '#666' }}>
+        Current time: {new Date().toLocaleString()}
+      </p>
+      <button 
+        style={{ 
+          padding: '10px 20px', 
+          backgroundColor: '#007bff', 
+          color: 'white', 
+          border: 'none', 
+          borderRadius: '4px',
+          cursor: 'pointer' 
+        }}
+        onClick={() => alert('React is working!')}
+      >
+        Test Button
+      </button>
+    </div>
   );
 };
 
