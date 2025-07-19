@@ -1,6 +1,5 @@
 
 import React from 'react';
-import TestSignalGeneration from '@/components/TestSignalGeneration';
 
 const TestPage = () => {
   return (
@@ -8,14 +7,21 @@ const TestPage = () => {
       <div className="container mx-auto py-8">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-white mb-4">
-            Signal Generation Testing
+            Test Page Loading
           </h1>
           <p className="text-gray-300 text-lg">
-            Test the improved signal generation system with Phase 1 & 2 optimizations
+            Testing React without complex components
           </p>
         </div>
         
-        <TestSignalGeneration />
+        <div className="bg-white p-8 rounded-lg shadow-lg">
+          <h2 className="text-2xl font-bold text-gray-800 mb-4">
+            React is Working
+          </h2>
+          <p className="text-gray-600">
+            This is a minimal test page without hooks or complex components.
+          </p>
+        </div>
       </div>
     </div>
   );
