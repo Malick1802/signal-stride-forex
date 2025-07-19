@@ -1,11 +1,11 @@
-
 import React, { useState, useEffect, lazy, Suspense } from 'react';
-import { useAuth } from '../contexts/SafeAuthContext';
+import { useAuth } from '../contexts/AuthContext';
 import { useSignalNotifications } from '@/hooks/useSignalNotifications';
 import LandingPage from './LandingPage';
 import AuthPage from './AuthPage';
 import MobileLoadingScreen from './MobileLoadingScreen';
 import LazyLoadFallback from './LazyLoadFallback';
+import ProgressiveAuthProvider from './ProgressiveAuthProvider';
 import { supabase } from '@/integrations/supabase/client';
 import { Capacitor } from '@capacitor/core';
 
@@ -140,37 +140,39 @@ const AppContent = () => {
   console.log('AppContent: Rendering current view:', currentView);
 
   return (
-    <div className="w-full min-h-screen">
-      {currentView === 'landing' && (
-        <LandingPage onNavigate={handleLandingNavigation} />
-      )}
-      {currentView === 'auth' && (
-        <AuthPage onNavigate={handleAuthNavigation} />
-      )}
-      
-      {user && (
-        <Suspense fallback={<MobileLoadingScreen message={`Loading ${currentView}...`} />}>
-          {currentView === 'dashboard' && (
-            <LazyDashboard
-              user={user}
-              onLogout={handleLogout}
-              onNavigateToAffiliate={navigateToAffiliate}
-              onNavigateToAdmin={navigateToAdmin}
-              onNavigateToSubscription={navigateToSubscription}
-            />
-          )}
-          {currentView === 'subscription' && (
-            <LazySubscriptionPage onNavigate={handleAuthNavigation} />
-          )}
-          {currentView === 'affiliate' && (
-            <LazyAffiliatePage onNavigate={handleAuthNavigation} />
-          )}
-          {currentView === 'admin' && isAdmin && (
-            <LazyAdminDashboard onNavigate={handleAuthNavigation} />
-          )}
-        </Suspense>
-      )}
-    </div>
+    <ProgressiveAuthProvider>
+      <div className="w-full min-h-screen">
+        {currentView === 'landing' && (
+          <LandingPage onNavigate={handleLandingNavigation} />
+        )}
+        {currentView === 'auth' && (
+          <AuthPage onNavigate={handleAuthNavigation} />
+        )}
+        
+        {user && (
+          <Suspense fallback={<MobileLoadingScreen message={`Loading ${currentView}...`} />}>
+            {currentView === 'dashboard' && (
+              <LazyDashboard
+                user={user}
+                onLogout={handleLogout}
+                onNavigateToAffiliate={navigateToAffiliate}
+                onNavigateToAdmin={navigateToAdmin}
+                onNavigateToSubscription={navigateToSubscription}
+              />
+            )}
+            {currentView === 'subscription' && (
+              <LazySubscriptionPage onNavigate={handleAuthNavigation} />
+            )}
+            {currentView === 'affiliate' && (
+              <LazyAffiliatePage onNavigate={handleAuthNavigation} />
+            )}
+            {currentView === 'admin' && isAdmin && (
+              <LazyAdminDashboard onNavigate={handleAuthNavigation} />
+            )}
+          </Suspense>
+        )}
+      </div>
+    </ProgressiveAuthProvider>
   );
 };
 
