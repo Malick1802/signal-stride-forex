@@ -32,21 +32,19 @@ const App = () => {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <MobileAppWrapper>
-          <MobileDebugger />
-          <Toaster />
-          <Sonner />
-          <HashRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/test" element={<TestPage />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </HashRouter>
-        </MobileAppWrapper>
-      </TooltipProvider>
+      <MobileAppWrapper>
+        <MobileDebugger />
+        <Toaster />
+        <Sonner />
+        <HashRouter>
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/test" element={<TestPage />} />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </HashRouter>
+      </MobileAppWrapper>
     </QueryClientProvider>
   );
 };
