@@ -10,7 +10,6 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
   },
   optimizeDeps: {
-    exclude: ['@radix-ui/react-tooltip'],
     force: true
   },
   plugins: [
