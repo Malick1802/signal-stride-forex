@@ -10,7 +10,12 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
   },
   optimizeDeps: {
-    force: true
+    force: true,
+    exclude: ['@radix-ui/react-tooltip']
+  },
+  esbuild: {
+    // Force rebuild
+    target: 'es2020'
   },
   plugins: [
     react(),
