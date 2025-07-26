@@ -9,8 +9,8 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
   },
-  // Force complete cache clear
-  cacheDir: 'node_modules/.vite-new',
+  // Force complete cache clear - v4
+  cacheDir: 'node_modules/.vite-cache-clear-v4',
   optimizeDeps: {
     force: true,
     exclude: ['@radix-ui/react-tooltip']
