@@ -20,51 +20,43 @@
   <body>
     <div id="root"></div>
     
-    <!-- EMERGENCY: Clear all caches and bypass everything -->
-    <script type="module">
-      console.log('🚨 EMERGENCY CACHE CLEARING STARTED');
+    <!-- ULTIMATE FIX: Use regular script tags instead of dynamic imports -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    
+    <script>
+      console.log('🚨 ULTIMATE EMERGENCY FIX STARTING');
       
-      // 1. Unregister all service workers
+      // Clear all caches and service workers
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(registrations => {
-          registrations.forEach(registration => {
-            console.log('🚨 Unregistering service worker:', registration);
-            registration.unregister();
-          });
+          registrations.forEach(registration => registration.unregister());
         });
       }
       
-      // 2. Clear all caches
       if ('caches' in window) {
         caches.keys().then(cacheNames => {
-          cacheNames.forEach(cacheName => {
-            console.log('🚨 Deleting cache:', cacheName);
-            caches.delete(cacheName);
-          });
+          cacheNames.forEach(cacheName => caches.delete(cacheName));
         });
       }
       
-      // 3. Add cache-busting timestamp to CDN imports
-      const timestamp = Date.now();
-      console.log('🚨 Loading React with timestamp:', timestamp);
-      
-      // Load React directly from CDN with cache busting (using .then to avoid top-level await)
-      Promise.all([
-        import(`https://esm.sh/react@18.2.0?t=${timestamp}`),
-        import(`https://esm.sh/react-dom@18.2.0?t=${timestamp}`)
-      ]).then(([React, ReactDOM]) => {
-      
-      console.log('🚨 React modules loaded:', { React, ReactDOM });
-      
-      const { useState, createElement } = React.default;
-      const { createRoot } = ReactDOM.default;
-      
-      function EmergencyApp() {
-        console.log('🚨 Emergency app rendering...');
+      // Wait for React to load, then render
+      function initApp() {
+        if (typeof React === 'undefined' || typeof ReactDOM === 'undefined') {
+          setTimeout(initApp, 100);
+          return;
+        }
         
-        try {
+        console.log('🚨 React loaded:', { React, ReactDOM });
+        
+        const { useState, createElement } = React;
+        const { createRoot } = ReactDOM;
+        
+        function UltimateApp() {
+          console.log('🚨 UltimateApp rendering...');
+          
           const [working, setWorking] = useState(true);
-          const [clickCount, setClickCount] = useState(0);
+          const [clicks, setClicks] = useState(0);
           
           return createElement('div', {
             style: {
@@ -79,24 +71,15 @@
               maxWidth: '600px'
             }
           }, [
-            createElement('h1', { key: 'title' }, 
-              '🚨 EMERGENCY BYPASS SUCCESS!'
-            ),
-            createElement('p', { key: 'desc' }, 
-              'All caches cleared, service workers disabled!'
-            ),
-            createElement('p', { key: 'status' }, 
-              `React useState: ${working ? 'WORKING ✅' : 'BROKEN ❌'}`
-            ),
-            createElement('p', { key: 'count' }, 
-              `Button clicks: ${clickCount}`
-            ),
+            createElement('h1', { key: 'h1' }, '🎉 ULTIMATE FIX SUCCESS!'),
+            createElement('p', { key: 'p1' }, 'React loaded via regular script tags!'),
+            createElement('p', { key: 'p2' }, `Status: ${working ? 'WORKING ✅' : 'TOGGLED ❌'}`),
+            createElement('p', { key: 'p3' }, `Clicks: ${clicks}`),
             createElement('button', {
               key: 'btn',
               onClick: () => {
                 setWorking(!working);
-                setClickCount(c => c + 1);
-                console.log('🚨 Button clicked, new state:', !working);
+                setClicks(c => c + 1);
               },
               style: {
                 padding: '15px 30px',
@@ -106,45 +89,22 @@
                 borderRadius: '5px',
                 cursor: 'pointer',
                 fontSize: '16px',
-                fontWeight: 'bold',
-                margin: '10px'
+                fontWeight: 'bold'
               }
-            }, 'Toggle & Count'),
-            createElement('p', { key: 'timestamp' }, 
-              `Loaded at: ${new Date().toLocaleTimeString()}`
-            )
+            }, 'Click Me!')
           ]);
+        }
+        
+        try {
+          const root = createRoot(document.getElementById('root'));
+          root.render(createElement(UltimateApp));
+          console.log('🎉 ULTIMATE SUCCESS!');
         } catch (error) {
-          console.error('🚨 Emergency app error:', error);
-          return createElement('div', {
-            style: { color: 'red', padding: '20px', textAlign: 'center' }
-          }, `Emergency Error: ${error.message}`);
+          console.error('🚨 Ultimate app failed:', error);
         }
       }
       
-      try {
-        const root = createRoot(document.getElementById('root'));
-        root.render(createElement(EmergencyApp));
-        console.log('🚨 Emergency app loaded successfully!');
-      } catch (error) {
-        console.error('🚨 Emergency app failed:', error);
-        document.getElementById('root').innerHTML = `
-          <div style="color: red; padding: 20px; text-align: center; font-family: Arial;">
-            <h1>🚨 Emergency App Failed</h1>
-            <p>Error: ${error.message}</p>
-            <p>Check console for details.</p>
-          </div>
-        `;
-      }
-      }).catch(error => {
-        console.error('🚨 Failed to load React modules:', error);
-        document.getElementById('root').innerHTML = `
-          <div style="color: red; padding: 20px; text-align: center; font-family: Arial;">
-            <h1>🚨 Failed to Load React</h1>
-            <p>Error: ${error.message}</p>
-          </div>
-        `;
-      });
+      initApp();
     </script>
     
     <!-- ALL VITE AND BUNDLING COMPLETELY DISABLED -->
