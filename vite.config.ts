@@ -9,16 +9,8 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
   },
-  // Force complete dependency rebuild - EXTREME v7
-  cacheDir: 'node_modules/.vite-cache-FORCE-REBUILD-v7',
   optimizeDeps: {
-    force: true,
     include: ['react', 'react-dom'],
-    exclude: ['@radix-ui/react-tooltip']
-  },
-  esbuild: {
-    // Force complete rebuild
-    target: 'es2020'
   },
   plugins: [
     react(),
