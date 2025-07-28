@@ -4,8 +4,8 @@ import path from "path";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  // Fresh cache after removing @radix-ui/react-tooltip package
-  cacheDir: `node_modules/.vite-cache-CLEAN-${Date.now()}`,
+  // NUCLEAR CACHE CLEAR - Force complete rebuild
+  cacheDir: `node_modules/.vite-cache-NUCLEAR-${Math.random().toString(36).substr(2, 9)}`,
   server: {
     host: "::",
     port: 8080,

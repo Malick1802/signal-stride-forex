@@ -1,1 +1,1 @@
-export * from './main-minimal.tsx';
+export * from './main-ultra-minimal.tsx';
