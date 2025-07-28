@@ -19,8 +19,85 @@
 
   <body>
     <div id="root"></div>
+    
+    <!-- EMERGENCY: Bypass Vite entirely -->
+    <script type="module">
+      // Load React directly from CDN to bypass all Vite caching
+      const React = await import('https://esm.sh/react@18.2.0');
+      const ReactDOM = await import('https://esm.sh/react-dom@18.2.0');
+      
+      const { useState, createElement } = React.default;
+      const { createRoot } = ReactDOM.default;
+      
+      function EmergencyApp() {
+        console.log('Emergency app rendering...');
+        
+        try {
+          const [working, setWorking] = useState(true);
+          
+          return createElement('div', {
+            style: {
+              padding: '50px',
+              textAlign: 'center',
+              fontFamily: 'system-ui',
+              backgroundColor: working ? '#d4edda' : '#f8d7da',
+              color: working ? '#155724' : '#721c24',
+              border: `3px solid ${working ? '#c3e6cb' : '#f5c6cb'}`,
+              borderRadius: '10px',
+              margin: '20px auto',
+              maxWidth: '600px'
+            }
+          }, [
+            createElement('h1', { key: 'title' }, 
+              working ? '✅ EMERGENCY SUCCESS!' : '❌ EMERGENCY FAILED'
+            ),
+            createElement('p', { key: 'desc' }, 
+              'This completely bypasses Vite and all cached bundles!'
+            ),
+            createElement('p', { key: 'status' }, 
+              `React useState is ${working ? 'WORKING' : 'BROKEN'}`
+            ),
+            createElement('button', {
+              key: 'btn',
+              onClick: () => setWorking(!working),
+              style: {
+                padding: '15px 30px',
+                backgroundColor: '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: 'pointer',
+                fontSize: '16px',
+                fontWeight: 'bold'
+              }
+            }, 'Toggle State')
+          ]);
+        } catch (error) {
+          console.error('Emergency app error:', error);
+          return createElement('div', {
+            style: { color: 'red', padding: '20px', textAlign: 'center' }
+          }, `Emergency Error: ${error.message}`);
+        }
+      }
+      
+      try {
+        const root = createRoot(document.getElementById('root'));
+        root.render(createElement(EmergencyApp));
+        console.log('✅ Emergency app loaded successfully!');
+      } catch (error) {
+        console.error('❌ Emergency app failed:', error);
+        document.getElementById('root').innerHTML = `
+          <div style="color: red; padding: 20px; text-align: center; font-family: Arial;">
+            <h1>❌ Emergency App Failed</h1>
+            <p>Error: ${error.message}</p>
+          </div>
+        `;
+      }
+    </script>
+    
     <!-- IMPORTANT: DO NOT REMOVE THIS SCRIPT TAG OR THIS VERY COMMENT! -->
     <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
-    <script type="module" src="/src/main.tsx"></script>
+    <!-- Comment out the Vite script to prevent cached bundle loading -->
+    <!-- <script type="module" src="/src/main.tsx"></script> -->
   </body>
 </html>
