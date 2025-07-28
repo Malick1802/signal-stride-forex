@@ -23,7 +23,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    target: 'es2015',
+    target: 'es2020',
     minify: mode === 'production' ? 'terser' : false,
     sourcemap: mode === 'development',
     // COMPLETELY REMOVE MANUAL CHUNKING TO AVOID TOOLTIP ISSUES

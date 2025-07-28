@@ -48,9 +48,11 @@
       const timestamp = Date.now();
       console.log('🚨 Loading React with timestamp:', timestamp);
       
-      // Load React directly from CDN with cache busting
-      const React = await import(`https://esm.sh/react@18.2.0?t=${timestamp}`);
-      const ReactDOM = await import(`https://esm.sh/react-dom@18.2.0?t=${timestamp}`);
+      // Load React directly from CDN with cache busting (using .then to avoid top-level await)
+      Promise.all([
+        import(`https://esm.sh/react@18.2.0?t=${timestamp}`),
+        import(`https://esm.sh/react-dom@18.2.0?t=${timestamp}`)
+      ]).then(([React, ReactDOM]) => {
       
       console.log('🚨 React modules loaded:', { React, ReactDOM });
       
@@ -134,6 +136,15 @@
           </div>
         `;
       }
+      }).catch(error => {
+        console.error('🚨 Failed to load React modules:', error);
+        document.getElementById('root').innerHTML = `
+          <div style="color: red; padding: 20px; text-align: center; font-family: Arial;">
+            <h1>🚨 Failed to Load React</h1>
+            <p>Error: ${error.message}</p>
+          </div>
+        `;
+      });
     </script>
     
     <!-- IMPORTANT: DO NOT REMOVE THIS SCRIPT TAG OR THIS VERY COMMENT! -->
