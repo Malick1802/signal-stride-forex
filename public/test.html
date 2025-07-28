@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>React CDN Test</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+</head>
+<body>
+    <div id="test-root"></div>
+    
+    <script>
+        console.log('Starting React CDN test...');
+        console.log('React:', window.React);
+        console.log('ReactDOM:', window.ReactDOM);
+        
+        const { useState, createElement } = React;
+        const { createRoot } = ReactDOM;
+        
+        function TestComponent() {
+            console.log('TestComponent rendering...');
+            const [count, setCount] = useState(0);
+            
+            return createElement('div', {
+                style: {
+                    padding: '20px',
+                    fontFamily: 'Arial, sans-serif',
+                    maxWidth: '400px',
+                    margin: '50px auto',
+                    backgroundColor: '#f0f0f0',
+                    borderRadius: '8px',
+                    textAlign: 'center'
+                }
+            }, [
+                createElement('h1', { key: 'title' }, 'React CDN Test'),
+                createElement('p', { key: 'count' }, `Count: ${count}`),
+                createElement('button', {
+                    key: 'button',
+                    onClick: () => {
+                        console.log('Button clicked!');
+                        setCount(c => c + 1);
+                    },
+                    style: {
+                        padding: '10px 20px',
+                        backgroundColor: '#007bff',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontSize: '16px'
+                    }
+                }, 'Increment'),
+                createElement('p', { 
+                    key: 'note',
+                    style: { marginTop: '10px', fontSize: '14px', color: '#666' }
+                }, 'If this works, React hooks are functioning properly via CDN')
+            ]);
+        }
+        
+        try {
+            const root = createRoot(document.getElementById('test-root'));
+            root.render(createElement(TestComponent));
+            console.log('React CDN test rendered successfully!');
+        } catch (error) {
+            console.error('React CDN test failed:', error);
+            document.getElementById('test-root').innerHTML = 
+                '<div style="color: red; padding: 20px;">Error: ' + error.message + '</div>';
+        }
+    </script>
+</body>
+</html>

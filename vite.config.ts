@@ -1,19 +1,18 @@
-
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  // Force complete cache rebuild to eliminate TooltipProvider issue
-  cacheDir: 'node_modules/.vite-cache-tooltip-fix-v3',
+  // NUCLEAR OPTION: Complete cache rebuild to eliminate tooltip issue
+  cacheDir: `node_modules/.vite-cache-FINAL-${Date.now()}`,
   server: {
     host: "::",
     port: 8080,
   },
   optimizeDeps: {
     force: true,
-    include: ['react', 'react-dom', 'recharts'],
+    include: ['react', 'react-dom'],
     exclude: ['@radix-ui/react-tooltip']
   },
   plugins: [
@@ -25,18 +24,11 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    // Optimize for mobile app
     target: 'es2015',
     minify: mode === 'production' ? 'terser' : false,
     sourcemap: mode === 'development',
-    rollupOptions: {
-      output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          ui: ['@radix-ui/react-dialog', '@radix-ui/react-toast'],
-        }
-      }
-    },
+    // COMPLETELY REMOVE MANUAL CHUNKING TO AVOID TOOLTIP ISSUES
+    rollupOptions: {},
     terserOptions: mode === 'production' ? {
       compress: {
         drop_console: true,
