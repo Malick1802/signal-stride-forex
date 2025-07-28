@@ -1,30 +1,58 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
-import './index.css'
 
-// Minimal test app to isolate React issues
-const TestApp = () => {
+// COMPLETELY ISOLATED TEST - NO CSS IMPORTS AT ALL
+const IsolatedTestApp = () => {
+  console.log('IsolatedTestApp rendering...');
+  console.log('React object:', React);
+  console.log('React.useState:', React.useState);
+  
   const [count, setCount] = React.useState(0);
   
-  return (
-    <div className="p-8 max-w-md mx-auto mt-16 bg-white rounded-lg shadow-lg">
-      <h1 className="text-2xl font-bold mb-4">React Test</h1>
-      <p className="mb-4">Count: {count}</p>
-      <button 
-        onClick={() => setCount(c => c + 1)}
-        className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-      >
-        Increment
-      </button>
-      <p className="mt-4 text-sm text-gray-600">
-        If you can click this button and see the count increase, React is working properly.
-      </p>
-    </div>
-  );
+  return React.createElement('div', { 
+    style: { 
+      padding: '32px', 
+      fontFamily: 'sans-serif',
+      maxWidth: '400px',
+      margin: '64px auto',
+      backgroundColor: '#ffffff',
+      borderRadius: '8px',
+      boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+    }
+  }, [
+    React.createElement('h1', { 
+      key: 'title',
+      style: { fontSize: '24px', fontWeight: 'bold', marginBottom: '16px' }
+    }, 'React Isolation Test'),
+    React.createElement('p', { 
+      key: 'count',
+      style: { marginBottom: '16px' }
+    }, `Count: ${count}`),
+    React.createElement('button', {
+      key: 'button',
+      onClick: () => {
+        console.log('Button clicked, incrementing count');
+        setCount(c => c + 1);
+      },
+      style: {
+        padding: '8px 16px',
+        backgroundColor: '#3b82f6',
+        color: 'white',
+        border: 'none',
+        borderRadius: '4px',
+        cursor: 'pointer'
+      }
+    }, 'Increment'),
+    React.createElement('p', { 
+      key: 'description',
+      style: { marginTop: '16px', fontSize: '14px', color: '#666' }
+    }, 'If this works, React hooks are functioning properly.')
+  ]);
 };
 
+console.log('About to render isolated test app...');
 createRoot(document.getElementById("root")!).render(
-  <React.StrictMode>
-    <TestApp />
-  </React.StrictMode>
+  React.createElement(React.StrictMode, {}, 
+    React.createElement(IsolatedTestApp, {})
+  )
 );
