@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useMobileConnectivity } from '@/hooks/useMobileConnectivity';
 import { MobileNotificationManager } from '@/utils/mobileNotifications';
 import MobileErrorBoundary from './MobileErrorBoundary';
