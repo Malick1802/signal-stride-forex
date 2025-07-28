@@ -1,2 +1,1 @@
-// EMERGENCY: Load ultra-minimal test instead
-export * from './main-ultra-minimal.tsx';
+export * from './main-minimal.tsx';

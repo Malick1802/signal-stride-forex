@@ -4,16 +4,15 @@ import path from "path";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  // NUCLEAR OPTION: Complete cache rebuild to eliminate tooltip issue
-  cacheDir: `node_modules/.vite-cache-FINAL-${Date.now()}`,
+  // Fresh cache after removing @radix-ui/react-tooltip package
+  cacheDir: `node_modules/.vite-cache-CLEAN-${Date.now()}`,
   server: {
     host: "::",
     port: 8080,
   },
   optimizeDeps: {
     force: true,
-    include: ['react', 'react-dom'],
-    exclude: ['@radix-ui/react-tooltip']
+    include: ['react', 'react-dom']
   },
   plugins: [
     react()
