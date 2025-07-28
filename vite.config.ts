@@ -5,11 +5,14 @@ import path from "path";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  // Force complete cache rebuild to eliminate TooltipProvider issue
+  cacheDir: 'node_modules/.vite-cache-tooltip-fix-v3',
   server: {
     host: "::",
     port: 8080,
   },
   optimizeDeps: {
+    force: true,
     include: ['react', 'react-dom', 'recharts'],
     exclude: ['@radix-ui/react-tooltip']
   },
