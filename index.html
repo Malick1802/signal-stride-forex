@@ -2,113 +2,12 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>signal-stride-forex</title>
-    <meta name="description" content="Lovable Generated Project" />
-    <meta name="author" content="Lovable" />
-
-    <meta property="og:title" content="signal-stride-forex" />
-    <meta property="og:description" content="Lovable Generated Project" />
-    <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
-
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@lovable_dev" />
-    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
+    <title>ForexAlert Pro</title>
   </head>
-
   <body>
     <div id="root"></div>
-    
-    <!-- ULTIMATE FIX: Use regular script tags instead of dynamic imports -->
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-    
-    <script>
-      console.log('🚨 ULTIMATE EMERGENCY FIX STARTING');
-      
-      // Clear all caches and service workers
-      if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(registrations => {
-          registrations.forEach(registration => registration.unregister());
-        });
-      }
-      
-      if ('caches' in window) {
-        caches.keys().then(cacheNames => {
-          cacheNames.forEach(cacheName => caches.delete(cacheName));
-        });
-      }
-      
-      // Wait for React to load, then render
-      function initApp() {
-        if (typeof React === 'undefined' || typeof ReactDOM === 'undefined') {
-          setTimeout(initApp, 100);
-          return;
-        }
-        
-        console.log('🚨 React loaded:', { React, ReactDOM });
-        
-        const { useState, createElement } = React;
-        const { createRoot } = ReactDOM;
-        
-        function UltimateApp() {
-          console.log('🚨 UltimateApp rendering...');
-          
-          const [working, setWorking] = useState(true);
-          const [clicks, setClicks] = useState(0);
-          
-          return createElement('div', {
-            style: {
-              padding: '50px',
-              textAlign: 'center',
-              fontFamily: 'system-ui',
-              backgroundColor: working ? '#d4edda' : '#f8d7da',
-              color: working ? '#155724' : '#721c24',
-              border: `3px solid ${working ? '#c3e6cb' : '#f5c6cb'}`,
-              borderRadius: '10px',
-              margin: '20px auto',
-              maxWidth: '600px'
-            }
-          }, [
-            createElement('h1', { key: 'h1' }, '🎉 ULTIMATE FIX SUCCESS!'),
-            createElement('p', { key: 'p1' }, 'React loaded via regular script tags!'),
-            createElement('p', { key: 'p2' }, `Status: ${working ? 'WORKING ✅' : 'TOGGLED ❌'}`),
-            createElement('p', { key: 'p3' }, `Clicks: ${clicks}`),
-            createElement('button', {
-              key: 'btn',
-              onClick: () => {
-                setWorking(!working);
-                setClicks(c => c + 1);
-              },
-              style: {
-                padding: '15px 30px',
-                backgroundColor: '#007bff',
-                color: 'white',
-                border: 'none',
-                borderRadius: '5px',
-                cursor: 'pointer',
-                fontSize: '16px',
-                fontWeight: 'bold'
-              }
-            }, 'Click Me!')
-          ]);
-        }
-        
-        try {
-          const root = createRoot(document.getElementById('root'));
-          root.render(createElement(UltimateApp));
-          console.log('🎉 ULTIMATE SUCCESS!');
-        } catch (error) {
-          console.error('🚨 Ultimate app failed:', error);
-        }
-      }
-      
-      initApp();
-    </script>
-    
-    <!-- ALL VITE AND BUNDLING COMPLETELY DISABLED -->
-    <!-- <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script> -->
-    <!-- <script type="module" src="/src/main.tsx"></script> -->
+    <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
