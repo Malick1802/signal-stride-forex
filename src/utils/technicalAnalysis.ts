@@ -51,14 +51,14 @@ export const calculateRSI = (prices: number[], period: number = 14): number => {
 // ENHANCED: Stricter RSI signal validation
 export const validateRSISignal = (rsi: number, signalType: 'BUY' | 'SELL'): { isValid: boolean; strength: 'weak' | 'moderate' | 'strong' | 'extreme' } => {
   if (signalType === 'BUY') {
-    if (rsi < 20) return { isValid: true, strength: 'extreme' };
-    if (rsi < 25) return { isValid: true, strength: 'strong' };
-    if (rsi < 30) return { isValid: true, strength: 'moderate' };
+    if (rsi < 15) return { isValid: true, strength: 'extreme' };  // More extreme threshold
+    if (rsi < 20) return { isValid: true, strength: 'strong' };   // Increased from 25
+    if (rsi < 25) return { isValid: true, strength: 'moderate' }; // Increased from 30
     return { isValid: false, strength: 'weak' };
   } else {
-    if (rsi > 80) return { isValid: true, strength: 'extreme' };
-    if (rsi > 75) return { isValid: true, strength: 'strong' };
-    if (rsi > 70) return { isValid: true, strength: 'moderate' };
+    if (rsi > 85) return { isValid: true, strength: 'extreme' };  // More extreme threshold
+    if (rsi > 80) return { isValid: true, strength: 'strong' };   // Increased from 75
+    if (rsi > 75) return { isValid: true, strength: 'moderate' }; // Increased from 70
     return { isValid: false, strength: 'weak' };
   }
 };
@@ -134,8 +134,8 @@ export const validateTrendAlignment = (currentPrice: number, ema50: number, ema2
       strength += 0.34;
     }
     
-    // ENHANCED: Higher separation threshold (0.5% vs 0.3%)
-    if (emaSeparation > 0.005 && ema50 > ema200) {
+    // ENHANCED: Much higher separation threshold (0.8% vs 0.5%)
+    if (emaSeparation > 0.008 && ema50 > ema200) {
       confirmations.push('Strong Bullish EMA Separation');
     }
     
@@ -163,8 +163,8 @@ export const validateTrendAlignment = (currentPrice: number, ema50: number, ema2
       strength += 0.34;
     }
     
-    // ENHANCED: Higher separation threshold
-    if (emaSeparation > 0.005 && ema50 < ema200) {
+    // ENHANCED: Much higher separation threshold (0.8% vs 0.5%)
+    if (emaSeparation > 0.008 && ema50 < ema200) {
       confirmations.push('Strong Bearish EMA Separation');
     }
     
@@ -332,10 +332,10 @@ export const calculateConservativeTechnicalIndicators = (ohlcvData: OHLCVData[],
 export const calculateConservativeSignalScore = (indicators: TechnicalIndicators & { validationScore: number; confirmations: string[] }, signalType: 'BUY' | 'SELL'): { score: number; grade: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR'; isConservativeQuality: boolean } => {
   let score = indicators.validationScore;
   
-  // ENHANCED: Higher bonus requirements
-  if (indicators.confirmations.length >= 6) score += 4; // Increased requirement
-  else if (indicators.confirmations.length >= 4) score += 2; // Increased requirement
-  else if (indicators.confirmations.length >= 3) score += 1;
+  // ENHANCED: Much higher bonus requirements
+  if (indicators.confirmations.length >= 8) score += 4; // Increased from 6
+  else if (indicators.confirmations.length >= 6) score += 2; // Increased from 4
+  else if (indicators.confirmations.length >= 5) score += 1; // Increased from 3
   
   // Bonus for strong trend alignment
   if (indicators.trendAlignment.isAligned && indicators.trendAlignment.strength > 0.008) { // Increased threshold
@@ -352,9 +352,9 @@ export const calculateConservativeSignalScore = (indicators: TechnicalIndicators
   else if (normalizedScore >= 6) grade = 'FAIR'; // Much higher threshold
   else grade = 'POOR';
   
-  // ENHANCED: Only accept EXCELLENT signals with minimum 4 confirmations
+  // ENHANCED: Only accept EXCELLENT signals with minimum 6 confirmations
   const isConservativeQuality = grade === 'EXCELLENT' && 
-                               indicators.confirmations.length >= 4 &&
+                               indicators.confirmations.length >= 6 &&
                                indicators.trendAlignment.isAligned;
   
   return { score: normalizedScore, grade, isConservativeQuality };

@@ -38,10 +38,10 @@ export interface CorrelationFilter {
 
 // Default risk management configuration
 export const DEFAULT_RISK_CONFIG: RiskManagementConfig = {
-  maxRiskPerTrade: 1.0, // 1% per trade
-  maxDrawdown: 10.0, // 10% maximum drawdown
-  correlationLimit: 0.7, // 70% correlation limit
-  volatilityMultiplier: 2.5, // 2.5x ATR for stop loss
+  maxRiskPerTrade: 0.75, // Reduced from 1% to 0.75% per trade
+  maxDrawdown: 8.0, // Reduced from 10% to 8% maximum drawdown
+  correlationLimit: 0.6, // Reduced from 70% to 60% correlation limit
+  volatilityMultiplier: 3.0, // Increased from 2.5x to 3.0x ATR for wider stops
   adaptiveRiskEnabled: true
 };
 
@@ -76,8 +76,8 @@ export const calculateDynamicStopLoss = (
   
   const atrDistance = atrValue * adjustedMultiplier;
   
-  // Minimum stop loss distances (stricter than before)
-  const minimumPips = isJPYPair(symbol) ? 35 : 40; // Increased minimum
+  // Minimum stop loss distances (much stricter than before)
+  const minimumPips = isJPYPair(symbol) ? 45 : 50; // Increased from 35/40 to 45/50
   const minimumDistance = minimumPips * pipValue;
   
   const stopDistance = Math.max(atrDistance, minimumDistance);
@@ -111,19 +111,19 @@ export const calculateAdaptiveTakeProfit = (
   
   switch (volatilityProfile) {
     case 'low':
-      baseRatios = [1.5, 2.5, 3.5, 4.5, 6.0]; // Conservative for low volatility
+      baseRatios = [2.5, 3.5, 4.5, 5.5, 7.0]; // Increased minimum R:R from 1.5 to 2.5
       break;
     case 'normal':
-      baseRatios = [1.8, 2.8, 4.0, 5.5, 7.0]; // Standard ratios
+      baseRatios = [2.5, 3.5, 4.8, 6.0, 8.0]; // Increased minimum R:R from 1.8 to 2.5
       break;
     case 'high':
-      baseRatios = [2.0, 3.2, 4.8, 6.5, 8.5]; // Higher targets for high volatility
+      baseRatios = [2.5, 3.8, 5.2, 7.0, 9.0]; // Increased minimum R:R from 2.0 to 2.5
       break;
     case 'extreme':
-      baseRatios = [1.2, 2.0, 3.0, 4.0, 5.0]; // Conservative for extreme volatility
+      baseRatios = [2.5, 3.0, 4.0, 5.0, 6.0]; // Increased minimum R:R from 1.2 to 2.5
       break;
     default:
-      baseRatios = [1.8, 2.8, 4.0, 5.5, 7.0];
+      baseRatios = [2.5, 3.5, 4.8, 6.0, 8.0];
   }
   
   // Calculate take profit levels
@@ -134,8 +134,8 @@ export const calculateAdaptiveTakeProfit = (
       : entryPrice - targetDistance;
   });
   
-  // Ensure minimum pip requirements for each level
-  const minimumTakeProfitPips = isJPYPair(symbol) ? 20 : 25;
+  // Ensure minimum pip requirements for each level (increased)
+  const minimumTakeProfitPips = isJPYPair(symbol) ? 30 : 35; // Increased from 20/25 to 30/35
   const minimumDistance = minimumTakeProfitPips * pipValue;
   
   const adjustedLevels = takeProfitLevels.map(level => {
@@ -342,10 +342,10 @@ export const assessComprehensiveRisk = (
     config
   );
   
-  // 5. Risk-reward validation
-  if (positionSize.riskRewardRatio < 1.5) {
-    riskScore += 20;
-    riskFactors.push('Poor risk-reward ratio');
+  // 5. Risk-reward validation (increased minimum)
+  if (positionSize.riskRewardRatio < 2.5) {
+    riskScore += 25;
+    riskFactors.push('Risk-reward ratio below 2.5:1 minimum');
   }
   
   // 6. Position sizing validation
@@ -354,8 +354,8 @@ export const assessComprehensiveRisk = (
     riskFactors.push('Position size exceeds maximum allowed');
   }
   
-  // Final approval decision
-  const isApproved = riskScore < 50 && !drawdownProtection.tradingHalted;
+  // Final approval decision (more conservative threshold)
+  const isApproved = riskScore < 35 && !drawdownProtection.tradingHalted; // Reduced from 50 to 35
   
   return {
     isApproved,

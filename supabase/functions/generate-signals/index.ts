@@ -153,8 +153,8 @@ serve(async (req) => {
     }
 
     const currentSignalCount = existingSignals?.length || 0;
-    const maxSignals = 20;
-    const maxNewSignals = optimized ? Math.min(4, maxSignals - currentSignalCount) : Math.min(6, maxSignals - currentSignalCount); // Reduced for quality
+    const maxSignals = 15; // Reduced from 20 to 15
+    const maxNewSignals = optimized ? Math.min(2, maxSignals - currentSignalCount) : Math.min(3, maxSignals - currentSignalCount); // Reduced from 4-6 to 2-3
 
     console.log(`📋 ENHANCED AI Signal status - Current: ${currentSignalCount}/${maxSignals}, Can generate: ${maxNewSignals}, ENHANCED AI-powered mode`);
 
@@ -219,7 +219,7 @@ serve(async (req) => {
           // Generate ENHANCED AI-powered signal analysis with market context
           const aiAnalysis = await generateEnhancedAISignalAnalysis(openAIApiKey, pair, historicalData);
           
-          if (!aiAnalysis || aiAnalysis.recommendation === 'HOLD' || aiAnalysis.qualityScore < 85) {
+          if (!aiAnalysis || aiAnalysis.recommendation === 'HOLD' || aiAnalysis.qualityScore < 90) {
             console.log(`🤖 ${symbol} ENHANCED AI recommendation: ${aiAnalysis?.recommendation || 'HOLD'} - Quality score: ${aiAnalysis?.qualityScore || 0} - No signal generated`);
             return;
           }
@@ -229,7 +229,7 @@ serve(async (req) => {
           const signal = await convertEnhancedAIAnalysisToSignal(pair, aiAnalysis, historicalData);
 
           // STRICT quality filter - only accept highest quality signals
-          if (signal && signal.confidence >= 85 && aiAnalysis.qualityScore >= 85) { // Increased thresholds
+          if (signal && signal.confidence >= 90 && aiAnalysis.qualityScore >= 90) { // Increased thresholds from 85 to 90
             generatedSignals.push(signal);
             console.log(`✅ Generated HIGH-QUALITY AI ${signal.type} signal for ${symbol} (${signal.confidence}% confidence, Quality: ${aiAnalysis.qualityScore})`);
           } else {
@@ -243,7 +243,7 @@ serve(async (req) => {
 
       // Add delay between ENHANCED AI batches to respect rate limits
       if (i + batchSize < prioritizedPairs.length) {
-        await new Promise(resolve => setTimeout(resolve, optimized ? 1000 : 1500)); // Increased delay
+        await new Promise(resolve => setTimeout(resolve, optimized ? 2000 : 3000)); // Increased delay from 1000/1500 to 2000/3000
       }
     }
 
@@ -306,7 +306,7 @@ serve(async (req) => {
         maxNewSignalsPerRun: optimized ? 4 : 6,
         enhancedAI: true,
         qualityFiltered: true,
-        minimumQualityScore: 85,
+        minimumQualityScore: 90,
         concurrentLimit: batchSize,
         errors: errors.length > 0 ? errors.slice(0, 3) : undefined
       },
@@ -401,8 +401,20 @@ async function generateEnhancedAISignalAnalysis(
     // Helper functions for pip calculations
     const isJPYPair = (symbol: string): boolean => symbol.includes('JPY');
     const getPipValue = (symbol: string): number => isJPYPair(symbol) ? 0.01 : 0.0001;
-    const minStopLossPips = 40; // Increased minimum
-    const minTakeProfitPips = 25; // Increased minimum
+    const minStopLossPips = 50; // Increased from 40 to 50
+    const minTakeProfitPips = 30; // Increased from 25 to 30
+    
+    // CONSERVATIVE: Session-based filtering
+    const currentSession = getCurrentSessionAnalysis();
+    if (currentSession.recommendation === 'avoid') {
+      return null; // Skip signal generation during low activity periods
+    }
+    
+    // CONSERVATIVE: Market regime filtering
+    const regime = detectMarketRegime(recentPrices, atr);
+    if (regime.type === 'volatile' || regime.confidence < 70) {
+      return null; // Skip signals in volatile or uncertain market conditions
+    }
     
     const enhancedPrompt = `You are a professional forex trading analyst with 15+ years of experience. Analyze the following COMPREHENSIVE market data for ${symbol} and provide a HIGH-QUALITY trading recommendation.
 
@@ -431,32 +443,38 @@ ENHANCED ANALYSIS REQUIREMENTS:
 1. Market Regime Assessment: Is this a trending, ranging, or volatile market?
 2. Multi-Timeframe Alignment: Are short and medium-term trends aligned?
 3. Session Optimization: How does current session affect this pair?
-4. Risk-Reward Analysis: Can we achieve minimum ${minStopLossPips} pip SL and ${minTakeProfitPips} pip TP with 2:1+ R:R?
+4. Risk-Reward Analysis: Can we achieve minimum ${minStopLossPips} pip SL and ${minTakeProfitPips} pip TP with 2.5:1+ R:R?
 5. Economic Impact: Any major economic events affecting this pair?
 6. Technical Confluence: Multiple technical factors confirming the setup?
 
 STRICT QUALITY REQUIREMENTS:
 - Minimum Stop Loss: ${minStopLossPips} pips (${(minStopLossPips * getPipValue(symbol)).toFixed(5)} price units)
 - Minimum Take Profit: ${minTakeProfitPips} pips (${(minTakeProfitPips * getPipValue(symbol)).toFixed(5)} price units)
-- Minimum R:R Ratio: 2.0:1
-- Confidence Threshold: 85%+
-- Quality Score Threshold: 85/100
+- Minimum R:R Ratio: 2.5:1
+- Confidence Threshold: 90%+
+- Quality Score Threshold: 90/100
+- Session Requirement: Must be European/US session or favorable overlap
+- Market Regime: Must be trending with >70% confidence
+- Volatility: Must be within normal range (not extreme)
 
 Only recommend BUY/SELL if ALL criteria are met:
-✓ Clear technical setup with 3+ confirmations
-✓ Favorable market regime and session
-✓ Proper risk-reward ratio (2:1 minimum)
-✓ Strong trend alignment
+✓ Clear technical setup with 5+ confirmations
+✓ Favorable market regime (trending with confidence >70%)
+✓ Active trading session (avoid Asian/Low Activity periods)
+✓ Proper risk-reward ratio (2.5:1 minimum)
+✓ Strong trend alignment on multiple timeframes
 ✓ No conflicting economic events
-✓ Quality score 85+
+✓ Quality score 90+
+✓ Market volatility within acceptable range (not extreme)
+✓ Correlation check passed with existing positions
 
 Provide your analysis in this EXACT JSON format:
 {
   "recommendation": "BUY" | "SELL" | "HOLD",
-  "confidence": [number between 85-95 for signals, lower for HOLD],
+  "confidence": [number between 90-95 for signals, lower for HOLD],
   "entryPrice": [current price],
   "stopLoss": [price level meeting minimum ${minStopLossPips} pip requirement],
-  "takeProfits": [array of 5 price levels with 2:1, 3:1, 4:1, 5:1, 6:1 ratios],
+  "takeProfits": [array of 5 price levels with 2.5:1, 3.5:1, 4.5:1, 5.5:1, 6.5:1 ratios],
   "reasoning": "[detailed explanation of the setup with specific technical factors]",
   "technicalFactors": ["factor1", "factor2", "factor3", "factor4+"],
   "riskAssessment": "[comprehensive risk evaluation including session, volatility, economic factors]",
