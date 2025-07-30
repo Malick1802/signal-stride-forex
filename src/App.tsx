@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter, Routes, Route } from "react-router-dom";
 import MobileAppWrapper from "./components/MobileAppWrapper";
 import MobileDebugger from "./components/MobileDebugger";
+import { MobilePerformanceOptimizer } from "./components/MobilePerformanceOptimizer";
 import Index from "./pages/Index";
 import TestPage from "./pages/TestPage";
 import NotFound from "./pages/NotFound";
@@ -34,17 +35,19 @@ const App = () => {
   return (
     <QueryClientProvider client={queryClient}>
       <MobileAppWrapper>
-        <MobileDebugger />
-        <Toaster />
-        <Sonner />
-        <HashRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/test" element={<TestPage />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </HashRouter>
+        <MobilePerformanceOptimizer enableVirtualization={true} enablePreloading={true}>
+          <MobileDebugger />
+          <Toaster />
+          <Sonner />
+          <HashRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/test" element={<TestPage />} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </HashRouter>
+        </MobilePerformanceOptimizer>
       </MobileAppWrapper>
     </QueryClientProvider>
   );

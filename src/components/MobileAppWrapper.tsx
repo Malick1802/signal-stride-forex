@@ -1,6 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { useMobileConnectivity } from '@/hooks/useMobileConnectivity';
+import { useMobileBackgroundSync } from '@/hooks/useMobileBackgroundSync';
+import { MobileNavigationBar } from './MobileNavigationBar';
 import { MobileNotificationManager } from '@/utils/mobileNotifications';
 import MobileErrorBoundary from './MobileErrorBoundary';
 import { Capacitor } from '@capacitor/core';
@@ -86,11 +88,21 @@ const initializeNativeFeatures = async (
 
 export default function MobileAppWrapper({ children }: { children: React.ReactNode }) {
   const { isOnline, retryConnection } = useMobileConnectivity();
+  const [activeTab, setActiveTab] = useState<'signals' | 'charts' | 'notifications' | 'settings'>('signals');
   const [initState, setInitState] = useState<InitializationState>({
     isInitialized: false,
     currentStep: 'Preparing...',
     error: null,
     progress: 0
+  });
+
+  // Setup mobile background sync
+  const { performBackgroundSync } = useMobileBackgroundSync({
+    enableBackgroundSync: true,
+    syncInterval: 30000, // 30 seconds
+    onSyncComplete: (data) => {
+      console.log('📱 Mobile sync completed:', data);
+    }
   });
 
   const updateInitState = (updates: Partial<InitializationState>) => {
@@ -187,12 +199,26 @@ export default function MobileAppWrapper({ children }: { children: React.ReactNo
 
   return (
     <MobileErrorBoundary>
-      {initState.error && (
-        <div className="bg-yellow-500/10 border-l-4 border-yellow-500 p-3 mb-2">
-          <p className="text-yellow-400 text-sm">{initState.error}</p>
+      <div className="min-h-screen bg-background pb-20">
+        {initState.error && (
+          <div className="bg-yellow-500/10 border-l-4 border-yellow-500 p-3 mb-2">
+            <p className="text-yellow-400 text-sm">{initState.error}</p>
+          </div>
+        )}
+        
+        {/* Main content area */}
+        <div className="h-full">
+          {children}
         </div>
-      )}
-      {children}
+        
+        {/* Mobile navigation bar */}
+        {Capacitor.isNativePlatform() && (
+          <MobileNavigationBar 
+            activeTab={activeTab}
+            onTabChange={setActiveTab}
+          />
+        )}
+      </div>
     </MobileErrorBoundary>
   );
 }
