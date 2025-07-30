@@ -137,14 +137,24 @@ const AppContent = () => {
     return <MobileLoadingScreen message="Initializing ForexAlert Pro..." />;
   }
 
-  console.log('AppContent: Rendering current view:', currentView);
+  console.log('AppContent: Rendering current view:', currentView, {
+    user: user ? 'authenticated' : 'none',
+    loading,
+    subscription: subscription?.subscribed ? 'active' : 'none'
+  });
 
   return (
     <ProgressiveAuthProvider>
-      <div className="w-full min-h-screen">
+      <div className="w-full min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
+        {/* Debug information - will be visible on screen */}
+        <div className="fixed top-4 left-4 bg-black/50 text-white p-2 rounded text-xs z-50">
+          View: {currentView} | User: {user ? 'Yes' : 'No'} | Loading: {loading ? 'Yes' : 'No'}
+        </div>
+        
         {currentView === 'landing' && (
           <LandingPage onNavigate={handleLandingNavigation} />
         )}
+        
         {currentView === 'auth' && (
           <AuthPage onNavigate={handleAuthNavigation} />
         )}
