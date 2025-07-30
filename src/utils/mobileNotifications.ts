@@ -1,22 +1,13 @@
 
 import { Capacitor } from '@capacitor/core';
-import { toast } from "sonner";
 
 interface SignalNotification {
   title: string;
   body: string;
   data?: any;
   scheduled?: Date;
-  sound?: string;
+  sound?: boolean;
   vibrate?: boolean;
-}
-
-interface NotificationChannel {
-  id: string;
-  name: string;
-  description: string;
-  importance: number;
-  sound?: string;
 }
 
 export class MobileNotificationManager {
@@ -177,38 +168,28 @@ export class MobileNotificationManager {
       
       const channels = [
         {
-          id: 'trading-signals',
-          name: 'Trading Signals',
-          description: 'Notifications for new trading signals',
-          importance: 4 as const, // HIGH importance for sound
-          sound: 'default'
+          id: 'forex_signals',
+          name: 'Forex Trading Signals',
+          description: 'New forex trading signals and updates',
+          importance: 5,
+          visibility: 1,
+          sound: 'default',
+          vibration: true
         },
         {
-          id: 'signal-alerts',
-          name: 'Signal Alerts',
-          description: 'Target hits and stop loss notifications',
-          importance: 4 as const, // HIGH importance for sound
-          sound: 'default'
-        },
-        {
-          id: 'market-updates',
-          name: 'Market Updates',
-          description: 'Important market news and updates',
-          importance: 3 as const, // MEDIUM importance
-          sound: 'default'
-        },
-        {
-          id: 'system-notifications',
-          name: 'System Notifications',
-          description: 'App updates and system messages',
-          importance: 2 as const, // LOW importance
-          sound: 'default'
+          id: 'signal_outcomes',
+          name: 'Signal Outcomes',
+          description: 'Stop loss and take profit notifications',
+          importance: 4,
+          visibility: 1,
+          sound: 'default',
+          vibration: true
         }
       ];
 
       for (const channel of channels) {
         try {
-          await LocalNotifications.createChannel(channel);
+          await LocalNotifications.createChannel(channel as any);
           console.log(`✅ Created channel: ${channel.id}`);
         } catch (error) {
           console.warn(`⚠️ Could not create notification channel: ${channel.id}`, error);
@@ -243,25 +224,17 @@ export class MobileNotificationManager {
   }
 
   static async showInstantSignalNotification(signal: SignalNotification) {
-    try {
-      // Check if we should use native notifications
-      const hasNativeNotifications = await this.checkNativeNotificationSupport();
-      
-      if (hasNativeNotifications) {
-        await this.showNativeNotification(signal, 'trading-signals');
-      } else {
-        this.showWebNotification(signal);
-      }
-    } catch (error) {
-      console.error('Error showing notification:', error);
-      // Fallback to toast
-      toast(signal.title, {
-        description: signal.body,
-      });
+    // Check if we should use native notifications
+    const hasNativeNotifications = await this.checkNativeNotificationSupport();
+    
+    if (hasNativeNotifications) {
+      return this.showNativeNotification(signal);
+    } else {
+      return this.showWebNotification(signal);
     }
   }
 
-  static async showNativeNotification(signal: SignalNotification, channelId: string = 'trading-signals') {
+  static async showNativeNotification(signal: SignalNotification) {
     try {
       const { LocalNotifications } = await import('@capacitor/local-notifications');
       
@@ -274,16 +247,13 @@ export class MobileNotificationManager {
             title: signal.title,
             body: signal.body,
             id: notificationId,
-            sound: signal.sound || 'default',
+            sound: signal.sound !== false ? 'default' : undefined,
             attachments: undefined,
             actionTypeId: 'FOREX_SIGNAL',
-            extra: signal.data || {},
-            channelId: channelId,
-            smallIcon: 'ic_stat_icon_config_sample',
-            iconColor: '#3B82F6',
-            ongoing: false,
-            autoCancel: true,
-            summaryText: channelId === 'signal-alerts' ? 'Trading Alert' : 'Trading Signal'
+            extra: signal.data,
+            channelId: 'forex_signals',
+            smallIcon: 'ic_stat_notification',
+            iconColor: '#10b981'
           }
         ]
       });
@@ -300,25 +270,36 @@ export class MobileNotificationManager {
     const title = `${pair} Signal ${isProfit ? 'Profit' : 'Loss'}`;
     const body = `${isProfit ? '✅ Target hit!' : '❌ Stop loss hit'} ${Math.abs(pips)} pips`;
 
-    const signal: SignalNotification = {
-      title,
-      body,
-      data: { type: 'signal_outcome', pair, outcome, pips },
-      sound: 'default',
-      vibrate: true
-    };
-
-    try {
-      const hasNativeNotifications = await this.checkNativeNotificationSupport();
-      
-      if (hasNativeNotifications) {
-        await this.showNativeNotification(signal, 'signal-alerts');
-      } else {
-        this.showWebNotification(signal);
+    const hasNativeNotifications = await this.checkNativeNotificationSupport();
+    
+    if (hasNativeNotifications) {
+      try {
+        const { LocalNotifications } = await import('@capacitor/local-notifications');
+        
+        const notificationId = Date.now();
+        console.log('📱 Showing native outcome notification:', { id: notificationId, title, outcome });
+        
+        await LocalNotifications.schedule({
+          notifications: [
+            {
+              title,
+              body,
+              id: notificationId,
+              sound: 'default',
+              channelId: 'signal_outcomes',
+              smallIcon: 'ic_stat_notification',
+              iconColor: isProfit ? '#10b981' : '#ef4444'
+            }
+          ]
+        });
+        
+        console.log('✅ Native signal outcome notification sent:', title);
+      } catch (error) {
+        console.error('❌ Error showing native outcome notification:', error);
+        throw new Error(`Failed to send native outcome notification: ${(error as Error).message}`);
       }
-    } catch (error) {
-      console.error('Error showing outcome notification:', error);
-      toast(title, { description: body });
+    } else {
+      return this.showWebNotification({ title, body });
     }
   }
 
@@ -342,7 +323,7 @@ export class MobileNotificationManager {
         badge: '/favicon.ico',
         tag: 'forex-signal',
         requireInteraction: true,
-        silent: !signal.sound
+        silent: signal.sound === false
       });
 
       notification.onclick = () => {
@@ -369,27 +350,20 @@ export class MobileNotificationManager {
       const hasNativeNotifications = await this.checkNativeNotificationSupport();
       
       const testMessage = hasNativeNotifications ? 
-        'Native mobile notification test with sound - you should hear this!' :
+        'Native mobile notification test - you should see this on your device!' :
         'Web browser notification test - you should see this in your browser!';
       
-      const testSignal: SignalNotification = {
-        title: '🔊 Audio Test Notification',
+      await this.showInstantSignalNotification({
+        title: '🧪 Test Notification',
         body: testMessage,
         data: { type: 'test' },
-        sound: 'default',
+        sound: true,
         vibrate: true
-      };
-
-      if (hasNativeNotifications) {
-        await this.showNativeNotification(testSignal, 'trading-signals');
-      } else {
-        this.showWebNotification(testSignal);
-      }
+      });
       
       console.log('✅ Test notification sent successfully');
     } catch (error) {
       console.error('❌ Test notification failed:', error);
-      toast('Test Failed', { description: 'Could not send test notification' });
       throw error;
     }
   }

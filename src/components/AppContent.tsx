@@ -137,81 +137,14 @@ const AppContent = () => {
     return <MobileLoadingScreen message="Initializing ForexAlert Pro..." />;
   }
 
-  console.log('AppContent: Rendering current view:', currentView, {
-    user: user ? 'authenticated' : 'none',
-    loading,
-    subscription: subscription?.subscribed ? 'active' : 'none'
-  });
-
-  // Emergency fallback - should always be visible
-  if (!user && !loading) {
-    return (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: '#1e293b',
-        color: 'white',
-        padding: '20px',
-        fontSize: '18px',
-        zIndex: 9999
-      }}>
-        <h1>Emergency Fallback - No User</h1>
-        <p>CurrentView: {currentView}</p>
-        <p>Loading: {loading ? 'true' : 'false'}</p>
-        <LandingPage onNavigate={handleLandingNavigation} />
-      </div>
-    );
-  }
-
-  if (user && !loading) {
-    return (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: '#0f172a',
-        color: 'white',
-        padding: '20px',
-        fontSize: '18px',
-        zIndex: 9999
-      }}>
-        <h1>Emergency Fallback - User Authenticated</h1>
-        <p>CurrentView: {currentView}</p>
-        <p>User: {user.email}</p>
-        <p>Loading: {loading ? 'true' : 'false'}</p>
-        <p>Admin: {isAdmin ? 'true' : 'false'}</p>
-        
-        {/* Try to render dashboard directly */}
-        <Suspense fallback={<div>Loading dashboard...</div>}>
-          <LazyDashboard
-            user={user}
-            onLogout={handleLogout}
-            onNavigateToAffiliate={navigateToAffiliate}
-            onNavigateToAdmin={navigateToAdmin}
-            onNavigateToSubscription={navigateToSubscription}
-          />
-        </Suspense>
-      </div>
-    );
-  }
+  console.log('AppContent: Rendering current view:', currentView);
 
   return (
     <ProgressiveAuthProvider>
-      <div className="w-full min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
-        {/* Debug information - will be visible on screen */}
-        <div className="fixed top-4 left-4 bg-black/50 text-white p-2 rounded text-xs z-50">
-          View: {currentView} | User: {user ? 'Yes' : 'No'} | Loading: {loading ? 'Yes' : 'No'}
-        </div>
-        
+      <div className="w-full min-h-screen">
         {currentView === 'landing' && (
           <LandingPage onNavigate={handleLandingNavigation} />
         )}
-        
         {currentView === 'auth' && (
           <AuthPage onNavigate={handleAuthNavigation} />
         )}

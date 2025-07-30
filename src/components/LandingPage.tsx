@@ -18,7 +18,6 @@ interface LandingPageProps {
 }
 
 const LandingPage = ({ onNavigate }: LandingPageProps) => {
-  console.log('LandingPage: Component rendering');
   const { user } = useAuth();
   const [stats, setStats] = useState<Stat[]>([
     { 
