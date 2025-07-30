@@ -75,15 +75,6 @@ export const MobilePerformanceOptimizer: React.FC<MobilePerformanceOptimizerProp
 
   return (
     <div className="mobile-performance-wrapper">
-      {/* Performance monitoring overlay for development */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="fixed top-0 right-0 bg-black/50 text-white text-xs p-2 rounded-bl z-50">
-          <div>Mem: {performanceMetrics.memoryUsage.toFixed(1)}MB</div>
-          <div>Render: {performanceMetrics.renderTime.toFixed(1)}ms</div>
-          <div>Mode: {performanceMetrics.isNative ? 'Native' : 'Web'}</div>
-        </div>
-      )}
-
       {/* Optimized content rendering */}
       <Suspense 
         fallback={

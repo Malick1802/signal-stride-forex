@@ -45,6 +45,9 @@ export const usePushNotifications = () => {
       
       const { PushNotifications } = await import('@capacitor/push-notifications');
       
+      // Clear any existing listeners first to prevent duplicates
+      await PushNotifications.removeAllListeners();
+
       // Request permission for push notifications
       console.log('📱 Requesting push notification permissions...');
       const permission = await PushNotifications.requestPermissions();
@@ -53,50 +56,43 @@ export const usePushNotifications = () => {
       if (permission.receive === 'granted') {
         console.log('✅ Push notification permission granted');
         
+        // Set up listeners before registering
+        PushNotifications.addListener('registration', (token) => {
+          console.log('✅ Push registration success, token: ' + token.value);
+          setPushToken(token.value);
+          localStorage.setItem('pushToken', token.value);
+          setIsRegistered(true);
+          setPermissionError(null);
+        });
+
+        PushNotifications.addListener('registrationError', (error) => {
+          console.error('❌ Error on registration: ' + JSON.stringify(error));
+          setIsRegistered(false);
+          setPermissionError('Registration failed: ' + error.error);
+        });
+
+        PushNotifications.addListener('pushNotificationReceived', (notification) => {
+          console.log('📱 Push notification received: ', notification);
+          // Handle foreground notifications
+        });
+
+        PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
+          console.log('📱 Push notification tapped', notification);
+          // Handle notification tap actions
+        });
+        
         // Register with Apple / Google to receive push notifications
         console.log('📱 Registering for push notifications...');
         await PushNotifications.register();
-        setIsRegistered(true);
       } else {
         console.log('❌ Push notification permission denied');
         setPermissionError('Push notification permission denied');
       }
 
-      // Clear any existing listeners first
-      await PushNotifications.removeAllListeners();
-
-      // On success, we should be able to receive notifications
-      PushNotifications.addListener('registration', (token) => {
-        console.log('✅ Push registration success, token: ' + token.value);
-        setPushToken(token.value);
-        localStorage.setItem('pushToken', token.value);
-        setIsRegistered(true);
-        setPermissionError(null);
-      });
-
-      // Some issue with our setup and push will not work
-      PushNotifications.addListener('registrationError', (error) => {
-        console.error('❌ Error on registration: ' + JSON.stringify(error));
-        setIsRegistered(false);
-        setPermissionError('Push notification registration failed: ' + error.error);
-      });
-
-      // Show us the notification payload if the app is open on our device
-      PushNotifications.addListener('pushNotificationReceived', (notification) => {
-        console.log('📱 Push notification received: ', notification);
-        // Handle the notification while app is in foreground
-      });
-
-      // Method called when tapping on a notification
-      PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
-        console.log('📱 Push notification action performed', notification.actionId, notification.inputValue);
-        // Handle notification tap
-      });
-
     } catch (error) {
       console.error('❌ Error initializing push notifications:', error);
       setIsRegistered(false);
-      setPermissionError('Failed to initialize push notifications: ' + (error as Error).message);
+      setPermissionError('Failed to initialize: ' + (error as Error).message);
     }
   };
 
