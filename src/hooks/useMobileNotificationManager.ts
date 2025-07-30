@@ -56,6 +56,8 @@ export const useMobileNotificationManager = () => {
   ) => {
     try {
       await notificationFn();
+      // Also trigger haptics for better user feedback
+      await triggerHaptics('medium');
     } catch (error) {
       console.error('❌ Notification failed:', error);
       
@@ -71,7 +73,7 @@ export const useMobileNotificationManager = () => {
         await createNotification(fallbackTitle, fallbackMessage, 'signal');
       }
     }
-  }, [toast, createNotification, user]);
+  }, [toast, createNotification, user, triggerHaptics]);
 
   const sendNewSignalNotification = useCallback(async (signal: any) => {
     if (!shouldSendNotification('new_signal') || !user) return;
@@ -100,7 +102,7 @@ export const useMobileNotificationManager = () => {
         title,
         body,
         data: { signalId: signal.id, type: 'new_signal' },
-        sound: profile?.push_sound_enabled !== false,
+        sound: profile?.push_sound_enabled !== false ? 'default' : undefined,
         vibrate: profile?.push_vibration_enabled !== false
       }),
       title,
@@ -131,7 +133,7 @@ export const useMobileNotificationManager = () => {
         title,
         body,
         data: { signalId: signal.id, type: 'target_hit', targetLevel },
-        sound: profile?.push_sound_enabled !== false,
+        sound: profile?.push_sound_enabled !== false ? 'default' : undefined,
         vibrate: profile?.push_vibration_enabled !== false
       }),
       title,
@@ -161,7 +163,7 @@ export const useMobileNotificationManager = () => {
         title,
         body,
         data: { signalId: signal.id, type: 'stop_loss' },
-        sound: profile?.push_sound_enabled !== false,
+        sound: profile?.push_sound_enabled !== false ? 'default' : undefined,
         vibrate: profile?.push_vibration_enabled !== false
       }),
       title,
@@ -214,7 +216,7 @@ export const useMobileNotificationManager = () => {
         title,
         body: message,
         data: { type: 'market_update', ...data },
-        sound: profile?.push_sound_enabled !== false,
+        sound: profile?.push_sound_enabled !== false ? 'default' : undefined,
         vibrate: profile?.push_vibration_enabled !== false
       }),
       title,
