@@ -219,7 +219,7 @@ serve(async (req) => {
           // Generate ENHANCED AI-powered signal analysis with market context
           const aiAnalysis = await generateEnhancedAISignalAnalysis(openAIApiKey, pair, historicalData);
           
-          if (!aiAnalysis || aiAnalysis.recommendation === 'HOLD' || aiAnalysis.qualityScore < 90) {
+          if (!aiAnalysis || aiAnalysis.recommendation === 'HOLD' || aiAnalysis.qualityScore < 75) {
             console.log(`🤖 ${symbol} ENHANCED AI recommendation: ${aiAnalysis?.recommendation || 'HOLD'} - Quality score: ${aiAnalysis?.qualityScore || 0} - No signal generated`);
             return;
           }
@@ -228,12 +228,12 @@ serve(async (req) => {
 
           const signal = await convertEnhancedAIAnalysisToSignal(pair, aiAnalysis, historicalData);
 
-          // STRICT quality filter - only accept highest quality signals
-          if (signal && signal.confidence >= 90 && aiAnalysis.qualityScore >= 90) { // Increased thresholds from 85 to 90
+          // Quality filter - accept good quality signals
+          if (signal && signal.confidence >= 75 && aiAnalysis.qualityScore >= 75) {
             generatedSignals.push(signal);
-            console.log(`✅ Generated HIGH-QUALITY AI ${signal.type} signal for ${symbol} (${signal.confidence}% confidence, Quality: ${aiAnalysis.qualityScore})`);
+            console.log(`✅ Generated AI ${signal.type} signal for ${symbol} (${signal.confidence}% confidence, Quality: ${aiAnalysis.qualityScore})`);
           } else {
-            console.log(`❌ ${symbol} ENHANCED AI signal generation failed - Quality standards not met (Confidence: ${signal?.confidence || 0}, Quality: ${aiAnalysis.qualityScore})`);
+            console.log(`❌ ${symbol} AI signal generation failed - Quality standards not met (Confidence: ${signal?.confidence || 0}, Quality: ${aiAnalysis.qualityScore})`);
           }
         } catch (error) {
           console.error(`❌ Error in ENHANCED AI analysis for ${symbol}:`, error);
@@ -306,7 +306,7 @@ serve(async (req) => {
         maxNewSignalsPerRun: optimized ? 4 : 6,
         enhancedAI: true,
         qualityFiltered: true,
-        minimumQualityScore: 90,
+        minimumQualityScore: 75,
         concurrentLimit: batchSize,
         errors: errors.length > 0 ? errors.slice(0, 3) : undefined
       },
@@ -401,8 +401,8 @@ async function generateEnhancedAISignalAnalysis(
     // Helper functions for pip calculations
     const isJPYPair = (symbol: string): boolean => symbol.includes('JPY');
     const getPipValue = (symbol: string): number => isJPYPair(symbol) ? 0.01 : 0.0001;
-    const minStopLossPips = 50; // Increased from 40 to 50
-    const minTakeProfitPips = 30; // Increased from 25 to 30
+    const minStopLossPips = 30; // Adjusted to more realistic value
+    const minTakeProfitPips = 25; // Adjusted to more realistic value
     
     // CONSERVATIVE: Session-based filtering
     const currentSession = getCurrentSessionAnalysis();
@@ -450,28 +450,28 @@ ENHANCED ANALYSIS REQUIREMENTS:
 STRICT QUALITY REQUIREMENTS:
 - Minimum Stop Loss: ${minStopLossPips} pips (${(minStopLossPips * getPipValue(symbol)).toFixed(5)} price units)
 - Minimum Take Profit: ${minTakeProfitPips} pips (${(minTakeProfitPips * getPipValue(symbol)).toFixed(5)} price units)
-- Minimum R:R Ratio: 2.5:1
-- Confidence Threshold: 90%+
-- Quality Score Threshold: 90/100
+- Minimum R:R Ratio: 2.0:1
+- Confidence Threshold: 75%+
+- Quality Score Threshold: 75/100
 - Session Requirement: Must be European/US session or favorable overlap
-- Market Regime: Must be trending with >70% confidence
+- Market Regime: Must be trending with >60% confidence
 - Volatility: Must be within normal range (not extreme)
 
 Only recommend BUY/SELL if ALL criteria are met:
-✓ Clear technical setup with 5+ confirmations
-✓ Favorable market regime (trending with confidence >70%)
+✓ Clear technical setup with 3+ confirmations
+✓ Favorable market regime (trending with confidence >60%)
 ✓ Active trading session (avoid Asian/Low Activity periods)
-✓ Proper risk-reward ratio (2.5:1 minimum)
+✓ Proper risk-reward ratio (2.0:1 minimum)
 ✓ Strong trend alignment on multiple timeframes
 ✓ No conflicting economic events
-✓ Quality score 90+
+✓ Quality score 75+
 ✓ Market volatility within acceptable range (not extreme)
 ✓ Correlation check passed with existing positions
 
 Provide your analysis in this EXACT JSON format:
 {
   "recommendation": "BUY" | "SELL" | "HOLD",
-  "confidence": [number between 90-95 for signals, lower for HOLD],
+  "confidence": [number between 75-95 for signals, lower for HOLD],
   "entryPrice": [current price],
   "stopLoss": [price level meeting minimum ${minStopLossPips} pip requirement],
   "takeProfits": [array of 5 price levels with 2.5:1, 3.5:1, 4.5:1, 5.5:1, 6.5:1 ratios],
@@ -483,7 +483,7 @@ Provide your analysis in this EXACT JSON format:
   "qualityScore": [number 0-100 based on setup quality, confluence, and market conditions]
 }
 
-CRITICAL: Only provide BUY/SELL if quality score >= 85 and confidence >= 85. Use HOLD for anything below these thresholds.`;
+CRITICAL: Only provide BUY/SELL if quality score >= 75 and confidence >= 75. Use HOLD for anything below these thresholds.`;
 
     console.log(`🤖 Sending ENHANCED AI analysis request for ${symbol}...`);
 
@@ -534,13 +534,13 @@ CRITICAL: Only provide BUY/SELL if quality score >= 85 and confidence >= 85. Use
       }
       
       if (analysis.recommendation !== 'HOLD') {
-        if (analysis.confidence < 85 || analysis.confidence > 95) {
-          console.log(`🤖 ${symbol} ENHANCED AI confidence ${analysis.confidence}% below threshold - converting to HOLD`);
-          return { ...analysis, recommendation: 'HOLD' as const, qualityScore: Math.min(analysis.qualityScore || 0, 75) };
+        if (analysis.confidence < 75 || analysis.confidence > 95) {
+          console.log(`🤖 ${symbol} AI confidence ${analysis.confidence}% below threshold - converting to HOLD`);
+          return { ...analysis, recommendation: 'HOLD' as const, qualityScore: Math.min(analysis.qualityScore || 0, 70) };
         }
         
-        if ((analysis.qualityScore || 0) < 85) {
-          console.log(`🤖 ${symbol} ENHANCED AI quality score ${analysis.qualityScore || 0} below threshold - converting to HOLD`);
+        if ((analysis.qualityScore || 0) < 75) {
+          console.log(`🤖 ${symbol} AI quality score ${analysis.qualityScore || 0} below threshold - converting to HOLD`);
           return { ...analysis, recommendation: 'HOLD' as const };
         }
         
@@ -672,7 +672,7 @@ async function convertEnhancedAIAnalysisToSignal(
   historicalData: PricePoint[]
 ): Promise<SignalData | null> {
   try {
-    if (aiAnalysis.recommendation === 'HOLD' || aiAnalysis.qualityScore < 85) {
+    if (aiAnalysis.recommendation === 'HOLD' || aiAnalysis.qualityScore < 75) {
       return null;
     }
 
