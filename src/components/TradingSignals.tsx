@@ -14,9 +14,8 @@ import { useMobileConnectivity } from '@/hooks/useMobileConnectivity';
 import { useBackgroundSync } from '@/hooks/useBackgroundSync';
 
 const TradingSignals = memo(() => {
-  const { signals, loading, lastUpdate, signalDistribution, triggerAutomaticSignalGeneration, fetchSignals } = useTradingSignals();
+  const { signals, loading, lastUpdate, signalDistribution, fetchSignals } = useTradingSignals();
   const { toast } = useToast();
-  const [isGenerating, setIsGenerating] = useState(false);
   
   // Enhanced monitoring systems
   useEnhancedSignalMonitoring();
@@ -53,31 +52,6 @@ const TradingSignals = memo(() => {
     }
   }, [signals, isConnected, cacheSignals]);
 
-  // Enhanced signal generation with better error handling
-  const handleGenerateSignals = useCallback(async () => {
-    if (isGenerating) return;
-    
-    setIsGenerating(true);
-    try {
-      Logger.info('signals', 'Manually triggering signal generation...');
-      await triggerAutomaticSignalGeneration();
-      
-      // Wait a bit and then refresh
-      setTimeout(async () => {
-        await fetchSignals();
-        setIsGenerating(false);
-      }, 3000);
-      
-    } catch (error) {
-      Logger.error('signals', 'Error generating signals:', error);
-      setIsGenerating(false);
-      toast({
-        title: "Generation Failed",
-        description: "Failed to generate new signals. Please try again.",
-        variant: "destructive",
-      });
-    }
-  }, [isGenerating, triggerAutomaticSignalGeneration, fetchSignals, toast]);
 
   // Force refresh with loading state
   const handleRefresh = useCallback(async () => {
@@ -158,7 +132,7 @@ const TradingSignals = memo(() => {
             <p className="text-muted-foreground text-sm leading-relaxed mb-6 max-w-md mx-auto">
               Our AI is continuously monitoring the markets. New high-quality signals will appear here when market conditions are favorable.
             </p>
-            <div className="flex justify-center gap-3">
+            <div className="flex justify-center">
               <Button 
                 variant="outline" 
                 size="sm" 
@@ -167,15 +141,6 @@ const TradingSignals = memo(() => {
               >
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Check for Signals
-              </Button>
-              <Button 
-                variant="secondary" 
-                size="sm" 
-                onClick={handleGenerateSignals}
-                disabled={isGenerating}
-                className="bg-primary/10 hover:bg-primary/20 text-primary border-primary/20"
-              >
-                {isGenerating ? "Analyzing..." : "Generate Signals"}
               </Button>
             </div>
             <div className="mt-4 text-xs text-muted-foreground/60">

@@ -15,7 +15,7 @@ import SignalCardLoading from './SignalCardLoading';
 import Logger from '@/utils/logger';
 
 const EnhancedTradingSignals = memo(() => {
-  const { signals, loading, fetchSignals, triggerAutomaticSignalGeneration } = useTradingSignals();
+  const { signals, loading, fetchSignals } = useTradingSignals();
   const { isConnected } = useMobileConnectivity();
   const { 
     cachedSignals, 
@@ -25,7 +25,6 @@ const EnhancedTradingSignals = memo(() => {
     cacheStats 
   } = useOfflineSignals();
   const { toast } = useToast();
-  const [isGenerating, setIsGenerating] = useState(false);
   
   // Enhanced monitoring systems
   useEnhancedSignalMonitoring();
@@ -49,31 +48,6 @@ const EnhancedTradingSignals = memo(() => {
   const isShowingLiveData = isConnected && signals.length > 0;
   const isShowingCachedData = !isConnected && cachedSignals.length > 0;
 
-  // Enhanced signal generation with better error handling
-  const handleGenerateSignals = useCallback(async () => {
-    if (isGenerating || !isConnected) return;
-    
-    setIsGenerating(true);
-    try {
-      Logger.info('signals', 'Manually triggering signal generation...');
-      await triggerAutomaticSignalGeneration();
-      
-      // Wait a bit and then refresh
-      setTimeout(async () => {
-        await fetchSignals();
-        setIsGenerating(false);
-      }, 3000);
-      
-    } catch (error) {
-      Logger.error('signals', 'Error generating signals:', error);
-      setIsGenerating(false);
-      toast({
-        title: "Generation Failed",
-        description: "Failed to generate new signals. Please try again.",
-        variant: "destructive",
-      });
-    }
-  }, [isGenerating, isConnected, triggerAutomaticSignalGeneration, fetchSignals, toast]);
 
   // Force refresh with loading state
   const handleRefresh = useCallback(async () => {
@@ -151,18 +125,6 @@ const EnhancedTradingSignals = memo(() => {
           <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
           Refresh
         </Button>
-
-        {isConnected && (
-          <Button
-            onClick={handleGenerateSignals}
-            disabled={isGenerating || loading}
-            variant="default"
-            size="sm"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
-            {isGenerating ? 'Generating...' : 'Generate Signals'}
-          </Button>
-        )}
       </div>
 
       {/* Status Messages */}
