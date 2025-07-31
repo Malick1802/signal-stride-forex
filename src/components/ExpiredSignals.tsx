@@ -3,6 +3,7 @@ import React from 'react';
 import { TrendingUp, TrendingDown, Target, RefreshCw } from 'lucide-react';
 import { useExpiredSignals } from '@/hooks/useExpiredSignals';
 import { Button } from '@/components/ui/button';
+import ExpiredSignalsStatsSlider from './ExpiredSignalsStatsSlider';
 
 const ExpiredSignals = () => {
   const { expiredSignals, stats, loading, refetch } = useExpiredSignals();
@@ -33,33 +34,8 @@ const ExpiredSignals = () => {
 
   return (
     <div className="space-y-6">
-      {/* Summary Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
-          <div className="text-emerald-400 text-2xl font-bold">{stats.totalSignals}</div>
-          <div className="text-gray-400 text-sm">Completed Signals</div>
-          <div className="text-emerald-400 text-xs mt-1">Finished trades</div>
-        </div>
-        <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
-          <div className="text-blue-400 text-2xl font-bold">{stats.winRate}%</div>
-          <div className="text-gray-400 text-sm">Win Rate</div>
-          <div className="text-blue-400 text-xs mt-1">{stats.wins} wins / {stats.totalSignals} total</div>
-        </div>
-        <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
-          <div className={`text-2xl font-bold ${stats.avgPips >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-            {stats.avgPips >= 0 ? '+' : ''}{stats.avgPips} pips
-          </div>
-          <div className="text-gray-400 text-sm">Avg Pips</div>
-          <div className={`text-xs mt-1 ${stats.avgPips >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-            Per signal
-          </div>
-        </div>
-        <div className="bg-white/5 backdrop-blur-sm rounded-xl p-6 border border-white/10">
-          <div className="text-orange-400 text-2xl font-bold">{stats.avgDuration}</div>
-          <div className="text-gray-400 text-sm">Avg Duration</div>
-          <div className="text-orange-400 text-xs mt-1">Per signal</div>
-        </div>
-      </div>
+      {/* Summary Stats Slider */}
+      <ExpiredSignalsStatsSlider stats={stats} />
 
       {/* Completed Signals List */}
       <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 overflow-hidden">
