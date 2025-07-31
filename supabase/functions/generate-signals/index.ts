@@ -232,12 +232,12 @@ serve(async (req) => {
 
           // Quality filter - accept good quality signals
           const confidenceThreshold = lowThreshold ? 50 : 65;
-          const qualityThreshold = lowThreshold ? 40 : 55;
-          if (signal && signal.confidence >= confidenceThreshold && aiAnalysis.qualityScore >= qualityThreshold) {
+          const finalQualityThreshold = lowThreshold ? 40 : 55;
+          if (signal && signal.confidence >= confidenceThreshold && aiAnalysis.qualityScore >= finalQualityThreshold) {
             generatedSignals.push(signal);
             console.log(`✅ Generated AI ${signal.type} signal for ${symbol} (${signal.confidence}% confidence, Quality: ${aiAnalysis.qualityScore}) - Thresholds: C${confidenceThreshold}%, Q${qualityThreshold}`);
           } else {
-            console.log(`❌ ${symbol} AI signal generation failed - Quality standards not met (Confidence: ${signal?.confidence || 0}/${confidenceThreshold}%, Quality: ${aiAnalysis.qualityScore}/${qualityThreshold})`);
+            console.log(`❌ ${symbol} AI signal generation failed - Quality standards not met (Confidence: ${signal?.confidence || 0}/${confidenceThreshold}%, Quality: ${aiAnalysis.qualityScore}/${finalQualityThreshold})`);
           }
         } catch (error) {
           console.error(`❌ Error in ENHANCED AI analysis for ${symbol}:`, error);

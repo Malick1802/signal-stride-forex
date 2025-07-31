@@ -35,11 +35,26 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get current market data to base test signals on real prices
+    // Clear existing test signals to avoid constraint violations
+    console.log('🧹 Clearing existing active signals...');
+    const { error: deleteError } = await supabase
+      .from('trading_signals')
+      .delete()
+      .eq('status', 'active')
+      .eq('is_centralized', true)
+      .is('user_id', null);
+
+    if (deleteError) {
+      console.error('⚠️ Warning: Could not clear existing signals:', deleteError);
+    } else {
+      console.log('✅ Cleared existing active signals');
+    }
+
+    // Get ALL available market data for comprehensive testing
     const { data: marketData, error: marketError } = await supabase
       .from('centralized_market_state')
       .select('symbol, current_price, bid, ask')
-      .in('symbol', ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'USDCHF']);
+      .limit(10); // Test with up to 10 pairs instead of just 5
 
     if (marketError) {
       console.error('❌ Market data error:', marketError);
