@@ -56,7 +56,7 @@ export const TestSignalGenerator: React.FC = () => {
       
       const { data, error } = await supabase.functions.invoke('generate-signals', {
         body: { 
-          forceGeneration: true,
+          force: true,
           lowThreshold: true,
           source: 'force-test'
         }
