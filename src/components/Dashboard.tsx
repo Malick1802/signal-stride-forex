@@ -15,6 +15,8 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { PullToRefresh } from './PullToRefresh';
 import { NotificationCenter } from './NotificationCenter';
 import { SettingsDialog } from './SettingsDialog';
+import { StorageDiagnostics } from './StorageDiagnostics';
+import { TestSignalGenerator } from './TestSignalGenerator';
 
 // Lazy load heavy components
 const LazyTradingSignals = lazy(() => import('./LazyTradingSignals'));
@@ -148,6 +150,8 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
   const tabItems = [
     { id: 'signals', label: 'Active Signals', shortLabel: 'Active' },
     { id: 'expired', label: 'Expired Signals', shortLabel: 'Expired' },
+    { id: 'diagnostics', label: 'Storage Diagnostics', shortLabel: 'Diagnostics', icon: Settings },
+    { id: 'testing', label: 'Signal Testing', shortLabel: 'Testing', icon: TrendingUp },
     { id: 'subscription', label: 'Subscription', shortLabel: 'Sub', icon: CreditCard },
     { id: 'affiliate', label: 'Affiliate Program', shortLabel: 'Affiliate', icon: Users },
     ...(isAdmin ? [{ id: 'admin', label: 'Admin Dashboard', shortLabel: 'Admin', icon: Shield }] : [])
@@ -374,7 +378,7 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
       <div className="md:hidden bg-black/10 backdrop-blur-sm border-b border-white/10">
         <div className="px-3 py-2">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 bg-white/10 border border-white/20">
+            <TabsList className="grid w-full grid-cols-4 bg-white/10 border border-white/20">
               <TabsTrigger 
                 value="signals" 
                 className="text-xs text-gray-300 data-[state=active]:text-emerald-400 data-[state=active]:bg-emerald-500/20"
@@ -386,6 +390,18 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
                 className="text-xs text-gray-300 data-[state=active]:text-emerald-400 data-[state=active]:bg-emerald-500/20"
               >
                 Expired
+              </TabsTrigger>
+              <TabsTrigger 
+                value="diagnostics"
+                className="text-xs text-gray-300 data-[state=active]:text-emerald-400 data-[state=active]:bg-emerald-500/20"
+              >
+                Diag
+              </TabsTrigger>
+              <TabsTrigger 
+                value="testing"
+                className="text-xs text-gray-300 data-[state=active]:text-emerald-400 data-[state=active]:bg-emerald-500/20"
+              >
+                Test
               </TabsTrigger>
             </TabsList>
           </Tabs>
@@ -416,9 +432,19 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
             />
           )}
 
-          <Suspense fallback={<MobileLoadingScreen message="Loading signals..." />}>
+          <Suspense fallback={<MobileLoadingScreen message="Loading content..." />}>
             {activeTab === 'signals' && <LazyTradingSignals />}
             {activeTab === 'expired' && <LazyExpiredSignals />}
+            {activeTab === 'diagnostics' && (
+              <div className="flex justify-center">
+                <StorageDiagnostics />
+              </div>
+            )}
+            {activeTab === 'testing' && (
+              <div className="flex justify-center">
+                <TestSignalGenerator />
+              </div>
+            )}
           </Suspense>
         </div>
       </PullToRefresh>

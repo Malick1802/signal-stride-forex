@@ -19,8 +19,50 @@ export class OfflineSignalCache {
   private storeName = 'signals';
   private maxCacheSize = 50;
   private staleThreshold = 5 * 60 * 1000; // 5 minutes
+  private isStorageAvailable: boolean | null = null;
+  private memoryCache: Map<string, CachedSignal> = new Map();
+
+  private async checkStorageAvailability(): Promise<boolean> {
+    if (this.isStorageAvailable !== null) {
+      return this.isStorageAvailable;
+    }
+
+    try {
+      // Test IndexedDB availability
+      if (!('indexedDB' in window)) {
+        this.isStorageAvailable = false;
+        return false;
+      }
+
+      // Test if we can actually open a database
+      const testDB = await new Promise<boolean>((resolve) => {
+        const request = indexedDB.open('storage-test', 1);
+        request.onerror = () => resolve(false);
+        request.onsuccess = () => {
+          request.result.close();
+          indexedDB.deleteDatabase('storage-test');
+          resolve(true);
+        };
+        request.onupgradeneeded = () => {
+          // Database creation succeeded
+        };
+      });
+
+      this.isStorageAvailable = testDB;
+      return testDB;
+    } catch (error) {
+      console.warn('⚠️ Storage availability check failed:', error);
+      this.isStorageAvailable = false;
+      return false;
+    }
+  }
 
   private async openDB(): Promise<IDBDatabase> {
+    const isAvailable = await this.checkStorageAvailability();
+    if (!isAvailable) {
+      throw new Error('IndexedDB not available');
+    }
+
     return new Promise((resolve, reject) => {
       const request = indexedDB.open(this.dbName, this.dbVersion);
       
@@ -39,6 +81,23 @@ export class OfflineSignalCache {
 
   async cacheSignals(signals: any[]): Promise<void> {
     try {
+      const isStorageAvailable = await this.checkStorageAvailability();
+      
+      if (!isStorageAvailable) {
+        // Fallback to memory cache
+        const timestamp = Date.now();
+        for (const signal of signals) {
+          this.memoryCache.set(signal.id, {
+            id: signal.id,
+            data: signal,
+            timestamp,
+            version: 1
+          });
+        }
+        console.log(`📦 Cached ${signals.length} signals in memory (storage unavailable)`);
+        return;
+      }
+
       const db = await this.openDB();
       const transaction = db.transaction([this.storeName], 'readwrite');
       const store = transaction.objectStore(this.storeName);
@@ -68,12 +127,33 @@ export class OfflineSignalCache {
       
       console.log(`📦 Cached ${signals.length} signals offline`);
     } catch (error) {
-      console.error('❌ Error caching signals:', error);
+      console.error('❌ Error caching signals, falling back to memory:', error);
+      // Fallback to memory cache
+      const timestamp = Date.now();
+      for (const signal of signals) {
+        this.memoryCache.set(signal.id, {
+          id: signal.id,
+          data: signal,
+          timestamp,
+          version: 1
+        });
+      }
+      console.log(`📦 Cached ${signals.length} signals in memory (fallback)`);
     }
   }
 
   async getCachedSignals(): Promise<any[]> {
     try {
+      const isStorageAvailable = await this.checkStorageAvailability();
+      
+      if (!isStorageAvailable) {
+        // Use memory cache
+        const signals = Array.from(this.memoryCache.values());
+        signals.sort((a, b) => b.timestamp - a.timestamp);
+        console.log(`📦 Retrieved ${signals.length} cached signals from memory`);
+        return signals.map(s => s.data);
+      }
+
       const db = await this.openDB();
       const transaction = db.transaction([this.storeName], 'readonly');
       const store = transaction.objectStore(this.storeName);
@@ -90,13 +170,33 @@ export class OfflineSignalCache {
       console.log(`📦 Retrieved ${signals.length} cached signals`);
       return signals.map(s => s.data);
     } catch (error) {
-      console.error('❌ Error retrieving cached signals:', error);
-      return [];
+      console.error('❌ Error retrieving cached signals, using memory fallback:', error);
+      // Fallback to memory cache
+      const signals = Array.from(this.memoryCache.values());
+      signals.sort((a, b) => b.timestamp - a.timestamp);
+      console.log(`📦 Retrieved ${signals.length} cached signals from memory (fallback)`);
+      return signals.map(s => s.data);
     }
   }
 
   async getCacheStats(): Promise<CacheStats> {
     try {
+      const isStorageAvailable = await this.checkStorageAvailability();
+      
+      if (!isStorageAvailable) {
+        // Use memory cache stats
+        const signals = Array.from(this.memoryCache.values());
+        const lastSync = signals.length > 0 ? Math.max(...signals.map(s => s.timestamp)) : 0;
+        const isStale = Date.now() - lastSync > this.staleThreshold;
+        
+        return {
+          totalSignals: signals.length,
+          lastSync,
+          cacheSize: signals.length,
+          isStale
+        };
+      }
+
       const db = await this.openDB();
       const transaction = db.transaction([this.storeName], 'readonly');
       const store = transaction.objectStore(this.storeName);
@@ -118,12 +218,17 @@ export class OfflineSignalCache {
         isStale
       };
     } catch (error) {
-      console.error('❌ Error getting cache stats:', error);
+      console.error('❌ Error getting cache stats, using memory fallback:', error);
+      // Fallback to memory cache stats
+      const signals = Array.from(this.memoryCache.values());
+      const lastSync = signals.length > 0 ? Math.max(...signals.map(s => s.timestamp)) : 0;
+      const isStale = Date.now() - lastSync > this.staleThreshold;
+      
       return {
-        totalSignals: 0,
-        lastSync: 0,
-        cacheSize: 0,
-        isStale: true
+        totalSignals: signals.length,
+        lastSync,
+        cacheSize: signals.length,
+        isStale
       };
     }
   }

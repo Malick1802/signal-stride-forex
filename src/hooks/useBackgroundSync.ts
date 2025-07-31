@@ -111,17 +111,28 @@ export const useBackgroundSync = (options: BackgroundSyncOptions = {}) => {
     };
   }, [isConnected, performBackgroundSync]);
 
-  // Set up foreground sync interval
+  // Set up foreground sync interval with debouncing
   useEffect(() => {
+    // Clear any existing interval first
+    if (syncIntervalRef.current) {
+      clearInterval(syncIntervalRef.current);
+      syncIntervalRef.current = null;
+    }
+
     if (isConnected && enableBackgroundFetch) {
       console.log(`📡 Setting up sync interval: ${syncInterval}ms`);
       
-      syncIntervalRef.current = setInterval(() => {
-        performBackgroundSync();
-      }, syncInterval);
+      // Only set up interval if one doesn't already exist
+      if (!syncIntervalRef.current) {
+        syncIntervalRef.current = setInterval(() => {
+          performBackgroundSync();
+        }, syncInterval);
 
-      // Perform initial sync
-      performBackgroundSync();
+        // Perform initial sync after a short delay
+        setTimeout(() => {
+          performBackgroundSync();
+        }, 1000);
+      }
     }
 
     return () => {

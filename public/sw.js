@@ -33,7 +33,9 @@ self.addEventListener('install', (event) => {
         return self.skipWaiting();
       })
       .catch(error => {
-        console.error('❌ Service Worker installation failed:', error);
+        console.error('❌ Service Worker installation failed (storage error):', error);
+        // Continue anyway - we can work without cache
+        return self.skipWaiting();
       })
   );
 });
@@ -79,11 +81,14 @@ self.addEventListener('fetch', (event) => {
           // Clone the response for caching
           const responseClone = response.clone();
           
-          // Cache successful responses
+          // Cache successful responses (with error handling)
           if (response.ok) {
             caches.open(OFFLINE_CACHE_NAME)
               .then(cache => {
                 cache.put(request, responseClone);
+              })
+              .catch(error => {
+                console.warn('⚠️ Failed to cache API response:', error);
               });
           }
           
@@ -103,6 +108,20 @@ self.addEventListener('fetch', (event) => {
                 JSON.stringify({ 
                   error: 'Offline', 
                   message: 'No cached data available' 
+                }),
+                {
+                  status: 503,
+                  statusText: 'Service Unavailable',
+                  headers: { 'Content-Type': 'application/json' }
+                }
+              );
+            })
+            .catch(error => {
+              console.warn('⚠️ Cache lookup failed:', error);
+              return new Response(
+                JSON.stringify({ 
+                  error: 'Storage Error', 
+                  message: 'Unable to access cached data' 
                 }),
                 {
                   status: 503,

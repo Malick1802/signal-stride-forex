@@ -88,18 +88,20 @@ export const useMobileBackgroundSync = (options: BackgroundSyncOptions = {}) => 
   const startSync = useCallback(() => {
     if (!enableBackgroundSync) return;
 
-    // Clear existing interval
+    // Clear existing interval to prevent duplicates
     if (syncIntervalRef.current) {
       clearInterval(syncIntervalRef.current);
+      syncIntervalRef.current = null;
     }
 
-    // Setup new sync interval
-    syncIntervalRef.current = setInterval(performBackgroundSync, syncInterval);
+    // Setup new sync interval only if one doesn't exist
+    if (!syncIntervalRef.current) {
+      syncIntervalRef.current = setInterval(performBackgroundSync, syncInterval);
+      console.log('🚀 Mobile background sync started', { syncInterval });
+    }
 
     // Setup native background tasks
     setupBackgroundTasks();
-
-    console.log('🚀 Mobile background sync started', { syncInterval });
   }, [enableBackgroundSync, syncInterval, performBackgroundSync, setupBackgroundTasks]);
 
   const stopSync = useCallback(() => {
