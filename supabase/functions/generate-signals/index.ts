@@ -218,11 +218,14 @@ serve(async (req) => {
           }
 
           // Generate ENHANCED AI-powered signal analysis with market context
-          const aiAnalysis = await generateEnhancedAISignalAnalysis(openAIApiKey, pair, historicalData, lowThreshold);
+          const aiAnalysis = await generateEnhancedAISignalAnalysis(openAIApiKey, pair, historicalData, lowThreshold, force);
           
-          const qualityThreshold = lowThreshold ? 40 : 55;
+          // Enhanced threshold logic with emergency mode
+          const qualityThreshold = force ? 25 : (lowThreshold ? 30 : 55);
+          const confidenceThreshold = force ? 25 : (lowThreshold ? 30 : 65);
+          
           if (!aiAnalysis || aiAnalysis.recommendation === 'HOLD' || aiAnalysis.qualityScore < qualityThreshold) {
-            console.log(`🤖 ${symbol} ENHANCED AI recommendation: ${aiAnalysis?.recommendation || 'HOLD'} - Quality score: ${aiAnalysis?.qualityScore || 0} - No signal generated (threshold: ${qualityThreshold})`);
+            console.log(`🤖 ${symbol} ENHANCED AI recommendation: ${aiAnalysis?.recommendation || 'HOLD'} - Quality score: ${aiAnalysis?.qualityScore || 0} - No signal generated (threshold: ${qualityThreshold}) [${force ? 'EMERGENCY' : lowThreshold ? 'LOW' : 'NORMAL'} MODE]`);
             return;
           }
 
@@ -230,14 +233,12 @@ serve(async (req) => {
 
           const signal = await convertEnhancedAIAnalysisToSignal(pair, aiAnalysis, historicalData, lowThreshold);
 
-          // Quality filter - accept good quality signals
-          const confidenceThreshold = lowThreshold ? 50 : 65;
-          const finalQualityThreshold = lowThreshold ? 40 : 55;
-          if (signal && signal.confidence >= confidenceThreshold && aiAnalysis.qualityScore >= finalQualityThreshold) {
+          // Quality filter - accept signals based on mode
+          if (signal && signal.confidence >= confidenceThreshold && aiAnalysis.qualityScore >= qualityThreshold) {
             generatedSignals.push(signal);
-            console.log(`✅ Generated AI ${signal.type} signal for ${symbol} (${signal.confidence}% confidence, Quality: ${aiAnalysis.qualityScore}) - Thresholds: C${confidenceThreshold}%, Q${qualityThreshold}`);
+            console.log(`✅ Generated AI ${signal.type} signal for ${symbol} (${signal.confidence}% confidence, Quality: ${aiAnalysis.qualityScore}) - Thresholds: C${confidenceThreshold}%, Q${qualityThreshold} [${force ? 'EMERGENCY' : lowThreshold ? 'LOW' : 'NORMAL'} MODE]`);
           } else {
-            console.log(`❌ ${symbol} AI signal generation failed - Quality standards not met (Confidence: ${signal?.confidence || 0}/${confidenceThreshold}%, Quality: ${aiAnalysis.qualityScore}/${finalQualityThreshold})`);
+            console.log(`❌ ${symbol} AI signal generation failed - Quality standards not met (Confidence: ${signal?.confidence || 0}/${confidenceThreshold}%, Quality: ${aiAnalysis.qualityScore}/${qualityThreshold}) [${force ? 'EMERGENCY' : lowThreshold ? 'LOW' : 'NORMAL'} MODE]`);
           }
         } catch (error) {
           console.error(`❌ Error in ENHANCED AI analysis for ${symbol}:`, error);
@@ -373,7 +374,8 @@ async function generateEnhancedAISignalAnalysis(
   openAIApiKey: string,
   pair: any,
   historicalData: PricePoint[],
-  lowThreshold: boolean = false
+  lowThreshold: boolean = false,
+  forceMode: boolean = false
 ): Promise<EnhancedAISignalAnalysis | null> {
   try {
     const symbol = pair.symbol;
@@ -409,16 +411,21 @@ async function generateEnhancedAISignalAnalysis(
     const minStopLossPips = 30; // Adjusted to more realistic value
     const minTakeProfitPips = 25; // Adjusted to more realistic value
     
-    // CONSERVATIVE: Session-based filtering
-    const currentSession = getCurrentSessionAnalysis();
-    if (currentSession.recommendation === 'avoid') {
-      return null; // Skip signal generation during low activity periods
-    }
-    
-    // Market regime filtering - more permissive
-    const regime = detectMarketRegime(recentPrices, atr);
-    if (regime.includes('Highly Volatile')) {
-      return null; // Only skip signals in extremely volatile conditions
+    // Market override for force mode
+    if (forceMode) {
+      console.log(`🔧 EMERGENCY MODE: Overriding market condition filters for ${symbol}`);
+    } else {
+      // CONSERVATIVE: Session-based filtering
+      const currentSession = getCurrentSessionAnalysis();
+      if (currentSession.recommendation === 'avoid') {
+        return null; // Skip signal generation during low activity periods
+      }
+      
+      // Market regime filtering - more permissive
+      const regime = detectMarketRegime(recentPrices, atr);
+      if (regime.includes('Highly Volatile')) {
+        return null; // Only skip signals in extremely volatile conditions
+      }
     }
     
     const enhancedPrompt = `You are a professional forex trading analyst with 15+ years of experience. Analyze the following COMPREHENSIVE market data for ${symbol} and provide a HIGH-QUALITY trading recommendation.
@@ -452,26 +459,38 @@ ENHANCED ANALYSIS REQUIREMENTS:
 5. Economic Impact: Any major economic events affecting this pair?
 6. Technical Confluence: Multiple technical factors confirming the setup?
 
-STRICT QUALITY REQUIREMENTS:
+ENHANCED QUALITY REQUIREMENTS:
 - Minimum Stop Loss: ${minStopLossPips} pips (${(minStopLossPips * getPipValue(symbol)).toFixed(5)} price units)
 - Minimum Take Profit: ${minTakeProfitPips} pips (${(minTakeProfitPips * getPipValue(symbol)).toFixed(5)} price units)
 - Minimum R:R Ratio: 1.5:1
-- Confidence Threshold: ${lowThreshold ? '50%+' : '65%+'}
-- Quality Score Threshold: ${lowThreshold ? '40/100' : '55/100'}
-- Session Requirement: Acceptable during most sessions (avoid only extreme low activity)
-- Market Regime: Acceptable in most conditions (avoid only highly volatile)
-- Volatility: Must be within normal range (not extreme)${lowThreshold ? '\n- LOW THRESHOLD MODE: Relaxed criteria for testing purposes' : ''}
+- Confidence Threshold: ${forceMode ? '25%+' : lowThreshold ? '30%+' : '65%+'}
+- Quality Score Threshold: ${forceMode ? '25/100' : lowThreshold ? '30/100' : '55/100'}
+- Session Requirement: ${forceMode ? 'Any session acceptable' : 'Acceptable during most sessions (avoid only extreme low activity)'}
+- Market Regime: ${forceMode ? 'Any regime acceptable' : 'Acceptable in most conditions (avoid only highly volatile)'}
+- Volatility: ${forceMode ? 'Any volatility acceptable' : 'Must be within normal range (not extreme)'}${forceMode ? '\n- ⚡ EMERGENCY MODE: Ultra-relaxed criteria for force generation' : lowThreshold ? '\n- 🔽 LOW THRESHOLD MODE: Relaxed criteria for wider opportunity capture' : ''}
 
-Only recommend BUY/SELL if ALL criteria are met:
+Recommend BUY/SELL based on mode requirements:
+${forceMode ? `⚡ EMERGENCY MODE - Generate signal if ANY reasonable setup exists:
+✓ Basic technical setup (1+ confirmation acceptable)
+✓ Any market regime (including volatile and ranging)
+✓ Any trading session (including low activity)
+✓ Risk-reward ratio (1.2:1 minimum acceptable)
+✓ Basic trend indication (slight bias acceptable)
+✓ Quality score 25+ (very relaxed)
+✓ Find tradeable opportunities even in quiet markets` : lowThreshold ? `🔽 LOW THRESHOLD MODE - More flexible criteria:
+✓ Technical setup with 2+ confirmations (relaxed from 3+)
+✓ Most market regimes acceptable (avoid only extreme volatility)
+✓ Most trading sessions acceptable (avoid only dead periods)
+✓ Risk-reward ratio (1.4:1 minimum)
+✓ Moderate trend alignment
+✓ Quality score 30+ (relaxed standards)
+✓ Look for reasonable setups in ranging markets` : `📊 NORMAL MODE - High quality standards:
 ✓ Clear technical setup with 3+ confirmations
-✓ Reasonable market regime (avoid only highly volatile conditions)
-✓ Acceptable trading session (avoid only extreme low activity periods)
+✓ Reasonable market regime (avoid highly volatile conditions)
+✓ Acceptable trading session (avoid extreme low activity periods)
 ✓ Proper risk-reward ratio (1.5:1 minimum)
 ✓ Strong trend alignment on multiple timeframes
-✓ No conflicting economic events
-✓ Quality score ${lowThreshold ? '40+' : '55+'}
-✓ Market volatility within acceptable range (not extreme)
-✓ Correlation check passed with existing positions
+✓ Quality score 55+`}
 
 Provide your analysis in this EXACT JSON format:
 {
@@ -488,7 +507,7 @@ Provide your analysis in this EXACT JSON format:
   "qualityScore": [number 0-100 based on setup quality, confluence, and market conditions]
 }
 
-CRITICAL: Only provide BUY/SELL if quality score >= ${lowThreshold ? '40' : '55'} and confidence >= ${lowThreshold ? '50' : '65'}. Use HOLD for anything below these thresholds.${lowThreshold ? ' LOW THRESHOLD MODE ACTIVE.' : ''}`;
+CRITICAL: Only provide BUY/SELL if quality score >= ${forceMode ? '25' : lowThreshold ? '30' : '55'} and confidence >= ${forceMode ? '25' : lowThreshold ? '30' : '65'}. Use HOLD for anything below these thresholds.${forceMode ? ' ⚡ EMERGENCY MODE ACTIVE - FIND ANY REASONABLE SETUP!' : lowThreshold ? ' 🔽 LOW THRESHOLD MODE ACTIVE - BE MORE FLEXIBLE!' : ''}`;
 
     console.log(`🤖 Sending ENHANCED AI analysis request for ${symbol}...`);
 
