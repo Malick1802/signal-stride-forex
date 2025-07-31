@@ -1,7 +1,7 @@
 
 {
-  "name": "ForexAlert Pro",
-  "short_name": "ForexAlert",
+  "name": "ForexSignal Pro",
+  "short_name": "ForexSignal",
   "description": "Professional Forex Trading Signals - Real-time alerts and market analysis",
   "start_url": "/",
   "display": "standalone",
