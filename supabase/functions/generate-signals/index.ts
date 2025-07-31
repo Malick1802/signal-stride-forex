@@ -154,7 +154,7 @@ serve(async (req) => {
 
     const currentSignalCount = existingSignals?.length || 0;
     const maxSignals = 15; // Reduced from 20 to 15
-    const maxNewSignals = optimized ? Math.min(2, maxSignals - currentSignalCount) : Math.min(3, maxSignals - currentSignalCount); // Reduced from 4-6 to 2-3
+    const maxNewSignals = optimized ? Math.min(5, maxSignals - currentSignalCount) : Math.min(8, maxSignals - currentSignalCount); // Increased to 5-8 for more analysis
 
     console.log(`📋 ENHANCED AI Signal status - Current: ${currentSignalCount}/${maxSignals}, Can generate: ${maxNewSignals}, ENHANCED AI-powered mode`);
 
@@ -187,16 +187,16 @@ serve(async (req) => {
       .map(d => d.symbol)
       .filter(symbol => !existingSignals?.some(s => s.symbol === symbol));
 
-    // Prioritize major pairs for ENHANCED AI analysis
+    // Prioritize major pairs for ENHANCED AI analysis - analyze ALL available pairs
     const prioritizedPairs = [
       ...availablePairs.filter(symbol => majorPairs.includes(symbol)),
       ...availablePairs.filter(symbol => !majorPairs.includes(symbol))
-    ].slice(0, maxNewSignals * 3); // Increased pool for better selection
+    ]; // Removed slice limit - now analyzes all available pairs
 
     console.log(`🤖 ENHANCED AI analyzing ${prioritizedPairs.length} currency pairs for HIGH-QUALITY signal generation`);
 
     // Process pairs for ENHANCED AI analysis with stricter filtering
-    const batchSize = optimized ? 2 : 3;
+    const batchSize = optimized ? 4 : 6; // Increased batch size for better throughput
     for (let i = 0; i < prioritizedPairs.length && generatedSignals.length < maxNewSignals; i += batchSize) {
       const batch = prioritizedPairs.slice(i, i + batchSize);
       
