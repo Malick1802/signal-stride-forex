@@ -13,6 +13,43 @@ const TestSignalGeneration = () => {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
+  const handleGenerateTestSignals = async () => {
+    setLoading(true);
+    setError(null);
+    setResults(null);
+
+    try {
+      console.log('🧪 Generating test signals...');
+      
+      const { data, error: functionError } = await supabase.functions.invoke('generate-test-signals', {
+        body: { trigger: 'manual_test' }
+      });
+
+      if (functionError) {
+        throw new Error(`Test signal generation failed: ${functionError.message}`);
+      }
+
+      console.log('🧪 Test signal generation response:', data);
+      setResults(data);
+
+      toast({
+        title: "🧪 Test Signals Generated!",
+        description: `Created ${data.signalsGenerated || 0} demo trading signals`,
+      });
+
+    } catch (err: any) {
+      console.error('❌ Test signal generation error:', err);
+      setError(err.message);
+      toast({
+        title: "Test Generation Error",
+        description: err.message,
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleGenerateSignals = async () => {
     setLoading(true);
     setError(null);
@@ -147,21 +184,30 @@ const TestSignalGeneration = () => {
           
           <div className="flex gap-3 pt-4">
             <Button
+              onClick={handleGenerateTestSignals}
+              disabled={loading}
+              className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
+            >
+              <Zap className="h-4 w-4" />
+              {loading ? 'Creating...' : 'Generate Test Signals'}
+            </Button>
+            <Button
+              onClick={handleGenerateSignals}
+              disabled={loading}
+              variant="outline"
+              className="flex items-center gap-2"
+            >
+              <Brain className="h-4 w-4" />
+              {loading ? 'AI Analyzing...' : 'Generate AI Signals'}
+            </Button>
+            <Button
               onClick={handleTestConnection}
               disabled={loading}
               variant="outline"
               className="flex items-center gap-2"
             >
               <CheckCircle className="h-4 w-4" />
-              Test AI Connection
-            </Button>
-            <Button
-              onClick={handleGenerateSignals}
-              disabled={loading}
-              className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700"
-            >
-              <Brain className="h-4 w-4" />
-              {loading ? 'AI Analyzing...' : 'Generate AI Signals'}
+              Test Connection
             </Button>
           </div>
         </CardContent>
@@ -190,28 +236,28 @@ const TestSignalGeneration = () => {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center">
-                <div className="text-2xl font-bold text-purple-600">
-                  {results.stats?.signalsGenerated || 0}
+                <div className="text-2xl font-bold text-green-600">
+                  {results.signalsGenerated || results.stats?.signalsGenerated || 0}
                 </div>
-                <div className="text-sm text-gray-600">AI Signals Generated</div>
+                <div className="text-sm text-gray-600">Signals Generated</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-blue-600">
-                  {results.stats?.totalActiveSignals || 0}
+                  {results.testMode ? 'Test' : 'Live'}
                 </div>
-                <div className="text-sm text-gray-600">Total Active</div>
+                <div className="text-sm text-gray-600">Mode</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">
-                  {results.stats?.executionTime || 'N/A'}
+                <div className="text-2xl font-bold text-purple-600">
+                  {results.success ? 'Success' : 'Failed'}
                 </div>
-                <div className="text-sm text-gray-600">Execution Time</div>
+                <div className="text-sm text-gray-600">Status</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-orange-600">
-                  {results.stats?.maxNewSignalsPerRun || 0}
+                  {results.stats?.totalActiveSignals || 'N/A'}
                 </div>
-                <div className="text-sm text-gray-600">Max Per Run</div>
+                <div className="text-sm text-gray-600">Total Active</div>
               </div>
             </div>
 
