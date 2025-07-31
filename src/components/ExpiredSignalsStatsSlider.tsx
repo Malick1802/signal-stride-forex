@@ -1,8 +1,7 @@
-import React from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import React, { useCallback, useEffect } from 'react';
+import { TrendingUp, Target, Clock, Award } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { useState } from 'react';
+import { Carousel, CarouselContent, CarouselItem, CarouselApi } from '@/components/ui/carousel';
 
 interface ExpiredSignalsStats {
   totalSignals: number;
@@ -18,105 +17,110 @@ interface ExpiredSignalsStatsSliderProps {
 }
 
 const ExpiredSignalsStatsSlider: React.FC<ExpiredSignalsStatsSliderProps> = ({ stats }) => {
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [api, setApi] = React.useState<CarouselApi>();
+  const [isPaused, setIsPaused] = React.useState(false);
 
+  // Stats array matching the DashboardStats format
   const statsCards = [
     {
       id: 'completed',
-      value: stats.totalSignals,
+      icon: TrendingUp,
+      value: `${stats.totalSignals}`,
       label: 'Completed Signals',
-      subLabel: 'Finished trades',
       color: 'text-emerald-400',
-      bgColor: 'bg-emerald-400/20'
+      bgColor: 'bg-emerald-500/10'
     },
     {
       id: 'winrate',
+      icon: Award,
       value: `${stats.winRate}%`,
       label: 'Win Rate',
-      subLabel: `${stats.wins} wins / ${stats.totalSignals} total`,
       color: 'text-blue-400',
-      bgColor: 'bg-blue-400/20'
+      bgColor: 'bg-blue-500/10'
     },
     {
       id: 'avgpips',
+      icon: Target,
       value: `${stats.avgPips >= 0 ? '+' : ''}${stats.avgPips} pips`,
       label: 'Avg Pips',
-      subLabel: 'Per signal',
       color: stats.avgPips >= 0 ? 'text-emerald-400' : 'text-red-400',
-      bgColor: stats.avgPips >= 0 ? 'bg-emerald-400/20' : 'bg-red-400/20'
+      bgColor: stats.avgPips >= 0 ? 'bg-emerald-500/10' : 'bg-red-500/10'
     },
     {
       id: 'avgduration',
+      icon: Clock,
       value: stats.avgDuration,
       label: 'Avg Duration',
-      subLabel: 'Per signal',
       color: 'text-orange-400',
-      bgColor: 'bg-orange-400/20'
+      bgColor: 'bg-orange-500/10'
     }
   ];
 
-  const nextSlide = () => {
-    setCurrentIndex((prev) => (prev + 1) % statsCards.length);
-  };
+  const scrollNext = useCallback(() => {
+    if (api && !isPaused) {
+      api.scrollNext();
+    }
+  }, [api, isPaused]);
 
-  const prevSlide = () => {
-    setCurrentIndex((prev) => (prev - 1 + statsCards.length) % statsCards.length);
-  };
+  useEffect(() => {
+    if (!api) return;
 
-  const currentCard = statsCards[currentIndex];
+    const intervalId = setInterval(scrollNext, 5000);
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [api, scrollNext]);
+
+  const handleMouseEnter = () => setIsPaused(true);
+  const handleMouseLeave = () => setIsPaused(false);
+  const handleTouchStart = () => setIsPaused(true);
+  const handleTouchEnd = () => {
+    // Resume after a short delay to allow for swipe gestures
+    setTimeout(() => setIsPaused(false), 1000);
+  };
 
   return (
-    <div className="relative">
-      {/* Main Stats Card */}
-      <Card className="bg-white/5 backdrop-blur-sm border-white/10 mx-8">
-        <CardContent className="p-6">
-          <div className="text-center space-y-3">
-            <div className={`text-3xl font-bold ${currentCard.color}`}>
-              {currentCard.value}
-            </div>
-            <div className="text-gray-300 text-lg font-medium">
-              {currentCard.label}
-            </div>
-            <div className={`text-sm ${currentCard.color}`}>
-              {currentCard.subLabel}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Navigation Buttons */}
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={prevSlide}
-        className="absolute left-0 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white hover:bg-white/10"
+    <div className="md:hidden px-4 py-4">
+      <Carousel
+        setApi={setApi}
+        opts={{
+          align: "start",
+          loop: true,
+        }}
+        className="w-full"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
       >
-        <ChevronLeft className="h-5 w-5" />
-      </Button>
-
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={nextSlide}
-        className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white hover:bg-white/10"
-      >
-        <ChevronRight className="h-5 w-5" />
-      </Button>
-
-      {/* Dots Indicator */}
-      <div className="flex justify-center space-x-2 mt-4">
-        {statsCards.map((_, index) => (
-          <button
-            key={index}
-            onClick={() => setCurrentIndex(index)}
-            className={`w-2 h-2 rounded-full transition-colors ${
-              index === currentIndex 
-                ? 'bg-white' 
-                : 'bg-white/30'
-            }`}
-          />
-        ))}
-      </div>
+        <CarouselContent className="-ml-4">
+          {statsCards.map((stat) => {
+            const IconComponent = stat.icon;
+            return (
+              <CarouselItem key={stat.id} className="pl-4 basis-full">
+                <Card className={`${stat.bgColor} backdrop-blur-sm border-white/10 hover:bg-white/10 transition-all duration-200 h-full`}>
+                  <CardContent className="p-6">
+                    <div className="flex items-center justify-center space-x-4">
+                      <div className={`p-3 rounded-xl bg-white/10`}>
+                        <IconComponent className={`h-6 w-6 ${stat.color}`} />
+                      </div>
+                      <div className="flex-1 text-center">
+                        <div className={`text-2xl font-bold ${stat.color} mb-1`}>
+                          {stat.value}
+                        </div>
+                        <div className="text-gray-300 text-sm font-medium">
+                          {stat.label}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </CarouselItem>
+            );
+          })}
+        </CarouselContent>
+      </Carousel>
     </div>
   );
 };

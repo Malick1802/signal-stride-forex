@@ -392,15 +392,17 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
         </div>
       </div>
 
-      {/* Dashboard Stats Slider - Mobile Only with Real Data */}
-      <DashboardStats 
-        activeSignalsCount={stats.activeSignalsCount}
-        totalSignalsCount={stats.totalSignalsCount}
-        avgConfidence={stats.avgConfidence}
-        lastUpdateTime={stats.lastUpdateTime}
-        isAutomated={stats.isAutomated}
-        loading={loading}
-      />
+      {/* Dashboard Stats Slider - Mobile Only with Real Data - Only for Active Signals */}
+      {activeTab === 'signals' && (
+        <DashboardStats 
+          activeSignalsCount={stats.activeSignalsCount}
+          totalSignalsCount={stats.totalSignalsCount}
+          avgConfidence={stats.avgConfidence}
+          lastUpdateTime={stats.lastUpdateTime}
+          isAutomated={stats.isAutomated}
+          loading={loading}
+        />
+      )}
 
       {/* Content Area - With Pull to Refresh for Mobile */}
       <PullToRefresh onRefresh={handleRefresh} className="flex-1">
