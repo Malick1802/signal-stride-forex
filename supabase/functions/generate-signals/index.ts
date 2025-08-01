@@ -159,14 +159,40 @@ serve(async (req) => {
 
     console.log(`📋 ENHANCED AI Signal status - Current: ${currentSignalCount}/${maxSignals}, Can generate: ${maxNewSignals}, ENHANCED AI-powered mode`);
 
-    if (maxNewSignals <= 0 && !force) {
+    // Clear existing signals when in force mode (similar to test mode)
+    let updatedCurrentSignalCount = currentSignalCount;
+    let updatedMaxNewSignals = maxNewSignals;
+    
+    if (force && existingSignals && existingSignals.length > 0) {
+      console.log(`🔧 FORCE MODE: Clearing ${existingSignals.length} existing signals before generation`);
+      
+      const { error: deleteError } = await supabase
+        .from('trading_signals')
+        .delete()
+        .eq('status', 'active')
+        .eq('is_centralized', true)
+        .is('user_id', null);
+      
+      if (deleteError) {
+        console.error('❌ Error clearing existing signals:', deleteError);
+      } else {
+        console.log('✅ Successfully cleared existing signals for force generation');
+        
+        // Reset signal count after clearing
+        updatedCurrentSignalCount = 0;
+        updatedMaxNewSignals = Math.min(8, maxSignals);
+        console.log(`🔧 FORCE MODE: Updated status - Current: ${updatedCurrentSignalCount}/${maxSignals}, Can generate: ${updatedMaxNewSignals}`);
+      }
+    }
+
+    if (updatedMaxNewSignals <= 0 && !force) {
       console.log('⚠️ Signal limit reached, skipping ENHANCED AI generation');
       return new Response(JSON.stringify({
         status: 'skipped',
         reason: 'signal_limit_reached',
         stats: {
           signalsGenerated: 0,
-          totalActiveSignals: currentSignalCount,
+          totalActiveSignals: updatedCurrentSignalCount,
           signalLimit: maxSignals,
           maxNewSignalsPerRun: optimized ? 4 : 6
         }
@@ -198,11 +224,11 @@ serve(async (req) => {
 
     // Process pairs for ENHANCED AI analysis with stricter filtering
     const batchSize = optimized ? 4 : 6; // Increased batch size for better throughput
-    for (let i = 0; i < prioritizedPairs.length && generatedSignals.length < maxNewSignals; i += batchSize) {
+    for (let i = 0; i < prioritizedPairs.length && generatedSignals.length < updatedMaxNewSignals; i += batchSize) {
       const batch = prioritizedPairs.slice(i, i + batchSize);
       
       await Promise.all(batch.map(async (symbol) => {
-        if (generatedSignals.length >= maxNewSignals) return;
+        if (generatedSignals.length >= updatedMaxNewSignals) return;
 
         try {
           const pair = marketData.find(d => d.symbol === symbol);
@@ -220,9 +246,9 @@ serve(async (req) => {
           // Generate ENHANCED AI-powered signal analysis with market context
           const aiAnalysis = await generateEnhancedAISignalAnalysis(openAIApiKey, pair, historicalData, lowThreshold, force);
           
-          // Enhanced threshold logic with emergency mode
-          const qualityThreshold = force ? 25 : (lowThreshold ? 30 : 55);
-          const confidenceThreshold = force ? 25 : (lowThreshold ? 30 : 65);
+          // June working thresholds - consistent throughout function
+          const qualityThreshold = force ? 35 : (lowThreshold ? 40 : 55);
+          const confidenceThreshold = force ? 40 : (lowThreshold ? 50 : 65);
           
           if (!aiAnalysis || aiAnalysis.recommendation === 'HOLD' || aiAnalysis.qualityScore < qualityThreshold) {
             console.log(`🤖 ${symbol} ENHANCED AI recommendation: ${aiAnalysis?.recommendation || 'HOLD'} - Quality score: ${aiAnalysis?.qualityScore || 0} - No signal generated (threshold: ${qualityThreshold}) [${force ? 'EMERGENCY' : lowThreshold ? 'LOW' : 'NORMAL'} MODE]`);
@@ -295,7 +321,7 @@ serve(async (req) => {
     }
 
     const executionTime = Date.now() - startTime;
-    const finalActiveCount = currentSignalCount + savedCount;
+    const finalActiveCount = updatedCurrentSignalCount + savedCount;
 
     console.log(`✅ ENHANCED AI generation complete - Saved: ${savedCount}/${generatedSignals.length}, Total active: ${finalActiveCount}/${maxSignals}, Time: ${executionTime}ms`);
 
@@ -311,7 +337,7 @@ serve(async (req) => {
         maxNewSignalsPerRun: optimized ? 4 : 6,
         enhancedAI: true,
         qualityFiltered: true,
-        minimumQualityScore: 55,
+        minimumQualityScore: force ? 35 : (lowThreshold ? 40 : 55),
         concurrentLimit: batchSize,
         errors: errors.length > 0 ? errors.slice(0, 3) : undefined
       },
@@ -463,8 +489,8 @@ ENHANCED QUALITY REQUIREMENTS:
 - Minimum Stop Loss: ${minStopLossPips} pips (${(minStopLossPips * getPipValue(symbol)).toFixed(5)} price units)
 - Minimum Take Profit: ${minTakeProfitPips} pips (${(minTakeProfitPips * getPipValue(symbol)).toFixed(5)} price units)
 - Minimum R:R Ratio: 1.5:1
-- Confidence Threshold: ${forceMode ? '25%+' : lowThreshold ? '30%+' : '65%+'}
-- Quality Score Threshold: ${forceMode ? '25/100' : lowThreshold ? '30/100' : '55/100'}
+- Confidence Threshold: ${forceMode ? '40%+' : lowThreshold ? '50%+' : '65%+'}
+- Quality Score Threshold: ${forceMode ? '35/100' : lowThreshold ? '40/100' : '55/100'}
 - Session Requirement: ${forceMode ? 'Any session acceptable' : 'Acceptable during most sessions (avoid only extreme low activity)'}
 - Market Regime: ${forceMode ? 'Any regime acceptable' : 'Acceptable in most conditions (avoid only highly volatile)'}
 - Volatility: ${forceMode ? 'Any volatility acceptable' : 'Must be within normal range (not extreme)'}${forceMode ? '\n- ⚡ EMERGENCY MODE: Ultra-relaxed criteria for force generation' : lowThreshold ? '\n- 🔽 LOW THRESHOLD MODE: Relaxed criteria for wider opportunity capture' : ''}
@@ -507,7 +533,9 @@ Provide your analysis in this EXACT JSON format:
   "qualityScore": [number 0-100 based on setup quality, confluence, and market conditions]
 }
 
-CRITICAL: Only provide BUY/SELL if quality score >= ${forceMode ? '25' : lowThreshold ? '30' : '55'} and confidence >= ${forceMode ? '25' : lowThreshold ? '30' : '65'}. Use HOLD for anything below these thresholds.${forceMode ? ' ⚡ EMERGENCY MODE ACTIVE - FIND ANY REASONABLE SETUP!' : lowThreshold ? ' 🔽 LOW THRESHOLD MODE ACTIVE - BE MORE FLEXIBLE!' : ''}`;
+CRITICAL: Only provide BUY/SELL if quality score >= ${forceMode ? '35' : lowThreshold ? '40' : '55'} and confidence >= ${forceMode ? '40' : lowThreshold ? '50' : '65'}. Use HOLD for anything below these thresholds.${forceMode ? ' ⚡ EMERGENCY MODE ACTIVE - FIND ANY REASONABLE SETUP!' : lowThreshold ? ' 🔽 LOW THRESHOLD MODE ACTIVE - BE MORE FLEXIBLE!' : ''}
+  
+TARGET CONFIDENCE RANGE FOR SIGNALS: ${forceMode ? '45-85%' : lowThreshold ? '55-85%' : '70-85%'} - AIM FOR THE UPPER END WHEN POSSIBLE!`;
 
     console.log(`🤖 Sending ENHANCED AI analysis request for ${symbol}...`);
 
@@ -558,8 +586,9 @@ CRITICAL: Only provide BUY/SELL if quality score >= ${forceMode ? '25' : lowThre
       }
       
       if (analysis.recommendation !== 'HOLD') {
-        const confidenceThreshold = lowThreshold ? 50 : 65;
-        const qualityThreshold = lowThreshold ? 40 : 55;
+        // June working thresholds - consistent with main function
+        const confidenceThreshold = forceMode ? 40 : (lowThreshold ? 50 : 65);
+        const qualityThreshold = forceMode ? 35 : (lowThreshold ? 40 : 55);
         
         if (analysis.confidence < confidenceThreshold || analysis.confidence > 95) {
           console.log(`🤖 ${symbol} AI confidence ${analysis.confidence}% below threshold ${confidenceThreshold}% - converting to HOLD`);
@@ -700,6 +729,7 @@ async function convertEnhancedAIAnalysisToSignal(
   lowThreshold: boolean = false
 ): Promise<SignalData | null> {
   try {
+    // June working thresholds - consistent throughout function
     const qualityThreshold = lowThreshold ? 40 : 55;
     if (aiAnalysis.recommendation === 'HOLD' || aiAnalysis.qualityScore < qualityThreshold) {
       return null;
