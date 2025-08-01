@@ -81,7 +81,7 @@ const ExpiredSignalsStatsSlider: React.FC<ExpiredSignalsStatsSliderProps> = ({ s
   };
 
   return (
-    <div className="md:hidden px-4 py-4">
+    <div className="px-4 py-4">
       <Carousel
         setApi={setApi}
         opts={{
