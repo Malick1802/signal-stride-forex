@@ -435,7 +435,7 @@ async function generateEnhancedAISignalAnalysis(
     const isJPYPair = (symbol: string): boolean => symbol.includes('JPY');
     const getPipValue = (symbol: string): number => isJPYPair(symbol) ? 0.01 : 0.0001;
     const minStopLossPips = 30; // Adjusted to more realistic value
-    const minTakeProfitPips = 25; // Adjusted to more realistic value
+    const minTakeProfitPips = 30; // Adjusted to more realistic value
     
     // Market override for force mode
     if (forceMode) {
@@ -483,8 +483,8 @@ ENHANCED QUALITY REQUIREMENTS:
 - Minimum Stop Loss: ${minStopLossPips} pips (${(minStopLossPips * getPipValue(symbol)).toFixed(5)} price units)
 - Minimum Take Profit: ${minTakeProfitPips} pips (${(minTakeProfitPips * getPipValue(symbol)).toFixed(5)} price units)
 - Minimum R:R Ratio: 1.5:1
-- Confidence Threshold: ${forceMode ? '40%+' : lowThreshold ? '50%+' : '65%+'}
-- Quality Score Threshold: ${forceMode ? '35/100' : lowThreshold ? '40/100' : '55/100'}
+- Confidence Threshold: ${forceMode ? '40%+' : lowThreshold ? '50%+' : '55%+'}
+- Quality Score Threshold: ${forceMode ? '35/100' : lowThreshold ? '40/100' : '45/100'}
 - Session Requirement: ${forceMode ? 'Any session acceptable' : 'Acceptable during most sessions (avoid only extreme low activity)'}
 - Market Regime: ${forceMode ? 'Any regime acceptable' : 'Acceptable in most conditions (avoid only highly volatile)'}
 - Volatility: ${forceMode ? 'Any volatility acceptable' : 'Must be within normal range (not extreme)'}${forceMode ? '\n- ⚡ EMERGENCY MODE: Ultra-relaxed criteria for force generation' : lowThreshold ? '\n- 🔽 LOW THRESHOLD MODE: Relaxed criteria for wider opportunity capture' : ''}
@@ -527,9 +527,9 @@ Provide your analysis in this EXACT JSON format:
   "qualityScore": [number 0-100 based on setup quality, confluence, and market conditions]
 }
 
-CRITICAL: Only provide BUY/SELL if quality score >= ${forceMode ? '35' : lowThreshold ? '40' : '55'} and confidence >= ${forceMode ? '40' : lowThreshold ? '50' : '65'}. Use HOLD for anything below these thresholds.${forceMode ? ' ⚡ EMERGENCY MODE ACTIVE - FIND ANY REASONABLE SETUP!' : lowThreshold ? ' 🔽 LOW THRESHOLD MODE ACTIVE - BE MORE FLEXIBLE!' : ''}
+CRITICAL: Only provide BUY/SELL if quality score >= ${forceMode ? '35' : lowThreshold ? '40' : '45'} and confidence >= ${forceMode ? '40' : lowThreshold ? '50' : '55'}. Use HOLD for anything below these thresholds.${forceMode ? ' ⚡ EMERGENCY MODE ACTIVE - FIND ANY REASONABLE SETUP!' : lowThreshold ? ' 🔽 LOW THRESHOLD MODE ACTIVE - BE MORE FLEXIBLE!' : ''}
   
-TARGET CONFIDENCE RANGE FOR SIGNALS: ${forceMode ? '45-85%' : lowThreshold ? '55-85%' : '70-85%'} - AIM FOR THE UPPER END WHEN POSSIBLE!`;
+TARGET CONFIDENCE RANGE FOR SIGNALS: ${forceMode ? '45-85%' : lowThreshold ? '55-85%' : '60-85%'} - AIM FOR THE UPPER END WHEN POSSIBLE!`;
 
     console.log(`🤖 Sending ENHANCED AI analysis request for ${symbol}...`);
 
@@ -544,7 +544,7 @@ TARGET CONFIDENCE RANGE FOR SIGNALS: ${forceMode ? '45-85%' : lowThreshold ? '55
         messages: [
           {
             role: 'system',
-            content: 'You are a professional forex analyst with 15+ years of experience. You only recommend trades with exceptional quality and confluence. Always respond with valid JSON only.'
+            content: 'You are a professional forex analyst with 15+ years of experience. Look for viable trading opportunities with good setups rather than perfect conditions. Be decisive and find tradeable signals when reasonable setups exist. Always respond with valid JSON only.'
           },
           {
             role: 'user',
