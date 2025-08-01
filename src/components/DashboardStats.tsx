@@ -85,47 +85,76 @@ const DashboardStats = ({
   };
 
   return (
-    <div className="px-4 py-4">
-      <Carousel
-        setApi={setApi}
-        opts={{
-          align: "start",
-          loop: true,
-        }}
-        className="w-full"
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-      >
-        <CarouselContent className="-ml-4">
+    <>
+      {/* Desktop Grid Layout */}
+      <div className="hidden md:block px-4 py-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {stats.map((stat) => {
             const IconComponent = stat.icon;
             return (
-              <CarouselItem key={stat.id} className="pl-4 basis-full">
-                <Card className={`${stat.bgColor} backdrop-blur-sm border-white/10 hover:bg-white/10 transition-all duration-200 h-full`}>
-                  <CardContent className="p-6">
-                    <div className="flex items-center justify-center space-x-4">
-                      <div className={`p-3 rounded-xl bg-white/10`}>
-                        <IconComponent className={`h-6 w-6 ${stat.color} ${loading ? 'animate-pulse' : ''}`} />
+              <Card key={stat.id} className={`${stat.bgColor} backdrop-blur-sm border-white/10 hover:bg-white/10 transition-all duration-200`}>
+                <CardContent className="p-6">
+                  <div className="flex items-center space-x-3">
+                    <IconComponent className={`h-8 w-8 ${stat.color} ${loading ? 'animate-pulse' : ''}`} />
+                    <div>
+                      <div className={`text-2xl font-bold ${stat.color} mb-1 ${loading ? 'animate-pulse' : ''}`}>
+                        {stat.value}
                       </div>
-                      <div className="flex-1 text-center">
-                        <div className={`text-2xl font-bold ${stat.color} mb-1 ${loading ? 'animate-pulse' : ''}`}>
-                          {stat.value}
-                        </div>
-                        <div className="text-gray-300 text-sm font-medium">
-                          {stat.label}
-                        </div>
+                      <div className="text-gray-300 text-sm font-medium">
+                        {stat.label}
                       </div>
                     </div>
-                  </CardContent>
-                </Card>
-              </CarouselItem>
+                  </div>
+                </CardContent>
+              </Card>
             );
           })}
-        </CarouselContent>
-      </Carousel>
-    </div>
+        </div>
+      </div>
+
+      {/* Mobile Carousel Layout */}
+      <div className="md:hidden px-4 py-4">
+        <Carousel
+          setApi={setApi}
+          opts={{
+            align: "start",
+            loop: true,
+          }}
+          className="w-full"
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+          onTouchStart={handleTouchStart}
+          onTouchEnd={handleTouchEnd}
+        >
+          <CarouselContent className="-ml-4">
+            {stats.map((stat) => {
+              const IconComponent = stat.icon;
+              return (
+                <CarouselItem key={stat.id} className="pl-4 basis-full">
+                  <Card className={`${stat.bgColor} backdrop-blur-sm border-white/10 hover:bg-white/10 transition-all duration-200 h-full`}>
+                    <CardContent className="p-6">
+                      <div className="flex items-center justify-center space-x-4">
+                        <div className={`p-3 rounded-xl bg-white/10`}>
+                          <IconComponent className={`h-6 w-6 ${stat.color} ${loading ? 'animate-pulse' : ''}`} />
+                        </div>
+                        <div className="flex-1 text-center">
+                          <div className={`text-2xl font-bold ${stat.color} mb-1 ${loading ? 'animate-pulse' : ''}`}>
+                            {stat.value}
+                          </div>
+                          <div className="text-gray-300 text-sm font-medium">
+                            {stat.label}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </CarouselItem>
+              );
+            })}
+          </CarouselContent>
+        </Carousel>
+      </div>
+    </>
   );
 };
 
