@@ -441,16 +441,10 @@ async function generateEnhancedAISignalAnalysis(
     if (forceMode) {
       console.log(`🔧 EMERGENCY MODE: Overriding market condition filters for ${symbol}`);
     } else {
-      // CONSERVATIVE: Session-based filtering
-      const currentSession = getCurrentSessionAnalysis();
-      if (currentSession.recommendation === 'avoid') {
-        return null; // Skip signal generation during low activity periods
-      }
-      
-      // Market regime filtering - more permissive
+      // Reduce pre-filtering - only skip in extreme conditions
       const regime = detectMarketRegime(recentPrices, atr);
-      if (regime.includes('Highly Volatile')) {
-        return null; // Only skip signals in extremely volatile conditions
+      if (regime.includes('Extremely Volatile') || volatilityRatio > 0.05) {
+        return null; // Only skip signals in truly extreme conditions
       }
     }
     
@@ -546,7 +540,7 @@ TARGET CONFIDENCE RANGE FOR SIGNALS: ${forceMode ? '45-85%' : lowThreshold ? '55
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4.1-2025-04-14', // Updated to latest model
+        model: 'gpt-4o', // Updated to latest model
         messages: [
           {
             role: 'system',
