@@ -1,8 +1,11 @@
 
 import { useState, useEffect } from 'react';
 import { Capacitor } from '@capacitor/core';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 export const usePushNotifications = () => {
+  const { user } = useAuth();
   const [isRegistered, setIsRegistered] = useState(false);
   const [pushToken, setPushToken] = useState<string | null>(null);
   const [permissionError, setPermissionError] = useState<string | null>(null);
@@ -57,12 +60,17 @@ export const usePushNotifications = () => {
         console.log('✅ Push notification permission granted');
         
         // Set up listeners before registering
-        PushNotifications.addListener('registration', (token) => {
+        PushNotifications.addListener('registration', async (token) => {
           console.log('✅ Push registration success, token: ' + token.value);
           setPushToken(token.value);
           localStorage.setItem('pushToken', token.value);
           setIsRegistered(true);
           setPermissionError(null);
+          
+          // Save token to database
+          if (user) {
+            await saveTokenToDatabase(token.value);
+          }
         });
 
         PushNotifications.addListener('registrationError', (error) => {
@@ -96,10 +104,57 @@ export const usePushNotifications = () => {
     }
   };
 
-  const sendNotificationToDevice = async (token: string, title: string, body: string, data?: any) => {
-    // This would typically be called from your backend
-    // Placeholder for sending notifications via your server
-    console.log('📱 Would send notification:', { token, title, body, data });
+  const saveTokenToDatabase = async (token: string) => {
+    try {
+      if (!user) return;
+      
+      console.log('💾 Saving push token to database...');
+      
+      const deviceType = Capacitor.getPlatform();
+      
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          push_token: token,
+          device_type: deviceType,
+          push_enabled: true,
+        })
+        .eq('id', user.id);
+
+      if (error) {
+        console.error('❌ Error saving push token:', error);
+      } else {
+        console.log('✅ Push token saved to database');
+      }
+    } catch (error) {
+      console.error('❌ Error saving push token to database:', error);
+    }
+  };
+
+  const sendTestNotification = async () => {
+    try {
+      console.log('📱 Sending test push notification...');
+      
+      const { data, error } = await supabase.functions.invoke('send-push-notification', {
+        body: {
+          title: '🚀 Test Notification',
+          body: 'Your push notifications are working correctly!',
+          data: { test: true },
+          notificationType: 'signal',
+          userIds: user ? [user.id] : undefined,
+        }
+      });
+
+      if (error) {
+        console.error('❌ Error sending test notification:', error);
+        setPermissionError('Failed to send test notification');
+      } else {
+        console.log('✅ Test notification sent:', data);
+      }
+    } catch (error) {
+      console.error('❌ Error sending test notification:', error);
+      setPermissionError('Failed to send test notification');
+    }
   };
 
   return {
@@ -107,6 +162,7 @@ export const usePushNotifications = () => {
     pushToken,
     permissionError,
     initializePushNotifications,
-    sendNotificationToDevice
+    sendTestNotification,
+    saveTokenToDatabase
   };
 };

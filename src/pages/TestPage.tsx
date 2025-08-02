@@ -1,6 +1,7 @@
 
 import React from 'react';
 import TestSignalGeneration from '@/components/TestSignalGeneration';
+import { PushNotificationDebugger } from '@/components/PushNotificationDebugger';
 
 const TestPage = () => {
   return (
@@ -15,7 +16,13 @@ const TestPage = () => {
           </p>
         </div>
         
-        <TestSignalGeneration />
+        <div className="space-y-8">
+          <TestSignalGeneration />
+          
+          <div className="flex justify-center">
+            <PushNotificationDebugger />
+          </div>
+        </div>
       </div>
     </div>
   );

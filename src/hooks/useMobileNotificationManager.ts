@@ -6,6 +6,7 @@ import { MobileNotificationManager } from '@/utils/mobileNotifications';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { Capacitor } from '@capacitor/core';
+import { supabase } from '@/integrations/supabase/client';
 
 export const useMobileNotificationManager = () => {
   const { profile } = useProfile();
@@ -48,6 +49,38 @@ export const useMobileNotificationManager = () => {
       console.warn('⚠️ Haptics not available:', error);
     }
   }, [profile?.push_vibration_enabled]);
+
+  const sendPushNotification = useCallback(async (
+    title: string,
+    body: string,
+    data?: any,
+    notificationType: string = 'signal',
+    userIds?: string[]
+  ) => {
+    try {
+      console.log('📱 Sending push notification via backend...');
+      
+      const { data: result, error } = await supabase.functions.invoke('send-push-notification', {
+        body: {
+          title,
+          body,
+          data,
+          notificationType,
+          userIds,
+        }
+      });
+
+      if (error) {
+        console.error('❌ Error sending push notification:', error);
+        throw error;
+      }
+
+      console.log('✅ Push notification sent:', result);
+    } catch (error) {
+      console.error('❌ Failed to send push notification:', error);
+      throw error;
+    }
+  }, []);
 
   const sendNotificationSafely = useCallback(async (
     notificationFn: () => Promise<void>,
@@ -96,17 +129,28 @@ export const useMobileNotificationManager = () => {
 
     // Send push notification with error handling
     await sendNotificationSafely(
-      () => MobileNotificationManager.showInstantSignalNotification({
-        title,
-        body,
-        data: { signalId: signal.id, type: 'new_signal' },
-        sound: profile?.push_sound_enabled !== false,
-        vibrate: profile?.push_vibration_enabled !== false
-      }),
+      async () => {
+        // Send backend push notification
+        await sendPushNotification(
+          title,
+          body,
+          { signalId: signal.id, type: 'new_signal', symbol: signal.symbol },
+          'new_signal'
+        );
+        
+        // Send local notification as backup
+        await MobileNotificationManager.showInstantSignalNotification({
+          title,
+          body,
+          data: { signalId: signal.id, type: 'new_signal' },
+          sound: profile?.push_sound_enabled !== false,
+          vibrate: profile?.push_vibration_enabled !== false
+        });
+      },
       title,
       body
     );
-  }, [shouldSendNotification, createNotification, triggerHaptics, sendNotificationSafely, profile, user]);
+  }, [shouldSendNotification, createNotification, triggerHaptics, sendNotificationSafely, sendPushNotification, profile, user]);
 
   const sendTargetHitNotification = useCallback(async (signal: any, targetLevel: number, price: number) => {
     if (!shouldSendNotification('target_hit') || !user) return;
@@ -127,17 +171,28 @@ export const useMobileNotificationManager = () => {
     await triggerHaptics('medium');
 
     await sendNotificationSafely(
-      () => MobileNotificationManager.showInstantSignalNotification({
-        title,
-        body,
-        data: { signalId: signal.id, type: 'target_hit', targetLevel },
-        sound: profile?.push_sound_enabled !== false,
-        vibrate: profile?.push_vibration_enabled !== false
-      }),
+      async () => {
+        // Send backend push notification
+        await sendPushNotification(
+          title,
+          body,
+          { signalId: signal.id, type: 'target_hit', targetLevel, price, symbol: signal.symbol },
+          'target_hit'
+        );
+        
+        // Send local notification as backup
+        await MobileNotificationManager.showInstantSignalNotification({
+          title,
+          body,
+          data: { signalId: signal.id, type: 'target_hit', targetLevel },
+          sound: profile?.push_sound_enabled !== false,
+          vibrate: profile?.push_vibration_enabled !== false
+        });
+      },
       title,
       body
     );
-  }, [shouldSendNotification, createNotification, triggerHaptics, sendNotificationSafely, profile, user]);
+  }, [shouldSendNotification, createNotification, triggerHaptics, sendNotificationSafely, sendPushNotification, profile, user]);
 
   const sendStopLossNotification = useCallback(async (signal: any, price: number) => {
     if (!shouldSendNotification('stop_loss') || !user) return;
@@ -157,17 +212,28 @@ export const useMobileNotificationManager = () => {
     await triggerHaptics('heavy');
 
     await sendNotificationSafely(
-      () => MobileNotificationManager.showInstantSignalNotification({
-        title,
-        body,
-        data: { signalId: signal.id, type: 'stop_loss' },
-        sound: profile?.push_sound_enabled !== false,
-        vibrate: profile?.push_vibration_enabled !== false
-      }),
+      async () => {
+        // Send backend push notification
+        await sendPushNotification(
+          title,
+          body,
+          { signalId: signal.id, type: 'stop_loss', price, symbol: signal.symbol },
+          'stop_loss'
+        );
+        
+        // Send local notification as backup
+        await MobileNotificationManager.showInstantSignalNotification({
+          title,
+          body,
+          data: { signalId: signal.id, type: 'stop_loss' },
+          sound: profile?.push_sound_enabled !== false,
+          vibrate: profile?.push_vibration_enabled !== false
+        });
+      },
       title,
       body
     );
-  }, [shouldSendNotification, createNotification, triggerHaptics, sendNotificationSafely, profile, user]);
+  }, [shouldSendNotification, createNotification, triggerHaptics, sendNotificationSafely, sendPushNotification, profile, user]);
 
   const sendSignalCompleteNotification = useCallback(async (signal: any, outcome: 'profit' | 'loss', pips: number) => {
     if (!shouldSendNotification('signal_complete') || !user) return;
@@ -226,12 +292,22 @@ export const useMobileNotificationManager = () => {
     console.log('📱 Sending test notification...');
     
     try {
+      // Send backend push notification first
+      await sendPushNotification(
+        '🧪 Test Notification',
+        'Your push notification system is working correctly!',
+        { test: true },
+        'signal',
+        user ? [user.id] : undefined
+      );
+      
+      // Send local notification as backup
       await MobileNotificationManager.testNotification();
       await triggerHaptics('medium');
       
       toast({
         title: '🧪 Test notification sent',
-        description: 'Check if you received the notification',
+        description: 'Check if you received the push notification',
         duration: 3000,
       });
     } catch (error) {
@@ -243,7 +319,7 @@ export const useMobileNotificationManager = () => {
         duration: 5000,
       });
     }
-  }, [triggerHaptics, toast]);
+  }, [sendPushNotification, triggerHaptics, toast, user]);
 
   return {
     sendNewSignalNotification,
