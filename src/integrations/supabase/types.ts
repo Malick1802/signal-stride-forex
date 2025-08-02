@@ -749,12 +749,14 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          device_type: string | null
           email: string | null
           first_name: string | null
           full_name: string | null
           id: string
           last_name: string | null
           phone_number: string | null
+          push_enabled: boolean | null
           push_market_updates: boolean | null
           push_new_signals: boolean | null
           push_notifications_enabled: boolean | null
@@ -762,6 +764,7 @@ export type Database = {
           push_sound_enabled: boolean | null
           push_stop_loss: boolean | null
           push_targets_hit: boolean | null
+          push_token: string | null
           push_vibration_enabled: boolean | null
           sms_new_signals: boolean | null
           sms_notifications_enabled: boolean | null
@@ -773,12 +776,14 @@ export type Database = {
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          device_type?: string | null
           email?: string | null
           first_name?: string | null
           full_name?: string | null
           id: string
           last_name?: string | null
           phone_number?: string | null
+          push_enabled?: boolean | null
           push_market_updates?: boolean | null
           push_new_signals?: boolean | null
           push_notifications_enabled?: boolean | null
@@ -786,6 +791,7 @@ export type Database = {
           push_sound_enabled?: boolean | null
           push_stop_loss?: boolean | null
           push_targets_hit?: boolean | null
+          push_token?: string | null
           push_vibration_enabled?: boolean | null
           sms_new_signals?: boolean | null
           sms_notifications_enabled?: boolean | null
@@ -797,12 +803,14 @@ export type Database = {
         Update: {
           avatar_url?: string | null
           created_at?: string
+          device_type?: string | null
           email?: string | null
           first_name?: string | null
           full_name?: string | null
           id?: string
           last_name?: string | null
           phone_number?: string | null
+          push_enabled?: boolean | null
           push_market_updates?: boolean | null
           push_new_signals?: boolean | null
           push_notifications_enabled?: boolean | null
@@ -810,6 +818,7 @@ export type Database = {
           push_sound_enabled?: boolean | null
           push_stop_loss?: boolean | null
           push_targets_hit?: boolean | null
+          push_token?: string | null
           push_vibration_enabled?: boolean | null
           sms_new_signals?: boolean | null
           sms_notifications_enabled?: boolean | null
