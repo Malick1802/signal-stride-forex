@@ -235,8 +235,8 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
           {/* Left side - Logo and status */}
           <div className="flex items-center space-x-2 sm:space-x-4 flex-1 min-w-0">
             <div className="flex items-center space-x-1.5 sm:space-x-2">
-              <TrendingUp className="h-7 w-7 sm:h-8 sm:w-8 text-emerald-400" />
-              <span className="text-xl sm:text-2xl font-bold text-white truncate">
+              <TrendingUp className="h-8 w-8 text-emerald-400" />
+              <span className="text-2xl font-bold text-white truncate">
                 <span className="hidden sm:inline">ForexAlert Pro</span>
                 <span className="sm:hidden">FAP</span>
               </span>
