@@ -1,36 +1,26 @@
 {
   "project_info": {
-    "project_number": "YOUR_PROJECT_NUMBER",
-    "project_id": "YOUR_PROJECT_ID",
-    "storage_bucket": "YOUR_PROJECT_ID.appspot.com"
+    "project_number": "938348363202",
+    "project_id": "forex-alert-pro",
+    "storage_bucket": "forex-alert-pro.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "YOUR_MOBILE_SDK_APP_ID",
+        "mobilesdk_app_id": "1:938348363202:android:2277c50314dfe07a81ea5b",
         "android_client_info": {
           "package_name": "app.lovable.da46b9852e6844b390bc922d481bf104"
         }
       },
-      "oauth_client": [
-        {
-          "client_id": "YOUR_OAUTH_CLIENT_ID",
-          "client_type": 3
-        }
-      ],
+      "oauth_client": [],
       "api_key": [
         {
-          "current_key": "YOUR_API_KEY"
+          "current_key": "AIzaSyCP7AyuN42nEHtl5WqEHjp4N5G1V_X8QXU"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": [
-            {
-              "client_id": "YOUR_WEB_CLIENT_ID",
-              "client_type": 3
-            }
-          ]
+          "other_platform_oauth_client": []
         }
       }
     }
