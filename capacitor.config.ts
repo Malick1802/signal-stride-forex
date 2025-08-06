@@ -5,13 +5,12 @@ const config: CapacitorConfig = {
   appId: 'app.lovable.da46b9852e6844b390bc922d481bf104',
   appName: 'ForexAlert',
   webDir: 'dist',
-  // No server config for production mobile apps - use local bundled files
-  // For development, you can uncomment the server config below:
-  // server: {
-  //   url: 'https://da46b985-2e68-44b3-90bc-922d481bf104.lovableproject.com',
-  //   androidScheme: 'https',
-  //   iosScheme: 'https'
-  // },
+  // Development server config - loads app directly from Lovable
+  server: {
+    url: 'https://da46b985-2e68-44b3-90bc-922d481bf104.lovableproject.com?forceHideBadge=true',
+    androidScheme: 'https',
+    iosScheme: 'https'
+  },
   plugins: {
     SplashScreen: {
       launchShowDuration: 2000,
