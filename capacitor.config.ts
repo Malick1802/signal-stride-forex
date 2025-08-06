@@ -3,7 +3,7 @@ import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'app.lovable.da46b9852e6844b390bc922d481bf104',
-  appName: 'ForexSignal Pro',
+  appName: 'ForexAlert',
   webDir: 'dist',
   // No server config for production mobile apps - use local bundled files
   // For development, you can uncomment the server config below:
