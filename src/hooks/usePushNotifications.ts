@@ -16,6 +16,21 @@ export const usePushNotifications = () => {
     }
   }, []);
 
+  // Re-check when user logs in
+  useEffect(() => {
+    if (user && Capacitor.isNativePlatform()) {
+      checkRegistrationStatus();
+      // If we have a token but push notifications are disabled, re-enable them
+      const token = localStorage.getItem('pushToken');
+      if (token && !isRegistered) {
+        console.log('🔄 Re-enabling push notifications for logged in user');
+        saveTokenToDatabase(token);
+        setIsRegistered(true);
+        setPushToken(token);
+      }
+    }
+  }, [user]);
+
   const checkRegistrationStatus = async () => {
     try {
       console.log('📱 Checking push notification registration status...');
@@ -135,9 +150,23 @@ export const usePushNotifications = () => {
     try {
       console.log('📱 Sending test push notification...');
       
+      // First try sending a local notification (for immediate feedback)
+      if (Capacitor.isNativePlatform()) {
+        try {
+          const { MobileNotificationManager } = await import('@/utils/mobileNotifications');
+          await MobileNotificationManager.testNotification();
+          console.log('✅ Local test notification sent');
+        } catch (localError) {
+          console.error('❌ Error sending local test notification:', localError);
+          setPermissionError(`Could not send test notification: ${(localError as Error).message}`);
+          return;
+        }
+      }
+      
+      // Then try sending a push notification via backend
       const { data, error } = await supabase.functions.invoke('send-push-notification', {
         body: {
-          title: '🚀 Test Notification',
+          title: '🚀 Push Test Notification',
           body: 'Your push notifications are working correctly!',
           data: { test: true },
           notificationType: 'signal',
@@ -146,14 +175,15 @@ export const usePushNotifications = () => {
       });
 
       if (error) {
-        console.error('❌ Error sending test notification:', error);
-        setPermissionError('Failed to send test notification');
+        console.error('❌ Error sending push notification:', error);
+        setPermissionError(`Failed to send test notification: ${error.message}`);
       } else {
-        console.log('✅ Test notification sent:', data);
+        console.log('✅ Push test notification sent:', data);
+        setPermissionError(null);
       }
     } catch (error) {
       console.error('❌ Error sending test notification:', error);
-      setPermissionError('Failed to send test notification');
+      setPermissionError(`Failed to send test notification: ${(error as Error).message}`);
     }
   };
 

@@ -238,15 +238,16 @@ export class MobileNotificationManager {
     try {
       const { LocalNotifications } = await import('@capacitor/local-notifications');
       
-      const notificationId = Date.now();
-      console.log('📱 Showing native notification:', { id: notificationId, title: signal.title });
-      
-      await LocalNotifications.schedule({
-        notifications: [
-          {
-            title: signal.title,
-            body: signal.body,
-            id: notificationId,
+    // Generate a safe integer ID for Android (max 2147483647)
+    const notificationId = Math.floor(Math.random() * 1000000) + 1;
+    console.log('📱 Showing native notification:', { id: notificationId, title: signal.title });
+    
+    await LocalNotifications.schedule({
+      notifications: [
+        {
+          title: signal.title,
+          body: signal.body,
+          id: notificationId,
             sound: signal.sound !== false ? 'default' : undefined,
             attachments: undefined,
             actionTypeId: 'FOREX_SIGNAL',
@@ -276,7 +277,8 @@ export class MobileNotificationManager {
       try {
         const { LocalNotifications } = await import('@capacitor/local-notifications');
         
-        const notificationId = Date.now();
+        // Generate a safe integer ID for Android (max 2147483647)
+        const notificationId = Math.floor(Math.random() * 1000000) + 1;
         console.log('📱 Showing native outcome notification:', { id: notificationId, title, outcome });
         
         await LocalNotifications.schedule({
