@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useMobileConnectivity } from '@/hooks/useMobileConnectivity';
 import { useMobileBackgroundSync } from '@/hooks/useMobileBackgroundSync';
 import { MobileNavigationBar } from './MobileNavigationBar';
+import { MobileContentRouter } from './MobileContentRouter';
 import { MobileNotificationManager } from '@/utils/mobileNotifications';
 import MobileErrorBoundary from './MobileErrorBoundary';
 import { Capacitor } from '@capacitor/core';
@@ -208,7 +209,11 @@ export default function MobileAppWrapper({ children }: { children: React.ReactNo
         
         {/* Main content area */}
         <div className="h-full">
-          {children}
+          {Capacitor.isNativePlatform() ? (
+            <MobileContentRouter activeTab={activeTab} />
+          ) : (
+            children
+          )}
         </div>
         
         {/* Mobile navigation bar */}
