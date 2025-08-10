@@ -111,8 +111,14 @@ export const PushNotificationSettings = () => {
           // Native platform with LocalNotifications
           isSupported = true;
           useNative = true;
-          permission = 'default';
-          console.log('✅ Using native LocalNotifications');
+          try {
+            const { LocalNotifications } = await import('@capacitor/local-notifications');
+            const perm = await LocalNotifications.checkPermissions();
+            permission = perm.display === 'granted' ? 'granted' : 'default';
+          } catch {
+            permission = 'default';
+          }
+          console.log('✅ Using native LocalNotifications, permission:', permission);
         } else if (detectedAPIs.hasWebNotifications) {
           // Web platform or fallback with browser notifications
           isSupported = true;
