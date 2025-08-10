@@ -242,17 +242,19 @@ export class MobileNotificationManager {
     const notificationId = Math.floor(Math.random() * 1000000) + 1;
     console.log('📱 Showing native notification:', { id: notificationId, title: signal.title });
     
-      await LocalNotifications.schedule({
-        notifications: [
-          {
-            title: signal.title,
-            body: signal.body,
-            id: notificationId,
+    await LocalNotifications.schedule({
+      notifications: [
+        {
+          title: signal.title,
+          body: signal.body,
+          id: notificationId,
             sound: signal.sound !== false ? 'default' : undefined,
             attachments: undefined,
             actionTypeId: 'FOREX_SIGNAL',
             extra: signal.data,
-            channelId: 'forex_signals'
+            channelId: 'forex_signals',
+            smallIcon: 'ic_stat_notification',
+            iconColor: '#10b981'
           }
         ]
       });
@@ -286,7 +288,9 @@ export class MobileNotificationManager {
               body,
               id: notificationId,
               sound: 'default',
-              channelId: 'signal_outcomes'
+              channelId: 'signal_outcomes',
+              smallIcon: 'ic_stat_notification',
+              iconColor: isProfit ? '#10b981' : '#ef4444'
             }
           ]
         });
@@ -346,11 +350,6 @@ export class MobileNotificationManager {
     
     try {
       const hasNativeNotifications = await this.checkNativeNotificationSupport();
-
-      if (hasNativeNotifications) {
-        // Ensure permissions and channels are ready on native before showing
-        await this.initializeNativeNotifications();
-      }
       
       const testMessage = hasNativeNotifications ? 
         'Native mobile notification test - you should see this on your device!' :
