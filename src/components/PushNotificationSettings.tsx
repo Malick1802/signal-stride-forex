@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useMobileNotificationManager } from '@/hooks/useMobileNotificationManager';
 import { MobileNotificationManager } from '@/utils/mobileNotifications';
 import { Capacitor } from '@capacitor/core';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 
 interface NotificationState {
   isSupported: boolean;
@@ -30,6 +31,7 @@ export const PushNotificationSettings = () => {
   const { profile, updateProfile, loading } = useProfile();
   const { toast } = useToast();
   const { sendTestNotification } = useMobileNotificationManager();
+  const { isRegistered, initializePushNotifications } = usePushNotifications();
   
   const [notificationState, setNotificationState] = useState<NotificationState>({
     isSupported: false,
@@ -168,12 +170,24 @@ export const PushNotificationSettings = () => {
     }
   }, [profile]);
 
+  // Reflect native push registration in permission state
+  useEffect(() => {
+    if (isRegistered) {
+      setNotificationState(prev => ({ ...prev, permission: 'granted', isInitialized: true }));
+    }
+  }, [isRegistered]);
+
   const handleSettingChange = (key: keyof typeof settings, value: boolean) => {
     setSettings(prev => ({ ...prev, [key]: value }));
   };
 
   const handleSave = async () => {
-    const { error } = await updateProfile(settings);
+    const payload = {
+      ...settings,
+      // Keep Edge Function compatibility
+      push_enabled: settings.push_notifications_enabled,
+    };
+    const { error } = await updateProfile(payload);
     if (!error) {
       toast({
         title: 'Settings saved',
@@ -190,39 +204,24 @@ export const PushNotificationSettings = () => {
 
   const requestPermission = async () => {
     setIsInitializing(true);
-    
     try {
-      console.log('🔔 Requesting notification permissions...');
-      
-      const success = await MobileNotificationManager.initialize();
-      
-      if (success) {
-        setNotificationState(prev => ({ 
-          ...prev, 
-          permission: 'granted',
-          isInitialized: true 
-        }));
-        
-        toast({
-          title: 'Notifications enabled',
-          description: notificationState.isNative ? 
-            'Native mobile notifications are now active.' : 
-            'Browser notifications are now active.',
-        });
-      } else {
-        setNotificationState(prev => ({ 
-          ...prev, 
-          permission: 'denied'
-        }));
-        
-        toast({
-          title: 'Permission denied',
-          description: 'Please enable notifications in your device settings.',
-          variant: 'destructive',
-        });
-      }
+      console.log('🔔 Requesting push registration (FCM) ...');
+      await initializePushNotifications();
+      // After registration, treat as granted; the hook will persist token
+      setNotificationState(prev => ({ 
+        ...prev, 
+        permission: 'granted',
+        isInitialized: true 
+      }));
+      toast({
+        title: 'Notifications enabled',
+        description: notificationState.isNative ? 
+          'Native push notifications are active.' : 
+          'Browser notifications are active.',
+      });
     } catch (error) {
       console.error('❌ Error requesting permissions:', error);
+      setNotificationState(prev => ({ ...prev, permission: 'denied' }));
       toast({
         title: 'Permission error',
         description: `Failed to enable notifications: ${(error as Error).message}`,
@@ -294,7 +293,7 @@ export const PushNotificationSettings = () => {
   };
 
   const canSendNotifications = () => {
-    return notificationState.permission === 'granted';
+    return isRegistered || notificationState.permission === 'granted';
   };
 
   const needsPermission = () => {
@@ -428,7 +427,10 @@ export const PushNotificationSettings = () => {
               </div>
               <Switch
                 checked={settings.push_notifications_enabled}
-                onCheckedChange={(value) => handleSettingChange('push_notifications_enabled', value)}
+                onCheckedChange={(value) => {
+                  handleSettingChange('push_notifications_enabled', value);
+                  if (value) requestPermission();
+                }}
               />
             </div>
 

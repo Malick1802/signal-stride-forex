@@ -20,13 +20,14 @@ export const usePushNotifications = () => {
   useEffect(() => {
     if (user && Capacitor.isNativePlatform()) {
       checkRegistrationStatus();
-      // If we have a token but push notifications are disabled, re-enable them
       const token = localStorage.getItem('pushToken');
-      if (token && !isRegistered) {
-        console.log('🔄 Re-enabling push notifications for logged in user');
+      if (token) {
+        console.log('🔄 Ensuring push token is saved for logged in user');
         saveTokenToDatabase(token);
         setIsRegistered(true);
         setPushToken(token);
+      } else {
+        console.log('ℹ️ No existing push token found after login');
       }
     }
   }, [user]);
@@ -133,6 +134,7 @@ export const usePushNotifications = () => {
           push_token: token,
           device_type: deviceType,
           push_enabled: true,
+          push_notifications_enabled: true,
         })
         .eq('id', user.id);
 

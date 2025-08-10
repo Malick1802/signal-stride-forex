@@ -7,6 +7,7 @@ import { MobileContentRouter } from './MobileContentRouter';
 import { MobileNotificationManager } from '@/utils/mobileNotifications';
 import MobileErrorBoundary from './MobileErrorBoundary';
 import { Capacitor } from '@capacitor/core';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 
 interface InitializationState {
   isInitialized: boolean;
@@ -105,6 +106,9 @@ export default function MobileAppWrapper({ children }: { children: React.ReactNo
       console.log('📱 Mobile sync completed:', data);
     }
   });
+
+  // Mount push notification registration/checks globally on mobile
+  const { isRegistered, pushToken } = usePushNotifications();
 
   const updateInitState = (updates: Partial<InitializationState>) => {
     setInitState(prev => ({ ...prev, ...updates }));
