@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useMobileNotificationManager } from '@/hooks/useMobileNotificationManager';
 import { useProfile } from '@/hooks/useProfile';
+import { useAuth } from '@/contexts/AuthContext';
 import { Capacitor } from '@capacitor/core';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -13,12 +15,76 @@ export const PushNotificationDebugger = () => {
   const { isRegistered, pushToken, permissionError, initializePushNotifications, sendTestNotification } = usePushNotifications();
   const { sendTestNotification: sendMobileTest } = useMobileNotificationManager();
   const { profile } = useProfile();
+  const { user, session } = useAuth();
+  
+  const [debugInfo, setDebugInfo] = useState<any>({});
+  const [testResults, setTestResults] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   const isNative = Capacitor.isNativePlatform();
   const platform = Capacitor.getPlatform();
 
+  // Comprehensive debugging info collection
+  useEffect(() => {
+    const collectDebugInfo = async () => {
+      const info: any = {
+        platform,
+        isNative,
+        user: user ? { id: user.id, email: user.email } : null,
+        session: session ? { access_token: !!session.access_token, expires_at: session.expires_at } : null,
+        profile: profile ? { 
+          push_enabled: profile.push_enabled,
+          push_token: profile.push_token ? `${profile.push_token.substring(0, 20)}...` : null,
+          device_type: profile.device_type 
+        } : null,
+        pushToken: pushToken ? `${pushToken.substring(0, 20)}...` : null,
+        isRegistered,
+        permissionError,
+        timestamp: new Date().toISOString()
+      };
+
+      // Check Capacitor plugins availability
+      if (isNative) {
+        try {
+          const { PushNotifications } = await import('@capacitor/push-notifications');
+          info.pushNotificationsPlugin = 'Available';
+          
+          // Check current permission status
+          const permission = await PushNotifications.checkPermissions();
+          info.currentPermissions = permission;
+        } catch (e) {
+          info.pushNotificationsPlugin = `Error: ${e}`;
+        }
+
+        try {
+          const { Preferences } = await import('@capacitor/preferences');
+          const { value } = await Preferences.get({ key: 'pushToken' });
+          info.storedToken = value ? `${value.substring(0, 20)}...` : null;
+        } catch (e) {
+          info.preferencesError = `${e}`;
+        }
+      }
+
+      setDebugInfo(info);
+    };
+
+    collectDebugInfo();
+  }, [platform, isNative, user, session, profile, pushToken, isRegistered, permissionError]);
+
+  const addTestResult = (message: string) => {
+    const timestamp = new Date().toLocaleTimeString();
+    setTestResults(prev => [...prev.slice(-4), `${timestamp}: ${message}`]);
+  };
+
   const testFcmDirect = async () => {
-    if (!pushToken) return;
+    if (!pushToken) {
+      addTestResult('❌ No push token available');
+      return;
+    }
+    
+    setIsLoading(true);
+    addTestResult('🧪 Testing FCM direct delivery...');
+    
     try {
       const { data, error } = await supabase.functions.invoke('send-fcm-direct', {
         body: {
@@ -28,9 +94,170 @@ export const PushNotificationDebugger = () => {
           data: { source: 'PushNotificationDebugger' }
         }
       });
+      
+      if (error) {
+        addTestResult(`❌ FCM Direct error: ${error.message}`);
+      } else {
+        addTestResult(`✅ FCM Direct success: ${JSON.stringify(data)}`);
+      }
+      
       console.log('send-fcm-direct result', { data, error });
     } catch (e) {
+      const errorMsg = `${e}`;
+      addTestResult(`❌ FCM Direct exception: ${errorMsg}`);
       console.error('send-fcm-direct error', e);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const testPermissions = async () => {
+    if (!isNative) {
+      addTestResult('❌ Not on native platform');
+      return;
+    }
+
+    setIsLoading(true);
+    addTestResult('🔐 Testing permissions...');
+
+    try {
+      const { PushNotifications } = await import('@capacitor/push-notifications');
+      const permission = await PushNotifications.checkPermissions();
+      addTestResult(`✅ Current permissions: ${JSON.stringify(permission)}`);
+      
+      if (permission.receive !== 'granted') {
+        addTestResult('📱 Requesting permissions...');
+        const newPermission = await PushNotifications.requestPermissions();
+        addTestResult(`✅ New permissions: ${JSON.stringify(newPermission)}`);
+      }
+    } catch (e) {
+      addTestResult(`❌ Permission test failed: ${e}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const testTokenGeneration = async () => {
+    if (!isNative) {
+      addTestResult('❌ Not on native platform');
+      return;
+    }
+
+    setIsLoading(true);
+    addTestResult('🎫 Testing token generation...');
+
+    try {
+      const { PushNotifications } = await import('@capacitor/push-notifications');
+      
+      // Clear existing listeners
+      await PushNotifications.removeAllListeners();
+      
+      // Set up test listener
+      PushNotifications.addListener('registration', (token) => {
+        addTestResult(`✅ Token received: ${token.value.substring(0, 30)}...`);
+      });
+
+      PushNotifications.addListener('registrationError', (error) => {
+        addTestResult(`❌ Token error: ${JSON.stringify(error)}`);
+      });
+
+      await PushNotifications.register();
+      addTestResult('📱 Registration initiated...');
+    } catch (e) {
+      addTestResult(`❌ Token generation failed: ${e}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const testDatabaseSave = async () => {
+    if (!user) {
+      addTestResult('❌ No user authenticated');
+      return;
+    }
+    
+    if (!pushToken) {
+      addTestResult('❌ No push token available');
+      return;
+    }
+
+    setIsLoading(true);
+    addTestResult('💾 Testing database save...');
+
+    try {
+      const testToken = `test_${Date.now()}_${pushToken.substring(0, 20)}`;
+      
+      const { error } = await supabase
+        .from('profiles')
+        .upsert(
+          {
+            id: user.id,
+            push_token: testToken,
+            device_type: platform,
+            push_enabled: true,
+            push_notifications_enabled: true,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'id' }
+        );
+
+      if (error) {
+        addTestResult(`❌ Database save failed: ${error.message}`);
+      } else {
+        addTestResult('✅ Database save successful');
+        
+        // Verify by reading back
+        const { data, error: readError } = await supabase
+          .from('profiles')
+          .select('push_token, device_type, updated_at')
+          .eq('id', user.id)
+          .single();
+          
+        if (readError) {
+          addTestResult(`❌ Database read failed: ${readError.message}`);
+        } else {
+          addTestResult(`✅ Verified: ${JSON.stringify(data)}`);
+        }
+      }
+    } catch (e) {
+      addTestResult(`❌ Database test failed: ${e}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const checkAuthState = async () => {
+    addTestResult('🔐 Checking auth state...');
+    
+    try {
+      const { data: { session: currentSession }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        addTestResult(`❌ Auth error: ${error.message}`);
+        return;
+      }
+      
+      if (!currentSession) {
+        addTestResult('❌ No active session');
+        return;
+      }
+      
+      addTestResult(`✅ Session valid, expires: ${new Date(currentSession.expires_at! * 1000).toLocaleString()}`);
+      
+      // Check profile exists
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', currentSession.user.id)
+        .single();
+        
+      if (profileError) {
+        addTestResult(`❌ Profile error: ${profileError.message}`);
+      } else {
+        addTestResult(`✅ Profile found: ${profileData.email || 'No email'}`);
+      }
+    } catch (e) {
+      addTestResult(`❌ Auth check failed: ${e}`);
     }
   };
 
@@ -48,6 +275,28 @@ export const PushNotificationDebugger = () => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Debug Information */}
+        <div className="space-y-2">
+          <p className="text-sm font-medium">Debug Information</p>
+          <div className="p-3 bg-muted rounded-lg text-xs font-mono">
+            <pre className="whitespace-pre-wrap overflow-auto max-h-32">
+              {JSON.stringify(debugInfo, null, 2)}
+            </pre>
+          </div>
+        </div>
+
+        {/* Test Results */}
+        {testResults.length > 0 && (
+          <div className="space-y-2">
+            <p className="text-sm font-medium">Test Results</p>
+            <div className="p-3 bg-slate-50 rounded-lg text-xs font-mono max-h-32 overflow-auto">
+              {testResults.map((result, index) => (
+                <div key={index} className="mb-1">{result}</div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Platform Info */}
         <div className="grid grid-cols-2 gap-4 p-4 bg-muted rounded-lg">
           <div>
@@ -109,34 +358,79 @@ export const PushNotificationDebugger = () => {
           </div>
         )}
 
-        {/* Error Display */}
+        {/* Enhanced Error Display */}
         {permissionError && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-sm text-red-800">{permissionError}</p>
-          </div>
+          <Alert className="border-red-200 bg-red-50">
+            <AlertDescription className="text-red-800">
+              <strong>Error:</strong> {permissionError}
+            </AlertDescription>
+          </Alert>
         )}
 
-        {/* Action Buttons */}
-        <div className="flex flex-wrap gap-2">
-          {!isRegistered && (
-            <Button onClick={initializePushNotifications} variant="default">
-              Initialize Push Notifications
-            </Button>
-          )}
+        {/* Auth Status Alert */}
+        {!user && (
+          <Alert className="border-yellow-200 bg-yellow-50">
+            <AlertDescription className="text-yellow-800">
+              <strong>Warning:</strong> No user authenticated. Please log in to test push notifications.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Native Platform Alert */}
+        {!isNative && (
+          <Alert className="border-blue-200 bg-blue-50">
+            <AlertDescription className="text-blue-800">
+              <strong>Info:</strong> Push notifications require a mobile app. Web testing is limited.
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Manual Testing Tools */}
+        <div className="space-y-3">
+          <p className="text-sm font-medium">Manual Testing Tools</p>
           
-          {isRegistered && (
-            <>
-              <Button onClick={sendTestNotification} variant="outline">
-                Test Backend Push
+          {/* Authentication & Database Tests */}
+          <div className="grid grid-cols-2 gap-2">
+            <Button onClick={checkAuthState} variant="outline" size="sm" disabled={isLoading}>
+              Check Auth State
+            </Button>
+            <Button onClick={testDatabaseSave} variant="outline" size="sm" disabled={isLoading || !user}>
+              Test DB Save
+            </Button>
+          </div>
+
+          {/* Permission & Token Tests */}
+          {isNative && (
+            <div className="grid grid-cols-2 gap-2">
+              <Button onClick={testPermissions} variant="outline" size="sm" disabled={isLoading}>
+                Test Permissions
               </Button>
-              <Button onClick={sendMobileTest} variant="outline">
-                Test Mobile Notification
+              <Button onClick={testTokenGeneration} variant="outline" size="sm" disabled={isLoading}>
+                Test Token Generation
               </Button>
-              <Button onClick={testFcmDirect} variant="outline" disabled={!pushToken}>
-                Test FCM Direct
-              </Button>
-            </>
+            </div>
           )}
+
+          {/* Notification Tests */}
+          <div className="grid grid-cols-3 gap-2">
+            {!isRegistered ? (
+              <Button onClick={initializePushNotifications} variant="default" disabled={isLoading}>
+                {isLoading ? 'Loading...' : 'Initialize Push'}
+              </Button>
+            ) : (
+              <>
+                <Button onClick={sendTestNotification} variant="outline" size="sm" disabled={isLoading}>
+                  Backend Push
+                </Button>
+                <Button onClick={sendMobileTest} variant="outline" size="sm" disabled={isLoading}>
+                  Mobile Test
+                </Button>
+                <Button onClick={testFcmDirect} variant="outline" size="sm" disabled={!pushToken || isLoading}>
+                  FCM Direct
+                </Button>
+              </>
+            )}
+          </div>
         </div>
 
         {/* Instructions */}

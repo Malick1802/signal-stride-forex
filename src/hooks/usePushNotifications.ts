@@ -127,14 +127,27 @@ export const usePushNotifications = () => {
       return;
     }
 
+    if (!user) {
+      console.log('❌ No user authenticated for push notification setup');
+      setPermissionError('User must be logged in to register for push notifications');
+      return;
+    }
+
     try {
-      console.log('📱 Initializing push notifications...');
+      console.log('📱 Initializing push notifications...', { 
+        userId: user.id, 
+        userEmail: user.email 
+      });
       setPermissionError(null);
       
       const { PushNotifications } = await import('@capacitor/push-notifications');
       
       // Clear any existing listeners first to prevent duplicates
       await PushNotifications.removeAllListeners();
+
+      // Check current permissions first
+      const currentPerms = await PushNotifications.checkPermissions();
+      console.log('📱 Current permissions:', currentPerms);
 
       // Request permission for push notifications
       console.log('📱 Requesting push notification permissions...');
@@ -146,60 +159,102 @@ export const usePushNotifications = () => {
         
         // Set up listeners before registering
         PushNotifications.addListener('registration', async (token) => {
-          console.log('✅ Push registration success, token: ' + token.value);
+          console.log('✅ Push registration success, token length:', token.value.length);
+          console.log('✅ Token prefix:', token.value.substring(0, 30));
+          
           setPushToken(token.value);
           await setStoredPushToken(token.value);
           setIsRegistered(true);
           setPermissionError(null);
           
-          // Save token to database
-          if (user) {
-            await saveTokenToDatabase(token.value);
-          }
+          // Save token to database with enhanced error handling
+          console.log('💾 Attempting to save token to database...');
+          await saveTokenToDatabase(token.value);
         });
 
         PushNotifications.addListener('registrationError', (error) => {
-          console.error('❌ Error on registration: ' + JSON.stringify(error));
+          console.error('❌ Push registration error:', JSON.stringify(error));
           setIsRegistered(false);
-          setPermissionError('Registration failed: ' + error.error);
+          setPermissionError(`Registration failed: ${error.error || 'Unknown error'}`);
         });
 
         PushNotifications.addListener('pushNotificationReceived', (notification) => {
-          console.log('📱 Push notification received: ', notification);
+          console.log('📱 Push notification received in foreground:', notification);
           // Handle foreground notifications
         });
 
         PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
-          console.log('📱 Push notification tapped', notification);
+          console.log('📱 Push notification action performed:', notification);
           // Handle notification tap actions
         });
         
         // Register with Apple / Google to receive push notifications
-        console.log('📱 Registering for push notifications...');
+        console.log('📱 Registering for push notifications with platform...');
         await PushNotifications.register();
+        
+        // Set a timeout to catch registration issues
+        setTimeout(() => {
+          if (!pushToken && !permissionError) {
+            console.warn('⚠️ Token registration taking longer than expected');
+            setPermissionError('Token registration timeout - please try again');
+          }
+        }, 10000); // 10 second timeout
+        
       } else {
-        console.log('❌ Push notification permission denied');
-        setPermissionError('Push notification permission denied');
+        console.log('❌ Push notification permission denied:', permission);
+        setPermissionError(`Permission denied: ${permission.receive}`);
       }
 
     } catch (error) {
-      console.error('❌ Error initializing push notifications:', error);
+      console.error('❌ Exception during push notification initialization:', error);
       setIsRegistered(false);
-      setPermissionError('Failed to initialize: ' + (error as Error).message);
+      setPermissionError(`Initialization failed: ${(error as Error).message}`);
     }
   };
 
   const saveTokenToDatabase = async (token: string) => {
     try {
-      if (!user) return;
-      console.log('💾 Saving push token to database via upsert...');
+      if (!user) {
+        console.warn('⚠️ No user authenticated, cannot save push token');
+        setPermissionError('User not authenticated - cannot save push token');
+        return;
+      }
+      
+      if (!user.id) {
+        console.warn('⚠️ User ID is missing, cannot save push token');
+        setPermissionError('User ID missing - cannot save push token');
+        return;
+      }
+
+      console.log('💾 Saving push token to database via upsert...', {
+        userId: user.id,
+        tokenLength: token.length,
+        tokenPrefix: token.substring(0, 20)
+      });
+      
       const deviceType = Capacitor.getPlatform();
+
+      // First check if user has an existing profile
+      const { data: existingProfile, error: fetchError } = await supabase
+        .from('profiles')
+        .select('id, email, push_token')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      if (fetchError) {
+        console.error('❌ Error fetching existing profile:', fetchError);
+        setPermissionError(`Profile fetch error: ${fetchError.message}`);
+        return;
+      }
+
+      console.log('📋 Existing profile status:', existingProfile ? 'Found' : 'Not found');
 
       const { error } = await supabase
         .from('profiles')
         .upsert(
           {
             id: user.id,
+            email: user.email || '', // Ensure email is set
             push_token: token,
             device_type: deviceType,
             push_enabled: true,
@@ -211,11 +266,36 @@ export const usePushNotifications = () => {
 
       if (error) {
         console.error('❌ Error saving push token:', error);
+        setPermissionError(`Database save error: ${error.message}`);
+        
+        // If it's an RLS error, provide specific guidance
+        if (error.message.includes('row-level security') || error.message.includes('RLS')) {
+          setPermissionError('Permission denied: User not properly authenticated for database access');
+        }
       } else {
         console.log('✅ Push token saved to database (upsert)');
+        setPermissionError(null); // Clear any previous errors
+        
+        // Verify the save by reading back
+        const { data: verifyData, error: verifyError } = await supabase
+          .from('profiles')
+          .select('push_token, device_type, updated_at')
+          .eq('id', user.id)
+          .single();
+          
+        if (verifyError) {
+          console.warn('⚠️ Could not verify token save:', verifyError);
+        } else {
+          console.log('✅ Token save verified:', {
+            tokenSaved: !!verifyData.push_token,
+            deviceType: verifyData.device_type,
+            lastUpdated: verifyData.updated_at
+          });
+        }
       }
     } catch (error) {
-      console.error('❌ Error saving push token to database:', error);
+      console.error('❌ Exception saving push token to database:', error);
+      setPermissionError(`Save failed: ${(error as Error).message}`);
     }
   };
 
