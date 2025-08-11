@@ -256,7 +256,7 @@ export class MobileNotificationManager {
             }
           ]
         });
-      
+
       console.log('✅ Native notification sent:', signal.title);
     } catch (error) {
       console.error('❌ Error showing native notification:', error);
@@ -290,7 +290,7 @@ export class MobileNotificationManager {
               }
             ]
           });
-        
+
         console.log('✅ Native signal outcome notification sent:', title);
       } catch (error) {
         console.error('❌ Error showing native outcome notification:', error);

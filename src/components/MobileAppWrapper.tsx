@@ -108,7 +108,7 @@ export default function MobileAppWrapper({ children }: { children: React.ReactNo
   });
 
   // Mount push notification registration/checks globally on mobile
-  const { isRegistered, pushToken } = usePushNotifications();
+  const { isRegistered, pushToken, initializePushNotifications } = usePushNotifications();
 
   const updateInitState = (updates: Partial<InitializationState>) => {
     setInitState(prev => ({ ...prev, ...updates }));
@@ -148,6 +148,17 @@ export default function MobileAppWrapper({ children }: { children: React.ReactNo
       mounted = false;
     };
   }, []);
+
+  // After native features are initialized, auto-initialize push notifications on native if not registered
+  useEffect(() => {
+    if (Capacitor.isNativePlatform() && initState.isInitialized && !isRegistered) {
+      console.log('🔔 Auto-initializing push notifications...');
+      initializePushNotifications().catch((e) => {
+        console.warn('⚠️ Auto-init push notifications failed:', e);
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initState.isInitialized, isRegistered]);
 
   // Show offline screen with retry option
   if (!isOnline) {

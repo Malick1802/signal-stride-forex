@@ -1,8 +1,27 @@
 
 import { useState, useEffect } from 'react';
 import { Capacitor } from '@capacitor/core';
+import { Preferences } from '@capacitor/preferences';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+
+// Centralized storage for push token using Capacitor Preferences
+const getStoredPushToken = async (): Promise<string | null> => {
+  try {
+    const { value } = await Preferences.get({ key: 'pushToken' });
+    return value ?? null;
+  } catch {
+    return null;
+  }
+};
+
+const setStoredPushToken = async (token: string) => {
+  try {
+    await Preferences.set({ key: 'pushToken', value: token });
+  } catch (e) {
+    console.warn('Failed to persist pushToken in Preferences', e);
+  }
+};
 
 export const usePushNotifications = () => {
   const { user } = useAuth();
@@ -35,20 +54,23 @@ export const usePushNotifications = () => {
 
   // Re-check when user logs in and fetch from database if needed
   useEffect(() => {
-    if (user && Capacitor.isNativePlatform()) {
-      checkRegistrationStatus();
-      const token = localStorage.getItem('pushToken');
-      if (token) {
-        console.log('🔄 Ensuring push token is saved for logged in user');
-        saveTokenToDatabase(token);
-        setIsRegistered(true);
-        setPushToken(token);
-      } else {
-        console.log('ℹ️ No local push token found - checking database...');
-        // Fetch from database in case token was registered on another session
-        fetchTokenFromDatabase();
+    const run = async () => {
+      if (user && Capacitor.isNativePlatform()) {
+        await checkRegistrationStatus();
+        const token = await getStoredPushToken();
+        if (token) {
+          console.log('🔄 Ensuring push token is saved for logged in user');
+          await saveTokenToDatabase(token);
+          setIsRegistered(true);
+          setPushToken(token);
+        } else {
+          console.log('ℹ️ No stored push token found - checking database...');
+          // Fetch from database in case token was registered on another session
+          await fetchTokenFromDatabase();
+        }
       }
-    }
+    };
+    run();
   }, [user]);
 
   const fetchTokenFromDatabase = async () => {
@@ -80,15 +102,15 @@ export const usePushNotifications = () => {
   const checkRegistrationStatus = async () => {
     try {
       console.log('📱 Checking push notification registration status...');
-      
-      // Check if push notifications are already registered
-      const token = localStorage.getItem('pushToken');
+      const token = await getStoredPushToken();
       if (token) {
         console.log('✅ Found existing push token');
         setPushToken(token);
         setIsRegistered(true);
       } else {
         console.log('ℹ️ No push token found');
+        setIsRegistered(false);
+        setPushToken(null);
       }
     } catch (error) {
       console.error('❌ Error checking push notification status:', error);
@@ -124,7 +146,7 @@ export const usePushNotifications = () => {
         PushNotifications.addListener('registration', async (token) => {
           console.log('✅ Push registration success, token: ' + token.value);
           setPushToken(token.value);
-          localStorage.setItem('pushToken', token.value);
+          await setStoredPushToken(token.value);
           setIsRegistered(true);
           setPermissionError(null);
           
@@ -168,11 +190,8 @@ export const usePushNotifications = () => {
   const saveTokenToDatabase = async (token: string) => {
     try {
       if (!user) return;
-      
       console.log('💾 Saving push token to database...');
-      
       const deviceType = Capacitor.getPlatform();
-      
       const { error } = await supabase
         .from('profiles')
         .update({
