@@ -81,7 +81,7 @@ export const usePushNotifications = () => {
         .from('profiles')
         .select('push_token')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
       
       if (error) {
         console.error('❌ Error fetching push token from database:', error);
@@ -89,10 +89,12 @@ export const usePushNotifications = () => {
       }
       
       if (data?.push_token) {
-        console.log('✅ Found push token in database');
-        localStorage.setItem('pushToken', data.push_token);
+        console.log('✅ Found push token in database, caching to Preferences');
+        await setStoredPushToken(data.push_token);
         setPushToken(data.push_token);
         setIsRegistered(true);
+      } else {
+        console.log('ℹ️ No push token present in database for this user');
       }
     } catch (error) {
       console.error('❌ Error fetching push token:', error);
@@ -104,7 +106,7 @@ export const usePushNotifications = () => {
       console.log('📱 Checking push notification registration status...');
       const token = await getStoredPushToken();
       if (token) {
-        console.log('✅ Found existing push token');
+        console.log('✅ Found existing push token (Preferences)');
         setPushToken(token);
         setIsRegistered(true);
       } else {
@@ -190,22 +192,27 @@ export const usePushNotifications = () => {
   const saveTokenToDatabase = async (token: string) => {
     try {
       if (!user) return;
-      console.log('💾 Saving push token to database...');
+      console.log('💾 Saving push token to database via upsert...');
       const deviceType = Capacitor.getPlatform();
+
       const { error } = await supabase
         .from('profiles')
-        .update({
-          push_token: token,
-          device_type: deviceType,
-          push_enabled: true,
-          push_notifications_enabled: true,
-        })
-        .eq('id', user.id);
+        .upsert(
+          {
+            id: user.id,
+            push_token: token,
+            device_type: deviceType,
+            push_enabled: true,
+            push_notifications_enabled: true,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'id' }
+        );
 
       if (error) {
         console.error('❌ Error saving push token:', error);
       } else {
-        console.log('✅ Push token saved to database');
+        console.log('✅ Push token saved to database (upsert)');
       }
     } catch (error) {
       console.error('❌ Error saving push token to database:', error);
