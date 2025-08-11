@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useMobileNotificationManager } from '@/hooks/useMobileNotificationManager';
+import { useMobileNotificationDebugger } from '@/hooks/useMobileNotificationDebugger';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/contexts/AuthContext';
 import { Capacitor } from '@capacitor/core';
@@ -14,6 +15,17 @@ import { supabase } from '@/integrations/supabase/client';
 export const PushNotificationDebugger = () => {
   const { isRegistered, pushToken, permissionError, initializePushNotifications, sendTestNotification } = usePushNotifications();
   const { sendTestNotification: sendMobileTest } = useMobileNotificationManager();
+  const { 
+    testResults: debugTestResults, 
+    isRunningTest, 
+    clearTestResults,
+    testPermissions: debugTestPermissions,
+    testTokenGeneration: debugTestTokenGeneration,
+    testDatabaseSave: debugTestDatabaseSave,
+    testFcmDirect: debugTestFcmDirect,
+    testLocalNotification,
+    runFullDiagnostic
+  } = useMobileNotificationDebugger();
   const { profile } = useProfile();
   const { user, session } = useAuth();
   
@@ -285,15 +297,41 @@ export const PushNotificationDebugger = () => {
           </div>
         </div>
 
-        {/* Test Results */}
-        {testResults.length > 0 && (
+        {/* Enhanced Test Results */}
+        {(testResults.length > 0 || debugTestResults.length > 0) && (
           <div className="space-y-2">
-            <p className="text-sm font-medium">Test Results</p>
-            <div className="p-3 bg-slate-50 rounded-lg text-xs font-mono max-h-32 overflow-auto">
-              {testResults.map((result, index) => (
-                <div key={index} className="mb-1">{result}</div>
-              ))}
+            <div className="flex justify-between items-center">
+              <p className="text-sm font-medium">Test Results</p>
+              <Button onClick={clearTestResults} variant="outline" size="sm">
+                Clear
+              </Button>
             </div>
+            
+            {/* Debug Test Results */}
+            {debugTestResults.length > 0 && (
+              <div className="p-3 bg-slate-50 rounded-lg text-xs font-mono max-h-40 overflow-auto space-y-1">
+                {debugTestResults.map((result, index) => (
+                  <div key={index} className={`p-2 rounded ${
+                    result.result === 'success' ? 'bg-green-100 text-green-800' :
+                    result.result === 'error' ? 'bg-red-100 text-red-800' :
+                    'bg-blue-100 text-blue-800'
+                  }`}>
+                    <div className="font-medium">{result.test}</div>
+                    <div>{result.message}</div>
+                    <div className="text-xs opacity-75">{new Date(result.timestamp).toLocaleTimeString()}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {/* Legacy Test Results */}
+            {testResults.length > 0 && (
+              <div className="p-3 bg-slate-50 rounded-lg text-xs font-mono max-h-32 overflow-auto">
+                {testResults.map((result, index) => (
+                  <div key={index} className="mb-1">{result}</div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -385,16 +423,33 @@ export const PushNotificationDebugger = () => {
           </Alert>
         )}
 
-        {/* Manual Testing Tools */}
+        {/* Enhanced Manual Testing Tools */}
         <div className="space-y-3">
           <p className="text-sm font-medium">Manual Testing Tools</p>
           
+          {/* Comprehensive Diagnostic */}
+          <div className="mb-3">
+            <Button 
+              onClick={runFullDiagnostic} 
+              variant="default" 
+              disabled={isRunningTest || !isNative}
+              className="w-full"
+            >
+              {isRunningTest ? 'Running Diagnostic...' : '🧪 Run Full Diagnostic'}
+            </Button>
+          </div>
+          
           {/* Authentication & Database Tests */}
           <div className="grid grid-cols-2 gap-2">
-            <Button onClick={checkAuthState} variant="outline" size="sm" disabled={isLoading}>
+            <Button onClick={checkAuthState} variant="outline" size="sm" disabled={isLoading || isRunningTest}>
               Check Auth State
             </Button>
-            <Button onClick={testDatabaseSave} variant="outline" size="sm" disabled={isLoading || !user}>
+            <Button 
+              onClick={() => debugTestDatabaseSave(pushToken || '')} 
+              variant="outline" 
+              size="sm" 
+              disabled={isLoading || isRunningTest || !user || !pushToken}
+            >
               Test DB Save
             </Button>
           </div>
@@ -402,30 +457,35 @@ export const PushNotificationDebugger = () => {
           {/* Permission & Token Tests */}
           {isNative && (
             <div className="grid grid-cols-2 gap-2">
-              <Button onClick={testPermissions} variant="outline" size="sm" disabled={isLoading}>
-                Test Permissions
-              </Button>
-              <Button onClick={testTokenGeneration} variant="outline" size="sm" disabled={isLoading}>
-                Test Token Generation
-              </Button>
+            <Button onClick={debugTestPermissions} variant="outline" size="sm" disabled={isLoading || isRunningTest}>
+              Test Permissions
+            </Button>
+            <Button onClick={debugTestTokenGeneration} variant="outline" size="sm" disabled={isLoading || isRunningTest}>
+              Test Token Generation
+            </Button>
             </div>
           )}
 
           {/* Notification Tests */}
           <div className="grid grid-cols-3 gap-2">
             {!isRegistered ? (
-              <Button onClick={initializePushNotifications} variant="default" disabled={isLoading}>
+              <Button onClick={initializePushNotifications} variant="default" disabled={isLoading || isRunningTest}>
                 {isLoading ? 'Loading...' : 'Initialize Push'}
               </Button>
             ) : (
               <>
-                <Button onClick={sendTestNotification} variant="outline" size="sm" disabled={isLoading}>
+                <Button onClick={sendTestNotification} variant="outline" size="sm" disabled={isLoading || isRunningTest}>
                   Backend Push
                 </Button>
-                <Button onClick={sendMobileTest} variant="outline" size="sm" disabled={isLoading}>
-                  Mobile Test
+                <Button onClick={testLocalNotification} variant="outline" size="sm" disabled={isLoading || isRunningTest}>
+                  Local Test
                 </Button>
-                <Button onClick={testFcmDirect} variant="outline" size="sm" disabled={!pushToken || isLoading}>
+                <Button 
+                  onClick={() => pushToken && debugTestFcmDirect(pushToken)} 
+                  variant="outline" 
+                  size="sm" 
+                  disabled={!pushToken || isLoading || isRunningTest}
+                >
                   FCM Direct
                 </Button>
               </>
