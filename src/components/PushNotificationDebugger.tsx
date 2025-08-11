@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Separator } from '@/components/ui/separator';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useMobileNotificationManager } from '@/hooks/useMobileNotificationManager';
 import { useMobileNotificationDebugger } from '@/hooks/useMobileNotificationDebugger';
@@ -10,6 +12,23 @@ import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '@/contexts/AuthContext';
 import { Capacitor } from '@capacitor/core';
 import { supabase } from '@/integrations/supabase/client';
+import { PushNotificationSetup } from './PushNotificationSetup';
+import FCMSetupGuide from './FCMSetupGuide';
+import { 
+  Smartphone, 
+  TestTube, 
+  AlertTriangle, 
+  CheckCircle, 
+  XCircle, 
+  Info,
+  RefreshCw,
+  Loader2,
+  Database,
+  MessageSquare,
+  Bell,
+  Zap,
+  Settings
+} from 'lucide-react';
 
 
 export const PushNotificationDebugger = () => {

@@ -210,3 +210,5 @@ export const PushNotificationSetup = () => {
     </Card>
   );
 };
+
+export default PushNotificationSetup;

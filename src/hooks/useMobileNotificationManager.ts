@@ -139,13 +139,11 @@ export const useMobileNotificationManager = () => {
         );
         
         // Send local notification as backup
-        await MobileNotificationManager.showInstantSignalNotification({
+        await MobileNotificationManager.showInstantSignalNotification(
           title,
           body,
-          data: { signalId: signal.id, type: 'new_signal' },
-          sound: profile?.push_sound_enabled !== false,
-          vibrate: profile?.push_vibration_enabled !== false
-        });
+          { signalId: signal.id, type: 'new_signal' }
+        );
       },
       title,
       body
@@ -181,13 +179,11 @@ export const useMobileNotificationManager = () => {
         );
         
         // Send local notification as backup
-        await MobileNotificationManager.showInstantSignalNotification({
+        await MobileNotificationManager.showInstantSignalNotification(
           title,
           body,
-          data: { signalId: signal.id, type: 'target_hit', targetLevel },
-          sound: profile?.push_sound_enabled !== false,
-          vibrate: profile?.push_vibration_enabled !== false
-        });
+          { signalId: signal.id, type: 'target_hit', targetLevel }
+        );
       },
       title,
       body
@@ -222,13 +218,11 @@ export const useMobileNotificationManager = () => {
         );
         
         // Send local notification as backup
-        await MobileNotificationManager.showInstantSignalNotification({
+        await MobileNotificationManager.showInstantSignalNotification(
           title,
           body,
-          data: { signalId: signal.id, type: 'stop_loss' },
-          sound: profile?.push_sound_enabled !== false,
-          vibrate: profile?.push_vibration_enabled !== false
-        });
+          { signalId: signal.id, type: 'stop_loss' }
+        );
       },
       title,
       body
@@ -256,9 +250,9 @@ export const useMobileNotificationManager = () => {
 
     await sendNotificationSafely(
       () => MobileNotificationManager.showSignalOutcomeNotification(
-        signal.symbol,
-        outcome,
-        Math.abs(pips)
+        title,
+        body,
+        { outcome, pips: Math.abs(pips) }
       ),
       title,
       body
@@ -276,13 +270,11 @@ export const useMobileNotificationManager = () => {
     });
 
     await sendNotificationSafely(
-      () => MobileNotificationManager.showInstantSignalNotification({
+      () => MobileNotificationManager.showInstantSignalNotification(
         title,
-        body: message,
-        data: { type: 'market_update', ...data },
-        sound: profile?.push_sound_enabled !== false,
-        vibrate: profile?.push_vibration_enabled !== false
-      }),
+        message,
+        { type: 'market_update', ...data }
+      ),
       title,
       message
     );

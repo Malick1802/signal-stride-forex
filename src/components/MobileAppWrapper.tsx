@@ -64,12 +64,8 @@ const initializeNativeFeatures = async (
     // Initialize notifications safely
     try {
       setInitState({ currentStep: 'Setting up notifications...', progress: 75 });
-      const notificationEnabled = await MobileNotificationManager.initialize();
-      if (notificationEnabled) {
-        console.log('📱 Mobile notifications initialized');
-      } else {
-        console.warn('⚠️ Notifications not available');
-      }
+      await MobileNotificationManager.initialize();
+      console.log('📱 Mobile notifications initialized');
     } catch (error) {
       console.warn('⚠️ Notification initialization failed:', error);
       setInitState({ error: 'Notifications failed (non-critical)' });

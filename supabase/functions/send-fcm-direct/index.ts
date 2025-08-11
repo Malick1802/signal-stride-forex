@@ -16,9 +16,14 @@ serve(async (req) => {
   }
 
   try {
+    console.log('🚀 FCM Direct: Processing request');
+    
     if (!fcmServerKey) {
-      console.error("FCM_SERVER_KEY is not configured");
-      return new Response(JSON.stringify({ error: "FCM server key not configured" }), {
+      console.error("❌ FCM Direct: FCM_SERVER_KEY is not configured");
+      return new Response(JSON.stringify({ 
+        error: "FCM server key not configured",
+        message: "Please configure FCM_SERVER_KEY in Supabase Edge Function secrets"
+      }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -33,8 +38,14 @@ serve(async (req) => {
 
     const { token, title = "Test", body = "FCM direct test", data } = await req.json();
 
+    console.log('📱 FCM Direct: Token received', { 
+      tokenLength: token?.length || 0, 
+      tokenPrefix: token?.substring(0, 30) || 'none'
+    });
+
     if (!token || typeof token !== "string") {
-      return new Response(JSON.stringify({ error: "Missing 'token' in body" }), {
+      console.error('❌ FCM Direct: Invalid token provided');
+      return new Response(JSON.stringify({ error: "Missing or invalid 'token' in body" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -51,8 +62,15 @@ serve(async (req) => {
       data: {
         ...(data || {}),
         _source: "send-fcm-direct",
+        timestamp: Date.now().toString()
       },
+      content_available: true
     };
+
+    console.log('📤 FCM Direct: Sending message', { 
+      title: payload.notification.title,
+      hasData: !!data 
+    });
 
     const fcmRes = await fetch("https://fcm.googleapis.com/fcm/send", {
       method: "POST",
@@ -65,12 +83,20 @@ serve(async (req) => {
 
     const result = await fcmRes.json().catch(() => ({ raw: "no-json" }));
 
-    // Log FCM response for diagnostics
-    console.log("FCM response status:", fcmRes.status);
-    console.log("FCM response body:", result);
+    console.log('📥 FCM Direct: Response received', { 
+      status: fcmRes.status,
+      ok: fcmRes.ok,
+      result: result
+    });
 
     if (!fcmRes.ok) {
-      return new Response(JSON.stringify({ ok: false, status: fcmRes.status, result }), {
+      console.error('❌ FCM Direct: Send failed', result);
+      return new Response(JSON.stringify({ 
+        ok: false, 
+        status: fcmRes.status, 
+        result,
+        error: "FCM send failed"
+      }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -81,13 +107,26 @@ serve(async (req) => {
       ? result.results.find((r: any) => r?.error)
       : undefined;
 
+    if (invalid) {
+      console.warn('⚠️ FCM Direct: Invalid token detected', invalid);
+    }
+
+    console.log('✅ FCM Direct: Message sent successfully');
     return new Response(
-      JSON.stringify({ ok: true, result, invalidTokenError: invalid?.error }),
+      JSON.stringify({ 
+        ok: true, 
+        result, 
+        invalidTokenError: invalid?.error,
+        message: "FCM message sent successfully"
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
-    console.error("Unhandled error in send-fcm-direct:", err);
-    return new Response(JSON.stringify({ error: String(err) }), {
+    console.error("❌ FCM Direct: Exception occurred", err);
+    return new Response(JSON.stringify({ 
+      error: String(err),
+      type: "exception"
+    }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
