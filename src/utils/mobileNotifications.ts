@@ -242,22 +242,20 @@ export class MobileNotificationManager {
     const notificationId = Math.floor(Math.random() * 1000000) + 1;
     console.log('📱 Showing native notification:', { id: notificationId, title: signal.title });
     
-    await LocalNotifications.schedule({
-      notifications: [
-        {
-          title: signal.title,
-          body: signal.body,
-          id: notificationId,
-            sound: signal.sound !== false ? 'default' : undefined,
-            attachments: undefined,
-            actionTypeId: 'FOREX_SIGNAL',
-            extra: signal.data,
-            channelId: 'forex_signals',
-            smallIcon: 'ic_stat_notification',
-            iconColor: '#10b981'
-          }
-        ]
-      });
+        await LocalNotifications.schedule({
+          notifications: [
+            {
+              title: signal.title,
+              body: signal.body,
+              id: notificationId,
+              sound: signal.sound !== false ? 'default' : undefined,
+              attachments: undefined,
+              actionTypeId: 'FOREX_SIGNAL',
+              extra: signal.data,
+              channelId: 'forex_signals'
+            }
+          ]
+        });
       
       console.log('✅ Native notification sent:', signal.title);
     } catch (error) {
@@ -281,19 +279,17 @@ export class MobileNotificationManager {
         const notificationId = Math.floor(Math.random() * 1000000) + 1;
         console.log('📱 Showing native outcome notification:', { id: notificationId, title, outcome });
         
-        await LocalNotifications.schedule({
-          notifications: [
-            {
-              title,
-              body,
-              id: notificationId,
-              sound: 'default',
-              channelId: 'signal_outcomes',
-              smallIcon: 'ic_stat_notification',
-              iconColor: isProfit ? '#10b981' : '#ef4444'
-            }
-          ]
-        });
+          await LocalNotifications.schedule({
+            notifications: [
+              {
+                title,
+                body,
+                id: notificationId,
+                sound: 'default',
+                channelId: 'signal_outcomes'
+              }
+            ]
+          });
         
         console.log('✅ Native signal outcome notification sent:', title);
       } catch (error) {

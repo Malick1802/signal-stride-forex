@@ -92,6 +92,7 @@ export const PushNotificationSettings = () => {
           detectedAPIs.hasLocalNotifications = await MobileNotificationManager.checkNativeNotificationSupport();
           detectedAPIs.hasPushNotifications = await MobileNotificationManager.checkPushNotificationSupport();
           console.log('📱 Native capabilities:', detectedAPIs);
+          
         }
 
         // Always check web capabilities for fallback
@@ -112,6 +113,18 @@ export const PushNotificationSettings = () => {
           isSupported = true;
           useNative = true;
           permission = 'default';
+          
+          // Check actual permissions for native platforms
+          try {
+            const { LocalNotifications } = await import('@capacitor/local-notifications');
+            const currentPermissions = await LocalNotifications.checkPermissions();
+            if (currentPermissions.display === 'granted') {
+              permission = 'granted';
+            }
+          } catch (error) {
+            console.log('❌ Error checking native permissions:', error);
+          }
+          
           console.log('✅ Using native LocalNotifications');
         } else if (detectedAPIs.hasWebNotifications) {
           // Web platform or fallback with browser notifications

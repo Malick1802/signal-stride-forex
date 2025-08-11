@@ -13,10 +13,27 @@ export const usePushNotifications = () => {
   useEffect(() => {
     if (Capacitor.isNativePlatform()) {
       checkRegistrationStatus();
+      
+      // Listen for app state changes to re-check token
+      const setupAppStateListener = async () => {
+        try {
+          const { App } = await import('@capacitor/app');
+          App.addListener('appStateChange', ({ isActive }) => {
+            if (isActive && user) {
+              console.log('🔄 App became active - checking push token');
+              checkRegistrationStatus();
+            }
+          });
+        } catch (error) {
+          console.log('ℹ️ App plugin not available:', error);
+        }
+      };
+      
+      setupAppStateListener();
     }
   }, []);
 
-  // Re-check when user logs in
+  // Re-check when user logs in and fetch from database if needed
   useEffect(() => {
     if (user && Capacitor.isNativePlatform()) {
       checkRegistrationStatus();
@@ -27,10 +44,38 @@ export const usePushNotifications = () => {
         setIsRegistered(true);
         setPushToken(token);
       } else {
-        console.log('ℹ️ No existing push token found after login');
+        console.log('ℹ️ No local push token found - checking database...');
+        // Fetch from database in case token was registered on another session
+        fetchTokenFromDatabase();
       }
     }
   }, [user]);
+
+  const fetchTokenFromDatabase = async () => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('push_token')
+        .eq('id', user.id)
+        .single();
+      
+      if (error) {
+        console.error('❌ Error fetching push token from database:', error);
+        return;
+      }
+      
+      if (data?.push_token) {
+        console.log('✅ Found push token in database');
+        localStorage.setItem('pushToken', data.push_token);
+        setPushToken(data.push_token);
+        setIsRegistered(true);
+      }
+    } catch (error) {
+      console.error('❌ Error fetching push token:', error);
+    }
+  };
 
   const checkRegistrationStatus = async () => {
     try {
