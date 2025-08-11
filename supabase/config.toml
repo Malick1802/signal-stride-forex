@@ -1,1 +1,7 @@
 project_id = "ugtaodrvbpfeyhdgmisn"
+
+[functions.send-push-notification]
+verify_jwt = false
+
+[functions.send-fcm-direct]
+verify_jwt = false

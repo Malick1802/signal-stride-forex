@@ -6,6 +6,8 @@ import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useMobileNotificationManager } from '@/hooks/useMobileNotificationManager';
 import { useProfile } from '@/hooks/useProfile';
 import { Capacitor } from '@capacitor/core';
+import { supabase } from '@/integrations/supabase/client';
+
 
 export const PushNotificationDebugger = () => {
   const { isRegistered, pushToken, permissionError, initializePushNotifications, sendTestNotification } = usePushNotifications();
@@ -14,6 +16,23 @@ export const PushNotificationDebugger = () => {
 
   const isNative = Capacitor.isNativePlatform();
   const platform = Capacitor.getPlatform();
+
+  const testFcmDirect = async () => {
+    if (!pushToken) return;
+    try {
+      const { data, error } = await supabase.functions.invoke('send-fcm-direct', {
+        body: {
+          token: pushToken,
+          title: 'FCM Direct Test',
+          body: 'Testing direct FCM delivery to this device.',
+          data: { source: 'PushNotificationDebugger' }
+        }
+      });
+      console.log('send-fcm-direct result', { data, error });
+    } catch (e) {
+      console.error('send-fcm-direct error', e);
+    }
+  };
 
   return (
     <Card className="w-full max-w-2xl">
@@ -112,6 +131,9 @@ export const PushNotificationDebugger = () => {
               </Button>
               <Button onClick={sendMobileTest} variant="outline">
                 Test Mobile Notification
+              </Button>
+              <Button onClick={testFcmDirect} variant="outline" disabled={!pushToken}>
+                Test FCM Direct
               </Button>
             </>
           )}
