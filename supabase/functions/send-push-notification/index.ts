@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const fcmServerKey = Deno.env.get('FCM_SERVER_KEY');
 
 serve(async (req) => {
@@ -24,7 +24,7 @@ serve(async (req) => {
       throw new Error('FCM server key not configured');
     }
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
     const { title, body, data, userIds, notificationType = 'signal' } = await req.json();
 
     console.log(`📱 Sending push notification: ${title} to ${userIds?.length || 'all'} users`);
