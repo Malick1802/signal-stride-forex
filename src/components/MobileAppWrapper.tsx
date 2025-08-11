@@ -6,6 +6,7 @@ import { MobileNavigationBar } from './MobileNavigationBar';
 import { MobileContentRouter } from './MobileContentRouter';
 import { MobileNotificationManager } from '@/utils/mobileNotifications';
 import MobileErrorBoundary from './MobileErrorBoundary';
+import MobileInitializer from './MobileInitializer';
 import { Capacitor } from '@capacitor/core';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 

@@ -14,6 +14,7 @@ import { Capacitor } from '@capacitor/core';
 import { supabase } from '@/integrations/supabase/client';
 import { PushNotificationSetup } from './PushNotificationSetup';
 import FCMSetupGuide from './FCMSetupGuide';
+import SystemStatusMonitor from './SystemStatusMonitor';
 import { 
   Smartphone, 
   TestTube, 
@@ -293,6 +294,19 @@ export const PushNotificationDebugger = () => {
   };
 
   return (
+    <div className="space-y-6 max-w-6xl mx-auto p-6">
+      <SystemStatusMonitor />
+      
+      <Separator className="my-6" />
+      
+      <PushNotificationSetup />
+      
+      <Separator className="my-6" />
+      
+      <FCMSetupGuide />
+      
+      <Separator className="my-6" />
+
     <Card className="w-full max-w-2xl">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
@@ -527,5 +541,6 @@ export const PushNotificationDebugger = () => {
         </div>
       </CardContent>
     </Card>
+    </div>
   );
 };
