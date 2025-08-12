@@ -66,16 +66,18 @@ export const useExpiredSignals = () => {
 
       // Fetch last 100 COMPLETED signals specifically for average pips calculation
       const { data: completedSignals, error: completedError } = await supabase
-        .from('trading_signals')
+        .from('signal_outcomes')
         .select(`
-          signal_outcomes (
-            pnl_pips,
-            exit_timestamp
+          pnl_pips,
+          exit_timestamp,
+          trading_signals!inner (
+            symbol,
+            type,
+            status
           )
         `)
-        .eq('status', 'expired')
-        .not('signal_outcomes', 'is', null)
-        .order('updated_at', { ascending: false })
+        .eq('trading_signals.status', 'expired')
+        .order('exit_timestamp', { ascending: false })
         .limit(100);
 
       if (error || completedError) {
@@ -199,10 +201,7 @@ export const useExpiredSignals = () => {
         // Calculate average pips specifically from the last 100 COMPLETED signals
         let avgPips = 0;
         if (completedSignals && completedSignals.length > 0) {
-          const completedPips = completedSignals.map(signal => {
-            const outcome = signal.signal_outcomes?.[0];
-            return outcome?.pnl_pips || 0;
-          });
+          const completedPips = completedSignals.map(signal => signal.pnl_pips || 0);
           const totalCompletedPips = completedPips.reduce((sum, pips) => sum + pips, 0);
           avgPips = Math.round(totalCompletedPips / completedSignals.length);
         }
