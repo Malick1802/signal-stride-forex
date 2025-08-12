@@ -5,6 +5,7 @@ import { Carousel, CarouselContent, CarouselItem, CarouselApi } from '@/componen
 
 interface ExpiredSignalsStats {
   totalSignals: number;
+  completedSignalsCount: number;
   winRate: number;
   avgPips: number;
   avgDuration: string;
@@ -25,7 +26,7 @@ const ExpiredSignalsStatsSlider: React.FC<ExpiredSignalsStatsSliderProps> = ({ s
     {
       id: 'completed',
       icon: TrendingUp,
-      value: `${stats.totalSignals}`,
+      value: `${stats.completedSignalsCount}`,
       label: 'Completed Signals',
       color: 'text-emerald-400',
       bgColor: 'bg-emerald-500/10'

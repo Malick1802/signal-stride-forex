@@ -22,6 +22,7 @@ interface ExpiredSignal {
 
 interface ExpiredSignalsStats {
   totalSignals: number;
+  completedSignalsCount: number;
   winRate: number;
   avgPips: number;
   avgDuration: string;
@@ -33,6 +34,7 @@ export const useExpiredSignals = () => {
   const [expiredSignals, setExpiredSignals] = useState<ExpiredSignal[]>([]);
   const [stats, setStats] = useState<ExpiredSignalsStats>({
     totalSignals: 0,
+    completedSignalsCount: 0,
     winRate: 0,
     avgPips: 0,
     avgDuration: '0h 0m',
@@ -223,6 +225,7 @@ export const useExpiredSignals = () => {
 
         setStats({
           totalSignals,
+          completedSignalsCount: completedSignals?.length || 0,
           winRate,
           avgPips,
           avgDuration: `${avgHours}h ${avgMinutes}m`,
