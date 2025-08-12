@@ -46,7 +46,7 @@ export const useExpiredSignals = () => {
     try {
       console.log('📊 Fetching expired signals with outcomes...');
       
-      // Fetch expired signals with their outcomes
+      // Fetch expired signals for display (increased limit)
       const { data: signals, error } = await supabase
         .from('trading_signals')
         .select(`
@@ -62,10 +62,24 @@ export const useExpiredSignals = () => {
         `)
         .eq('status', 'expired')
         .order('updated_at', { ascending: false })
+        .limit(200);
+
+      // Fetch last 100 COMPLETED signals specifically for average pips calculation
+      const { data: completedSignals, error: completedError } = await supabase
+        .from('trading_signals')
+        .select(`
+          signal_outcomes (
+            pnl_pips,
+            exit_timestamp
+          )
+        `)
+        .eq('status', 'expired')
+        .not('signal_outcomes', 'is', null)
+        .order('updated_at', { ascending: false })
         .limit(100);
 
-      if (error) {
-        console.error('❌ Error fetching expired signals:', error);
+      if (error || completedError) {
+        console.error('❌ Error fetching expired signals:', error || completedError);
         toast({
           title: "Database Error",
           description: "Failed to fetch expired signals",
@@ -182,18 +196,22 @@ export const useExpiredSignals = () => {
 
         setExpiredSignals(transformedSignals);
 
-        // Calculate statistics - Average pips now correctly uses profit-level pips when available
+        // Calculate average pips specifically from the last 100 COMPLETED signals
+        let avgPips = 0;
+        if (completedSignals && completedSignals.length > 0) {
+          const completedPips = completedSignals.map(signal => {
+            const outcome = signal.signal_outcomes?.[0];
+            return outcome?.pnl_pips || 0;
+          });
+          const totalCompletedPips = completedPips.reduce((sum, pips) => sum + pips, 0);
+          avgPips = Math.round(totalCompletedPips / completedSignals.length);
+        }
+
+        // Calculate other statistics from all displayed signals
         const totalSignals = transformedSignals.length;
         const wins = transformedSignals.filter(s => s.result === 'WIN').length;
         const losses = transformedSignals.filter(s => s.result === 'LOSS').length;
         const winRate = totalSignals > 0 ? Math.round((wins / totalSignals) * 100) : 0;
-        
-        // Calculate average pips using the corrected pip values
-        const totalPips = transformedSignals.reduce((sum, signal) => {
-          const pipsValue = parseInt(signal.pips.replace(/[^\d-]/g, ''));
-          return sum + (isNaN(pipsValue) ? 0 : pipsValue);
-        }, 0);
-        const avgPips = totalSignals > 0 ? Math.round(totalPips / totalSignals) : 0;
 
         // Calculate average duration
         const totalDurationMs = transformedSignals.reduce((sum, signal) => {
@@ -213,7 +231,7 @@ export const useExpiredSignals = () => {
           losses
         });
 
-        console.log(`✅ Loaded ${totalSignals} expired signals - Wins: ${wins}, Losses: ${losses}, Win Rate: ${winRate}%, Avg Pips: ${avgPips >= 0 ? '+' : ''}${avgPips}`);
+        console.log(`✅ Loaded ${totalSignals} expired signals - Wins: ${wins}, Losses: ${losses}, Win Rate: ${winRate}%, Avg Pips: ${avgPips >= 0 ? '+' : ''}${avgPips} (from ${completedSignals?.length || 0} completed signals)`);
       }
     } catch (error) {
       console.error('❌ Error fetching expired signals:', error);
