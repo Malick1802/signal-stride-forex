@@ -293,6 +293,30 @@ export type Database = {
           },
         ]
       }
+      ai_analysis_cache: {
+        Row: {
+          last_analyzed_at: string
+          last_confidence: number | null
+          last_decision: string | null
+          last_hash: string | null
+          symbol: string
+        }
+        Insert: {
+          last_analyzed_at?: string
+          last_confidence?: number | null
+          last_decision?: string | null
+          last_hash?: string | null
+          symbol: string
+        }
+        Update: {
+          last_analyzed_at?: string
+          last_confidence?: number | null
+          last_decision?: string | null
+          last_hash?: string | null
+          symbol?: string
+        }
+        Relationships: []
+      }
       cached_signals: {
         Row: {
           cached_at: string
