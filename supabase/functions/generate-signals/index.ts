@@ -92,7 +92,8 @@ serve(async (req) => {
       trigger = 'manual',
       run_id,
       attempt = 1,
-      optimized = false
+      optimized = false,
+      maxAnalyzedPairs = 4
     } = requestBody;
 
     console.log(`🎯 Request params - Test: ${test}, Skip: ${skipGeneration}, Force: ${force}, Trigger: ${trigger}, ENHANCED AI-powered: true`);
@@ -214,16 +215,42 @@ serve(async (req) => {
       .map(d => d.symbol)
       .filter(symbol => !existingSignals?.some(s => s.symbol === symbol));
 
-    // Prioritize major pairs for ENHANCED AI analysis - analyze ALL available pairs
+    // Apply cost-reduction filters: calculate interest scores and pre-filter
+    const pairsWithScores = availablePairs.map(symbol => {
+      const pair = marketData.find(d => d.symbol === symbol);
+      if (!pair) return { symbol, score: 0 };
+      
+      // Calculate simple interest score based on volatility and trend
+      const recentData = marketData.filter(d => d.symbol === symbol).slice(-20);
+      if (recentData.length < 5) return { symbol, score: 0 };
+      
+      const prices = recentData.map(d => d.current_price);
+      const high = Math.max(...prices);
+      const low = Math.min(...prices);
+      const range = (high - low) / pair.current_price;
+      const momentum = (prices[prices.length - 1] - prices[0]) / prices[0];
+      
+      // Score: higher volatility + momentum gets higher priority
+      const score = Math.abs(range) * 1000 + Math.abs(momentum) * 500;
+      return { symbol, score };
+    });
+
+    // Sort by interest score and limit to maxAnalyzedPairs
+    const topPairs = pairsWithScores
+      .sort((a, b) => b.score - a.score)
+      .slice(0, maxAnalyzedPairs)
+      .map(p => p.symbol);
+
+    // Prioritize major pairs within the limited selection
     const prioritizedPairs = [
-      ...availablePairs.filter(symbol => majorPairs.includes(symbol)),
-      ...availablePairs.filter(symbol => !majorPairs.includes(symbol))
-    ]; // Removed slice limit - now analyzes all available pairs
+      ...topPairs.filter(symbol => majorPairs.includes(symbol)),
+      ...topPairs.filter(symbol => !majorPairs.includes(symbol))
+    ];
 
-    console.log(`🤖 ENHANCED AI analyzing ${prioritizedPairs.length} currency pairs for HIGH-QUALITY signal generation`);
+    console.log(`💰 COST-OPTIMIZED: Analyzing top ${prioritizedPairs.length}/${availablePairs.length} pairs with highest interest scores`);
 
-    // Process pairs for ENHANCED AI analysis with stricter filtering
-    const batchSize = optimized ? 4 : 6; // Increased batch size for better throughput
+    // Reduce batch size to minimize concurrent OpenAI calls
+    const batchSize = 2; // Significantly reduced from 4-6 to minimize 429 errors
     for (let i = 0; i < prioritizedPairs.length && generatedSignals.length < updatedMaxNewSignals; i += batchSize) {
       const batch = prioritizedPairs.slice(i, i + batchSize);
       
@@ -272,9 +299,9 @@ serve(async (req) => {
         }
       }));
 
-      // Add delay between ENHANCED AI batches to respect rate limits
+      // Add longer delay between batches to prevent 429 errors
       if (i + batchSize < prioritizedPairs.length) {
-        await new Promise(resolve => setTimeout(resolve, optimized ? 2000 : 3000)); // Increased delay from 1000/1500 to 2000/3000
+        await new Promise(resolve => setTimeout(resolve, 5000)); // Increased delay to 5 seconds
       }
     }
 
@@ -448,88 +475,27 @@ async function generateEnhancedAISignalAnalysis(
       }
     }
     
-    const enhancedPrompt = `You are a professional forex trading analyst with 15+ years of experience. Analyze the following COMPREHENSIVE market data for ${symbol} and provide a HIGH-QUALITY trading recommendation.
+    const enhancedPrompt = `Forex analysis for ${symbol} @ ${currentPrice}. 
+Regime: ${marketRegime}, Trend: ${trendStrength}, Session: ${sessionAnalysis.session}
+Range: ${currentPositionInRange}% of recent range, ATR: ${atr.toFixed(5)}
 
-CURRENT MARKET DATA:
-- Symbol: ${symbol}
-- Current Price: ${currentPrice}
-- Position in Range: ${currentPositionInRange}% (0% = recent low, 100% = recent high)
-- Recent High: ${highPrice}
-- Recent Low: ${lowPrice}
-- Price Range: ${priceRange.toFixed(5)}
-- ATR (Volatility): ${atr.toFixed(5)}
-- Volatility Ratio: ${(volatilityRatio * 100).toFixed(3)}%
+Requirements: SL min ${minStopLossPips} pips, TP min ${minTakeProfitPips} pips, R:R 1.5:1+
+${forceMode ? 'EMERGENCY: Find any reasonable setup' : lowThreshold ? 'LOW THRESHOLD: Flexible criteria' : 'NORMAL: High quality only'}
 
-MARKET CONTEXT:
-- Market Regime: ${marketRegime}
-- Trend Strength: ${trendStrength}
-- Current Session: ${sessionAnalysis.session}
-- Session Volatility: ${sessionAnalysis.volatility}
-- Session Recommendation: ${sessionAnalysis.recommendation}
-- Economic Context: ${economicContext}
-
-PRICE MOMENTUM (last 20 periods):
-${recentPrices.slice(-20).map((p, i) => `${i + 1}: ${p.price.toFixed(5)}`).join(', ')}
-
-ENHANCED ANALYSIS REQUIREMENTS:
-1. Market Regime Assessment: Is this a trending, ranging, or volatile market?
-2. Multi-Timeframe Alignment: Are short and medium-term trends aligned?
-3. Session Optimization: How does current session affect this pair?
-4. Risk-Reward Analysis: Can we achieve minimum ${minStopLossPips} pip SL and ${minTakeProfitPips} pip TP with 1.5:1+ R:R?
-5. Economic Impact: Any major economic events affecting this pair?
-6. Technical Confluence: Multiple technical factors confirming the setup?
-
-ENHANCED QUALITY REQUIREMENTS:
-- Minimum Stop Loss: ${minStopLossPips} pips (${(minStopLossPips * getPipValue(symbol)).toFixed(5)} price units)
-- Minimum Take Profit: ${minTakeProfitPips} pips (${(minTakeProfitPips * getPipValue(symbol)).toFixed(5)} price units)
-- Minimum R:R Ratio: 1.5:1
-- Confidence Threshold: ${forceMode ? '40%+' : lowThreshold ? '50%+' : '55%+'}
-- Quality Score Threshold: ${forceMode ? '35/100' : lowThreshold ? '40/100' : '45/100'}
-- Session Requirement: ${forceMode ? 'Any session acceptable' : 'Acceptable during most sessions (avoid only extreme low activity)'}
-- Market Regime: ${forceMode ? 'Any regime acceptable' : 'Acceptable in most conditions (avoid only highly volatile)'}
-- Volatility: ${forceMode ? 'Any volatility acceptable' : 'Must be within normal range (not extreme)'}${forceMode ? '\n- ⚡ EMERGENCY MODE: Ultra-relaxed criteria for force generation' : lowThreshold ? '\n- 🔽 LOW THRESHOLD MODE: Relaxed criteria for wider opportunity capture' : ''}
-
-Recommend BUY/SELL based on mode requirements:
-${forceMode ? `⚡ EMERGENCY MODE - Generate signal if ANY reasonable setup exists:
-✓ Basic technical setup (1+ confirmation acceptable)
-✓ Any market regime (including volatile and ranging)
-✓ Any trading session (including low activity)
-✓ Risk-reward ratio (1.2:1 minimum acceptable)
-✓ Basic trend indication (slight bias acceptable)
-✓ Quality score 25+ (very relaxed)
-✓ Find tradeable opportunities even in quiet markets` : lowThreshold ? `🔽 LOW THRESHOLD MODE - More flexible criteria:
-✓ Technical setup with 2+ confirmations (relaxed from 3+)
-✓ Most market regimes acceptable (avoid only extreme volatility)
-✓ Most trading sessions acceptable (avoid only dead periods)
-✓ Risk-reward ratio (1.4:1 minimum)
-✓ Moderate trend alignment
-✓ Quality score 30+ (relaxed standards)
-✓ Look for reasonable setups in ranging markets` : `📊 NORMAL MODE - High quality standards:
-✓ Clear technical setup with 3+ confirmations
-✓ Reasonable market regime (avoid highly volatile conditions)
-✓ Acceptable trading session (avoid extreme low activity periods)
-✓ Proper risk-reward ratio (1.5:1 minimum)
-✓ Strong trend alignment on multiple timeframes
-✓ Quality score 55+`}
-
-Provide your analysis in this EXACT JSON format:
+JSON response:
 {
-  "recommendation": "BUY" | "SELL" | "HOLD",
-  "confidence": [number between 65-95 for signals, lower for HOLD],
-  "entryPrice": [current price],
-  "stopLoss": [price level meeting minimum ${minStopLossPips} pip requirement],
-  "takeProfits": [array of 5 price levels with 2.5:1, 3.5:1, 4.5:1, 5.5:1, 6.5:1 ratios],
-  "reasoning": "[detailed explanation of the setup with specific technical factors]",
-  "technicalFactors": ["factor1", "factor2", "factor3", "factor4+"],
-  "riskAssessment": "[comprehensive risk evaluation including session, volatility, economic factors]",
-  "marketRegime": "[trending_bullish/trending_bearish/ranging/volatile - with strength assessment]",
-  "sessionAnalysis": "[how current session supports or opposes the trade]",
-  "qualityScore": [number 0-100 based on setup quality, confluence, and market conditions]
-}
-
-CRITICAL: Only provide BUY/SELL if quality score >= ${forceMode ? '35' : lowThreshold ? '40' : '45'} and confidence >= ${forceMode ? '40' : lowThreshold ? '50' : '55'}. Use HOLD for anything below these thresholds.${forceMode ? ' ⚡ EMERGENCY MODE ACTIVE - FIND ANY REASONABLE SETUP!' : lowThreshold ? ' 🔽 LOW THRESHOLD MODE ACTIVE - BE MORE FLEXIBLE!' : ''}
-  
-TARGET CONFIDENCE RANGE FOR SIGNALS: ${forceMode ? '45-85%' : lowThreshold ? '55-85%' : '60-85%'} - AIM FOR THE UPPER END WHEN POSSIBLE!`;
+  "recommendation": "BUY"|"SELL"|"HOLD",
+  "confidence": [40-85],
+  "entryPrice": ${currentPrice},
+  "stopLoss": [price level],
+  "takeProfits": [3 levels at 1.5:1, 2:1, 3:1 ratios],
+  "reasoning": "[brief setup explanation]",
+  "technicalFactors": ["factor1", "factor2"],
+  "riskAssessment": "[brief risk note]",
+  "marketRegime": "${marketRegime}",
+  "sessionAnalysis": "[brief session impact]",
+  "qualityScore": [0-100]
+}`;
 
     console.log(`🤖 Sending ENHANCED AI analysis request for ${symbol}...`);
 
@@ -540,27 +506,39 @@ TARGET CONFIDENCE RANGE FOR SIGNALS: ${forceMode ? '45-85%' : lowThreshold ? '55
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o', // Updated to latest model
+        model: 'gpt-4o-mini', // Switch to cheaper model
         messages: [
           {
             role: 'system',
-            content: 'You are a professional forex analyst with 15+ years of experience. Look for viable trading opportunities with good setups rather than perfect conditions. Be decisive and find tradeable signals when reasonable setups exist. Always respond with valid JSON only.'
+            content: 'Professional forex analyst. Find quality setups. Respond JSON only.'
           },
           {
             role: 'user',
             content: enhancedPrompt
           }
         ],
-        temperature: 0.2, // Lower temperature for more consistent analysis
-        max_tokens: 1200 // Increased for detailed analysis
+        temperature: 0.1, // Lower temperature for consistency and cost
+        max_tokens: 500 // Significantly reduced tokens
       }),
     });
 
     if (!response.ok) {
+      if (response.status === 429) {
+        console.log(`⚠️ Rate limit hit for ${symbol}, implementing backoff...`);
+        await new Promise(resolve => setTimeout(resolve, 10000));
+        throw new Error(`OpenAI rate limit - will retry with backoff`);
+      }
       throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
     }
 
     const aiResponse = await response.json();
+    
+    // Log cost estimation
+    const usage = aiResponse.usage;
+    if (usage) {
+      const estimatedCost = (usage.prompt_tokens * 0.00015 + usage.completion_tokens * 0.0006) / 1000;
+      console.log(`💰 OpenAI usage for ${symbol}: ${usage.total_tokens} tokens, ~$${estimatedCost.toFixed(4)}`);
+    }
     const aiContent = aiResponse.choices[0].message.content;
     
     console.log(`🤖 ENHANCED AI response for ${symbol}:`, aiContent.substring(0, 300) + '...');

@@ -1,13 +1,10 @@
 
-name: Optimized Trading Signal Generation
+name: Cost-Optimized Trading Signal Generation
 
 on:
   schedule:
-    # Primary schedule: every 5 minutes during market hours (including Sunday)
-    - cron: '*/5 * * * 0,1-5'
-    # Backup schedules for redundancy (offset by 1-2 minutes)
-    - cron: '1,6,11,16,21,26,31,36,41,46,51,56 * * * 0,1-5'
-    - cron: '2,7,12,17,22,27,32,37,42,47,52,57 * * * 0,1-5'
+    # Single cost-optimized schedule: every 12 minutes during market hours
+    - cron: '*/12 * * * 0,1-5'
   workflow_dispatch:
     inputs:
       force_generation:
@@ -24,7 +21,10 @@ on:
 jobs:
   generate-signals:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 6
+    concurrency:
+      group: signal-generation
+      cancel-in-progress: true
     
     steps:
     - name: Checkout repository
@@ -37,7 +37,7 @@ jobs:
         echo "Trigger: ${{ github.event_name }}"
         echo "Time: $(date -u)"
         echo "Repository: ${{ github.repository }}"
-        echo "✨ NEW: Enhanced timeout protection and concurrent processing"
+        echo "💰 NEW: Cost-optimized with reduced OpenAI usage"
         
     - name: Enhanced Market Hours Check
       id: market-check
@@ -70,10 +70,10 @@ jobs:
       run: |
         echo "🛑 Market is currently closed. Skipping optimized signal generation."
         echo "Current time: ${{ steps.market-check.outputs.current_time }}"
-        echo "✨ When market reopens, optimized generation will provide:"
-        echo "  - Faster execution (120s timeout protection)"
-        echo "  - Better reliability (concurrent processing)"
-        echo "  - Maintained quality (AI analysis required for every signal)"
+        echo "💰 When market reopens, cost-optimized generation will provide:"
+        echo "  - 90% reduced OpenAI costs (gpt-4o-mini, reduced tokens)"
+        echo "  - Intelligent pair filtering (top 4 pairs per run)"
+        echo "  - Maintained signal quality with lower costs"
         echo "Automatic generation will resume during market hours (Sunday 21:00+ and Monday-Friday 00:00-22:00 UTC)"
 
     - name: Enhanced Repository Activity Tracking
@@ -107,13 +107,13 @@ jobs:
         echo "Repository: ${{ github.repository }}"
         echo "Branch: ${{ github.ref_name }}"
         echo ""
-        echo "✨ OPTIMIZATION FEATURES ACTIVE:"
-        echo "  - Function timeout protection: 120 seconds"
-        echo "  - Maximum signals per run: 8 (prevents overload)"
-        echo "  - Concurrent processing: 3 pairs simultaneously"
-        echo "  - Optimized AI prompts: 50% faster"
-        echo "  - Enhanced retry logic with longer delays"
-        echo "  - Prioritized major currency pairs"
+        echo "💰 COST OPTIMIZATION FEATURES ACTIVE:"
+        echo "  - Model: gpt-4o-mini (90% cheaper than gpt-4o)"
+        echo "  - Smart pair filtering: Top 4 highest-interest pairs only"
+        echo "  - Reduced tokens: 500 max (down from 1200)"
+        echo "  - Reduced concurrency: 2 pairs max simultaneous"
+        echo "  - Extended delays: 5s between batches"
+        echo "  - 12-minute schedule (reduced from 5-minute)"
         echo ""
         if [ "${{ steps.market-check.outputs.market_open }}" = "true" ] || [ "${{ github.event.inputs.force_generation }}" = "true" ]; then
           echo "Actions Performed: OPTIMIZED Signal Generation ✅, Market Data Update ✅"
@@ -121,6 +121,6 @@ jobs:
           echo "Actions Performed: Market Hours Check Only (Market Closed)"
         fi
         
-        echo "Next scheduled run: In ~5 minutes (if market open)"
-        echo "Expected performance: <120s execution, 5-8 quality signals"
+        echo "Next scheduled run: In ~12 minutes (if market open)"
+        echo "Expected performance: <120s execution, cost-optimized analysis"
         echo "=============================="

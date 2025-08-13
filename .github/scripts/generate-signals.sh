@@ -4,26 +4,26 @@
 # Enhanced Trading Signal Generation Script
 # Parameters: SUPABASE_URL, SUPABASE_ANON_KEY, DEBUG_MODE, GITHUB_RUN_ID
 
-echo "🤖 Starting OPTIMIZED GitHub Actions signal generation..."
-echo "✨ NEW FEATURES:"
-echo "  - 120-second timeout protection"
-echo "  - Maximum 8 signals per run (prevents overload)"
-echo "  - Concurrent processing (3 pairs simultaneously)"
-echo "  - Optimized AI prompts (-50% token usage)"
-echo "  - Prioritized major currency pairs"
-echo "  - Enhanced error handling and recovery"
+echo "💰 Starting COST-OPTIMIZED GitHub Actions signal generation..."
+echo "💰 COST REDUCTION FEATURES:"
+echo "  - 90% cheaper OpenAI model (gpt-4o-mini)"
+echo "  - Smart filtering: Top 4 pairs only per run"
+echo "  - 60% fewer tokens per analysis"
+echo "  - Reduced concurrency and longer delays"
+echo "  - 12-minute schedule (down from 5-minute)"
+echo "  - Cost logging for monitoring"
 echo "Workflow: $GITHUB_WORKFLOW"
 echo "Run number: $GITHUB_RUN_NUMBER"
 
 start_time=$(date +%s)
 
-# Enhanced signal generation with optimized retry logic
-max_retries=3
+# Cost-optimized signal generation with reduced retry logic
+max_retries=2
 retry_count=0
 success=false
 
 while [ $retry_count -lt $max_retries ] && [ "$success" = false ]; do
-  echo "🔄 Optimized attempt $((retry_count + 1)) of $max_retries"
+  echo "🔄 Cost-optimized attempt $((retry_count + 1)) of $max_retries"
   
   response=$(curl -s -w "\n%{http_code}" -X POST \
     "$SUPABASE_URL/functions/v1/generate-signals" \
@@ -31,9 +31,9 @@ while [ $retry_count -lt $max_retries ] && [ "$success" = false ]; do
     -H "Content-Type: application/json" \
     -H "apikey: $SUPABASE_ANON_KEY" \
     -H "X-GitHub-Run-ID: $GITHUB_RUN_ID" \
-    -H "X-Optimized-Mode: true" \
-    -d "{\"trigger\": \"github_actions\", \"run_id\": \"$GITHUB_RUN_ID\", \"attempt\": $((retry_count + 1)), \"optimized\": true}" \
-    --max-time 150)
+    -H "X-Cost-Optimized: true" \
+    -d "{\"trigger\": \"github_actions\", \"run_id\": \"$GITHUB_RUN_ID\", \"attempt\": $((retry_count + 1)), \"optimized\": true, \"maxAnalyzedPairs\": 4}" \
+    --max-time 120)
   
   # Extract HTTP status code and response
   http_code=$(echo "$response" | tail -n1)
@@ -65,9 +65,9 @@ while [ $retry_count -lt $max_retries ] && [ "$success" = false ]; do
   else
     retry_count=$((retry_count + 1))
     if [ $retry_count -lt $max_retries ]; then
-      echo "⚠️ Optimized attempt failed (status $http_code), retrying in 15 seconds..."
+      echo "⚠️ Cost-optimized attempt failed (status $http_code), retrying in 10 seconds..."
       echo "Response: $response_body"
-      sleep 15
+      sleep 10
     else
       echo "❌ All optimized attempts failed. Final status: $http_code"
       echo "Response: $response_body"
