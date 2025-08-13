@@ -93,7 +93,8 @@ serve(async (req) => {
       run_id,
       attempt = 1,
       optimized = false,
-      maxAnalyzedPairs = 4
+      maxAnalyzedPairs = 27, // Analyze ALL pairs by default
+      fullCoverage = true
     } = requestBody;
 
     console.log(`🎯 Request params - Test: ${test}, Skip: ${skipGeneration}, Force: ${force}, Trigger: ${trigger}, ENHANCED AI-powered: true`);
@@ -155,8 +156,8 @@ serve(async (req) => {
     }
 
     const currentSignalCount = existingSignals?.length || 0;
-    const maxSignals = 15; // Reduced from 20 to 15
-    const maxNewSignals = optimized ? Math.min(5, maxSignals - currentSignalCount) : Math.min(8, maxSignals - currentSignalCount); // Increased to 5-8 for more analysis
+    const maxSignals = 20; // Increased back to 20 for full coverage
+    const maxNewSignals = fullCoverage ? Math.min(12, maxSignals - currentSignalCount) : Math.min(8, maxSignals - currentSignalCount); // Higher signal generation capacity
 
     console.log(`📋 ENHANCED AI Signal status - Current: ${currentSignalCount}/${maxSignals}, Can generate: ${maxNewSignals}, ENHANCED AI-powered mode`);
 
@@ -215,12 +216,12 @@ serve(async (req) => {
       .map(d => d.symbol)
       .filter(symbol => !existingSignals?.some(s => s.symbol === symbol));
 
-    // Apply cost-reduction filters: calculate interest scores and pre-filter
+    // Quality-First Full Coverage: analyze all pairs with intelligent prioritization
     const pairsWithScores = availablePairs.map(symbol => {
       const pair = marketData.find(d => d.symbol === symbol);
       if (!pair) return { symbol, score: 0 };
       
-      // Calculate simple interest score based on volatility and trend
+      // Enhanced scoring algorithm for quality prioritization
       const recentData = marketData.filter(d => d.symbol === symbol).slice(-20);
       if (recentData.length < 5) return { symbol, score: 0 };
       
@@ -230,79 +231,94 @@ serve(async (req) => {
       const range = (high - low) / pair.current_price;
       const momentum = (prices[prices.length - 1] - prices[0]) / prices[0];
       
-      // Score: higher volatility + momentum gets higher priority
-      const score = Math.abs(range) * 1000 + Math.abs(momentum) * 500;
+      // Enhanced scoring: volatility + momentum + major pair bonus
+      const volatilityScore = Math.abs(range) * 1000;
+      const momentumScore = Math.abs(momentum) * 500;
+      const majorPairBonus = majorPairs.includes(symbol) ? 200 : 0;
+      const score = volatilityScore + momentumScore + majorPairBonus;
+      
       return { symbol, score };
     });
 
-    // Sort by interest score and limit to maxAnalyzedPairs
-    const topPairs = pairsWithScores
+    // Sort by enhanced score - analyze all pairs unless limited
+    const allSortedPairs = pairsWithScores
       .sort((a, b) => b.score - a.score)
-      .slice(0, maxAnalyzedPairs)
       .map(p => p.symbol);
+    
+    const pairsToAnalyze = fullCoverage ? allSortedPairs : allSortedPairs.slice(0, maxAnalyzedPairs);
 
-    // Prioritize major pairs within the limited selection
+    // Prioritize major pairs first for better quality signals
     const prioritizedPairs = [
-      ...topPairs.filter(symbol => majorPairs.includes(symbol)),
-      ...topPairs.filter(symbol => !majorPairs.includes(symbol))
+      ...pairsToAnalyze.filter(symbol => majorPairs.includes(symbol)),
+      ...pairsToAnalyze.filter(symbol => !majorPairs.includes(symbol))
     ];
 
-    console.log(`💰 COST-OPTIMIZED: Analyzing top ${prioritizedPairs.length}/${availablePairs.length} pairs with highest interest scores`);
+    console.log(`🔥 FULL COVERAGE MODE: Analyzing ${prioritizedPairs.length}/${availablePairs.length} pairs with quality-first prioritization`);
 
-    // Reduce batch size to minimize concurrent OpenAI calls
-    const batchSize = 2; // Significantly reduced from 4-6 to minimize 429 errors
+    // Intelligent batching with progressive delays for rate limit management
+    const batchSize = 1; // Sequential processing for maximum reliability
     for (let i = 0; i < prioritizedPairs.length && generatedSignals.length < updatedMaxNewSignals; i += batchSize) {
       const batch = prioritizedPairs.slice(i, i + batchSize);
       
-      await Promise.all(batch.map(async (symbol) => {
+      // Sequential processing with intelligent delays
+      for (const symbol of batch) {
         if (generatedSignals.length >= updatedMaxNewSignals) return;
 
         try {
           const pair = marketData.find(d => d.symbol === symbol);
-          if (!pair || !pair.current_price) return;
+          if (!pair || !pair.current_price) continue;
 
-          console.log(`🤖 ENHANCED AI analyzing ${symbol} - Price: ${pair.current_price}`);
+          console.log(`🤖 ENHANCED AI analyzing ${symbol} - Price: ${pair.current_price} (${i + 1}/${prioritizedPairs.length})`);
 
           // Get historical price data with extended history
           const historicalData = await getHistoricalPriceData(supabase, symbol);
-          if (!historicalData || historicalData.length < 100) { // Increased minimum data requirement
-            console.log(`⚠️ Insufficient historical data for ENHANCED AI analysis ${symbol}: ${historicalData?.length || 0} points`);
-            return;
+          if (!historicalData || historicalData.length < 100) {
+            console.log(`⚠️ Insufficient historical data for ${symbol}: ${historicalData?.length || 0} points`);
+            continue;
           }
 
-          // Generate ENHANCED AI-powered signal analysis with market context
+          // Generate AI-powered signal analysis with enhanced quality targeting
           const aiAnalysis = await generateEnhancedAISignalAnalysis(openAIApiKey, pair, historicalData, lowThreshold, force);
           
-          // June working thresholds - consistent throughout function
-          const qualityThreshold = force ? 35 : (lowThreshold ? 40 : 55);
-          const confidenceThreshold = force ? 40 : (lowThreshold ? 50 : 65);
+          // Raised quality thresholds to match your successful 65/100 signal
+          const qualityThreshold = force ? 35 : (lowThreshold ? 45 : 65); // Raised from 55 to 65
+          const confidenceThreshold = force ? 40 : (lowThreshold ? 55 : 70); // Raised from 65 to 70
           
           if (!aiAnalysis || aiAnalysis.recommendation === 'HOLD' || aiAnalysis.qualityScore < qualityThreshold) {
-            console.log(`🤖 ${symbol} ENHANCED AI recommendation: ${aiAnalysis?.recommendation || 'HOLD'} - Quality score: ${aiAnalysis?.qualityScore || 0} - No signal generated (threshold: ${qualityThreshold}) [${force ? 'EMERGENCY' : lowThreshold ? 'LOW' : 'NORMAL'} MODE]`);
-            return;
+            console.log(`🤖 ${symbol} AI recommendation: ${aiAnalysis?.recommendation || 'HOLD'} - Quality: ${aiAnalysis?.qualityScore || 0}/${qualityThreshold} - No signal generated`);
+            continue;
           }
 
-          console.log(`🤖 ${symbol} ENHANCED AI recommendation: ${aiAnalysis.recommendation} (${aiAnalysis.confidence}% confidence, Quality: ${aiAnalysis.qualityScore})`);
+          console.log(`🤖 ${symbol} AI recommendation: ${aiAnalysis.recommendation} (${aiAnalysis.confidence}% confidence, Quality: ${aiAnalysis.qualityScore}/100)`);
 
           const signal = await convertEnhancedAIAnalysisToSignal(pair, aiAnalysis, historicalData, lowThreshold);
 
-          // Quality filter - accept signals based on mode
+          // Enhanced quality filter for premium signals
           if (signal && signal.confidence >= confidenceThreshold && aiAnalysis.qualityScore >= qualityThreshold) {
             generatedSignals.push(signal);
-            console.log(`✅ Generated AI ${signal.type} signal for ${symbol} (${signal.confidence}% confidence, Quality: ${aiAnalysis.qualityScore}) - Thresholds: C${confidenceThreshold}%, Q${qualityThreshold} [${force ? 'EMERGENCY' : lowThreshold ? 'LOW' : 'NORMAL'} MODE]`);
+            console.log(`✅ QUALITY SIGNAL: ${signal.type} ${symbol} (${signal.confidence}% confidence, ${aiAnalysis.qualityScore}/100 quality)`);
           } else {
-            console.log(`❌ ${symbol} AI signal generation failed - Quality standards not met (Confidence: ${signal?.confidence || 0}/${confidenceThreshold}%, Quality: ${aiAnalysis.qualityScore}/${qualityThreshold}) [${force ? 'EMERGENCY' : lowThreshold ? 'LOW' : 'NORMAL'} MODE]`);
+            console.log(`❌ ${symbol} below quality standards (C:${signal?.confidence || 0}/${confidenceThreshold}%, Q:${aiAnalysis.qualityScore}/${qualityThreshold})`);
           }
         } catch (error) {
-          console.error(`❌ Error in ENHANCED AI analysis for ${symbol}:`, error);
+          console.error(`❌ Error analyzing ${symbol}:`, error);
           errors.push(`${symbol}: ${error.message}`);
+          
+          // Rate limit handling with exponential backoff
+          if (error.message.includes('rate limit')) {
+            console.log(`⏱️ Rate limit detected, implementing 15-second backoff...`);
+            await new Promise(resolve => setTimeout(resolve, 15000));
+          }
         }
-      }));
-
-      // Add longer delay between batches to prevent 429 errors
-      if (i + batchSize < prioritizedPairs.length) {
-        await new Promise(resolve => setTimeout(resolve, 5000)); // Increased delay to 5 seconds
+        
+        // Progressive delay between pairs to manage rate limits
+        const delayMs = i < 5 ? 8000 : i < 15 ? 12000 : 16000; // Longer delays for later pairs
+        if (i + 1 < prioritizedPairs.length) {
+          console.log(`⏱️ Intelligent delay: ${delayMs/1000}s before next analysis...`);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
       }
+
     }
 
     console.log(`🤖 ENHANCED AI signal generation complete - Generated: ${generatedSignals.length}, Errors: ${errors.length}`);
@@ -506,7 +522,7 @@ JSON response:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini', // Switch to cheaper model
+        model: 'gpt-4.1-2025-04-14', // Latest flagship model for higher quality
         messages: [
           {
             role: 'system',
@@ -517,15 +533,15 @@ JSON response:
             content: enhancedPrompt
           }
         ],
-        temperature: 0.1, // Lower temperature for consistency and cost
-        max_tokens: 500 // Significantly reduced tokens
+        temperature: 0.2, // Balanced temperature for quality analysis
+        max_tokens: 800 // Increased tokens for detailed analysis
       }),
     });
 
     if (!response.ok) {
       if (response.status === 429) {
-        console.log(`⚠️ Rate limit hit for ${symbol}, implementing backoff...`);
-        await new Promise(resolve => setTimeout(resolve, 10000));
+        console.log(`⚠️ Rate limit hit for ${symbol}, implementing enhanced backoff...`);
+        await new Promise(resolve => setTimeout(resolve, 20000)); // Longer backoff for flagship model
         throw new Error(`OpenAI rate limit - will retry with backoff`);
       }
       throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
@@ -558,9 +574,9 @@ JSON response:
       }
       
       if (analysis.recommendation !== 'HOLD') {
-        // June working thresholds - consistent with main function
-        const confidenceThreshold = forceMode ? 40 : (lowThreshold ? 50 : 65);
-        const qualityThreshold = forceMode ? 35 : (lowThreshold ? 40 : 55);
+        // Enhanced quality thresholds to match successful 65/100 signals
+        const confidenceThreshold = forceMode ? 40 : (lowThreshold ? 55 : 70);
+        const qualityThreshold = forceMode ? 35 : (lowThreshold ? 45 : 65);
         
         if (analysis.confidence < confidenceThreshold || analysis.confidence > 95) {
           console.log(`🤖 ${symbol} AI confidence ${analysis.confidence}% below threshold ${confidenceThreshold}% - converting to HOLD`);
@@ -701,7 +717,7 @@ async function convertEnhancedAIAnalysisToSignal(
   lowThreshold: boolean = false
 ): Promise<SignalData | null> {
   try {
-    const qualityThreshold = lowThreshold ? 40 : 55;
+    const qualityThreshold = lowThreshold ? 45 : 65; // Raised to match successful signals
     if (aiAnalysis.recommendation === 'HOLD' || aiAnalysis.qualityScore < qualityThreshold) {
       return null;
     }
