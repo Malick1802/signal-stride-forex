@@ -1,9 +1,8 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { ChartContainer } from '@/components/ui/chart';
+import React, { useState, useEffect } from 'react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { ChartContainer, ChartTooltip, ChartTooltipContent } from '@/components/ui/chart';
 import { useRealTimeMarketData } from '@/hooks/useRealTimeMarketData';
-import CandlestickChart from '@/components/charts/Candlestick';
-import { bucketTicksToOHLC, getPriceExtent } from '@/utils/ohlc';
 
 interface TradingChartProps {
   selectedPair: string;
@@ -31,15 +30,10 @@ const TradingChart = ({ selectedPair, onPairChange, availablePairs }: TradingCha
 
   const { change, percentage } = getPriceChange();
 
-  const candles = useMemo(() => bucketTicksToOHLC(priceData), [priceData]);
-  const { min, max } = useMemo(() => getPriceExtent(candles), [candles]);
-  const pad = (max - min) * 0.1 || 0.0005;
-  const yDomain: [number, number] = [min - pad, max + pad];
-
   const chartConfig = {
     price: {
       label: "Price",
-      color: change >= 0 ? "hsl(var(--chart-2))" : "hsl(var(--destructive))",
+      color: change >= 0 ? "#10b981" : "#ef4444",
     },
   };
 
@@ -101,12 +95,38 @@ const TradingChart = ({ selectedPair, onPairChange, availablePairs }: TradingCha
         </div>
 
         <ChartContainer config={chartConfig}>
-          <CandlestickChart
-            data={candles}
-            yDomain={yDomain}
-            positiveColor="hsl(var(--chart-2))"
-            negativeColor="hsl(var(--destructive))"
-          />
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={priceData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+              <XAxis 
+                dataKey="time" 
+                stroke="rgba(255,255,255,0.5)"
+                fontSize={10}
+                interval="preserveStartEnd"
+              />
+              <YAxis 
+                stroke="rgba(255,255,255,0.5)"
+                fontSize={10}
+                domain={['dataMin - 0.001', 'dataMax + 0.001']}
+                tickFormatter={formatPrice}
+              />
+              <ChartTooltip 
+                content={<ChartTooltipContent 
+                  formatter={(value: any) => [formatPrice(Number(value)), 'Price']}
+                  labelFormatter={(label) => `Time: ${label}`}
+                />} 
+              />
+              <Line
+                type="monotone"
+                dataKey="price"
+                stroke={change >= 0 ? "#10b981" : "#ef4444"}
+                strokeWidth={2}
+                dot={false}
+                connectNulls
+                isAnimationActive={false}
+              />
+            </LineChart>
+          </ResponsiveContainer>
         </ChartContainer>
       </div>
 
