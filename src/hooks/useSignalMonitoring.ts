@@ -119,11 +119,17 @@ export const useSignalMonitoring = () => {
       let hasNewTargetHit = false;
       let shouldExpire = false;
 
-      // Check stop loss hit
-      if (signal.type === 'BUY') {
-        hitStopLoss = currentPrice <= signal.stopLoss;
+      // Check stop loss hit with directional guard
+      const invalidSL = (signal.type === 'BUY' && signal.stopLoss >= signal.entryPrice) || (signal.type === 'SELL' && signal.stopLoss <= signal.entryPrice);
+      if (!invalidSL) {
+        if (signal.type === 'BUY') {
+          hitStopLoss = currentPrice <= signal.stopLoss;
+        } else {
+          hitStopLoss = currentPrice >= signal.stopLoss;
+        }
       } else {
-        hitStopLoss = currentPrice >= signal.stopLoss;
+        console.warn(`⚠️ Ignoring invalid SL direction for ${signal.symbol} ${signal.type} (entry ${signal.entryPrice}, SL ${signal.stopLoss})`);
+        hitStopLoss = false;
       }
 
       // Check take profit hits
@@ -189,19 +195,20 @@ export const useSignalMonitoring = () => {
       shouldExpire = hitStopLoss || allTargetsHit;
 
       if (shouldExpire) {
-        // Calculate final outcome
+        // Calculate final outcome with stop-loss precedence
         let finalExitPrice = currentPrice;
-        let isSuccessful = allTargetsHit;
+        let isSuccessful = false;
         let finalNotes = '';
         
-        if (allTargetsHit) {
-          const highestHitTarget = Math.max(...newTargetsHit);
-          finalExitPrice = signal.takeProfits[highestHitTarget - 1];
-          finalNotes = `All Take Profits Hit - Target ${highestHitTarget}`;
-        } else if (hitStopLoss) {
+        if (hitStopLoss) {
           finalExitPrice = signal.stopLoss;
           isSuccessful = false;
           finalNotes = 'Stop Loss Hit';
+        } else if (allTargetsHit) {
+          const highestHitTarget = Math.max(...newTargetsHit);
+          finalExitPrice = signal.takeProfits[highestHitTarget - 1];
+          isSuccessful = true;
+          finalNotes = `All Take Profits Hit - Target ${highestHitTarget}`;
         }
         
         // Calculate P&L

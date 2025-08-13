@@ -82,6 +82,13 @@ export const useEnhancedSignalMonitoring = () => {
   ): boolean => {
     if (!currentPrice || currentPrice <= 0) return false;
 
+    // Directional sanity check: ignore invalid SL configurations
+    if ((signal.type === 'BUY' && signal.stopLoss >= signal.entryPrice) ||
+        (signal.type === 'SELL' && signal.stopLoss <= signal.entryPrice)) {
+      Logger.warn('monitoring', `Ignoring invalid SL direction for ${signal.symbol} ${signal.type} (entry ${signal.entryPrice}, SL ${signal.stopLoss})`);
+      return false;
+    }
+
     const stopLossCrossed = signal.type === 'BUY' 
       ? currentPrice <= signal.stopLoss
       : currentPrice >= signal.stopLoss;
@@ -210,7 +217,7 @@ export const useEnhancedSignalMonitoring = () => {
       Logger.info('monitoring', `Processing outcome: ${signal.symbol} - SL: ${stopLossHit}, All TP: ${allTargetsHit}`);
 
       // PHASE 1 FIX: Always expire signal immediately when condition is met
-      const reason = allTargetsHit ? 'all_targets_hit' : 'stop_loss_hit';
+      const reason = stopLossHit ? 'stop_loss_hit' : 'all_targets_hit';
       const expireSuccess = await expireSignalImmediately(signal.id, reason, targetsHit);
       
       if (!expireSuccess) {
@@ -235,7 +242,11 @@ export const useEnhancedSignalMonitoring = () => {
       let isSuccessful = false;
       let outcomeNotes = '';
       
-      if (allTargetsHit || targetsHit.length > 0) {
+      if (stopLossHit) {
+        finalExitPrice = signal.stopLoss;
+        isSuccessful = false;
+        outcomeNotes = 'Stop Loss Hit (Enhanced Validated)';
+      } else if (allTargetsHit || targetsHit.length > 0) {
         const highestHitTarget = Math.max(...targetsHit);
         finalExitPrice = signal.takeProfits[highestHitTarget - 1];
         
@@ -257,10 +268,6 @@ export const useEnhancedSignalMonitoring = () => {
           outcomeNotes = `Invalid TP Hit Detected - Stop Loss Applied (${pnlPips} pips)`;
           Logger.error('monitoring', `Invalid TP hit for ${signal.id}: ${pnlPips} pips`);
         }
-      } else if (stopLossHit) {
-        finalExitPrice = signal.stopLoss;
-        isSuccessful = false;
-        outcomeNotes = 'Stop Loss Hit (Enhanced Validated)';
       }
 
       // Calculate final P&L with validation

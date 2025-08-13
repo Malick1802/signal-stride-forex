@@ -723,19 +723,45 @@ async function convertEnhancedAIAnalysisToSignal(
   lowThreshold: boolean = false
 ): Promise<SignalData | null> {
   try {
-    // June working thresholds - consistent throughout function
     const qualityThreshold = lowThreshold ? 40 : 55;
     if (aiAnalysis.recommendation === 'HOLD' || aiAnalysis.qualityScore < qualityThreshold) {
+      return null;
+    }
+
+    // Directional and numeric validation to prevent invalid signals
+    const entry = Number(aiAnalysis.entryPrice);
+    const sl = Number(aiAnalysis.stopLoss);
+    const tpsRaw = Array.isArray(aiAnalysis.takeProfits) ? aiAnalysis.takeProfits : [];
+    const tps = tpsRaw.map((n: any) => Number(n)).filter((n: number) => Number.isFinite(n));
+
+    if (!Number.isFinite(entry) || entry <= 0) return null;
+    if (!Number.isFinite(sl)) return null;
+
+    const isBuy = aiAnalysis.recommendation === 'BUY';
+
+    // Enforce correct stop-loss direction
+    if ((isBuy && sl >= entry) || (!isBuy && sl <= entry)) {
+      console.log(`❌ Discarding ${pair.symbol} ${aiAnalysis.recommendation}: invalid stop loss direction (entry ${entry}, SL ${sl})`);
+      return null;
+    }
+
+    // Keep only TPs on the correct side of entry and sort properly
+    const filteredTPs = tps
+      .filter((tp: number) => (isBuy ? tp > entry : tp < entry))
+      .sort((a: number, b: number) => (isBuy ? a - b : b - a));
+
+    if (filteredTPs.length === 0) {
+      console.log(`❌ Discarding ${pair.symbol} ${aiAnalysis.recommendation}: no valid take profits on correct side of entry`);
       return null;
     }
 
     const signal: SignalData = {
       symbol: pair.symbol,
       type: aiAnalysis.recommendation,
-      price: aiAnalysis.entryPrice,
+      price: entry,
       pips: 0, // New signals start with 0 pips
-      stopLoss: aiAnalysis.stopLoss,
-      takeProfits: aiAnalysis.takeProfits,
+      stopLoss: sl,
+      takeProfits: filteredTPs,
       confidence: aiAnalysis.confidence,
       analysisText: `ENHANCED AI-powered ${aiAnalysis.recommendation} signal for ${pair.symbol}. ${aiAnalysis.reasoning} Technical factors: ${aiAnalysis.technicalFactors.join(', ')}. Risk assessment: ${aiAnalysis.riskAssessment} Market regime: ${aiAnalysis.marketRegime}. Session analysis: ${aiAnalysis.sessionAnalysis}. Quality Score: ${aiAnalysis.qualityScore}/100`,
       technicalIndicators: {
