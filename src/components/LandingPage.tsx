@@ -4,6 +4,11 @@ import { TrendingUp, Star, Users, Shield, TrendingDown, Clock } from 'lucide-rea
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import heroTradingImage from '@/assets/hero-trading.jpg';
+import aiSignalsImage from '@/assets/ai-signals.jpg';
+import mobileAlertsImage from '@/assets/mobile-alerts.jpg';
+import riskManagementImage from '@/assets/risk-management.jpg';
+import expertAnalysisImage from '@/assets/expert-analysis.jpg';
 
 interface Stat {
   label: string;
@@ -48,25 +53,29 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
       icon: TrendingUp,
       title: 'AI-Powered Signals',
       description: 'Advanced algorithms analyze market data to identify high-probability trading opportunities in real-time.',
-      color: 'bg-emerald-500/20 text-emerald-400'
+      color: 'bg-emerald-500/20 text-emerald-400',
+      image: aiSignalsImage
     },
     {
       icon: Clock,
       title: 'Real-Time Alerts',
       description: 'Get instant notifications on your mobile device when new signals are available.',
-      color: 'bg-blue-500/20 text-blue-400'
+      color: 'bg-blue-500/20 text-blue-400',
+      image: mobileAlertsImage
     },
     {
       icon: Shield,
       title: 'Risk Management',
       description: 'Every signal includes stop-loss and take-profit levels to help manage your trading risk.',
-      color: 'bg-purple-500/20 text-purple-400'
+      color: 'bg-purple-500/20 text-purple-400',
+      image: riskManagementImage
     },
     {
       icon: Users,
       title: 'Expert Analysis',
       description: 'Benefit from insights of experienced forex traders and market analysts.',
-      color: 'bg-orange-500/20 text-orange-400'
+      color: 'bg-orange-500/20 text-orange-400',
+      image: expertAnalysisImage
     }
   ];
 
@@ -153,10 +162,20 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
       </header>
 
       {/* Hero Section - Mobile Optimized */}
-      <section className="px-4 py-12 text-center">
-        <div className="max-w-4xl mx-auto">
+      <section className="relative px-4 py-12 text-center overflow-hidden">
+        {/* Hero Background Image */}
+        <div className="absolute inset-0 z-0">
+          <img 
+            src={heroTradingImage} 
+            alt="Professional forex trading workspace" 
+            className="w-full h-full object-cover opacity-30"
+          />
+          <div className="absolute inset-0 bg-gradient-to-br from-slate-900/80 via-blue-900/70 to-slate-800/80"></div>
+        </div>
+        
+        <div className="relative z-10 max-w-4xl mx-auto">
           {/* Live Status Indicator */}
-          <div className="inline-flex items-center space-x-2 bg-emerald-500/20 px-4 py-2 rounded-full mb-6">
+          <div className="inline-flex items-center space-x-2 bg-emerald-500/20 backdrop-blur-sm px-4 py-2 rounded-full mb-6 border border-emerald-500/30">
             <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
             <span className="text-emerald-400 text-sm font-medium">Live Trading Signals</span>
           </div>
@@ -174,7 +193,7 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
             <Button
               onClick={handleAuthNavigation}
               size="lg"
-              className="bg-gradient-to-r from-emerald-500 to-blue-500 hover:shadow-lg hover:shadow-emerald-500/25 text-lg px-8 py-4 rounded-xl"
+              className="bg-gradient-to-r from-emerald-500 to-blue-500 hover:shadow-lg hover:shadow-emerald-500/25 text-lg px-8 py-4 rounded-xl backdrop-blur-sm"
             >
               Start Free Trial
             </Button>
@@ -182,7 +201,7 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
             <Button
               onClick={handleDashboardNavigation}
               size="lg"
-              className="bg-gradient-to-r from-emerald-500 to-blue-500 hover:shadow-lg hover:shadow-emerald-500/25 text-lg px-8 py-4 rounded-xl"
+              className="bg-gradient-to-r from-emerald-500 to-blue-500 hover:shadow-lg hover:shadow-emerald-500/25 text-lg px-8 py-4 rounded-xl backdrop-blur-sm"
             >
               Open Dashboard
             </Button>
@@ -229,13 +248,27 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
             {features.map((feature, index) => {
               const IconComponent = feature.icon;
               return (
-                <Card key={index} className="bg-white/5 backdrop-blur-sm border-white/10 hover:bg-white/10 transition-all duration-200">
-                  <CardContent className="p-6">
-                    <div className={`inline-flex items-center justify-center w-12 h-12 rounded-xl ${feature.color} mb-4`}>
-                      <IconComponent className="h-6 w-6" />
+                <Card key={index} className="bg-white/5 backdrop-blur-sm border-white/10 hover:bg-white/10 transition-all duration-200 overflow-hidden group">
+                  <CardContent className="p-0">
+                    {/* Feature Image */}
+                    <div className="relative h-32 overflow-hidden">
+                      <img 
+                        src={feature.image} 
+                        alt={feature.title} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        loading="lazy"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
+                      <div className={`absolute top-4 left-4 inline-flex items-center justify-center w-12 h-12 rounded-xl ${feature.color} backdrop-blur-sm`}>
+                        <IconComponent className="h-6 w-6" />
+                      </div>
                     </div>
-                    <h3 className="text-lg font-semibold text-white mb-3">{feature.title}</h3>
-                    <p className="text-gray-300 leading-relaxed">{feature.description}</p>
+                    
+                    {/* Feature Content */}
+                    <div className="p-6">
+                      <h3 className="text-lg font-semibold text-white mb-3">{feature.title}</h3>
+                      <p className="text-gray-300 leading-relaxed">{feature.description}</p>
+                    </div>
                   </CardContent>
                 </Card>
               );
@@ -245,9 +278,19 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
       </section>
 
       {/* CTA Section - Mobile Optimized */}
-      <section className="px-4 py-16">
-        <div className="max-w-4xl mx-auto text-center">
-          <Card className="bg-gradient-to-r from-emerald-500/10 to-blue-500/10 backdrop-blur-sm border-emerald-500/20">
+      <section className="relative px-4 py-16 overflow-hidden">
+        {/* CTA Background with subtle overlay */}
+        <div className="absolute inset-0 z-0">
+          <img 
+            src={heroTradingImage} 
+            alt="Trading success background" 
+            className="w-full h-full object-cover opacity-20"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-emerald-900/60 to-blue-900/60"></div>
+        </div>
+        
+        <div className="relative z-10 max-w-4xl mx-auto text-center">
+          <Card className="bg-gradient-to-r from-emerald-500/10 to-blue-500/10 backdrop-blur-md border-emerald-500/20 border-2">
             <CardContent className="p-8">
               <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
                 Ready to Start Trading?
@@ -262,7 +305,7 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
                     <Button
                       onClick={handleAuthNavigation}
                       size="lg"
-                      className="bg-gradient-to-r from-emerald-500 to-blue-500 hover:shadow-lg hover:shadow-emerald-500/25 text-lg px-8 py-4 rounded-xl w-full sm:w-auto"
+                      className="bg-gradient-to-r from-emerald-500 to-blue-500 hover:shadow-lg hover:shadow-emerald-500/25 text-lg px-8 py-4 rounded-xl w-full sm:w-auto backdrop-blur-sm"
                     >
                       Start Free Trial
                     </Button>
@@ -274,7 +317,7 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
                   <Button
                     onClick={handleDashboardNavigation}
                     size="lg"
-                    className="bg-gradient-to-r from-emerald-500 to-blue-500 hover:shadow-lg hover:shadow-emerald-500/25 text-lg px-8 py-4 rounded-xl w-full sm:w-auto"
+                    className="bg-gradient-to-r from-emerald-500 to-blue-500 hover:shadow-lg hover:shadow-emerald-500/25 text-lg px-8 py-4 rounded-xl w-full sm:w-auto backdrop-blur-sm"
                   >
                     Go to Dashboard
                   </Button>
