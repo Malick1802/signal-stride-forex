@@ -2,6 +2,13 @@ import { Capacitor } from '@capacitor/core';
 
 export class MobileNotificationManager {
   /**
+   * Generate a safe notification ID for Android compatibility
+   * Java int max value is 2,147,483,647
+   */
+  private static generateSafeId(): number {
+    return Math.floor(Date.now() % 2147483647);
+  }
+  /**
    * Send a test local notification
    */
   static async testNotification(): Promise<void> {
@@ -24,7 +31,7 @@ export class MobileNotificationManager {
           {
             title: '🧪 Test Notification',
             body: 'Your local notifications are working correctly!',
-            id: Date.now(),
+            id: this.generateSafeId(),
             schedule: { at: new Date(Date.now() + 1000) }, // 1 second from now
             sound: 'default',
             attachments: undefined,
@@ -201,7 +208,7 @@ export class MobileNotificationManager {
           {
             title,
             body,
-            id: Date.now(),
+            id: this.generateSafeId(),
             schedule: { at: new Date(Date.now() + 100) },
             sound: 'default',
             attachments: undefined,
@@ -237,7 +244,7 @@ export class MobileNotificationManager {
           {
             title,
             body,
-            id: Date.now(),
+            id: this.generateSafeId(),
             schedule: { at: new Date(Date.now() + 100) },
             sound: 'default',
             attachments: undefined,
