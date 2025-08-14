@@ -5,25 +5,16 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
     
-    <group android:scaleX="0.5"
-           android:scaleY="0.5"
-           android:translateX="27"
-           android:translateY="27">
+    <group android:scaleX="0.6"
+           android:scaleY="0.6"
+           android:translateX="21.6"
+           android:translateY="21.6">
         
-        <!-- Curved trending arrow like stock market chart -->
+        <!-- Clean upward arrow -->
         <path
-            android:fillColor="#4ECDC4"
-            android:pathData="M20,70 Q30,60 40,55 Q50,50 60,40 Q70,30 80,25 L85,20 L80,15 L75,20 L70,25 Q60,35 50,40 Q40,45 30,50 Q25,55 20,65 Z"
+            android:fillColor="#10b981"
+            android:pathData="M54,20 L35,45 L45,45 L45,80 L63,80 L63,45 L73,45 Z"
             android:strokeWidth="0"/>
-        
-        <!-- Curved trend line body -->
-        <path
-            android:fillColor="#4ECDC4"
-            android:pathData="M20,70 Q30,65 40,60 Q50,55 60,45 Q70,35 80,30"
-            android:strokeWidth="6"
-            android:strokeColor="#4ECDC4"
-            android:strokeLineCap="round"
-            android:strokeLineJoin="round"/>
         
     </group>
 </vector>
