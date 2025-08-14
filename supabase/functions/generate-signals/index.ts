@@ -280,9 +280,9 @@ serve(async (req) => {
           // Generate HYBRID TIER AI analysis with cost optimization
           const aiAnalysis = await generateHybridTierAnalysis(openAIApiKey, pair, historicalData, lowThreshold, force);
           
-          // Raised quality thresholds to match your successful 65/100 signal
-          const qualityThreshold = force ? 35 : (lowThreshold ? 45 : 65); // Raised from 55 to 65
-          const confidenceThreshold = force ? 40 : (lowThreshold ? 55 : 70); // Raised from 65 to 70
+          // Relaxed quality thresholds for more automatic signal generation
+          const qualityThreshold = force ? 35 : (lowThreshold ? 40 : 50); // Lowered from 65 to 50
+          const confidenceThreshold = force ? 40 : (lowThreshold ? 50 : 60); // Lowered from 70 to 60
           
           if (!aiAnalysis || aiAnalysis.recommendation === 'HOLD' || aiAnalysis.qualityScore < qualityThreshold) {
             console.log(`🤖 ${symbol} AI recommendation: ${aiAnalysis?.recommendation || 'HOLD'} - Quality: ${aiAnalysis?.qualityScore || 0}/${qualityThreshold} - No signal generated`);
@@ -380,7 +380,7 @@ serve(async (req) => {
         maxNewSignalsPerRun: optimized ? 4 : 6,
         enhancedAI: true,
         qualityFiltered: true,
-        minimumQualityScore: force ? 35 : (lowThreshold ? 40 : 55),
+        minimumQualityScore: force ? 35 : (lowThreshold ? 40 : 50),
         concurrentLimit: batchSize,
         errors: errors.length > 0 ? errors.slice(0, 3) : undefined
       },
@@ -651,8 +651,8 @@ Quick JSON analysis:
     
     // Determine if this should be escalated to Tier 3
     const shouldEscalate = analysis.recommendation !== 'HOLD' && 
-                          analysis.confidence >= 65 && 
-                          (analysis.qualityScore || 0) >= 60;
+                          analysis.confidence >= 60 && 
+                          (analysis.qualityScore || 0) >= 50;
     
     if (shouldEscalate) {
       console.log(`⬆️ ESCALATING: ${symbol} from Tier 2 to Tier 3 (C:${analysis.confidence}%, Q:${analysis.qualityScore || 0})`);
@@ -710,7 +710,7 @@ Market Context:
 Technical Requirements:
 - Stop Loss: minimum 30 pips
 - Take Profits: minimum 30 pips, R:R 1.5:1+
-- Quality threshold: ${forceMode ? 35 : (lowThreshold ? 45 : 65)}
+- Quality threshold: ${forceMode ? 35 : (lowThreshold ? 40 : 50)}
 
 Comprehensive JSON analysis:
 {
@@ -775,8 +775,8 @@ Comprehensive JSON analysis:
     }
     
     if (analysis.recommendation !== 'HOLD') {
-      const confidenceThreshold = forceMode ? 40 : (lowThreshold ? 55 : 70);
-      const qualityThreshold = forceMode ? 35 : (lowThreshold ? 45 : 65);
+      const confidenceThreshold = forceMode ? 40 : (lowThreshold ? 50 : 60);
+      const qualityThreshold = forceMode ? 35 : (lowThreshold ? 40 : 50);
       
       // Quality validation
       if (analysis.confidence < confidenceThreshold || analysis.confidence > 95) {
@@ -915,7 +915,7 @@ async function convertEnhancedAIAnalysisToSignal(
   lowThreshold: boolean = false
 ): Promise<SignalData | null> {
   try {
-    const qualityThreshold = lowThreshold ? 45 : 65; // Raised to match successful signals
+    const qualityThreshold = lowThreshold ? 40 : 50; // Relaxed for more signal generation
     if (aiAnalysis.recommendation === 'HOLD' || aiAnalysis.qualityScore < qualityThreshold) {
       return null;
     }
