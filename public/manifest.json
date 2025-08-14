@@ -12,18 +12,18 @@
   "lang": "en",
   "icons": [
     {
-      "src": "/android-chrome-192x192.png",
+      "src": "/lovable-uploads/5cb710d6-c2c0-4a1b-a359-6d70ccb9800c.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/android-chrome-192x192.png",
+      "src": "/lovable-uploads/5cb710d6-c2c0-4a1b-a359-6d70ccb9800c.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable any"
     },
     {
-      "src": "/android-chrome-512x512.png",
+      "src": "/lovable-uploads/5cb710d6-c2c0-4a1b-a359-6d70ccb9800c.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable any"
@@ -37,7 +37,7 @@
       "url": "/?shortcut=signals",
       "icons": [
         {
-          "src": "/favicon.ico",
+          "src": "/lovable-uploads/5cb710d6-c2c0-4a1b-a359-6d70ccb9800c.png",
           "sizes": "96x96"
         }
       ]
@@ -49,7 +49,7 @@
       "url": "/?shortcut=market",
       "icons": [
         {
-          "src": "/favicon.ico",
+          "src": "/lovable-uploads/5cb710d6-c2c0-4a1b-a359-6d70ccb9800c.png",
           "sizes": "96x96"
         }
       ]
