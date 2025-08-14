@@ -5,16 +5,63 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
     
-    <group android:scaleX="0.6"
-           android:scaleY="0.6"
-           android:translateX="21.6"
-           android:translateY="21.6">
+    <group android:scaleX="0.4"
+           android:scaleY="0.4"
+           android:translateX="32.4"
+           android:translateY="32.4">
         
-        <!-- Clean upward arrow -->
+        <!-- Modern forex chart background -->
         <path
             android:fillColor="#10b981"
-            android:pathData="M54,20 L35,45 L45,45 L45,80 L63,80 L63,45 L73,45 Z"
-            android:strokeWidth="0"/>
+            android:pathData="M15,60 L25,45 L35,50 L45,35 L55,40 L65,25 L75,30 L85,20 L95,25"
+            android:strokeWidth="6"
+            android:strokeColor="#10b981"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"/>
+        
+        <!-- Chart data points -->
+        <circle
+            android:fillColor="#10b981"
+            android:cx="25"
+            android:cy="45"
+            android:radius="3"/>
+        <circle
+            android:fillColor="#10b981"
+            android:cx="45"
+            android:cy="35"
+            android:radius="3"/>
+        <circle
+            android:fillColor="#10b981"
+            android:cx="65"
+            android:cy="25"
+            android:radius="3"/>
+        <circle
+            android:fillColor="#10b981"
+            android:cx="85"
+            android:cy="20"
+            android:radius="3"/>
+        
+        <!-- Stylized dollar symbol -->
+        <path
+            android:fillColor="#10b981"
+            android:pathData="M54,80 C49,80 45,76 45,71 C45,66 49,62 54,62 C59,62 63,66 63,71 C63,76 59,80 54,80 Z"
+            android:strokeWidth="2"
+            android:strokeColor="#10b981"/>
+        <path
+            android:fillColor="#10b981"
+            android:pathData="M54,58 L54,52 M54,88 L54,82"
+            android:strokeWidth="3"
+            android:strokeColor="#10b981"
+            android:strokeLineCap="round"/>
+        
+        <!-- Upward arrow indicating growth -->
+        <path
+            android:fillColor="#10b981"
+            android:pathData="M90,15 L95,10 L100,15 M95,10 L95,25"
+            android:strokeWidth="3"
+            android:strokeColor="#10b981"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"/>
         
     </group>
 </vector>
