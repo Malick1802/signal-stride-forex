@@ -71,21 +71,6 @@ git pull && npm run build && npx cap sync && npx cap run android
 ```
 
 ## Troubleshooting
-
-### Build Issues
-If you encounter "Duplicate resources" errors during build:
-```bash
-# Clean Android build cache
-cd android && ./gradlew clean && cd ..
-# Sync and build
-npx cap sync && npx cap run android
-```
-
-### App Updates Not Showing
 - If changes don't appear, ensure you ran `npm run build` before `npx cap sync`
 - Clear app data on your phone if needed: Settings > Apps > ForexAlert > Storage > Clear Data
 - Check that your Android device is connected and recognized by `adb devices`
-
-### Icon Issues Fixed
-✅ Resolved duplicate Android app icon resources (.png/.webp conflicts)
-✅ Added proper foreground icons for all densities
