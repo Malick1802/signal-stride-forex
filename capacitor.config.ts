@@ -3,7 +3,7 @@ import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'app.lovable.da46b9852e6844b390bc922d481bf104',
-  appName: 'ForexAlert',
+  appName: 'Forex Alert',
   webDir: 'dist',
   // Use local bundled files instead of development server
   // server: {
