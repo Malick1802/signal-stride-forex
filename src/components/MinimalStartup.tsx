@@ -14,96 +14,55 @@ export const MinimalStartup: React.FC<MinimalStartupProps> = ({ onStartupComplet
     let isMounted = true;
     let startupTimeout: NodeJS.Timeout;
 
-    const ultraMinimalStartup = async () => {
+  const ultraMinimalStartup = async () => {
       try {
-        console.log('🚀 Crash-safe startup sequence beginning...');
+        console.log('🚀 Ultra-minimal startup (no splash screen handling)');
         
         if (!isMounted) return;
 
-        // Step 1: Immediate UI feedback
+        // Step 1: Platform detection only
         setStep('Starting...');
-        setProgress(20);
+        setProgress(30);
         
-        // Minimal delay for UI rendering
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Tiny delay for UI
+        await new Promise(resolve => setTimeout(resolve, 50));
         
         if (!isMounted) return;
 
-        if (Capacitor.isNativePlatform()) {
-          console.log('📱 Native platform detected:', Capacitor.getPlatform());
-          
-          setStep('Initializing...');
-          setProgress(50);
-          
-          // Very safe delay before attempting splash screen
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          if (!isMounted) return;
-
-          // Safe splash screen handling with multiple fallbacks
-          try {
-            setStep('Loading...');
-            setProgress(80);
-            
-            // Import dynamically to avoid early initialization issues
-            const { SplashScreen } = await import('@capacitor/splash-screen');
-            
-            // Additional safety delay
-            await new Promise(resolve => setTimeout(resolve, 300));
-            
-            if (!isMounted) return;
-
-            // Try the safest approach first - just hide without options
-            await SplashScreen.hide();
-            console.log('✅ Splash screen hidden safely');
-            
-          } catch (error) {
-            console.warn('⚠️ Splash screen hide failed, continuing anyway:', error);
-            // Don't try fallbacks - just continue, splash will auto-hide
-          }
-        } else {
-          console.log('🌐 Web platform - quick initialization');
-          setStep('Loading...');
-          setProgress(80);
-          await new Promise(resolve => setTimeout(resolve, 100));
-        }
-
-        if (!isMounted) return;
-
+        // Step 2: Ready immediately
         setStep('Ready!');
         setProgress(100);
         
-        // Final short delay
+        // Minimal delay before completion
         await new Promise(resolve => setTimeout(resolve, 100));
         
         if (isMounted) {
-          console.log('✅ Crash-safe startup completed');
+          console.log('✅ Ultra-minimal startup completed');
           onStartupComplete();
         }
 
       } catch (error) {
-        console.error('❌ Startup error (recovering):', error);
+        console.error('❌ Startup error (force continuing):', error);
         
-        // Emergency recovery - always try to continue
+        // Emergency recovery - always continue
         if (isMounted) {
-          setStep('Recovering...');
           setTimeout(() => {
             if (isMounted) {
-              console.log('🔄 Emergency recovery - force continuing');
+              console.log('🔄 Force continuing despite error');
               onStartupComplete();
             }
-          }, 300);
+          }, 100);
         }
       }
     };
 
-    // Set a shorter timeout as final safety net
+    // Set a very short timeout as final safety net
     startupTimeout = setTimeout(() => {
       if (isMounted) {
         console.warn('⚠️ Startup timeout - emergency start');
         onStartupComplete();
       }
-    }, 3000);
+    }, 1000);
 
     ultraMinimalStartup();
 

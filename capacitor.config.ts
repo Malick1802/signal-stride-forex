@@ -3,26 +3,20 @@ import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'app.lovable.da46b9852e6844b390bc922d481bf104',
-  appName: 'Forex Alert',
+  appName: 'signal-stride-forex',
   webDir: 'dist',
-  // Use local bundled files instead of development server
-  // server: {
-  //   url: 'https://da46b985-2e68-44b3-90bc-922d481bf104.lovableproject.com?forceHideBadge=true',
-  //   androidScheme: 'https',
-  //   iosScheme: 'https'
-  // },
+  server: {
+    url: "https://da46b985-2e68-44b3-90bc-922d481bf104.lovableproject.com?forceHideBadge=true",
+    cleartext: true
+  },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 2000,
+      launchShowDuration: 0,
       launchAutoHide: true,
-      launchFadeOutDuration: 200,
-      backgroundColor: '#0f172a',
+      backgroundColor: "#0f172a",
       showSpinner: false,
-      androidSpinnerStyle: 'small',
-      iosSpinnerStyle: 'small',
-      spinnerColor: '#10b981',
-      splashFullScreen: false,
-      splashImmersive: false
+      splashFullScreen: true,
+      splashImmersive: true
     },
     StatusBar: {
       style: 'dark',
