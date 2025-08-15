@@ -22,8 +22,8 @@ export const MobileNavigationBar: React.FC<MobileNavigationBarProps> = ({
   const tabs = [
     { id: 'signals', icon: TrendingUp, label: 'Signals' },
     { id: 'expired', icon: BarChart3, label: 'Expired' },
-    { id: 'diagnostics', icon: Settings, label: 'Tools' },
-    { id: 'testing', icon: Bell, label: 'Test' }
+    { id: 'subscription', icon: Bell, label: 'Account' },
+    { id: 'diagnostics', icon: Settings, label: 'Tools' }
   ];
 
   return (

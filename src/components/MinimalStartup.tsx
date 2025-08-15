@@ -14,55 +14,99 @@ export const MinimalStartup: React.FC<MinimalStartupProps> = ({ onStartupComplet
     let isMounted = true;
     let startupTimeout: NodeJS.Timeout;
 
-  const ultraMinimalStartup = async () => {
+    const ultraMinimalStartup = async () => {
       try {
-        console.log('🚀 Ultra-minimal startup (no splash screen handling)');
+        console.log('🚀 Ultra-minimal startup sequence beginning...');
         
         if (!isMounted) return;
 
-        // Step 1: Platform detection only
+        // Step 1: Immediate UI feedback
         setStep('Starting...');
-        setProgress(30);
+        setProgress(10);
         
-        // Tiny delay for UI
+        // Give React time to render
         await new Promise(resolve => setTimeout(resolve, 50));
         
         if (!isMounted) return;
 
-        // Step 2: Ready immediately
+        if (Capacitor.isNativePlatform()) {
+          console.log('📱 Native platform detected:', Capacitor.getPlatform());
+          
+          setStep('Initializing...');
+          setProgress(30);
+          
+          // Wait a bit longer before hiding splash
+          await new Promise(resolve => setTimeout(resolve, 800));
+          
+          if (!isMounted) return;
+
+          try {
+            setStep('Loading interface...');
+            setProgress(60);
+            
+            const { SplashScreen } = await import('@capacitor/splash-screen');
+            
+            // Give more time for app to be ready
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            if (!isMounted) return;
+
+            await SplashScreen.hide({ fadeOutDuration: 300 });
+            console.log('✅ Splash screen hidden successfully');
+            
+          } catch (error) {
+            console.warn('⚠️ Splash screen error (recovering):', error);
+            // Try to hide without options as fallback
+            try {
+              const { SplashScreen } = await import('@capacitor/splash-screen');
+              await SplashScreen.hide();
+            } catch (fallbackError) {
+              console.warn('⚠️ Fallback splash hide also failed:', fallbackError);
+            }
+          }
+        } else {
+          console.log('🌐 Web platform - quick initialization');
+          setStep('Loading...');
+          setProgress(60);
+          await new Promise(resolve => setTimeout(resolve, 200));
+        }
+
+        if (!isMounted) return;
+
         setStep('Ready!');
         setProgress(100);
         
-        // Minimal delay before completion
-        await new Promise(resolve => setTimeout(resolve, 100));
+        // Small delay for visual completion
+        await new Promise(resolve => setTimeout(resolve, 150));
         
         if (isMounted) {
-          console.log('✅ Ultra-minimal startup completed');
+          console.log('✅ Startup completed successfully');
           onStartupComplete();
         }
 
       } catch (error) {
-        console.error('❌ Startup error (force continuing):', error);
+        console.error('❌ Critical startup error:', error);
         
-        // Emergency recovery - always continue
+        // Emergency recovery - try to continue anyway
         if (isMounted) {
+          setStep('Recovering...');
           setTimeout(() => {
             if (isMounted) {
-              console.log('🔄 Force continuing despite error');
+              console.log('🔄 Emergency recovery - starting app anyway');
               onStartupComplete();
             }
-          }, 100);
+          }, 500);
         }
       }
     };
 
-    // Set a very short timeout as final safety net
+    // Set a maximum timeout as final safety net
     startupTimeout = setTimeout(() => {
       if (isMounted) {
-        console.warn('⚠️ Startup timeout - emergency start');
+        console.warn('⚠️ Startup timeout - forcing app start');
         onStartupComplete();
       }
-    }, 1000);
+    }, 5000);
 
     ultraMinimalStartup();
 
