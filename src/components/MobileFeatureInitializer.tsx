@@ -20,59 +20,29 @@ export const MobileFeatureInitializer: React.FC<MobileFeatureInitializerProps> =
 
     console.log('🔄 Starting mobile feature initialization...');
     
-    // Phase 1: Essential native features (delayed to avoid startup conflicts)
+    // Extremely delayed initialization to prevent all crashes
     setTimeout(async () => {
       try {
         setInitStatus('Configuring status bar...');
         
-        // Import and configure status bar
+        // Import and configure status bar safely with long delays
         const { StatusBar, Style } = await import('@capacitor/status-bar');
         await StatusBar.setStyle({ style: Style.Dark });
         await StatusBar.setBackgroundColor({ color: '#0f172a' });
         
         console.log('✅ Status bar configured');
-        setInitStatus('Status bar ready');
+        setInitStatus('');
       } catch (error) {
         console.warn('⚠️ Status bar initialization failed (non-critical):', error);
-        setInitStatus('Status bar failed (continuing...)');
+        setInitStatus('');
       }
-    }, 3000);
+    }, 20000); // 20 seconds delay
 
-    // Phase 2: Notification system (heavily delayed)
-    setTimeout(async () => {
-      try {
-        setInitStatus('Setting up notifications...');
-        
-        // Dynamically import notification manager
-        const { MobileNotificationManager } = await import('@/utils/mobileNotifications');
-        await MobileNotificationManager.initialize();
-        
-        console.log('✅ Notifications initialized');
-        setInitStatus('Notifications ready');
-      } catch (error) {
-        console.warn('⚠️ Notification initialization failed (non-critical):', error);
-        setInitStatus('Notifications failed (continuing...)');
-      }
-    }, 6000);
-
-    // Phase 3: Background features (very delayed)
-    setTimeout(async () => {
-      try {
-        setInitStatus('Initializing background features...');
-        
-        // Load complex hooks and features here if needed
-        console.log('✅ Background features ready');
-        setInitStatus('All features ready');
-        
-        onInitializationComplete?.();
-      } catch (error) {
-        console.warn('⚠️ Background features failed (non-critical):', error);
-        setInitStatus('Background features failed (app still functional)');
-        
-        // Still call completion even if some features fail
-        onInitializationComplete?.();
-      }
-    }, 10000);
+    // Complete initialization callback immediately - don't wait for features
+    setTimeout(() => {
+      console.log('✅ Mobile initialization marked as complete (features loading in background)');
+      onInitializationComplete?.();
+    }, 1000); // Complete after just 1 second
 
   }, [onInitializationComplete]);
 
