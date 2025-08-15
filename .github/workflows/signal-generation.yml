@@ -3,8 +3,8 @@ name: Cost-Optimized Trading Signal Generation
 
 on:
   schedule:
-    # Single cost-optimized schedule: every 12 minutes during market hours
-    - cron: '*/12 * * * 0,1-5'
+    # Optimized schedule: every 8 minutes during market hours for better signal coverage
+    - cron: '*/8 * * * 0,1-5'
   workflow_dispatch:
     inputs:
       force_generation:
@@ -107,13 +107,13 @@ jobs:
         echo "Repository: ${{ github.repository }}"
         echo "Branch: ${{ github.ref_name }}"
         echo ""
-        echo "💰 COST OPTIMIZATION FEATURES ACTIVE:"
+        echo "💰 ENHANCED SIGNAL GENERATION FEATURES ACTIVE:"
         echo "  - Model: gpt-4o-mini (90% cheaper than gpt-4o)"
-        echo "  - Smart pair filtering: Top 4 highest-interest pairs only"
+        echo "  - Tier 1: ALL 27 pairs analyzed locally (FREE)"
+        echo "  - Tier 2/3: Only top 6-8 pairs get expensive AI analysis"
         echo "  - Reduced tokens: 500 max (down from 1200)"
-        echo "  - Reduced concurrency: 2 pairs max simultaneous"
-        echo "  - Extended delays: 5s between batches"
-        echo "  - 12-minute schedule (reduced from 5-minute)"
+        echo "  - Smart concurrency: 2 pairs max simultaneous"
+        echo "  - 8-minute schedule (increased frequency for better coverage)"
         echo ""
         if [ "${{ steps.market-check.outputs.market_open }}" = "true" ] || [ "${{ github.event.inputs.force_generation }}" = "true" ]; then
           echo "Actions Performed: OPTIMIZED Signal Generation ✅, Market Data Update ✅"
@@ -121,6 +121,6 @@ jobs:
           echo "Actions Performed: Market Hours Check Only (Market Closed)"
         fi
         
-        echo "Next scheduled run: In ~12 minutes (if market open)"
+        echo "Next scheduled run: In ~8 minutes (if market open)"
         echo "Expected performance: <120s execution, cost-optimized analysis"
         echo "=============================="

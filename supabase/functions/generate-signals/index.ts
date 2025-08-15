@@ -93,7 +93,7 @@ serve(async (req) => {
       run_id,
       attempt = 1,
       optimized = false,
-      maxAnalyzedPairs = 27, // Analyze ALL pairs by default
+      maxAnalyzedPairs = 27, // Analyze ALL pairs by default - Tier 1 is FREE
       fullCoverage = true
     } = requestBody;
 
@@ -253,7 +253,7 @@ serve(async (req) => {
       ...pairsToAnalyze.filter(symbol => !majorPairs.includes(symbol))
     ];
 
-    console.log(`🔥 FULL COVERAGE MODE: Analyzing ${prioritizedPairs.length}/${availablePairs.length} pairs with quality-first prioritization`);
+    console.log(`🔥 FULL COVERAGE MODE: Analyzing ALL ${prioritizedPairs.length}/${availablePairs.length} pairs (Tier 1 FREE, only top scorers get expensive analysis)`);
 
     // Intelligent batching with progressive delays for rate limit management
     const batchSize = 1; // Sequential processing for maximum reliability
@@ -280,9 +280,9 @@ serve(async (req) => {
           // Generate HYBRID TIER AI analysis with cost optimization
           const aiAnalysis = await generateHybridTierAnalysis(openAIApiKey, pair, historicalData, lowThreshold, force);
           
-          // Relaxed quality thresholds for more automatic signal generation
-          const qualityThreshold = force ? 35 : (lowThreshold ? 40 : 50); // Lowered from 65 to 50
-          const confidenceThreshold = force ? 40 : (lowThreshold ? 50 : 60); // Lowered from 70 to 60
+          // Optimized quality thresholds for natural signal generation (ALL pairs in Tier 1)
+          const qualityThreshold = force ? 35 : (lowThreshold ? 40 : 45); // Slightly lowered for better coverage
+          const confidenceThreshold = force ? 40 : (lowThreshold ? 45 : 50); // Slightly lowered for more signals
           
           if (!aiAnalysis || aiAnalysis.recommendation === 'HOLD' || aiAnalysis.qualityScore < qualityThreshold) {
             console.log(`🤖 ${symbol} AI recommendation: ${aiAnalysis?.recommendation || 'HOLD'} - Quality: ${aiAnalysis?.qualityScore || 0}/${qualityThreshold} - No signal generated`);
@@ -380,7 +380,7 @@ serve(async (req) => {
         maxNewSignalsPerRun: optimized ? 4 : 6,
         enhancedAI: true,
         qualityFiltered: true,
-        minimumQualityScore: force ? 35 : (lowThreshold ? 40 : 50),
+        minimumQualityScore: force ? 35 : (lowThreshold ? 40 : 45),
         concurrentLimit: batchSize,
         errors: errors.length > 0 ? errors.slice(0, 3) : undefined
       },
