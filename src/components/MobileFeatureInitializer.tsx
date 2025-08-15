@@ -20,59 +20,59 @@ export const MobileFeatureInitializer: React.FC<MobileFeatureInitializerProps> =
 
     console.log('🔄 Starting mobile feature initialization...');
     
-    // Phase 1: Essential native features (delayed to avoid startup conflicts)
+    // Phase 1: Essential native features (heavily delayed to avoid startup conflicts)
     setTimeout(async () => {
       try {
         setInitStatus('Configuring status bar...');
         
-        // Import and configure status bar
+        // Import and configure status bar safely
         const { StatusBar, Style } = await import('@capacitor/status-bar');
         await StatusBar.setStyle({ style: Style.Dark });
         await StatusBar.setBackgroundColor({ color: '#0f172a' });
         
         console.log('✅ Status bar configured');
-        setInitStatus('Status bar ready');
+        setInitStatus('');
       } catch (error) {
         console.warn('⚠️ Status bar initialization failed (non-critical):', error);
-        setInitStatus('Status bar failed (continuing...)');
+        setInitStatus('');
       }
-    }, 3000);
+    }, 5000);
 
-    // Phase 2: Notification system (heavily delayed)
+    // Phase 2: Notification system (very heavily delayed)
     setTimeout(async () => {
       try {
         setInitStatus('Setting up notifications...');
         
-        // Dynamically import notification manager
+        // Dynamically import notification manager safely
         const { MobileNotificationManager } = await import('@/utils/mobileNotifications');
         await MobileNotificationManager.initialize();
         
         console.log('✅ Notifications initialized');
-        setInitStatus('Notifications ready');
+        setInitStatus('');
       } catch (error) {
         console.warn('⚠️ Notification initialization failed (non-critical):', error);
-        setInitStatus('Notifications failed (continuing...)');
+        setInitStatus('');
       }
-    }, 6000);
+    }, 8000);
 
-    // Phase 3: Background features (very delayed)
+    // Phase 3: Background features (extremely delayed)
     setTimeout(async () => {
       try {
-        setInitStatus('Initializing background features...');
+        setInitStatus('Finalizing...');
         
-        // Load complex hooks and features here if needed
-        console.log('✅ Background features ready');
-        setInitStatus('All features ready');
+        // Load any remaining features here
+        console.log('✅ All features initialized');
+        setInitStatus('');
         
         onInitializationComplete?.();
       } catch (error) {
         console.warn('⚠️ Background features failed (non-critical):', error);
-        setInitStatus('Background features failed (app still functional)');
+        setInitStatus('');
         
-        // Still call completion even if some features fail
+        // Always call completion
         onInitializationComplete?.();
       }
-    }, 10000);
+    }, 12000);
 
   }, [onInitializationComplete]);
 
