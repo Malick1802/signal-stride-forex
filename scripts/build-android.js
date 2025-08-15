@@ -14,10 +14,10 @@ try {
   }
   console.log('✅ Clean complete\n');
 
-  // Step 2: Build the web app
-  console.log('2️⃣ Building web application...');
-  execSync('npm run build', { stdio: 'inherit' });
-  console.log('✅ Web build complete\n');
+  // Step 2: Build the web app with Android config
+  console.log('2️⃣ Building web application for Android...');
+  execSync('npm run build -- --config vite.config.android.ts', { stdio: 'inherit' });
+  console.log('✅ Android web build complete\n');
 
   // Step 3: Copy Android-specific files
   console.log('3️⃣ Setting up Android files...');

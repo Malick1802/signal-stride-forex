@@ -3,7 +3,9 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 
 // Android-specific Vite configuration
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  // Android-specific cache to avoid conflicts
+  cacheDir: `node_modules/.vite-cache-android`,
   plugins: [react()],
   resolve: {
     alias: {
@@ -13,29 +15,25 @@ export default defineConfig({
   build: {
     target: 'es2020',
     outDir: 'dist',
-    minify: 'terser',
+    minify: mode === 'production' ? 'terser' : false,
     sourcemap: false,
     rollupOptions: {
-      input: {
-        main: path.resolve(__dirname, 'index.html'),
-        android: path.resolve(__dirname, 'android.html')
-      },
+      input: path.resolve(__dirname, 'android.html'),
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom'],
-          auth: ['@supabase/supabase-js'],
-          ui: ['@radix-ui/react-dialog', '@radix-ui/react-toast']
-        }
+        entryFileNames: 'assets/main-android.js',
+        chunkFileNames: 'assets/[name]-[hash].js',
+        assetFileNames: 'assets/[name]-[hash].[ext]'
       }
     },
-    terserOptions: {
+    terserOptions: mode === 'production' ? {
       compress: {
-        drop_console: false, // Keep console logs for debugging
+        drop_console: false, // Keep console logs for Android debugging
         drop_debugger: true,
       },
-    },
+    } : undefined,
   },
   optimizeDeps: {
-    include: ['react', 'react-dom', '@capacitor/core']
+    force: true,
+    include: ['react', 'react-dom', '@capacitor/core', '@capacitor/app']
   }
-});
+}));
