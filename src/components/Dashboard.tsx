@@ -280,39 +280,39 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
               <button
                 onClick={handleRefresh}
                 disabled={refreshing}
-                className="p-2 text-gray-400 hover:text-white transition-colors"
+                className="p-2.5 text-gray-400 hover:text-white transition-colors"
                 aria-label="Refresh"
               >
-                <RefreshCw className={`h-5 w-5 ${refreshing ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`h-6 w-6 ${refreshing ? 'animate-spin' : ''}`} />
               </button>
               
               {/* Notification Center */}
               <NotificationCenter>
-                <button className="p-2 text-gray-400 hover:text-white transition-colors" aria-label="Notifications">
-                  <Bell className="h-5 w-5" />
+                <button className="p-2.5 text-gray-400 hover:text-white transition-colors" aria-label="Notifications">
+                  <Bell className="h-6 w-6" />
                 </button>
               </NotificationCenter>
 
               {/* Settings */}
               <SettingsDialog>
-                <button className="p-2 text-gray-400 hover:text-white transition-colors" aria-label="Settings">
-                  <Settings className="h-5 w-5" />
+                <button className="p-2.5 text-gray-400 hover:text-white transition-colors" aria-label="Settings">
+                  <Settings className="h-6 w-6" />
                 </button>
               </SettingsDialog>
             </div>
 
             {/* Mobile Action Menu - Simplified */}
-            <div className="sm:hidden flex items-center space-x-1">
+            <div className="sm:hidden flex items-center space-x-2">
               <NotificationCenter>
-                <button className="p-2 text-gray-400 hover:text-white transition-colors" aria-label="Notifications">
-                  <Bell className="h-5 w-5" />
+                <button className="p-2.5 text-gray-400 hover:text-white transition-colors" aria-label="Notifications">
+                  <Bell className="h-6 w-6" />
                 </button>
               </NotificationCenter>
               
               {/* Settings Button */}
               <SettingsDialog>
-                <button className="p-2 text-gray-400 hover:text-white transition-colors" aria-label="Settings">
-                  <Settings className="h-5 w-5" />
+                <button className="p-2.5 text-gray-400 hover:text-white transition-colors" aria-label="Settings">
+                  <Settings className="h-6 w-6" />
                 </button>
               </SettingsDialog>
             </div>
@@ -351,10 +351,10 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
                 <button
                   onClick={handleLogout}
                   disabled={loggingOut}
-                  className="p-1.5 sm:p-2 text-gray-400 hover:text-red-400 transition-colors disabled:opacity-50"
+                  className="p-2.5 text-gray-400 hover:text-red-400 transition-colors disabled:opacity-50"
                   aria-label="Log out"
                 >
-                  <LogOut className={`h-4 w-4 sm:h-5 sm:w-5 ${loggingOut ? 'animate-spin' : ''}`} />
+                  <LogOut className={`h-6 w-6 ${loggingOut ? 'animate-spin' : ''}`} />
                 </button>
               </div>
             </div>
