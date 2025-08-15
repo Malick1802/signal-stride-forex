@@ -7,6 +7,7 @@ import { MobileContentRouter } from './MobileContentRouter';
 import { MobileNotificationManager } from '@/utils/mobileNotifications';
 import MobileErrorBoundary from './MobileErrorBoundary';
 import MobileInitializer from './MobileInitializer';
+import CrashRecovery from './CrashRecovery';
 import { Capacitor } from '@capacitor/core';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 
@@ -15,9 +16,10 @@ interface InitializationState {
   currentStep: string;
   error: string | null;
   progress: number;
+  needsRecovery: boolean;
 }
 
-// Safe native features initialization with detailed logging
+// Ultra-safe native features initialization with crash protection
 const initializeNativeFeatures = async (
   setInitState: (state: Partial<InitializationState>) => void
 ) => {
@@ -27,61 +29,71 @@ const initializeNativeFeatures = async (
     
     if (!Capacitor.isNativePlatform()) {
       console.log('🌐 Running as web app - skipping native features');
-      setInitState({ currentStep: 'Web app mode', progress: 100 });
+      setInitState({ currentStep: 'Web app ready', progress: 100 });
       return true;
     }
 
     console.log('📱 Native platform detected:', Capacitor.getPlatform());
-    setInitState({ currentStep: 'Configuring native features...', progress: 25 });
+    console.log('📱 Device info:', {
+      platform: Capacitor.getPlatform(),
+      isNative: Capacitor.isNativePlatform(),
+      plugins: Capacitor.isPluginAvailable('Device')
+    });
+    
+    setInitState({ currentStep: 'Preparing mobile app...', progress: 25 });
 
-    // Dynamically import native features only when needed
-    try {
-      setInitState({ currentStep: 'Loading status bar...', progress: 35 });
-      const { StatusBar, Style } = await import('@capacitor/status-bar');
-      
-      await StatusBar.setStyle({ style: Style.Dark });
-      await StatusBar.setBackgroundColor({ color: '#0f172a' });
-      await StatusBar.show();
-      console.log('✅ Status bar configured');
-    } catch (error) {
-      console.warn('⚠️ Status bar configuration failed:', error);
-      setInitState({ error: 'Status bar setup failed (non-critical)' });
-    }
+    // Add critical delay to ensure platform is ready
+    await new Promise(resolve => setTimeout(resolve, 500));
 
-    // Hide splash screen safely
+    // Only try to hide splash screen - most critical operation
     try {
-      setInitState({ currentStep: 'Hiding splash screen...', progress: 50 });
+      setInitState({ currentStep: 'Loading app interface...', progress: 50 });
       const { SplashScreen } = await import('@capacitor/splash-screen');
       
+      // Use shorter delay to prevent timeout crashes
       setTimeout(async () => {
-        await SplashScreen.hide({ fadeOutDuration: 300 });
-        console.log('✅ Splash screen hidden');
-      }, 2000);
+        try {
+          await SplashScreen.hide({ fadeOutDuration: 200 });
+          console.log('✅ Splash screen hidden successfully');
+        } catch (e) {
+          console.warn('⚠️ Splash screen hide failed (non-critical):', e);
+        }
+      }, 800);
+      
     } catch (error) {
-      console.warn('⚠️ Splash screen hide failed:', error);
-      setInitState({ error: 'Splash screen failed (non-critical)' });
+      console.warn('⚠️ Splash screen module failed (non-critical):', error);
     }
 
-    // Initialize notifications safely
-    try {
-      setInitState({ currentStep: 'Setting up notifications...', progress: 75 });
-      await MobileNotificationManager.initialize();
-      console.log('📱 Mobile notifications initialized');
-    } catch (error) {
-      console.warn('⚠️ Notification initialization failed:', error);
-      setInitState({ error: 'Notifications failed (non-critical)' });
-    }
+    // Initialize other features asynchronously without blocking
+    setTimeout(async () => {
+      try {
+        const { StatusBar, Style } = await import('@capacitor/status-bar');
+        await StatusBar.setStyle({ style: Style.Dark });
+        await StatusBar.setBackgroundColor({ color: '#0f172a' });
+        console.log('✅ Status bar configured');
+      } catch (error) {
+        console.warn('⚠️ Status bar failed (non-critical):', error);
+      }
 
-    setInitState({ currentStep: 'Initialization complete', progress: 100 });
+      try {
+        await MobileNotificationManager.initialize();
+        console.log('✅ Notifications initialized');
+      } catch (error) {
+        console.warn('⚠️ Notifications failed (non-critical):', error);
+      }
+    }, 1000);
+
+    setInitState({ currentStep: 'Mobile app ready', progress: 100 });
     console.log('✅ Mobile app initialization complete');
     return true;
+    
   } catch (error) {
-    console.error('❌ Critical mobile initialization failed:', error);
+    console.error('❌ Mobile initialization error (recovered):', error);
     setInitState({ 
-      error: `Critical error: ${(error as Error).message}`,
-      currentStep: 'Initialization failed'
+      error: 'Some features may be limited',
+      currentStep: 'App ready (safe mode)'
     });
-    return false;
+    return true; // Still return true to continue loading
   }
 };
 
@@ -92,7 +104,8 @@ export default function MobileAppWrapper({ children }: { children: React.ReactNo
     isInitialized: false,
     currentStep: 'Preparing...',
     error: null,
-    progress: 0
+    progress: 0,
+    needsRecovery: false
   });
 
   // Setup mobile background sync
@@ -132,8 +145,9 @@ export default function MobileAppWrapper({ children }: { children: React.ReactNo
           setInitState(prev => ({
             ...prev,
             isInitialized: true,
-            error: 'Some features may not work correctly',
-            currentStep: 'Ready (compatibility mode)'
+            error: 'Startup failed - recovery mode active',
+            currentStep: 'Recovery mode',
+            needsRecovery: true
           }));
         }
       }
@@ -156,6 +170,15 @@ export default function MobileAppWrapper({ children }: { children: React.ReactNo
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initState.isInitialized, isRegistered]);
+
+  // Show crash recovery screen if needed
+  if (initState.needsRecovery) {
+    return (
+      <CrashRecovery 
+        onRecovery={() => setInitState(prev => ({ ...prev, needsRecovery: false }))}
+      />
+    );
+  }
 
   // Show offline screen with retry option
   if (!isOnline) {

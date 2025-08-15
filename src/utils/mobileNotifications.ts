@@ -146,19 +146,34 @@ export class MobileNotificationManager {
   }
 
   /**
-   * Initialize mobile notifications
+   * Initialize mobile notifications with crash protection
    */
   static async initialize(): Promise<void> {
     if (!Capacitor.isNativePlatform()) {
+      console.log('📱 Skipping notifications - not native platform');
       return;
     }
 
     try {
-      await this.setupNotificationChannels();
-      await this.initializeListeners();
-      console.log('✅ Mobile notifications initialized');
+      console.log('📱 Initializing mobile notifications...');
+      
+      // Add timeout protection
+      const initPromise = Promise.all([
+        this.setupNotificationChannels(),
+        this.initializeListeners()
+      ]);
+      
+      await Promise.race([
+        initPromise,
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Notification init timeout')), 5000)
+        )
+      ]);
+      
+      console.log('✅ Mobile notifications initialized successfully');
     } catch (error) {
-      console.error('❌ Failed to initialize mobile notifications:', error);
+      console.warn('⚠️ Notification initialization failed (non-critical):', error);
+      // Don't throw - app should continue without notifications
     }
   }
 
