@@ -28,10 +28,13 @@ interface DashboardProps {
   onNavigateToAffiliate?: () => void;
   onNavigateToAdmin?: () => void;
   onNavigateToSubscription?: () => void;
+  activeTab?: string;
+  onTabChange?: (tab: string) => void;
 }
 
-const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, onNavigateToSubscription }: DashboardProps) => {
-  const [activeTab, setActiveTab] = useState('signals');
+const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, onNavigateToSubscription, activeTab: propActiveTab, onTabChange }: DashboardProps) => {
+  const [internalActiveTab, setInternalActiveTab] = useState('signals');
+  const activeTab = propActiveTab || internalActiveTab;
   const [refreshing, setRefreshing] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
@@ -165,7 +168,11 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
     } else if (tabId === 'admin') {
       onNavigateToAdmin?.();
     } else {
-      setActiveTab(tabId);
+      if (onTabChange) {
+        onTabChange(tabId);
+      } else {
+        setInternalActiveTab(tabId);
+      }
     }
     setMobileMenuOpen(false);
   };
@@ -377,7 +384,7 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
       {/* Mobile Tab Navigation using Tabs component */}
       <div className="md:hidden bg-black/10 backdrop-blur-sm border-b border-white/10">
         <div className="px-3 py-2">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <Tabs value={activeTab} onValueChange={onTabChange || setInternalActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-4 bg-white/10 border border-white/20">
               <TabsTrigger 
                 value="signals" 

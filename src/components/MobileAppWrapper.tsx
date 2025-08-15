@@ -58,9 +58,14 @@ const initializeProgressiveFeatures = async () => {
   }
 };
 
-export default function MobileAppWrapper({ children }: { children: React.ReactNode }) {
+interface MobileAppWrapperProps {
+  children: React.ReactNode;
+  activeTab?: string;
+  onTabChange?: (tab: string) => void;
+}
+
+export default function MobileAppWrapper({ children, activeTab, onTabChange }: MobileAppWrapperProps) {
   const { isOnline, retryConnection } = useMobileConnectivity();
-  const [activeTab, setActiveTab] = useState<'signals' | 'charts' | 'notifications' | 'settings'>('signals');
   const [isReady, setIsReady] = useState(false);
 
   // Setup mobile background sync with minimal config
@@ -144,20 +149,16 @@ export default function MobileAppWrapper({ children }: { children: React.ReactNo
   return (
     <MobileErrorBoundary>
       <div className="min-h-screen bg-background pb-20">
-        {/* Main content area */}
+        {/* Main content area - Always show children (web UI) */}
         <div className="h-full">
-          {Capacitor.isNativePlatform() ? (
-            <MobileContentRouter activeTab={activeTab} />
-          ) : (
-            children
-          )}
+          {children}
         </div>
         
-        {/* Mobile navigation bar */}
+        {/* Mobile navigation bar for native platforms */}
         {Capacitor.isNativePlatform() && (
           <MobileNavigationBar 
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
+            activeTab={activeTab || 'signals'}
+            onTabChange={onTabChange || (() => {})}
           />
         )}
       </div>

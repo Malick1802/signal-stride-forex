@@ -32,7 +32,12 @@ const LazyAdminDashboard = lazy(() => import('./AdminDashboard').catch(error => 
 
 type ViewType = 'landing' | 'auth' | 'dashboard' | 'subscription' | 'affiliate' | 'admin';
 
-const AppContent = () => {
+interface AppContentProps {
+  activeTab?: string;
+  onTabChange?: (tab: string) => void;
+}
+
+const AppContent = ({ activeTab = 'signals', onTabChange }: AppContentProps = {}) => {
   const { user, loading, subscription, session } = useAuth();
   const [currentView, setCurrentView] = useState<ViewType>('landing');
   const [isAdmin, setIsAdmin] = useState(false);
@@ -122,6 +127,23 @@ const AppContent = () => {
     setCurrentView('admin');
   };
 
+  const handleTabChange = (tab: string) => {
+    console.log('AppContent: Mobile navigation tab change:', tab);
+    
+    // Handle special navigation tabs
+    if (tab === 'subscription') {
+      navigateToSubscription();
+    } else if (tab === 'affiliate') {
+      navigateToAffiliate();
+    } else if (tab === 'admin') {
+      navigateToAdmin();
+    } else {
+      // Stay on dashboard but change tab
+      setCurrentView('dashboard');
+      onTabChange?.(tab);
+    }
+  };
+
   // Create navigation handlers that match the expected string type
   const handleLandingNavigation = (view: string) => {
     console.log('AppContent: Landing navigation to:', view);
@@ -158,6 +180,8 @@ const AppContent = () => {
                 onNavigateToAffiliate={navigateToAffiliate}
                 onNavigateToAdmin={navigateToAdmin}
                 onNavigateToSubscription={navigateToSubscription}
+                activeTab={activeTab}
+                onTabChange={onTabChange || handleTabChange}
               />
             )}
             {currentView === 'subscription' && (

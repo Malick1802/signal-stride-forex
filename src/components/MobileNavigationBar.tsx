@@ -4,8 +4,8 @@ import { Button } from '@/components/ui/button';
 import { useNativeFeatures } from '@/hooks/useNativeFeatures';
 
 interface MobileNavigationBarProps {
-  activeTab: 'signals' | 'charts' | 'notifications' | 'settings';
-  onTabChange: (tab: 'signals' | 'charts' | 'notifications' | 'settings') => void;
+  activeTab: string;
+  onTabChange: (tab: string) => void;
 }
 
 export const MobileNavigationBar: React.FC<MobileNavigationBarProps> = ({
@@ -14,16 +14,16 @@ export const MobileNavigationBar: React.FC<MobileNavigationBarProps> = ({
 }) => {
   const { triggerHaptic } = useNativeFeatures();
 
-  const handleTabPress = (tab: 'signals' | 'charts' | 'notifications' | 'settings') => {
+  const handleTabPress = (tab: string) => {
     triggerHaptic('Light');
     onTabChange(tab);
   };
 
   const tabs = [
-    { id: 'signals' as const, icon: TrendingUp, label: 'Signals' },
-    { id: 'charts' as const, icon: BarChart3, label: 'Charts' },
-    { id: 'notifications' as const, icon: Bell, label: 'Alerts' },
-    { id: 'settings' as const, icon: Settings, label: 'Settings' }
+    { id: 'signals', icon: TrendingUp, label: 'Signals' },
+    { id: 'expired', icon: BarChart3, label: 'Expired' },
+    { id: 'subscription', icon: Bell, label: 'Account' },
+    { id: 'diagnostics', icon: Settings, label: 'Tools' }
   ];
 
   return (

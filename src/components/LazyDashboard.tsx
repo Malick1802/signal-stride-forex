@@ -10,6 +10,8 @@ interface LazyDashboardProps {
   onNavigateToAffiliate?: () => void;
   onNavigateToAdmin?: () => void;
   onNavigateToSubscription?: () => void;
+  activeTab?: string;
+  onTabChange?: (tab: string) => void;
 }
 
 const LazyDashboard: React.FC<LazyDashboardProps> = (props) => {
