@@ -1,8 +1,6 @@
 
-import React, { lazy } from 'react';
-import LazyLoadingWrapper from './LazyLoadingWrapper';
-
-const Dashboard = lazy(() => import('./Dashboard'));
+import React from 'react';
+import Dashboard from './Dashboard';
 
 interface LazyDashboardProps {
   user: any;
@@ -15,11 +13,7 @@ interface LazyDashboardProps {
 }
 
 const LazyDashboard: React.FC<LazyDashboardProps> = (props) => {
-  return (
-    <LazyLoadingWrapper height="min-h-screen">
-      <Dashboard {...props} />
-    </LazyLoadingWrapper>
-  );
+  return <Dashboard {...props} />;
 };
 
 export default LazyDashboard;
