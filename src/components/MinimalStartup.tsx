@@ -11,54 +11,111 @@ export const MinimalStartup: React.FC<MinimalStartupProps> = ({ onStartupComplet
   const [progress, setProgress] = useState(0);
 
   useEffect(() => {
-    const startupSequence = async () => {
+    let isMounted = true;
+    let startupTimeout: NodeJS.Timeout;
+
+    const ultraMinimalStartup = async () => {
       try {
-        // Step 1: Basic platform detection
-        setStep('Detecting platform...');
-        setProgress(20);
-        await new Promise(resolve => setTimeout(resolve, 100));
+        console.log('🚀 Ultra-minimal startup sequence beginning...');
+        
+        if (!isMounted) return;
+
+        // Step 1: Immediate UI feedback
+        setStep('Starting...');
+        setProgress(10);
+        
+        // Give React time to render
+        await new Promise(resolve => setTimeout(resolve, 50));
+        
+        if (!isMounted) return;
 
         if (Capacitor.isNativePlatform()) {
           console.log('📱 Native platform detected:', Capacitor.getPlatform());
           
-          // Step 2: Hide splash screen ONLY - most critical
-          setStep('Loading interface...');
-          setProgress(50);
+          setStep('Initializing...');
+          setProgress(30);
           
-          try {
-            const { SplashScreen } = await import('@capacitor/splash-screen');
-            await new Promise(resolve => setTimeout(resolve, 300));
-            await SplashScreen.hide({ fadeOutDuration: 150 });
-            console.log('✅ Splash screen hidden');
-          } catch (error) {
-            console.warn('⚠️ Splash screen failed (continuing anyway):', error);
-          }
+          // Wait a bit longer before hiding splash
+          await new Promise(resolve => setTimeout(resolve, 800));
+          
+          if (!isMounted) return;
 
-          setStep('Preparing app...');
-          setProgress(80);
-          await new Promise(resolve => setTimeout(resolve, 200));
+          try {
+            setStep('Loading interface...');
+            setProgress(60);
+            
+            const { SplashScreen } = await import('@capacitor/splash-screen');
+            
+            // Give more time for app to be ready
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            if (!isMounted) return;
+
+            await SplashScreen.hide({ fadeOutDuration: 300 });
+            console.log('✅ Splash screen hidden successfully');
+            
+          } catch (error) {
+            console.warn('⚠️ Splash screen error (recovering):', error);
+            // Try to hide without options as fallback
+            try {
+              const { SplashScreen } = await import('@capacitor/splash-screen');
+              await SplashScreen.hide();
+            } catch (fallbackError) {
+              console.warn('⚠️ Fallback splash hide also failed:', fallbackError);
+            }
+          }
         } else {
-          console.log('🌐 Web platform detected');
-          setStep('Loading web app...');
-          setProgress(80);
-          await new Promise(resolve => setTimeout(resolve, 100));
+          console.log('🌐 Web platform - quick initialization');
+          setStep('Loading...');
+          setProgress(60);
+          await new Promise(resolve => setTimeout(resolve, 200));
         }
 
-        // Step 3: Complete startup
+        if (!isMounted) return;
+
         setStep('Ready!');
         setProgress(100);
-        await new Promise(resolve => setTimeout(resolve, 100));
-
-        onStartupComplete();
+        
+        // Small delay for visual completion
+        await new Promise(resolve => setTimeout(resolve, 150));
+        
+        if (isMounted) {
+          console.log('✅ Startup completed successfully');
+          onStartupComplete();
+        }
 
       } catch (error) {
-        console.error('❌ Startup error (continuing anyway):', error);
-        // Even if there's an error, continue to app
-        onStartupComplete();
+        console.error('❌ Critical startup error:', error);
+        
+        // Emergency recovery - try to continue anyway
+        if (isMounted) {
+          setStep('Recovering...');
+          setTimeout(() => {
+            if (isMounted) {
+              console.log('🔄 Emergency recovery - starting app anyway');
+              onStartupComplete();
+            }
+          }, 500);
+        }
       }
     };
 
-    startupSequence();
+    // Set a maximum timeout as final safety net
+    startupTimeout = setTimeout(() => {
+      if (isMounted) {
+        console.warn('⚠️ Startup timeout - forcing app start');
+        onStartupComplete();
+      }
+    }, 5000);
+
+    ultraMinimalStartup();
+
+    return () => {
+      isMounted = false;
+      if (startupTimeout) {
+        clearTimeout(startupTimeout);
+      }
+    };
   }, [onStartupComplete]);
 
   return (

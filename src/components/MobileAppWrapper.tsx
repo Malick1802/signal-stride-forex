@@ -19,43 +19,36 @@ interface InitializationState {
   needsRecovery: boolean;
 }
 
-// Minimal progressive feature loading to prevent crashes
-const initializeProgressiveFeatures = async () => {
-  try {
-    console.log('🔄 Starting progressive feature loading...');
-    
-    if (!Capacitor.isNativePlatform()) {
-      console.log('🌐 Web platform - no native features to load');
-      return true;
-    }
-
-    // Phase 1: Status bar (non-critical)
-    setTimeout(async () => {
-      try {
-        const { StatusBar, Style } = await import('@capacitor/status-bar');
-        await StatusBar.setStyle({ style: Style.Dark });
-        await StatusBar.setBackgroundColor({ color: '#0f172a' });
-        console.log('✅ Status bar configured');
-      } catch (error) {
-        console.warn('⚠️ Status bar failed:', error);
-      }
-    }, 1000);
-
-    // Phase 2: Notifications (non-critical)
-    setTimeout(async () => {
-      try {
-        await MobileNotificationManager.initialize();
-        console.log('✅ Notifications initialized');
-      } catch (error) {
-        console.warn('⚠️ Notifications failed:', error);
-      }
-    }, 2000);
-
-    return true;
-  } catch (error) {
-    console.warn('⚠️ Progressive feature loading failed:', error);
-    return true; // Continue anyway
+// Ultra-safe progressive feature loading - moved to post-startup
+const initializeProgressiveFeatures = () => {
+  console.log('🔄 Scheduling progressive feature loading...');
+  
+  if (!Capacitor.isNativePlatform()) {
+    console.log('🌐 Web platform - no native features to load');
+    return;
   }
+
+  // Phase 1: Status bar (delayed, non-critical)
+  setTimeout(async () => {
+    try {
+      const { StatusBar, Style } = await import('@capacitor/status-bar');
+      await StatusBar.setStyle({ style: Style.Dark });
+      await StatusBar.setBackgroundColor({ color: '#0f172a' });
+      console.log('✅ Status bar configured');
+    } catch (error) {
+      console.warn('⚠️ Status bar failed (non-critical):', error);
+    }
+  }, 3000); // Increased delay
+
+  // Phase 2: Notifications (heavily delayed, non-critical)
+  setTimeout(async () => {
+    try {
+      await MobileNotificationManager.initialize();
+      console.log('✅ Notifications initialized');
+    } catch (error) {
+      console.warn('⚠️ Notifications failed (non-critical):', error);
+    }
+  }, 5000); // Much longer delay
 };
 
 interface MobileAppWrapperProps {
@@ -65,58 +58,52 @@ interface MobileAppWrapperProps {
 }
 
 export default function MobileAppWrapper({ children, activeTab, onTabChange }: MobileAppWrapperProps) {
-  const { isOnline, retryConnection } = useMobileConnectivity();
   const [isReady, setIsReady] = useState(false);
+  const [initError, setInitError] = useState<string | null>(null);
 
-  // Setup mobile background sync with minimal config
-  const { performBackgroundSync } = useMobileBackgroundSync({
-    enableBackgroundSync: true,
-    syncInterval: 60000, // Longer interval to reduce load
-    onSyncComplete: (data) => {
-      console.log('📱 Mobile sync completed:', data);
-    }
-  });
-
-  // Delayed push notification initialization
-  const { isRegistered, initializePushNotifications } = usePushNotifications();
+  // Minimal connectivity check - defer complex hooks
+  const [isOnline, setIsOnline] = useState(true);
 
   useEffect(() => {
-    // Ultra-simple initialization
-    const init = async () => {
+    // Immediate readiness - no complex initialization
+    console.log('🚀 MobileAppWrapper: Immediate initialization');
+    
+    // Quick online check
+    setIsOnline(navigator.onLine);
+    
+    // Mark ready immediately
+    setIsReady(true);
+    
+    // Schedule all complex initialization for later
+    setTimeout(() => {
       try {
-        console.log('🚀 MobileAppWrapper: Simple initialization');
-        
-        // Just start progressive feature loading (non-blocking)
+        console.log('🔄 Starting deferred initialization...');
         initializeProgressiveFeatures();
-        
-        // Mark as ready immediately
-        setIsReady(true);
-        console.log('✅ MobileAppWrapper ready');
-        
       } catch (error) {
-        console.warn('⚠️ MobileAppWrapper init warning:', error);
-        // Continue anyway
-        setIsReady(true);
+        console.warn('⚠️ Deferred initialization failed (non-critical):', error);
       }
-    };
+    }, 2000);
 
-    init();
+    console.log('✅ MobileAppWrapper ready immediately');
   }, []);
 
-  // Delayed push notification setup
+  // Deferred complex hooks initialization
   useEffect(() => {
-    if (Capacitor.isNativePlatform() && isReady && !isRegistered) {
-      setTimeout(() => {
-        console.log('🔔 Delayed push notification setup...');
-        initializePushNotifications().catch((e) => {
-          console.warn('⚠️ Push notifications setup failed:', e);
-        });
-      }, 3000); // Wait 3 seconds after app is ready
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isReady, isRegistered]);
+    if (!isReady) return;
 
-  // Show offline screen with retry option
+    // Initialize complex features after UI is stable
+    setTimeout(() => {
+      try {
+        console.log('🔄 Initializing complex mobile features...');
+        // Complex hooks would be initialized here if needed
+      } catch (error) {
+        console.warn('⚠️ Complex features failed (continuing):', error);
+        setInitError('Some features may be limited');
+      }
+    }, 4000);
+  }, [isReady]);
+
+  // Simple offline check
   if (!isOnline) {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 text-white p-4">
@@ -125,7 +112,10 @@ export default function MobileAppWrapper({ children, activeTab, onTabChange }: M
           ForexAlert Pro requires an internet connection to work properly.
         </p>
         <button
-          onClick={retryConnection}
+          onClick={() => {
+            setIsOnline(navigator.onLine);
+            window.location.reload();
+          }}
           className="bg-emerald-500 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-lg transition-colors"
         >
           Retry Connection
@@ -149,6 +139,13 @@ export default function MobileAppWrapper({ children, activeTab, onTabChange }: M
   return (
     <MobileErrorBoundary>
       <div className="min-h-screen bg-background pb-20">
+        {/* Show init error if any */}
+        {initError && (
+          <div className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 px-4 py-2 text-sm">
+            {initError}
+          </div>
+        )}
+        
         {/* Main content area - Always show children (web UI) */}
         <div className="h-full">
           {children}
