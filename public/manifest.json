@@ -1,3 +1,4 @@
+
 {
   "name": "ForexSignal Pro",
   "short_name": "ForexSignal",
@@ -11,18 +12,18 @@
   "lang": "en",
   "icons": [
     {
-      "src": "/app-icon-new.png",
+      "src": "/lovable-uploads/5cb710d6-c2c0-4a1b-a359-6d70ccb9800c.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "/app-icon-new.png",
+      "src": "/lovable-uploads/5cb710d6-c2c0-4a1b-a359-6d70ccb9800c.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable any"
     },
     {
-      "src": "/app-icon-new.png",
+      "src": "/lovable-uploads/5cb710d6-c2c0-4a1b-a359-6d70ccb9800c.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable any"
@@ -36,7 +37,7 @@
       "url": "/?shortcut=signals",
       "icons": [
         {
-          "src": "/app-icon-new.png",
+          "src": "/lovable-uploads/5cb710d6-c2c0-4a1b-a359-6d70ccb9800c.png",
           "sizes": "96x96"
         }
       ]
@@ -48,7 +49,7 @@
       "url": "/?shortcut=market",
       "icons": [
         {
-          "src": "/app-icon-new.png",
+          "src": "/lovable-uploads/5cb710d6-c2c0-4a1b-a359-6d70ccb9800c.png",
           "sizes": "96x96"
         }
       ]

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Smartphone } from 'lucide-react';
 
 interface MinimalAndroidLoaderProps {
   message?: string;
@@ -14,7 +15,7 @@ const MinimalAndroidLoader: React.FC<MinimalAndroidLoaderProps> = ({
       <div className="text-center text-white max-w-sm">
         {/* App icon */}
         <div className="mb-6">
-          <img src="/app-icon-new.png" alt="ForexAlert Pro" className="h-16 w-16 mx-auto mb-2" />
+          <Smartphone className="h-16 w-16 text-emerald-400 mx-auto mb-2" />
           <h1 className="text-2xl font-bold text-white">ForexAlert Pro</h1>
         </div>
 

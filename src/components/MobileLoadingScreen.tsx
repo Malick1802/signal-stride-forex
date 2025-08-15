@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Loader2 } from 'lucide-react';
+import { TrendingUp, Loader2 } from 'lucide-react';
 
 interface MobileLoadingScreenProps {
   message?: string;
@@ -14,8 +14,8 @@ const MobileLoadingScreen: React.FC<MobileLoadingScreenProps> = ({
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center">
       <div className="text-center p-8">
-        <div className="flex flex-col items-center justify-center mb-6">
-          <img src="/app-icon-new.png" alt="ForexAlert Pro" className="h-16 w-16 mb-4" />
+        <div className="flex items-center justify-center mb-6">
+          <TrendingUp className="h-12 w-12 text-emerald-400 mr-3" />
           <h1 className="text-2xl font-bold text-white">ForexAlert Pro</h1>
         </div>
         
