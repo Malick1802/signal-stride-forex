@@ -162,7 +162,7 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
       </header>
 
       {/* Hero Section - Mobile Optimized */}
-      <section className="relative px-4 py-12 text-center overflow-hidden">
+      <section className="relative px-4 pt-16 pb-12 sm:pt-12 text-center overflow-hidden">
         {/* Hero Background Image */}
         <div className="absolute inset-0 z-0">
           <img 
