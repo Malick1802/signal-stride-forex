@@ -19,52 +19,17 @@ interface InitializationState {
   needsRecovery: boolean;
 }
 
-// Ultra-safe native features initialization with crash protection
-const initializeNativeFeatures = async (
-  setInitState: (state: Partial<InitializationState>) => void
-) => {
+// Minimal progressive feature loading to prevent crashes
+const initializeProgressiveFeatures = async () => {
   try {
-    console.log('🚀 Starting ForexAlert Pro mobile initialization...');
-    setInitState({ currentStep: 'Starting initialization...', progress: 10 });
+    console.log('🔄 Starting progressive feature loading...');
     
     if (!Capacitor.isNativePlatform()) {
-      console.log('🌐 Running as web app - skipping native features');
-      setInitState({ currentStep: 'Web app ready', progress: 100 });
+      console.log('🌐 Web platform - no native features to load');
       return true;
     }
 
-    console.log('📱 Native platform detected:', Capacitor.getPlatform());
-    console.log('📱 Device info:', {
-      platform: Capacitor.getPlatform(),
-      isNative: Capacitor.isNativePlatform(),
-      plugins: Capacitor.isPluginAvailable('Device')
-    });
-    
-    setInitState({ currentStep: 'Preparing mobile app...', progress: 25 });
-
-    // Add critical delay to ensure platform is ready
-    await new Promise(resolve => setTimeout(resolve, 500));
-
-    // Only try to hide splash screen - most critical operation
-    try {
-      setInitState({ currentStep: 'Loading app interface...', progress: 50 });
-      const { SplashScreen } = await import('@capacitor/splash-screen');
-      
-      // Use shorter delay to prevent timeout crashes
-      setTimeout(async () => {
-        try {
-          await SplashScreen.hide({ fadeOutDuration: 200 });
-          console.log('✅ Splash screen hidden successfully');
-        } catch (e) {
-          console.warn('⚠️ Splash screen hide failed (non-critical):', e);
-        }
-      }, 800);
-      
-    } catch (error) {
-      console.warn('⚠️ Splash screen module failed (non-critical):', error);
-    }
-
-    // Initialize other features asynchronously without blocking
+    // Phase 1: Status bar (non-critical)
     setTimeout(async () => {
       try {
         const { StatusBar, Style } = await import('@capacitor/status-bar');
@@ -72,113 +37,79 @@ const initializeNativeFeatures = async (
         await StatusBar.setBackgroundColor({ color: '#0f172a' });
         console.log('✅ Status bar configured');
       } catch (error) {
-        console.warn('⚠️ Status bar failed (non-critical):', error);
+        console.warn('⚠️ Status bar failed:', error);
       }
+    }, 1000);
 
+    // Phase 2: Notifications (non-critical)
+    setTimeout(async () => {
       try {
         await MobileNotificationManager.initialize();
         console.log('✅ Notifications initialized');
       } catch (error) {
-        console.warn('⚠️ Notifications failed (non-critical):', error);
+        console.warn('⚠️ Notifications failed:', error);
       }
-    }, 1000);
+    }, 2000);
 
-    setInitState({ currentStep: 'Mobile app ready', progress: 100 });
-    console.log('✅ Mobile app initialization complete');
     return true;
-    
   } catch (error) {
-    console.error('❌ Mobile initialization error (recovered):', error);
-    setInitState({ 
-      error: 'Some features may be limited',
-      currentStep: 'App ready (safe mode)'
-    });
-    return true; // Still return true to continue loading
+    console.warn('⚠️ Progressive feature loading failed:', error);
+    return true; // Continue anyway
   }
 };
 
 export default function MobileAppWrapper({ children }: { children: React.ReactNode }) {
   const { isOnline, retryConnection } = useMobileConnectivity();
   const [activeTab, setActiveTab] = useState<'signals' | 'charts' | 'notifications' | 'settings'>('signals');
-  const [initState, setInitState] = useState<InitializationState>({
-    isInitialized: false,
-    currentStep: 'Preparing...',
-    error: null,
-    progress: 0,
-    needsRecovery: false
-  });
+  const [isReady, setIsReady] = useState(false);
 
-  // Setup mobile background sync
+  // Setup mobile background sync with minimal config
   const { performBackgroundSync } = useMobileBackgroundSync({
     enableBackgroundSync: true,
-    syncInterval: 30000, // 30 seconds
+    syncInterval: 60000, // Longer interval to reduce load
     onSyncComplete: (data) => {
       console.log('📱 Mobile sync completed:', data);
     }
   });
 
-  // Mount push notification registration/checks globally on mobile
-  const { isRegistered, pushToken, initializePushNotifications } = usePushNotifications();
-
-  const updateInitState = (updates: Partial<InitializationState>) => {
-    setInitState(prev => ({ ...prev, ...updates }));
-  };
+  // Delayed push notification initialization
+  const { isRegistered, initializePushNotifications } = usePushNotifications();
 
   useEffect(() => {
-    let mounted = true;
-    
-    console.log('🚀 MobileAppWrapper: Starting initialization');
-    
+    // Ultra-simple initialization
     const init = async () => {
       try {
-        const success = await initializeNativeFeatures(updateInitState);
-        if (mounted) {
-          setInitState(prev => ({
-            ...prev,
-            isInitialized: true,
-            currentStep: success ? 'Ready' : 'Ready (limited functionality)'
-          }));
-        }
+        console.log('🚀 MobileAppWrapper: Simple initialization');
+        
+        // Just start progressive feature loading (non-blocking)
+        initializeProgressiveFeatures();
+        
+        // Mark as ready immediately
+        setIsReady(true);
+        console.log('✅ MobileAppWrapper ready');
+        
       } catch (error) {
-        console.error('🚨 Critical initialization error:', error);
-        if (mounted) {
-          setInitState(prev => ({
-            ...prev,
-            isInitialized: true,
-            error: 'Startup failed - recovery mode active',
-            currentStep: 'Recovery mode',
-            needsRecovery: true
-          }));
-        }
+        console.warn('⚠️ MobileAppWrapper init warning:', error);
+        // Continue anyway
+        setIsReady(true);
       }
     };
 
     init();
-    
-    return () => {
-      mounted = false;
-    };
   }, []);
 
-  // After native features are initialized, auto-initialize push notifications on native if not registered
+  // Delayed push notification setup
   useEffect(() => {
-    if (Capacitor.isNativePlatform() && initState.isInitialized && !isRegistered) {
-      console.log('🔔 Auto-initializing push notifications...');
-      initializePushNotifications().catch((e) => {
-        console.warn('⚠️ Auto-init push notifications failed:', e);
-      });
+    if (Capacitor.isNativePlatform() && isReady && !isRegistered) {
+      setTimeout(() => {
+        console.log('🔔 Delayed push notification setup...');
+        initializePushNotifications().catch((e) => {
+          console.warn('⚠️ Push notifications setup failed:', e);
+        });
+      }, 3000); // Wait 3 seconds after app is ready
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initState.isInitialized, isRegistered]);
-
-  // Show crash recovery screen if needed
-  if (initState.needsRecovery) {
-    return (
-      <CrashRecovery 
-        onRecovery={() => setInitState(prev => ({ ...prev, needsRecovery: false }))}
-      />
-    );
-  }
+  }, [isReady, isRegistered]);
 
   // Show offline screen with retry option
   if (!isOnline) {
@@ -201,34 +132,11 @@ export default function MobileAppWrapper({ children }: { children: React.ReactNo
     );
   }
 
-  // Show detailed loading screen while initializing
-  if (!initState.isInitialized) {
+  // Show simple loading if not ready
+  if (!isReady) {
     return (
-      <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 text-white">
-        <div className="text-center max-w-sm mx-auto px-4">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-400 mb-6 mx-auto"></div>
-          
-          <h1 className="text-xl font-bold mb-2">ForexAlert Pro</h1>
-          <p className="text-gray-300 mb-4">{initState.currentStep}</p>
-          
-          {/* Progress bar */}
-          <div className="w-full bg-gray-700 rounded-full h-2 mb-4">
-            <div 
-              className="bg-emerald-400 h-2 rounded-full transition-all duration-300" 
-              style={{ width: `${initState.progress}%` }}
-            ></div>
-          </div>
-          
-          {Capacitor.isNativePlatform() && (
-            <p className="text-sm text-gray-400">
-              Loading mobile features on {Capacitor.getPlatform()}
-            </p>
-          )}
-          
-          {initState.error && (
-            <p className="text-yellow-400 text-xs mt-2">{initState.error}</p>
-          )}
-        </div>
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-400"></div>
       </div>
     );
   }
@@ -236,12 +144,6 @@ export default function MobileAppWrapper({ children }: { children: React.ReactNo
   return (
     <MobileErrorBoundary>
       <div className="min-h-screen bg-background pb-20">
-        {initState.error && (
-          <div className="bg-yellow-500/10 border-l-4 border-yellow-500 p-3 mb-2">
-            <p className="text-yellow-400 text-sm">{initState.error}</p>
-          </div>
-        )}
-        
         {/* Main content area */}
         <div className="h-full">
           {Capacitor.isNativePlatform() ? (

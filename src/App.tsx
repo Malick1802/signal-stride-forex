@@ -1,13 +1,12 @@
 
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from './contexts/AuthContext';
+import MinimalStartup from "./components/MinimalStartup";
 import MobileAppWrapper from "./components/MobileAppWrapper";
-import MobileDebugger from "./components/MobileDebugger";
-import { MobilePerformanceOptimizer } from "./components/MobilePerformanceOptimizer";
 import Index from "./pages/Index";
 import TestPage from "./pages/TestPage";
 import NotFound from "./pages/NotFound";
@@ -21,35 +20,38 @@ import './mobile-app.css';
 const queryClient = new QueryClient();
 
 const App = () => {
+  const [startupComplete, setStartupComplete] = useState(false);
+
   useEffect(() => {
-    // Log platform information
+    // Basic platform logging
+    console.log('🚀 ForexAlert Pro starting...');
     if (Capacitor.isNativePlatform()) {
-      console.log('🚀 ForexAlert Pro running as native mobile app');
       console.log('📱 Platform:', Capacitor.getPlatform());
-      console.log('🌍 Current URL:', window.location.href);
-      console.log('🔗 Current path:', window.location.pathname);
     } else {
-      console.log('🌐 ForexAlert Pro running as web app');
+      console.log('🌐 Web platform');
     }
   }, []);
 
+  // Show minimal startup screen first
+  if (!startupComplete) {
+    return <MinimalStartup onStartupComplete={() => setStartupComplete(true)} />;
+  }
+
+  // Once startup is complete, render the full app
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <MobileAppWrapper>
-          <MobilePerformanceOptimizer enableVirtualization={true} enablePreloading={true}>
-            <MobileDebugger />
-            <Toaster />
-            <Sonner />
-            <HashRouter>
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/test" element={<TestPage />} />
-                {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </HashRouter>
-          </MobilePerformanceOptimizer>
+          <Toaster />
+          <Sonner />
+          <HashRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/test" element={<TestPage />} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </HashRouter>
         </MobileAppWrapper>
       </AuthProvider>
     </QueryClientProvider>
