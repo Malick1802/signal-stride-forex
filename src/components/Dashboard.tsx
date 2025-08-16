@@ -1,5 +1,7 @@
 import React, { useState, lazy, Suspense } from 'react';
-import { TrendingUp, RefreshCw, Bell, Settings, LogOut, CreditCard, Users, Shield, Menu, X } from 'lucide-react';
+import { TrendingUp, RefreshCw, Bell, Settings, LogOut, CreditCard, Users, Shield, Menu, X, Globe } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { LanguageSelector } from './LanguageSelector';
 import UserProfile from './UserProfile';
 import SubscriptionStatusWidget from './SubscriptionStatusWidget';
 import TrialExpirationBanner from './TrialExpirationBanner';
@@ -33,6 +35,7 @@ interface DashboardProps {
 }
 
 const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, onNavigateToSubscription, activeTab: propActiveTab, onTabChange }: DashboardProps) => {
+  const { t } = useTranslation(['common', 'dashboard']);
   const [internalActiveTab, setInternalActiveTab] = useState('signals');
   const activeTab = propActiveTab || internalActiveTab;
   const [refreshing, setRefreshing] = useState(false);
@@ -151,12 +154,12 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
   };
 
   const tabItems = [
-    { id: 'signals', label: 'Active Signals', shortLabel: 'Active' },
-    { id: 'expired', label: 'Expired Signals', shortLabel: 'Expired' },
-    { id: 'diagnostics', label: 'Storage Diagnostics', shortLabel: 'Diagnostics', icon: Settings },
-    { id: 'testing', label: 'Signal Testing', shortLabel: 'Testing', icon: TrendingUp },
-    { id: 'subscription', label: 'Subscription', shortLabel: 'Sub', icon: CreditCard },
-    { id: 'affiliate', label: 'Affiliate Program', shortLabel: 'Affiliate', icon: Users },
+    { id: 'signals', label: t('dashboard:signals.title'), shortLabel: t('nav.signals') },
+    { id: 'expired', label: t('nav.expired'), shortLabel: t('nav.expired') },
+    { id: 'diagnostics', label: t('nav.tools'), shortLabel: t('nav.tools'), icon: Settings },
+    { id: 'testing', label: t('nav.test'), shortLabel: t('nav.test'), icon: TrendingUp },
+    { id: 'subscription', label: t('dashboard:settings.subscription'), shortLabel: 'Sub', icon: CreditCard },
+    { id: 'affiliate', label: t('dashboard:settings.affiliate'), shortLabel: 'Affiliate', icon: Users },
     ...(isAdmin ? [{ id: 'admin', label: 'Admin Dashboard', shortLabel: 'Admin', icon: Shield }] : [])
   ];
 
@@ -188,10 +191,15 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
         <SheetContent side="bottom" className="h-[80vh] bg-slate-900/95 backdrop-blur-sm border-white/10">
           <div className="flex flex-col space-y-4 p-4">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white">Navigation</h3>
+              <h3 className="text-lg font-semibold text-white">{t('common:nav.navigation', 'Navigation')}</h3>
               <Button variant="ghost" size="sm" onClick={() => setMobileMenuOpen(false)}>
                 <X className="h-4 w-4" />
               </Button>
+            </div>
+            
+            {/* Language Selector in Mobile Menu */}
+            <div className="mb-4 p-2 bg-white/5 rounded-lg">
+              <LanguageSelector variant="minimal" className="w-full justify-start" />
             </div>
             
             {tabItems.map(tab => (
@@ -281,10 +289,13 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
                 onClick={handleRefresh}
                 disabled={refreshing}
                 className="p-2.5 text-gray-400 hover:text-white transition-colors"
-                aria-label="Refresh"
+                aria-label={t('actions.refresh')}
               >
                 <RefreshCw className={`h-6 w-6 md:h-5 md:w-5 ${refreshing ? 'animate-spin' : ''}`} />
               </button>
+              
+              {/* Language Selector */}
+              <LanguageSelector variant="icon" />
               
               {/* Notification Center */}
               <NotificationCenter>
@@ -295,7 +306,7 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
 
               {/* Settings */}
               <SettingsDialog>
-                <button className="p-2.5 text-gray-400 hover:text-white transition-colors" aria-label="Settings">
+                <button className="p-2.5 text-gray-400 hover:text-white transition-colors" aria-label={t('nav.settings')}>
                   <Settings className="h-6 w-6 md:h-5 md:w-5" />
                 </button>
               </SettingsDialog>
@@ -311,7 +322,7 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
               
               {/* Settings Button */}
               <SettingsDialog>
-                <button className="p-2.5 text-gray-400 hover:text-white transition-colors" aria-label="Settings">
+                <button className="p-2.5 text-gray-400 hover:text-white transition-colors" aria-label={t('nav.settings')}>
                   <Settings className="h-6 w-6" />
                 </button>
               </SettingsDialog>
@@ -352,7 +363,7 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
                   onClick={handleLogout}
                   disabled={loggingOut}
                   className="p-2.5 text-gray-400 hover:text-red-400 transition-colors disabled:opacity-50"
-                  aria-label="Log out"
+                  aria-label={t('nav.logout')}
                 >
                   <LogOut className={`h-6 w-6 md:h-5 md:w-5 ${loggingOut ? 'animate-spin' : ''}`} />
                 </button>
@@ -390,25 +401,25 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
                 value="signals" 
                 className="text-xs text-gray-300 data-[state=active]:text-emerald-400 data-[state=active]:bg-emerald-500/20"
               >
-                Active
+                {t('nav.signals')}
               </TabsTrigger>
               <TabsTrigger 
                 value="expired"
                 className="text-xs text-gray-300 data-[state=active]:text-emerald-400 data-[state=active]:bg-emerald-500/20"
               >
-                Expired
+                {t('nav.expired')}
               </TabsTrigger>
               <TabsTrigger 
                 value="diagnostics"
                 className="text-xs text-gray-300 data-[state=active]:text-emerald-400 data-[state=active]:bg-emerald-500/20"
               >
-                Diag
+                {t('nav.tools')}
               </TabsTrigger>
               <TabsTrigger 
                 value="testing"
                 className="text-xs text-gray-300 data-[state=active]:text-emerald-400 data-[state=active]:bg-emerald-500/20"
               >
-                Test
+                {t('nav.test')}
               </TabsTrigger>
             </TabsList>
           </Tabs>

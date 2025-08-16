@@ -75,10 +75,16 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
 
       // Try to detect from IP geolocation
       try {
+        console.log('🌍 Calling detect-user-location function...');
         const { data, error } = await supabase.functions.invoke('detect-user-location');
+        console.log('🌍 Location detection result:', { data, error });
+        
         if (!error && data?.language && SUPPORTED_LANGUAGES[data.language as keyof typeof SUPPORTED_LANGUAGES]) {
+          console.log('🌍 Setting language from IP detection:', data.language);
           await changeLanguage(data.language);
           return;
+        } else {
+          console.log('🌍 IP detection failed or unsupported language:', data?.language);
         }
       } catch (error) {
         console.warn('Failed to detect location:', error);
@@ -96,18 +102,26 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
 
   const changeLanguage = async (language: string) => {
     try {
+      console.log('🔄 Changing language to:', language);
       await i18n.changeLanguage(language);
       setCurrentLanguage(language);
       
       // Save to localStorage
       localStorage.setItem('i18nextLng', language);
+      console.log('💾 Saved language to localStorage:', language);
       
       // Save to user profile if authenticated
       if (user) {
-        await supabase
+        const { error } = await supabase
           .from('profiles')
           .update({ language_preference: language } as any)
           .eq('id', user.id);
+        
+        if (error) {
+          console.warn('Failed to save language preference to profile:', error);
+        } else {
+          console.log('✅ Saved language preference to profile:', language);
+        }
       }
     } catch (error) {
       console.error('Error changing language:', error);

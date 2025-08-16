@@ -24,12 +24,31 @@ serve(async (req) => {
   }
 
   try {
-    // Get country from Cloudflare header (most reliable for location detection)
-    const country = req.headers.get('CF-IPCountry') || 
-                   req.headers.get('X-Vercel-IP-Country') ||
-                   req.headers.get('X-Country-Code');
+    // Get country from multiple header sources
+    let country = req.headers.get('CF-IPCountry') || 
+                 req.headers.get('X-Vercel-IP-Country') ||
+                 req.headers.get('X-Country-Code') ||
+                 req.headers.get('CloudFront-Viewer-Country') ||
+                 null;
 
+    console.log('🌍 All headers:', Object.fromEntries(req.headers.entries()));
     console.log('🌍 Detected country:', country);
+
+    // Try to detect from Accept-Language header as fallback
+    if (!country) {
+      const acceptLanguage = req.headers.get('Accept-Language');
+      console.log('🗣️ Accept-Language:', acceptLanguage);
+      
+      if (acceptLanguage) {
+        const browserLang = acceptLanguage.split(',')[0].split('-')[0];
+        const langToCountryMap: Record<string, string> = {
+          'es': 'ES', 'fr': 'FR', 'de': 'DE', 'pt': 'BR', 
+          'ja': 'JP', 'zh': 'CN', 'ar': 'SA'
+        };
+        country = langToCountryMap[browserLang] || null;
+        console.log('🔄 Fallback country from browser language:', country);
+      }
+    }
 
     let detectedLanguage = 'en'; // Default fallback
 
@@ -39,6 +58,8 @@ serve(async (req) => {
     } else {
       console.log(`⚠️ Country ${country} not mapped, using default: ${detectedLanguage}`);
     }
+    
+    console.log(`✅ Final result - Country: ${country}, Language: ${detectedLanguage}`);
 
     return new Response(
       JSON.stringify({

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Globe } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useLanguage } from '@/contexts/LanguageProvider';
 import { useTranslation } from 'react-i18next';
 
 interface LanguageSelectorProps {
