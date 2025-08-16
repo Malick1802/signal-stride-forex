@@ -30,8 +30,8 @@ const App = () => {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <LanguageProvider>
-          <AuthProvider>
+        <AuthProvider>
+          <LanguageProvider>
             <HashRouter>
               <Routes>
                 <Route path="/" element={<Index />} />
@@ -41,8 +41,8 @@ const App = () => {
             </HashRouter>
             <Toaster />
             <Sonner />
-          </AuthProvider>
-        </LanguageProvider>
+          </LanguageProvider>
+        </AuthProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   );
