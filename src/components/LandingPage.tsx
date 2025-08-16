@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { TrendingUp, Star, Users, Shield, TrendingDown, Clock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageProvider';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { LanguageSelector } from '@/components/LanguageSelector';
@@ -27,6 +28,7 @@ interface LandingPageProps {
 const LandingPage = ({ onNavigate }: LandingPageProps) => {
   const { t } = useTranslation('landing');
   const { user } = useAuth();
+  const { detectAndSetLanguage } = useLanguage();
   const [stats, setStats] = useState<Stat[]>([
     { 
       label: t('stats.avgAccuracy.label'), 
@@ -123,6 +125,17 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
           
           <div className="flex items-center space-x-3">
             <LanguageSelector variant="minimal" className="text-white" />
+            <Button
+              onClick={() => {
+                console.log('🧪 Testing language detection...');
+                detectAndSetLanguage();
+              }}
+              variant="ghost"
+              size="sm"
+              className="text-xs text-gray-400 hover:text-white"
+            >
+              Test
+            </Button>
             {user ? (
               <>
                 <Button

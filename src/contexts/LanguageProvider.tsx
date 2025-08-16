@@ -52,15 +52,20 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
 
   const detectAndSetLanguage = async () => {
     try {
+      console.log('🌍 Starting language detection...');
+      
       // First check if user has a saved preference
       if (user) {
+        console.log('👤 Checking user profile for language preference...');
         const { data: profile } = await supabase
           .from('profiles')
           .select('language_preference')
           .eq('id', user.id)
           .single();
 
+        console.log('👤 User profile data:', profile);
         if (profile && (profile as any).language_preference && SUPPORTED_LANGUAGES[(profile as any).language_preference as keyof typeof SUPPORTED_LANGUAGES]) {
+          console.log('✅ Using saved user preference:', (profile as any).language_preference);
           await changeLanguage((profile as any).language_preference);
           return;
         }
@@ -68,7 +73,9 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
 
       // Check localStorage
       const savedLanguage = localStorage.getItem('i18nextLng');
+      console.log('💾 Checking localStorage for saved language:', savedLanguage);
       if (savedLanguage && SUPPORTED_LANGUAGES[savedLanguage as keyof typeof SUPPORTED_LANGUAGES]) {
+        console.log('✅ Using localStorage language:', savedLanguage);
         await changeLanguage(savedLanguage);
         return;
       }
@@ -79,24 +86,32 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
         const { data, error } = await supabase.functions.invoke('detect-user-location');
         console.log('🌍 Location detection result:', { data, error });
         
+        if (error) {
+          console.error('🌍 IP detection error:', error);
+        }
+        
         if (!error && data?.language && SUPPORTED_LANGUAGES[data.language as keyof typeof SUPPORTED_LANGUAGES]) {
-          console.log('🌍 Setting language from IP detection:', data.language);
+          console.log('✅ Setting language from IP detection:', data.language);
           await changeLanguage(data.language);
           return;
         } else {
-          console.log('🌍 IP detection failed or unsupported language:', data?.language);
+          console.log('⚠️ IP detection failed or unsupported language:', data?.language);
         }
       } catch (error) {
-        console.warn('Failed to detect location:', error);
+        console.error('❌ Failed to detect location:', error);
       }
 
       // Fallback to browser language
       const browserLang = navigator.language.split('-')[0];
+      console.log('🌐 Trying browser language:', browserLang);
       if (SUPPORTED_LANGUAGES[browserLang as keyof typeof SUPPORTED_LANGUAGES]) {
+        console.log('✅ Using browser language:', browserLang);
         await changeLanguage(browserLang);
+      } else {
+        console.log('⚠️ Browser language not supported, staying with:', currentLanguage);
       }
     } catch (error) {
-      console.error('Error detecting language:', error);
+      console.error('❌ Error detecting language:', error);
     }
   };
 
@@ -130,6 +145,7 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
 
   // Initial language detection
   useEffect(() => {
+    console.log('🌍 LanguageProvider: Initial language detection triggered. User:', user?.email || 'none');
     detectAndSetLanguage();
   }, [user]);
 

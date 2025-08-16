@@ -19,8 +19,14 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
   const [isOpen, setIsOpen] = useState(false);
 
   const handleLanguageChange = async (language: string) => {
-    await changeLanguage(language);
-    setIsOpen(false);
+    console.log('🔄 Language selector: Changing to', language);
+    try {
+      await changeLanguage(language);
+      setIsOpen(false);
+      console.log('✅ Language selector: Successfully changed to', language);
+    } catch (error) {
+      console.error('❌ Language selector: Failed to change language:', error);
+    }
   };
 
   const currentLangData = availableLanguages[currentLanguage as keyof typeof availableLanguages];
@@ -52,9 +58,14 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      console.log('🌐 Language dialog state changed:', open);
+      setIsOpen(open);
+    }}>
       <DialogTrigger asChild>
-        <TriggerButton />
+        <div onClick={() => console.log('🌐 Language selector clicked')}>
+          <TriggerButton />
+        </div>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
