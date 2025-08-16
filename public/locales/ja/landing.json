@@ -1,0 +1,56 @@
+{
+  "hero": {
+    "title": "プレミアム外国為替取引シグナル",
+    "subtitle": "リアルタイムアラートと専門分析を備えたAI駆動の取引シグナルを取得",
+    "cta": {
+      "dashboard": "ダッシュボードを表示",
+      "signup": "無料トライアルを開始",
+      "login": "サインイン"
+    }
+  },
+  "stats": {
+    "activeUsers": {
+      "label": "アクティブユーザー",
+      "description": "当プラットフォームを使用するプロトレーダー"
+    },
+    "signalsGenerated": {
+      "label": "生成されたシグナル",
+      "description": "配信された高品質な取引シグナル"
+    },
+    "avgAccuracy": {
+      "label": "平均精度",
+      "description": "すべての取引シグナルの成功率"
+    },
+    "totalPips": {
+      "label": "総生成pip",
+      "description": "配信された累積利益ポテンシャル"
+    }
+  },
+  "features": {
+    "title": "なぜForexAlert Proを選ぶのか？",
+    "aiSignals": {
+      "title": "AI駆動シグナル",
+      "description": "高度なアルゴリズムが24時間365日市場状況を分析し、リアルタイムアラートで高確率の取引機会を特定します。"
+    },
+    "expertAnalysis": {
+      "title": "専門分析",
+      "description": "プロトレーダーチームとAIシステムから詳細な市場洞察とテクニカル分析を取得します。"
+    },
+    "mobileAlerts": {
+      "title": "モバイルアラート",
+      "description": "どこにいても、モバイルデバイスでの瞬時プッシュ通知で取引機会を逃しません。"
+    },
+    "riskManagement": {
+      "title": "リスク管理",
+      "description": "すべてのシグナルにはストップロスとテイクプロフィットレベルが含まれ、リスク管理と潜在的リターンの最大化をサポートします。"
+    }
+  },
+  "cta": {
+    "title": "取引を始める準備はできましたか？",
+    "description": "取引シグナルでForexAlert Proを信頼する数千人の成功したトレーダーに参加してください。",
+    "button": "今すぐ始める"
+  },
+  "footer": {
+    "copyright": "© 2024 ForexAlert Pro. 全権利留保。"
+  }
+}

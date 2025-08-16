@@ -125,17 +125,6 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
           
           <div className="flex items-center space-x-3">
             <LanguageSelector variant="minimal" className="text-white" />
-            <Button
-              onClick={() => {
-                console.log('🧪 Testing language detection...');
-                detectAndSetLanguage();
-              }}
-              variant="ghost"
-              size="sm"
-              className="text-xs text-gray-400 hover:text-white"
-            >
-              Test
-            </Button>
             {user ? (
               <>
                 <Button

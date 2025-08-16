@@ -19,51 +19,30 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
   const [isOpen, setIsOpen] = useState(false);
 
   const handleLanguageChange = async (language: string) => {
-    console.log('🔄 Language selector: Changing to', language);
     try {
       await changeLanguage(language);
       setIsOpen(false);
-      console.log('✅ Language selector: Successfully changed to', language);
     } catch (error) {
-      console.error('❌ Language selector: Failed to change language:', error);
+      console.error('Failed to change language:', error);
     }
   };
 
   const currentLangData = availableLanguages[currentLanguage as keyof typeof availableLanguages];
 
   const TriggerButton = () => {
-    switch (variant) {
-      case 'icon':
-        return (
-          <Button variant="ghost" size="sm" className={`gap-2 text-gray-300 hover:text-white hover:bg-white/10 ${className}`}>
-            <Globe className="h-4 w-4" />
-            <span className="text-sm">{currentLangData?.flag}</span>
-          </Button>
-        );
-      case 'minimal':
-        return (
-          <Button variant="ghost" size="sm" className={`gap-1 text-gray-300 hover:text-white hover:bg-white/10 ${className}`}>
-            <span className="text-sm">{currentLangData?.flag}</span>
-            <span className="text-xs uppercase text-gray-300">{currentLanguage}</span>
-          </Button>
-        );
-      default:
-        return (
-          <Button variant="outline" size="sm" className={`gap-2 border-white/20 text-white hover:bg-white/10 hover:text-white ${className}`}>
-            <Globe className="h-4 w-4" />
-            <span>{currentLangData?.flag} {currentLangData?.name}</span>
-          </Button>
-        );
-    }
+    return (
+      <Button variant="ghost" size="sm" className={`gap-2 text-foreground hover:bg-accent hover:text-accent-foreground ${className}`}>
+        <Globe className="h-4 w-4" />
+        <span className="text-sm">{currentLangData?.flag}</span>
+        <span className="text-xs uppercase">{currentLanguage}</span>
+      </Button>
+    );
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => {
-      console.log('🌐 Language dialog state changed:', open);
-      setIsOpen(open);
-    }}>
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <div onClick={() => console.log('🌐 Language selector clicked')}>
+        <div>
           <TriggerButton />
         </div>
       </DialogTrigger>
