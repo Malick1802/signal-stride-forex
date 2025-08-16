@@ -121,8 +121,8 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
             </div>
           </div>
           
-          <div className="flex items-center space-x-2">
-            <LanguageSelector variant="minimal" />
+          <div className="flex items-center space-x-3">
+            <LanguageSelector variant="minimal" className="text-white" />
             {user ? (
               <>
                 <Button

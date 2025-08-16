@@ -29,21 +29,21 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
     switch (variant) {
       case 'icon':
         return (
-          <Button variant="ghost" size="sm" className={`gap-2 ${className}`}>
+          <Button variant="ghost" size="sm" className={`gap-2 text-gray-300 hover:text-white hover:bg-white/10 ${className}`}>
             <Globe className="h-4 w-4" />
             <span className="text-sm">{currentLangData?.flag}</span>
           </Button>
         );
       case 'minimal':
         return (
-          <Button variant="ghost" size="sm" className={`gap-1 ${className}`}>
+          <Button variant="ghost" size="sm" className={`gap-1 text-gray-300 hover:text-white hover:bg-white/10 ${className}`}>
             <span className="text-sm">{currentLangData?.flag}</span>
-            <span className="text-xs uppercase">{currentLanguage}</span>
+            <span className="text-xs uppercase text-gray-300">{currentLanguage}</span>
           </Button>
         );
       default:
         return (
-          <Button variant="outline" size="sm" className={`gap-2 ${className}`}>
+          <Button variant="outline" size="sm" className={`gap-2 border-white/20 text-white hover:bg-white/10 hover:text-white ${className}`}>
             <Globe className="h-4 w-4" />
             <span>{currentLangData?.flag} {currentLangData?.name}</span>
           </Button>
