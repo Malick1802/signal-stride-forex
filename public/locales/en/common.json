@@ -1,0 +1,44 @@
+{
+  "nav": {
+    "signals": "Signals",
+    "expired": "Expired",
+    "tools": "Tools",
+    "test": "Test",
+    "profile": "Profile",
+    "settings": "Settings",
+    "logout": "Logout"
+  },
+  "language": {
+    "change": "Change Language",
+    "select": "Select Language",
+    "current": "Current Language"
+  },
+  "actions": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "submit": "Submit",
+    "reset": "Reset",
+    "refresh": "Refresh",
+    "retry": "Try Again",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success"
+  },
+  "time": {
+    "now": "Now",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "ago": "ago",
+    "minutes": "minutes",
+    "hours": "hours",
+    "days": "days"
+  },
+  "status": {
+    "active": "Active",
+    "expired": "Expired",
+    "pending": "Pending",
+    "completed": "Completed",
+    "cancelled": "Cancelled"
+  }
+}

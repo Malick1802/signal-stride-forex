@@ -1,0 +1,56 @@
+{
+  "hero": {
+    "title": "Premium Forex Trading Signals",
+    "subtitle": "Get AI-powered trading signals with real-time alerts and expert analysis",
+    "cta": {
+      "dashboard": "View Dashboard",
+      "signup": "Start Free Trial",
+      "login": "Sign In"
+    }
+  },
+  "stats": {
+    "activeUsers": {
+      "label": "Active Users",
+      "description": "Professional traders using our platform"
+    },
+    "signalsGenerated": {
+      "label": "Signals Generated",
+      "description": "High-quality trading signals delivered"
+    },
+    "avgAccuracy": {
+      "label": "Average Accuracy",
+      "description": "Success rate across all trading signals"
+    },
+    "totalPips": {
+      "label": "Total Pips Generated",
+      "description": "Cumulative profit potential delivered"
+    }
+  },
+  "features": {
+    "title": "Why Choose ForexAlert Pro?",
+    "aiSignals": {
+      "title": "AI-Powered Signals",
+      "description": "Advanced algorithms analyze market conditions 24/7 to identify high-probability trading opportunities with real-time alerts."
+    },
+    "expertAnalysis": {
+      "title": "Expert Analysis",
+      "description": "Get detailed market insights and technical analysis from our team of professional traders and AI systems."
+    },
+    "mobileAlerts": {
+      "title": "Mobile Alerts",
+      "description": "Never miss a trading opportunity with instant push notifications on your mobile device, wherever you are."
+    },
+    "riskManagement": {
+      "title": "Risk Management",
+      "description": "Every signal includes stop-loss and take-profit levels to help you manage risk and maximize potential returns."
+    }
+  },
+  "cta": {
+    "title": "Ready to Start Trading?",
+    "description": "Join thousands of successful traders who trust ForexAlert Pro for their trading signals.",
+    "button": "Get Started Now"
+  },
+  "footer": {
+    "copyright": "© 2024 ForexAlert Pro. All rights reserved."
+  }
+}

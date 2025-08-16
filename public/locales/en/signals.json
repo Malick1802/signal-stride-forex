@@ -1,0 +1,38 @@
+{
+  "title": "Trading Signals",
+  "active": "Active Signals",
+  "expired": "Expired Signals",
+  "analysis": "Signal Analysis",
+  "confidence": "Confidence Level",
+  "timeframe": "Timeframe",
+  "entry": {
+    "price": "Entry Price",
+    "time": "Entry Time",
+    "zone": "Entry Zone"
+  },
+  "targets": {
+    "stopLoss": "Stop Loss",
+    "takeProfit": "Take Profit",
+    "targets": "Targets",
+    "riskReward": "Risk/Reward"
+  },
+  "performance": {
+    "pips": "Pips",
+    "profit": "Profit",
+    "loss": "Loss",
+    "outcome": "Outcome"
+  },
+  "indicators": {
+    "rsi": "RSI",
+    "macd": "MACD",
+    "ema": "EMA",
+    "support": "Support",
+    "resistance": "Resistance"
+  },
+  "market": {
+    "conditions": "Market Conditions",
+    "trend": "Trend",
+    "volatility": "Volatility",
+    "sentiment": "Sentiment"
+  }
+}

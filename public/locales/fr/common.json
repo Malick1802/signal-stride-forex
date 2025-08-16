@@ -1,0 +1,44 @@
+{
+  "nav": {
+    "signals": "Signaux",
+    "expired": "Expirés",
+    "tools": "Outils",
+    "test": "Test",
+    "profile": "Profil",
+    "settings": "Paramètres",
+    "logout": "Déconnexion"
+  },
+  "language": {
+    "change": "Changer de Langue",
+    "select": "Sélectionner la Langue",
+    "current": "Langue Actuelle"
+  },
+  "actions": {
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "close": "Fermer",
+    "submit": "Soumettre",
+    "reset": "Réinitialiser",
+    "refresh": "Actualiser",
+    "retry": "Réessayer",
+    "loading": "Chargement...",
+    "error": "Erreur",
+    "success": "Succès"
+  },
+  "time": {
+    "now": "Maintenant",
+    "today": "Aujourd'hui",
+    "yesterday": "Hier",
+    "ago": "il y a",
+    "minutes": "minutes",
+    "hours": "heures",
+    "days": "jours"
+  },
+  "status": {
+    "active": "Actif",
+    "expired": "Expiré",
+    "pending": "En attente",
+    "completed": "Terminé",
+    "cancelled": "Annulé"
+  }
+}
