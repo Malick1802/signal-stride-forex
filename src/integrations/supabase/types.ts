@@ -7,7 +7,7 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instanciate createClient with right options
+  // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
     PostgrestVersion: "12.2.3 (519615d)"
@@ -778,6 +778,7 @@ export type Database = {
           first_name: string | null
           full_name: string | null
           id: string
+          language_preference: string | null
           last_name: string | null
           phone_number: string | null
           push_enabled: boolean | null
@@ -805,6 +806,7 @@ export type Database = {
           first_name?: string | null
           full_name?: string | null
           id: string
+          language_preference?: string | null
           last_name?: string | null
           phone_number?: string | null
           push_enabled?: boolean | null
@@ -832,6 +834,7 @@ export type Database = {
           first_name?: string | null
           full_name?: string | null
           id?: string
+          language_preference?: string | null
           last_name?: string | null
           phone_number?: string | null
           push_enabled?: boolean | null
@@ -1385,9 +1388,9 @@ export type Database = {
       }
       distribute_mlm_commission: {
         Args: {
+          commission_type: string
           referral_user_id: string
           subscription_amount: number
-          commission_type: string
           subscription_id?: string
         }
         Returns: undefined

@@ -1,9 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, Star, Users, Shield, TrendingDown, Clock } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
+import { LanguageSelector } from '@/components/LanguageSelector';
 import heroTradingImage from '@/assets/hero-trading.jpg';
 import aiSignalsImage from '@/assets/ai-signals.jpg';
 import mobileAlertsImage from '@/assets/mobile-alerts.jpg';
@@ -23,26 +25,27 @@ interface LandingPageProps {
 }
 
 const LandingPage = ({ onNavigate }: LandingPageProps) => {
+  const { t } = useTranslation('landing');
   const { user } = useAuth();
   const [stats, setStats] = useState<Stat[]>([
     { 
-      label: 'Accuracy', 
+      label: t('stats.avgAccuracy.label'), 
       value: '85-95%', 
-      description: 'Signal Win Rate',
+      description: t('stats.avgAccuracy.description'),
       icon: TrendingUp,
       color: 'text-emerald-400'
     },
     { 
-      label: 'Active Users', 
+      label: t('stats.activeUsers.label'), 
       value: '2.5K+', 
-      description: 'Traders Worldwide',
+      description: t('stats.activeUsers.description'),
       icon: Users,
       color: 'text-blue-400'
     },
     { 
-      label: 'Monthly Pips', 
+      label: t('stats.totalPips.label'), 
       value: '500+', 
-      description: 'Average Target',
+      description: t('stats.totalPips.description'),
       icon: Star,
       color: 'text-yellow-400'
     },
@@ -51,29 +54,29 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
   const features = [
     {
       icon: TrendingUp,
-      title: 'AI-Powered Signals',
-      description: 'Advanced algorithms analyze market data to identify high-probability trading opportunities in real-time.',
+      title: t('features.aiSignals.title'),
+      description: t('features.aiSignals.description'),
       color: 'bg-emerald-500/20 text-emerald-400',
       image: aiSignalsImage
     },
     {
       icon: Clock,
-      title: 'Real-Time Alerts',
-      description: 'Get instant notifications on your mobile device when new signals are available.',
+      title: t('features.mobileAlerts.title'),
+      description: t('features.mobileAlerts.description'),
       color: 'bg-blue-500/20 text-blue-400',
       image: mobileAlertsImage
     },
     {
       icon: Shield,
-      title: 'Risk Management',
-      description: 'Every signal includes stop-loss and take-profit levels to help manage your trading risk.',
+      title: t('features.riskManagement.title'),
+      description: t('features.riskManagement.description'),
       color: 'bg-purple-500/20 text-purple-400',
       image: riskManagementImage
     },
     {
       icon: Users,
-      title: 'Expert Analysis',
-      description: 'Benefit from insights of experienced forex traders and market analysts.',
+      title: t('features.expertAnalysis.title'),
+      description: t('features.expertAnalysis.description'),
       color: 'bg-orange-500/20 text-orange-400',
       image: expertAnalysisImage
     }
@@ -119,6 +122,7 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
           </div>
           
           <div className="flex items-center space-x-2">
+            <LanguageSelector variant="minimal" />
             {user ? (
               <>
                 <Button
@@ -127,7 +131,7 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
                   size="sm"
                   className="text-white hover:text-emerald-400 hover:bg-white/10"
                 >
-                  Dashboard
+                  {t('hero.cta.dashboard')}
                 </Button>
                 <Button
                   onClick={handleAuthNavigation}
@@ -146,14 +150,14 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
                   size="sm"
                   className="text-white hover:text-emerald-400 hover:bg-white/10"
                 >
-                  Sign In
+                  {t('hero.cta.login')}
                 </Button>
                 <Button
                   onClick={handleAuthNavigation}
                   size="sm"
                   className="bg-gradient-to-r from-emerald-500 to-blue-500 hover:shadow-lg hover:shadow-emerald-500/25"
                 >
-                  Get Started
+                  {t('hero.cta.signup')}
                 </Button>
               </>
             )}
@@ -181,12 +185,11 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
           </div>
 
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-6 leading-tight">
-            AI-Powered Forex Signals
-            <span className="block text-emerald-400 mt-2">For Mobile Traders</span>
+            {t('hero.title')}
           </h1>
           
           <p className="text-lg text-gray-300 mb-8 max-w-2xl mx-auto leading-relaxed">
-            Get high-probability forex signals with real-time notifications, advanced analysis, and expert insights - all optimized for mobile trading.
+            {t('hero.subtitle')}
           </p>
 
           {!user ? (
@@ -195,7 +198,7 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
               size="lg"
               className="bg-gradient-to-r from-emerald-500 to-blue-500 hover:shadow-lg hover:shadow-emerald-500/25 text-lg px-8 py-4 rounded-xl backdrop-blur-sm"
             >
-              Start Free Trial
+              {t('hero.cta.signup')}
             </Button>
           ) : (
             <Button
@@ -203,7 +206,7 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
               size="lg"
               className="bg-gradient-to-r from-emerald-500 to-blue-500 hover:shadow-lg hover:shadow-emerald-500/25 text-lg px-8 py-4 rounded-xl backdrop-blur-sm"
             >
-              Open Dashboard
+              {t('hero.cta.dashboard')}
             </Button>
           )}
         </div>
@@ -237,7 +240,7 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
-              Why Choose ForexAlert Pro?
+              {t('features.title')}
             </h2>
             <p className="text-gray-300 max-w-2xl mx-auto">
               Everything you need for successful mobile forex trading in one powerful app.
@@ -293,35 +296,35 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
           <Card className="bg-gradient-to-r from-emerald-500/10 to-blue-500/10 backdrop-blur-md border-emerald-500/20 border-2">
             <CardContent className="p-8">
               <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
-                Ready to Start Trading?
+                {t('cta.title')}
               </h2>
               <p className="text-gray-300 mb-8 text-lg">
-                Join thousands of successful traders. Start your free trial today.
+                {t('cta.description')}
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                {!user ? (
-                  <>
+                  {!user ? (
+                    <>
+                      <Button
+                        onClick={handleAuthNavigation}
+                        size="lg"
+                        className="bg-gradient-to-r from-emerald-500 to-blue-500 hover:shadow-lg hover:shadow-emerald-500/25 text-lg px-8 py-4 rounded-xl w-full sm:w-auto backdrop-blur-sm"
+                      >
+                        {t('cta.button')}
+                      </Button>
+                      <div className="text-gray-400 text-sm">
+                        No credit card required • 7-day free trial
+                      </div>
+                    </>
+                  ) : (
                     <Button
-                      onClick={handleAuthNavigation}
+                      onClick={handleDashboardNavigation}
                       size="lg"
                       className="bg-gradient-to-r from-emerald-500 to-blue-500 hover:shadow-lg hover:shadow-emerald-500/25 text-lg px-8 py-4 rounded-xl w-full sm:w-auto backdrop-blur-sm"
                     >
-                      Start Free Trial
+                      {t('hero.cta.dashboard')}
                     </Button>
-                    <div className="text-gray-400 text-sm">
-                      No credit card required • 7-day free trial
-                    </div>
-                  </>
-                ) : (
-                  <Button
-                    onClick={handleDashboardNavigation}
-                    size="lg"
-                    className="bg-gradient-to-r from-emerald-500 to-blue-500 hover:shadow-lg hover:shadow-emerald-500/25 text-lg px-8 py-4 rounded-xl w-full sm:w-auto backdrop-blur-sm"
-                  >
-                    Go to Dashboard
-                  </Button>
-                )}
+                  )}
               </div>
             </CardContent>
           </Card>
@@ -338,7 +341,7 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
             <span className="text-lg font-bold text-white">ForexAlert Pro</span>
           </div>
           <p className="text-gray-400 text-sm">
-            © 2024 ForexAlert Pro. Professional forex trading signals for mobile traders.
+            {t('footer.copyright')}
           </p>
         </div>
       </footer>

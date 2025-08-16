@@ -5,13 +5,15 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from './contexts/AuthContext';
+import { LanguageProvider } from './contexts/LanguageContext';
 import Index from "./pages/Index";
 import TestPage from "./pages/TestPage";
 import NotFound from "./pages/NotFound";
 import ErrorBoundary from "./components/ErrorBoundary";
 
-// Import mobile app CSS
+// Import mobile app CSS and i18n configuration
 import './mobile-app.css';
+import './i18n';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -28,17 +30,19 @@ const App = () => {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <HashRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/test" element={<TestPage />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </HashRouter>
-          <Toaster />
-          <Sonner />
-        </AuthProvider>
+        <LanguageProvider>
+          <AuthProvider>
+            <HashRouter>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/test" element={<TestPage />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </HashRouter>
+            <Toaster />
+            <Sonner />
+          </AuthProvider>
+        </LanguageProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   );
