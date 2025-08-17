@@ -35,11 +35,11 @@ export const LanguageSelector: React.FC<LanguageSelectorProps> = ({
         <Button 
           variant="ghost" 
           size="sm" 
-          className={`gap-2 bg-background/10 backdrop-blur-sm border border-white/10 text-white hover:bg-white/20 hover:text-white transition-all duration-200 ${className}`}
+          className={`gap-1 px-2 py-1 h-8 bg-background/10 backdrop-blur-sm border border-white/10 text-white hover:bg-white/20 hover:text-white transition-all duration-200 ${className}`}
         >
-          <Globe className="h-4 w-4" />
+          <Globe className="h-3 w-3" />
           <span className="text-sm">{currentLangData?.flag}</span>
-          <span className="text-xs uppercase font-medium">{currentLanguage}</span>
+          <span className="text-xs uppercase font-medium tracking-tight">{currentLanguage}</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md max-w-[90vw] mx-auto">

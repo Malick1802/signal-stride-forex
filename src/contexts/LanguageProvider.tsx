@@ -75,17 +75,22 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
 
       // Try to detect from IP geolocation
       try {
+        console.log('🌍 Attempting IP-based language detection...');
         const { data, error } = await supabase.functions.invoke('detect-user-location');
+        
+        console.log('🌍 IP detection result:', { data, error });
         
         if (!error && data?.country && COUNTRY_TO_LANGUAGE[data.country]) {
           const detectedLang = COUNTRY_TO_LANGUAGE[data.country];
+          console.log(`🌍 Detected country: ${data.country}, mapped to language: ${detectedLang}`);
           if (SUPPORTED_LANGUAGES[detectedLang as keyof typeof SUPPORTED_LANGUAGES]) {
+            console.log(`🌍 Setting language to: ${detectedLang}`);
             await changeLanguage(detectedLang);
             return;
           }
         }
       } catch (error) {
-        console.warn('IP detection failed, using browser language');
+        console.warn('🌍 IP detection failed, using browser language:', error);
       }
 
       // Fallback to browser language
@@ -130,11 +135,13 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
 
   // Initial language detection
   useEffect(() => {
-    // Run detection on first load
-    const hasRanDetection = localStorage.getItem('languageDetectionRan');
-    if (!hasRanDetection) {
-      localStorage.setItem('languageDetectionRan', 'true');
+    // Always run detection on mount, but respect saved preferences
+    const savedLanguage = localStorage.getItem('i18nextLng');
+    if (!savedLanguage || savedLanguage === 'en') {
+      console.log('🌍 No saved language preference, running detection...');
       detectAndSetLanguage();
+    } else {
+      console.log('🌍 Using saved language:', savedLanguage);
     }
   }, []);
 
