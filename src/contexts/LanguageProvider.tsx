@@ -142,13 +142,13 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
 
   // Initial language detection
   useEffect(() => {
-    // Only run detection if no language preference exists
+    // Clear old detection flag and run detection if needed
     const savedLanguage = localStorage.getItem('i18nextLng');
-    const hasRunDetection = localStorage.getItem('hasRunLanguageDetection');
+    console.log('🌍 Current saved language:', savedLanguage);
     
-    if (!savedLanguage && !hasRunDetection) {
-      console.log('🌍 No saved language preference, running detection...');
-      localStorage.setItem('hasRunLanguageDetection', 'true');
+    // Run detection if no language is saved or if it's still English
+    if (!savedLanguage || savedLanguage === 'en') {
+      console.log('🌍 Running language detection...');
       detectAndSetLanguage();
     } else {
       console.log('🌍 Using saved language:', savedLanguage);
