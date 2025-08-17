@@ -77,9 +77,12 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
       try {
         const { data, error } = await supabase.functions.invoke('detect-user-location');
         
-        if (!error && data?.language && SUPPORTED_LANGUAGES[data.language as keyof typeof SUPPORTED_LANGUAGES]) {
-          await changeLanguage(data.language);
-          return;
+        if (!error && data?.country && COUNTRY_TO_LANGUAGE[data.country]) {
+          const detectedLang = COUNTRY_TO_LANGUAGE[data.country];
+          if (SUPPORTED_LANGUAGES[detectedLang as keyof typeof SUPPORTED_LANGUAGES]) {
+            await changeLanguage(detectedLang);
+            return;
+          }
         }
       } catch (error) {
         console.warn('IP detection failed, using browser language');
@@ -97,6 +100,7 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
 
   const changeLanguage = async (language: string) => {
     try {
+      // Update i18n immediately
       await i18n.changeLanguage(language);
       setCurrentLanguage(language);
       
@@ -115,8 +119,10 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
         }
       }
       
-      // Force page reload to apply all translations
-      window.location.reload();
+      // Small delay then reload to ensure state is saved
+      setTimeout(() => {
+        window.location.reload();
+      }, 100);
     } catch (error) {
       console.error('Error changing language:', error);
     }
@@ -124,8 +130,17 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
 
   // Initial language detection
   useEffect(() => {
-    // Only run detection if current language is still the default
-    if (currentLanguage === 'en') {
+    // Run detection on first load
+    const hasRanDetection = localStorage.getItem('languageDetectionRan');
+    if (!hasRanDetection) {
+      localStorage.setItem('languageDetectionRan', 'true');
+      detectAndSetLanguage();
+    }
+  }, []);
+
+  // Also run when user state changes
+  useEffect(() => {
+    if (user && currentLanguage === 'en') {
       detectAndSetLanguage();
     }
   }, [user]);
