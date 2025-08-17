@@ -80,6 +80,13 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
         
         console.log('🌍 IP detection result:', { data, error });
         
+        if (!error && data?.language && SUPPORTED_LANGUAGES[data.language as keyof typeof SUPPORTED_LANGUAGES]) {
+          console.log(`🌍 Detected language: ${data.language}`);
+          await changeLanguage(data.language);
+          return;
+        }
+        
+        // Fallback to country mapping
         if (!error && data?.country && COUNTRY_TO_LANGUAGE[data.country]) {
           const detectedLang = COUNTRY_TO_LANGUAGE[data.country];
           console.log(`🌍 Detected country: ${data.country}, mapped to language: ${detectedLang}`);
@@ -135,10 +142,13 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
 
   // Initial language detection
   useEffect(() => {
-    // Always run detection on mount, but respect saved preferences
+    // Only run detection if no language preference exists
     const savedLanguage = localStorage.getItem('i18nextLng');
-    if (!savedLanguage || savedLanguage === 'en') {
+    const hasRunDetection = localStorage.getItem('hasRunLanguageDetection');
+    
+    if (!savedLanguage && !hasRunDetection) {
       console.log('🌍 No saved language preference, running detection...');
+      localStorage.setItem('hasRunLanguageDetection', 'true');
       detectAndSetLanguage();
     } else {
       console.log('🌍 Using saved language:', savedLanguage);
