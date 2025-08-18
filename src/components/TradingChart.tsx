@@ -101,11 +101,8 @@ const TradingChart = ({ selectedPair, onPairChange, availablePairs }: TradingCha
               <XAxis 
                 dataKey="time" 
                 stroke="rgba(255,255,255,0.5)"
-                fontSize={9}
-                interval={Math.max(0, Math.floor((priceData?.length || 10) / 8))}
-                angle={-45}
-                textAnchor="end"
-                height={60}
+                fontSize={10}
+                interval="preserveStartEnd"
               />
               <YAxis 
                 stroke="rgba(255,255,255,0.5)"

@@ -44,32 +44,20 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
       Logger.debug('chart', 'Market closed - displaying frozen data');
       
       if (Array.isArray(priceData) && priceData.length > 0) {
-        // Return existing price data with proper time formatting
-        return priceData.map((point, index) => {
-          const timeLabel = new Date(point.timestamp || Date.now() - (priceData.length - index) * 60000).toLocaleTimeString('en-US', {
-            hour12: false,
-            minute: '2-digit',
-            second: '2-digit'
-          });
-          return {
-            time: timeLabel,
-            price: typeof point.price === 'number' ? point.price : Number(point.price),
-            timestamp: point.timestamp,
-            isEntry: entryPrice && Math.abs(point.price - entryPrice) < 0.00001,
-            isFrozen: true
-          };
-        });
+        // Return existing price data without modifications
+        return priceData.map((point, index) => ({
+          time: `${index}`,
+          price: typeof point.price === 'number' ? point.price : Number(point.price),
+          timestamp: point.timestamp,
+          isEntry: entryPrice && Math.abs(point.price - entryPrice) < 0.00001,
+          isFrozen: true
+        }));
       }
       
       // If no data and market closed, show entry price as frozen point
       if (entryPrice && typeof entryPrice === 'number' && !isNaN(entryPrice)) {
-        const timeLabel = new Date().toLocaleTimeString('en-US', {
-          hour12: false,
-          minute: '2-digit',
-          second: '2-digit'
-        });
         return [{
-          time: timeLabel,
+          time: "0",
           price: entryPrice,
           timestamp: Date.now(),
           isEntry: true,
@@ -86,14 +74,9 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
         .filter(point => point && typeof point === 'object' && point.price && !isNaN(point.price))
         .map((point, index) => {
           const priceValue = typeof point.price === 'number' ? point.price : Number(point.price);
-          const timeLabel = new Date(point.timestamp || Date.now() - (priceData.length - index) * 60000).toLocaleTimeString('en-US', {
-            hour12: false,
-            minute: '2-digit',
-            second: '2-digit'
-          });
           
           return {
-            time: timeLabel,
+            time: `${index}`,
             price: priceValue,
             timestamp: point.timestamp,
             isEntry: entryPrice && Math.abs(priceValue - entryPrice) < 0.00001,
@@ -115,21 +98,21 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
       
       const fallbackData = [
         {
-          time: new Date(now - 120000).toLocaleTimeString('en-US', { hour12: false, minute: '2-digit', second: '2-digit' }),
+          time: "0",
           price: basePrice - variation,
-          timestamp: now - 120000,
+          timestamp: now - 60000,
           isEntry: false,
           isFrozen: false
         },
         {
-          time: new Date(now - 60000).toLocaleTimeString('en-US', { hour12: false, minute: '2-digit', second: '2-digit' }),
+          time: "1", 
           price: basePrice,
-          timestamp: now - 60000,
+          timestamp: now - 30000,
           isEntry: !!entryPrice,
           isFrozen: false
         },
         {
-          time: new Date(now).toLocaleTimeString('en-US', { hour12: false, minute: '2-digit', second: '2-digit' }),
+          time: "2",
           price: currentPrice,
           timestamp: now,
           isEntry: false,
@@ -147,14 +130,14 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
       
       const entryFallback = [
         {
-          time: new Date(now - 60000).toLocaleTimeString('en-US', { hour12: false, minute: '2-digit', second: '2-digit' }),
+          time: "0",
           price: entryPrice - variation,
-          timestamp: now - 60000,
+          timestamp: now - 30000,
           isEntry: false,
           isFrozen: !marketStatus.isOpen
         },
         {
-          time: new Date(now).toLocaleTimeString('en-US', { hour12: false, minute: '2-digit', second: '2-digit' }),
+          time: "1",
           price: entryPrice,
           timestamp: now,
           isEntry: true,
@@ -285,11 +268,8 @@ const RealTimeChart = ({ priceData, signalType, currentPrice, isConnected, entry
                 dataKey="time" 
                 stroke={marketStatus.isOpen ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.3)"}
                 fontSize={8}
-                interval={Math.max(0, Math.floor(chartData.length / 6))}
+                interval="preserveStartEnd"
                 tick={{ fontSize: 8 }}
-                angle={-45}
-                textAnchor="end"
-                height={60}
               />
               <YAxis 
                 stroke={marketStatus.isOpen ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.3)"}
