@@ -721,7 +721,7 @@ Market Context:
 
 Technical Requirements:
 - Stop Loss: minimum 30 pips
-- Take Profits: minimum 30 pips, R:R 1.5:1+
+- Take Profits: minimum 30 pips, R:R 1.2:1+
 - Quality threshold: ${forceMode ? 35 : (lowThreshold ? 40 : 50)}
 
 Decision Rule:
@@ -734,7 +734,7 @@ Comprehensive JSON analysis:
   "confidence": [40-85],
   "entryPrice": ${currentPrice},
   "stopLoss": [price level],
-  "takeProfits": [3 levels at 1.5:1, 2:1, 3:1 ratios],
+  "takeProfits": [3 levels at ≥1.2:1 (e.g., 1.2:1, 1.5:1, 2:1)],
   "reasoning": "[detailed setup explanation]",
   "technicalFactors": ["factor1", "factor2", "factor3"],
   "riskAssessment": "[comprehensive risk analysis]",
@@ -823,8 +823,8 @@ Comprehensive JSON analysis:
       
       // R:R validation
       const rrRatio = takeProfitPips / stopLossPips;
-      if (rrRatio < 1.5) {
-        console.log(`💎 ${symbol} Tier 3 R:R ratio ${rrRatio.toFixed(2)}:1 below 1.5:1 minimum`);
+      if (rrRatio < 1.2) {
+        console.log(`💎 ${symbol} Tier 3 R:R ratio ${rrRatio.toFixed(2)}:1 below 1.2:1 minimum`);
         return { ...analysis, recommendation: 'HOLD' as const };
       }
     }
