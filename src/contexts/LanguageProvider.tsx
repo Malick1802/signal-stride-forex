@@ -131,10 +131,7 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
         }
       }
       
-      // Small delay then reload to ensure state is saved
-      setTimeout(() => {
-        window.location.reload();
-      }, 100);
+      console.log(`🌍 Language changed to: ${language}`);
     } catch (error) {
       console.error('Error changing language:', error);
     }
