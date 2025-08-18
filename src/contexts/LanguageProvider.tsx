@@ -60,8 +60,8 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
           .eq('id', user.id)
           .single();
 
-        if (profile && (profile as any).language_preference && SUPPORTED_LANGUAGES[(profile as any).language_preference as keyof typeof SUPPORTED_LANGUAGES]) {
-          await changeLanguage((profile as any).language_preference);
+        if (profile && profile.language_preference && SUPPORTED_LANGUAGES[profile.language_preference as keyof typeof SUPPORTED_LANGUAGES]) {
+          await changeLanguage(profile.language_preference);
           return;
         }
       }
@@ -123,7 +123,7 @@ export const LanguageProvider: React.FC<LanguageProviderProps> = ({ children }) 
       if (user) {
         const { error } = await supabase
           .from('profiles')
-          .update({ language_preference: language } as any)
+          .update({ language_preference: language })
           .eq('id', user.id);
         
         if (error) {
