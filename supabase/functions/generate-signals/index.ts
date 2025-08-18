@@ -605,13 +605,22 @@ async function executeTier2Analysis(
   
   console.log(`💰 TIER 2: Cost-effective analysis for ${symbol}...`);
   
+  const passThreshold = forceMode ? 35 : (lowThreshold ? 40 : 45);
+  const passConfidence = 60;
+  const escalateConfidence = 65;
+  
   const optimizedPrompt = `${symbol} @ ${currentPrice}
 Trend: ${trendStrength}, Regime: ${marketRegime}
 Session: ${sessionAnalysis.session} (${sessionAnalysis.recommendation})
 Local Score: ${tier1Score}/100
+Pass Threshold: ${passThreshold}
 
-Quick JSON analysis:
-{"recommendation": "BUY"|"SELL"|"HOLD", "confidence": [45-80], "entryPrice": ${currentPrice}, "stopLoss": [level], "takeProfits": [2-3 levels], "reasoning": "brief", "qualityScore": [0-100]}`;
+Decision Rules:
+- If qualityScore >= ${passThreshold} OR confidence >= ${passConfidence}, DO NOT return "HOLD". Choose "BUY" or "SELL" with valid SL/TP.
+- Return "HOLD" only when qualityScore < ${passThreshold} or setup is invalid/unclear.
+
+Respond with a single JSON object only:
+{"recommendation": "BUY"|"SELL"|"HOLD", "confidence": [45-85], "entryPrice": ${currentPrice}, "stopLoss": [level], "takeProfits": [2-3 levels], "reasoning": "brief", "qualityScore": [0-100]}`;
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -622,7 +631,7 @@ Quick JSON analysis:
     body: JSON.stringify({
       model: 'gpt-4o-mini', // Cost-effective model
       messages: [
-        { role: 'system', content: 'Forex analyst. Quick quality assessment. JSON only.' },
+        { role: 'system', content: `Forex analyst. Quick quality assessment. JSON only. HOLD allowed only if qualityScore < ${passThreshold}. If qualityScore >= ${passThreshold} or confidence >= ${passConfidence}, output BUY or SELL (not HOLD).` },
         { role: 'user', content: optimizedPrompt }
       ],
       temperature: 0.2,
@@ -650,12 +659,15 @@ Quick JSON analysis:
     const analysis = JSON.parse(analysisMatch[0]);
     
     // Determine if this should be escalated to Tier 3
-    const shouldEscalate = analysis.recommendation !== 'HOLD' && 
-                          analysis.confidence >= 60 && 
-                          (analysis.qualityScore || 0) >= 50;
+    const q = Number(analysis.qualityScore || 0);
+    const c = Number(analysis.confidence || 0);
+    const shouldEscalate = (
+                          (analysis.recommendation !== 'HOLD' && c >= 60 && q >= Math.max(50, passThreshold)) ||
+                          (analysis.recommendation === 'HOLD' && (q >= passThreshold + 15 || c >= 65))
+                        );
     
     if (shouldEscalate) {
-      console.log(`⬆️ ESCALATING: ${symbol} from Tier 2 to Tier 3 (C:${analysis.confidence}%, Q:${analysis.qualityScore || 0})`);
+      console.log(`⬆️ ESCALATING: ${symbol} from Tier 2 to Tier 3 (rec:${analysis.recommendation}, C:${c}%, Q:${q}, pass:${passThreshold})`);
       return await executeTier3Analysis(openAIApiKey, symbol, currentPrice, recentPrices, atr, trendStrength, marketRegime, sessionAnalysis, tier1Score, forceMode, lowThreshold);
     }
     
@@ -711,6 +723,10 @@ Technical Requirements:
 - Stop Loss: minimum 30 pips
 - Take Profits: minimum 30 pips, R:R 1.5:1+
 - Quality threshold: ${forceMode ? 35 : (lowThreshold ? 40 : 50)}
+
+Decision Rule:
+- If qualityScore >= Quality threshold, recommendation MUST be "BUY" or "SELL" (not "HOLD").
+- Use "HOLD" only if qualityScore is below threshold or the setup is invalid per the pip and R:R rules.
 
 Comprehensive JSON analysis:
 {
