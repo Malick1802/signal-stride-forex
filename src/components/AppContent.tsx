@@ -1,6 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { useSignalNotifications } from '@/hooks/useSignalNotifications';
 import LandingPage from './LandingPage';
 import AuthPage from './AuthPage';
 import MobileLoadingScreen from './MobileLoadingScreen';
@@ -41,9 +40,6 @@ const AppContent = ({ activeTab = 'signals', onTabChange }: AppContentProps = {}
   const { user, loading, subscription, session } = useAuth();
   const [currentView, setCurrentView] = useState<ViewType>('landing');
   const [isAdmin, setIsAdmin] = useState(false);
-
-  // Initialize signal notifications for authenticated users
-  useSignalNotifications();
 
   useEffect(() => {
     const checkAdminStatus = async () => {
