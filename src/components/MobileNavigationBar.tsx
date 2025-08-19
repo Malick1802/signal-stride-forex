@@ -1,6 +1,5 @@
 import React from 'react';
 import { TrendingUp, Settings, BarChart3, Bell } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { useNativeFeatures } from '@/hooks/useNativeFeatures';
 
@@ -13,7 +12,6 @@ export const MobileNavigationBar: React.FC<MobileNavigationBarProps> = ({
   activeTab,
   onTabChange
 }) => {
-  const { t } = useTranslation('common');
   const { triggerHaptic } = useNativeFeatures();
 
   const handleTabPress = (tab: string) => {
@@ -22,10 +20,10 @@ export const MobileNavigationBar: React.FC<MobileNavigationBarProps> = ({
   };
 
   const tabs = [
-    { id: 'signals', icon: TrendingUp, label: t('nav.signals') },
-    { id: 'expired', icon: BarChart3, label: t('nav.expired') },
-    { id: 'diagnostics', icon: Settings, label: t('nav.tools') },
-    { id: 'testing', icon: Bell, label: t('nav.test') }
+    { id: 'signals', icon: TrendingUp, label: 'Signals' },
+    { id: 'expired', icon: BarChart3, label: 'Expired' },
+    { id: 'diagnostics', icon: Settings, label: 'Tools' },
+    { id: 'testing', icon: Bell, label: 'Test' }
   ];
 
   return (
