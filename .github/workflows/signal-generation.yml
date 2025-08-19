@@ -3,8 +3,8 @@ name: Cost-Optimized Trading Signal Generation
 
 on:
   schedule:
-    # Optimized schedule: every 8 minutes during market hours for better signal coverage
-    - cron: '*/8 * * * 0,1-5'
+    # Professional schedule: every 5 minutes during market hours for optimal signal coverage
+    - cron: '*/5 * * * 0,1-5'
   workflow_dispatch:
     inputs:
       force_generation:
@@ -113,7 +113,7 @@ jobs:
         echo "  - Tier 2/3: Only top 6-8 pairs get expensive AI analysis"
         echo "  - Reduced tokens: 500 max (down from 1200)"
         echo "  - Smart concurrency: 2 pairs max simultaneous"
-        echo "  - 8-minute schedule (increased frequency for better coverage)"
+        echo "  - 5-minute schedule (professional frequency for optimal coverage)"
         echo ""
         if [ "${{ steps.market-check.outputs.market_open }}" = "true" ] || [ "${{ github.event.inputs.force_generation }}" = "true" ]; then
           echo "Actions Performed: OPTIMIZED Signal Generation ✅, Market Data Update ✅"
@@ -121,6 +121,6 @@ jobs:
           echo "Actions Performed: Market Hours Check Only (Market Closed)"
         fi
         
-        echo "Next scheduled run: In ~8 minutes (if market open)"
+        echo "Next scheduled run: In ~5 minutes (if market open)"
         echo "Expected performance: <120s execution, cost-optimized analysis"
         echo "=============================="
