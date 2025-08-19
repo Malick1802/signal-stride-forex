@@ -3,8 +3,8 @@ name: Cost-Optimized Trading Signal Generation
 
 on:
   schedule:
-    # Optimized schedule: every 8 minutes during market hours for better signal coverage
-    - cron: '*/8 * * * 0,1-5'
+    # Optimized schedule: every 1 minute during market hours for best signal coverage
+    - cron: '* * * * 0,1-5'
   workflow_dispatch:
     inputs:
       force_generation:
@@ -45,16 +45,6 @@ jobs:
         chmod +x .github/scripts/check-market-hours.sh
         ./.github/scripts/check-market-hours.sh
 
-    - name: Generate Trading Signals (Optimized)
-      if: steps.market-check.outputs.market_open == 'true' || github.event.inputs.force_generation == 'true'
-      env:
-        SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://ugtaodrvbpfeyhdgmisn.supabase.co' }}
-        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVndGFvZHJ2YnBmZXloZGdtaXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQwNjA2MTUsImV4cCI6MjA0OTYzNjYxNX0.Z-71hRCpHB0YivrsTb2kZQdObcF42BQVYIQ8_yMb_JM' }}
-        DEBUG_MODE: ${{ github.event.inputs.debug_mode || 'false' }}
-      run: |
-        chmod +x .github/scripts/generate-signals.sh
-        ./.github/scripts/generate-signals.sh
-
     - name: Update Market Data
       if: steps.market-check.outputs.market_open == 'true' || github.event.inputs.force_generation == 'true'
       env:
@@ -64,6 +54,16 @@ jobs:
       run: |
         chmod +x .github/scripts/update-market-data.sh
         ./.github/scripts/update-market-data.sh
+
+    - name: Generate Trading Signals (Optimized)
+      if: steps.market-check.outputs.market_open == 'true' || github.event.inputs.force_generation == 'true'
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://ugtaodrvbpfeyhdgmisn.supabase.co' }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVndGFvZHJ2YnBmZXloZGdtaXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQwNjA2MTUsImV4cCI6MjA0OTYzNjYxNX0.Z-71hRCpHB0YivrsTb2kZQdObcF42BQVYIQ8_yMb_JM' }}
+        DEBUG_MODE: ${{ github.event.inputs.debug_mode || 'false' }}
+      run: |
+        chmod +x .github/scripts/generate-signals.sh
+        ./.github/scripts/generate-signals.sh
 
     - name: Market Closed Notice
       if: steps.market-check.outputs.market_open == 'false' && github.event.inputs.force_generation != 'true'
@@ -113,7 +113,7 @@ jobs:
         echo "  - Tier 2/3: Only top 6-8 pairs get expensive AI analysis"
         echo "  - Reduced tokens: 500 max (down from 1200)"
         echo "  - Smart concurrency: 2 pairs max simultaneous"
-        echo "  - 8-minute schedule (increased frequency for better coverage)"
+        echo "  - 1-minute schedule (maximum frequency for better coverage)"
         echo ""
         if [ "${{ steps.market-check.outputs.market_open }}" = "true" ] || [ "${{ github.event.inputs.force_generation }}" = "true" ]; then
           echo "Actions Performed: OPTIMIZED Signal Generation ✅, Market Data Update ✅"
@@ -121,6 +121,6 @@ jobs:
           echo "Actions Performed: Market Hours Check Only (Market Closed)"
         fi
         
-        echo "Next scheduled run: In ~8 minutes (if market open)"
+        echo "Next scheduled run: In ~1 minute (if market open)"
         echo "Expected performance: <120s execution, cost-optimized analysis"
         echo "=============================="
