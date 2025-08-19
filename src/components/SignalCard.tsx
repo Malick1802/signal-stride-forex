@@ -1,8 +1,7 @@
 
-import React, { useState, memo, useMemo } from 'react';
+import React, { useState, memo } from 'react';
 import { validateSignal, createSafeSignal } from '@/utils/signalValidation';
 import { useRealTimeMarketData } from '@/hooks/useRealTimeMarketData';
-import { processChartData, mergeChartDataWithCurrentPrice, createFallbackChartData } from '@/utils/chartDataUtils';
 import SignalHeader from './SignalHeader';
 import RealTimeChart from './RealTimeChart';
 import RealTimePriceDisplay from './RealTimePriceDisplay';
@@ -27,11 +26,6 @@ interface SignalCardProps {
     analysisText?: string;
     chartData: Array<{ time: number; price: number }>;
     targetsHit?: number[];
-    // Centralized performance data
-    current_pips?: number;
-    current_percentage?: number;
-    current_pnl?: number;
-    current_price?: number | null;
   } | null;
   analysis: Record<string, string>;
   analyzingSignal: string | null;
@@ -98,15 +92,19 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
     return null;
   }
 
-  // Use centralized performance data from database (server-calculated)
-  const currentPips = signal.current_pips || 0;
-  const currentPercentage = signal.current_percentage || 0; 
-  const currentPnl = signal.current_pnl || 0;
-  const serverCurrentPrice = signal.current_price;
-  
-  // Get live market price for display only
-  const { currentPrice: liveCurrentPrice, isMarketOpen, dataSource } = useRealTimeMarketData({
-    pair: safeSignal.pair
+  // Get live centralized real-time market data with error handling
+  const {
+    currentPrice: liveCurrentPrice,
+    getPriceChange,
+    dataSource,
+    lastUpdateTime,
+    isConnected,
+    isMarketOpen,
+    priceData: centralizedChartData,
+    isLoading
+  } = useRealTimeMarketData({
+    pair: safeSignal.pair,
+    entryPrice: safeSignal.entryPrice
   });
 
   // Fixed signal entry price (never changes) with validation
@@ -116,72 +114,25 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
     return null;
   }
   
-  // Use server price or live price, fallback to entry price
-  const currentPrice = serverCurrentPrice || liveCurrentPrice || signalEntryPrice;
+  // Use live current price for real-time updates, fallback to entry price only if no live data
+  const currentPrice = liveCurrentPrice || signalEntryPrice;
   
-  // Process and merge chart data with current price  
-  const chartDataToDisplay = useMemo(() => {
-    console.log('📊 SignalCard processing chart data:', {
-      signalId: signal.id,
-      hasChartData: !!signal.chartData,
-      chartDataLength: Array.isArray(signal.chartData) ? signal.chartData.length : 0,
-      hasCurrentPrice: !!currentPrice,
-      currentPrice,
-      serverCurrentPrice,
-      liveCurrentPrice,
-      isMarketOpen
-    });
+  // Get live price change data (this will be market data, not signal performance)
+  const { change, percentage } = getPriceChange();
 
-    let processedData: { timestamp: number; time: string; price: number; isEntry?: boolean; isFrozen?: boolean }[] = [];
-    
-    // Process historical chart data if available
-    if (signal.chartData && Array.isArray(signal.chartData) && signal.chartData.length > 0) {
-      try {
-        processedData = processChartData(signal.chartData);
-        console.log('📊 Processed historical chart data:', {
-          originalLength: signal.chartData.length,
-          processedLength: processedData.length,
-          sampleData: processedData.slice(0, 2)
-        });
-      } catch (error) {
-        console.error('❌ Error processing chart data:', error);
-        processedData = [];
-      }
-    }
-    
-    // If no valid historical data, create fallback data
-    if (processedData.length === 0) {
-      const fallbackPrice = currentPrice || signal.current_price || signalEntryPrice;
-      processedData = createFallbackChartData(
-        fallbackPrice,
-        signalEntryPrice,
-        isMarketOpen ?? true
-      );
-      console.log('📊 Created fallback chart data:', {
-        length: processedData.length,
-        fallbackPrice,
-        entryPrice: signalEntryPrice
-      });
-    }
-    
-    // Merge with current price if available and different from last point
-    const priceToMerge = currentPrice || signal.current_price;
-    if (priceToMerge && priceToMerge > 0) {
-      const originalLength = processedData.length;
-      processedData = mergeChartDataWithCurrentPrice(processedData, priceToMerge);
-      console.log('📊 Merged current price:', {
-        priceToMerge,
-        originalLength,
-        newLength: processedData.length
-      });
-    }
-
-    return processedData;
-  }, [signal.chartData, signal.id, signalEntryPrice, signal.current_price, currentPrice, liveCurrentPrice, serverCurrentPrice, isMarketOpen]);
+  // Use ONLY centralized chart data for real-time updates with safety checks
+  const chartDataToDisplay = Array.isArray(centralizedChartData) 
+    ? centralizedChartData
+        .filter(point => point && typeof point === 'object' && point.timestamp && point.price)
+        .map(point => ({
+          timestamp: point.timestamp,
+          time: point.time,
+          price: point.price
+        }))
+    : [];
 
   // Enhanced connection status
-  const connectionStatus = (isMarketOpen || chartDataToDisplay.length > 0) && 
-    chartDataToDisplay.some(point => typeof point.price === 'number' && !isNaN(point.price));
+  const connectionStatus = isConnected && chartDataToDisplay.length > 0;
 
   return (
     <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 overflow-hidden">
@@ -191,19 +142,19 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
         currentPrice={currentPrice}
         confidence={safeSignal.confidence}
         isMarketOpen={isMarketOpen}
-        change={currentPips}
-        percentage={currentPercentage}
-        dataSource="Centralized Database"
-        lastUpdateTime=""
+        change={change}
+        percentage={percentage}
+        dataSource={dataSource}
+        lastUpdateTime={lastUpdateTime}
         entryPrice={signalEntryPrice}
       />
 
       <RealTimePriceDisplay
         currentPrice={liveCurrentPrice}
-        change={currentPips}
-        percentage={currentPercentage}
-        lastUpdateTime=""
-        dataSource="Centralized Database"
+        change={change}
+        percentage={percentage}
+        lastUpdateTime={lastUpdateTime}
+        dataSource={dataSource}
         isConnected={connectionStatus}
         isMarketOpen={isMarketOpen}
         entryPrice={signalEntryPrice}
@@ -217,7 +168,7 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
         currentPrice={liveCurrentPrice}
         isConnected={connectionStatus}
         entryPrice={signalEntryPrice}
-        isLoading={false}
+        isLoading={isLoading}
       />
 
       <SignalPriceDetails

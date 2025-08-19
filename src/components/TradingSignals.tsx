@@ -2,7 +2,6 @@ import React, { useState, memo, useCallback } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useEnhancedSignalMonitoring } from '@/hooks/useEnhancedSignalMonitoring';
 import { useSystemHealthMonitor } from '@/hooks/useSystemHealthMonitor';
-import { useSignalRealTimeUpdates } from '@/hooks/useSignalRealTimeUpdates';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
@@ -13,7 +12,6 @@ import Logger from '@/utils/logger';
 import { useOfflineSignals } from '@/hooks/useOfflineSignals';
 import { useMobileConnectivity } from '@/hooks/useMobileConnectivity';
 import { useBackgroundSync } from '@/hooks/useBackgroundSync';
-import { TradingSignal } from '@/types/signals';
 
 const TradingSignals = memo(() => {
   const { signals, loading, lastUpdate, signalDistribution, fetchSignals } = useTradingSignals();
@@ -22,25 +20,6 @@ const TradingSignals = memo(() => {
   // Enhanced monitoring systems
   useEnhancedSignalMonitoring();
   const { systemHealth, verifySystemHealth } = useSystemHealthMonitor();
-
-  // Real-time signal performance updates
-  const handleSignalUpdate = useCallback((updatedSignal: TradingSignal) => {
-    console.log('📊 Real-time signal performance update received:', {
-      id: updatedSignal.id,
-      symbol: updatedSignal.symbol,
-      currentPrice: updatedSignal.current_price,
-      currentPips: updatedSignal.current_pips,
-      lastUpdate: updatedSignal.last_performance_update
-    });
-    
-    // Force a refresh of signals to get the latest data
-    fetchSignals();
-  }, [fetchSignals]);
-
-  useSignalRealTimeUpdates({
-    onSignalUpdate: handleSignalUpdate,
-    enabled: true
-  });
 
   // AI Analysis state for SignalCard
   const [analysis, setAnalysis] = useState<Record<string, string>>({});

@@ -12,22 +12,28 @@ interface TradingChartProps {
 
 const TradingChart = ({ selectedPair, onPairChange, availablePairs }: TradingChartProps) => {
   const {
+    priceData,
     currentPrice,
     isMarketOpen,
+    lastUpdateTime,
     dataSource,
-    isConnected
+    isConnected,
+    getPriceChange
   } = useRealTimeMarketData({
-    pair: selectedPair
+    pair: selectedPair,
+    entryPrice: '1.0000' // Default for main chart
   });
 
   const formatPrice = (price: number) => {
     return price.toFixed(5);
   };
 
+  const { change, percentage } = getPriceChange();
+
   const chartConfig = {
     price: {
       label: "Price",
-      color: "#10b981", // Default green color
+      color: change >= 0 ? "#10b981" : "#ef4444",
     },
   };
 
@@ -51,8 +57,10 @@ const TradingChart = ({ selectedPair, onPairChange, availablePairs }: TradingCha
           {currentPrice && (
             <div className="flex items-center space-x-2">
               <span className="text-white text-xl font-mono">{formatPrice(currentPrice)}</span>
-              <span className="text-emerald-400 text-sm font-mono">
-                Live Price
+              <span className={`text-sm font-mono ${
+                change >= 0 ? 'text-emerald-400' : 'text-red-400'
+              }`}>
+                {change >= 0 ? '+' : ''}{change.toFixed(5)} ({percentage >= 0 ? '+' : ''}{percentage.toFixed(2)}%)
               </span>
             </div>
           )}
@@ -88,7 +96,7 @@ const TradingChart = ({ selectedPair, onPairChange, availablePairs }: TradingCha
 
         <ChartContainer config={chartConfig}>
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={[]} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
+            <LineChart data={priceData} margin={{ top: 5, right: 5, left: 5, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
               <XAxis 
                 dataKey="time" 
@@ -111,7 +119,7 @@ const TradingChart = ({ selectedPair, onPairChange, availablePairs }: TradingCha
               <Line
                 type="monotone"
                 dataKey="price"
-                stroke="#10b981"
+                stroke={change >= 0 ? "#10b981" : "#ef4444"}
                 strokeWidth={2}
                 dot={false}
                 connectNulls
@@ -130,15 +138,15 @@ const TradingChart = ({ selectedPair, onPairChange, availablePairs }: TradingCha
         </div>
         <div className="text-gray-400">
           <span className="block">Data Points</span>
-          <span className="text-white font-mono">0</span>
+          <span className="text-white font-mono">{priceData.length}</span>
         </div>
         <div className="text-gray-400">
           <span className="block">Update Rate</span>
-          <span className="text-white font-mono">15s</span>
+          <span className="text-white font-mono">1s</span>
         </div>
         <div className="text-gray-400">
           <span className="block">Last Update</span>
-          <span className="text-white font-mono">Live</span>
+          <span className="text-white font-mono">{lastUpdateTime}</span>
         </div>
       </div>
     </div>

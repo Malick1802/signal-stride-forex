@@ -20,12 +20,6 @@ export interface TradingSignal {
   targets_hit?: number[];
   trailing_stop?: number | null;
   market_conditions?: string[];
-  // Centralized server-calculated performance fields
-  current_pips?: number;
-  current_percentage?: number;
-  current_pnl?: number;
-  current_price?: number | null;
-  last_performance_update?: string;
 }
 
 export interface SignalOutcome {
