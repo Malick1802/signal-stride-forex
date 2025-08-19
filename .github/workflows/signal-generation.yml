@@ -39,6 +39,21 @@ jobs:
         echo "Repository: ${{ github.repository }}"
         echo "💰 NEW: Cost-optimized with reduced OpenAI usage"
         
+    - name: Supabase Connectivity Diagnostics
+      id: supabase-dx
+      continue-on-error: true
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://ugtaodrvbpfeyhdgmisn.supabase.co' }}
+      run: |
+        echo "🔎 Supabase connectivity diagnostics"
+        echo "Host: $(echo "$SUPABASE_URL" | awk -F/ '{print $3}')"
+        echo "Auth health:"
+        curl -sS -o /dev/null -w "HTTP %{http_code}\n" -m 10 "$SUPABASE_URL/auth/v1/health" || true
+        echo "Functions preflight:"
+        curl -sS -o /dev/null -w "HTTP %{http_code}\n" -m 10 -X OPTIONS "$SUPABASE_URL/functions/v1/centralized-market-stream" || true
+        echo "auth_health=$(curl -sS -o /dev/null -w "%{http_code}" -m 10 "$SUPABASE_URL/auth/v1/health")" >> $GITHUB_OUTPUT
+        echo "functions_http=$(curl -sS -o /dev/null -w "%{http_code}" -m 10 -X OPTIONS "$SUPABASE_URL/functions/v1/centralized-market-stream")" >> $GITHUB_OUTPUT
+
     - name: Enhanced Market Hours Check
       id: market-check
       run: |
@@ -106,6 +121,7 @@ jobs:
         echo "Execution Time: $(date -u)"
         echo "Repository: ${{ github.repository }}"
         echo "Branch: ${{ github.ref_name }}"
+        echo "Connectivity: Auth ${{ steps.supabase-dx.outputs.auth_health || 'n/a' }}, Functions ${{ steps.supabase-dx.outputs.functions_http || 'n/a' }}"
         echo ""
         echo "💰 ENHANCED SIGNAL GENERATION FEATURES ACTIVE:"
         echo "  - Model: gpt-4o-mini (90% cheaper than gpt-4o)"
