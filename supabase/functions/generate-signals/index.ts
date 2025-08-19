@@ -54,6 +54,17 @@ interface PricePoint {
   price: number;
 }
 
+// Configuration: tier flow and thresholds
+const CONFIG = {
+  sequentialTiers: true,
+  allowTier3Cap: false,
+  tier1PassThreshold: 50,
+  tier2EscalationQuality: 60,
+  tier2EscalationConfidence: 55,
+  finalQualityThreshold: 70,
+  finalConfidenceThreshold: 60,
+} as const;
+
 serve(async (req) => {
   console.log(`🚀 PROFESSIONAL 3-Tier Signal Generation Started - ${new Date().toISOString()}`);
   
@@ -220,49 +231,56 @@ serve(async (req) => {
         
         console.log(`🔍 TIER 1: ${pair.symbol} - Score: ${tier1Analysis.score}/100 (Pass: ${tier1Analysis.score}+)`);
         
-        if (tier1Analysis.score < 50) {
+        if (tier1Analysis.score < CONFIG.tier1PassThreshold) {
           console.log(`❌ TIER 1: ${pair.symbol} failed pre-screening (${tier1Analysis.score}/100)`);
           continue;
         }
         
         analysisStats.tier1Passed++;
         
-        // Determine tier routing based on professional criteria
-        const routeToTier3 = majorPairs.includes(pair.symbol) || 
-                            tier1Analysis.score >= 75 || 
-                            analyzeCurrentSession().currentSession === 'Overlap';
-        
+        // Sequential routing: T1 -> T2 -> (optional) T3
         let finalAnalysis: ProfessionalSignalAnalysis | null = null;
-        
-        if (routeToTier3 && analysisStats.tier3Analyzed < 4) {
-          // TIER 3: Premium Professional Analysis
-          console.log(`💎 ROUTING: ${pair.symbol} → TIER 3 (Premium: Major pair or high score)`);
-          finalAnalysis = await performTier3Analysis(openAIApiKey, pair, historicalData, tier1Analysis);
+
+        // TIER 2: Always run after Tier 1 pass
+        const t2Analysis = await performTier2Analysis(openAIApiKey, pair, historicalData, tier1Analysis);
+        analysisStats.tier2Analyzed++;
+        let escalateToTier3 = false;
+        if (t2Analysis) {
+          // Track costs for Tier 2
+          analysisStats.totalTokens += t2Analysis.tokensUsed;
+          analysisStats.totalCost += t2Analysis.cost;
+
+          if ((t2Analysis.qualityScore ?? 0) >= CONFIG.tier2EscalationQuality && (t2Analysis.confidence ?? 0) >= CONFIG.tier2EscalationConfidence) {
+            analysisStats.tier2Passed++;
+            escalateToTier3 = true;
+          }
+        }
+
+        if (escalateToTier3) {
+          console.log(`💎 ESCALATE: ${pair.symbol} → TIER 3 (from Tier 2 thresholds)`);
+          const t3 = await performTier3Analysis(openAIApiKey, pair, historicalData, tier1Analysis);
           analysisStats.tier3Analyzed++;
-          
-          if (finalAnalysis && finalAnalysis.qualityScore >= 65) {
+          if (t3 && t3.qualityScore >= 65) {
             analysisStats.tier3Passed++;
           }
-        } else {
-          // TIER 2: Cost-Effective Professional Analysis (pre-qualification only)
-          console.log(`💰 ROUTING: ${pair.symbol} → TIER 2 (Cost optimization, no direct publish)`);
-          finalAnalysis = await performTier2Analysis(openAIApiKey, pair, historicalData, tier1Analysis);
-          analysisStats.tier2Analyzed++;
-          
-          if (finalAnalysis && finalAnalysis.qualityScore >= 55) {
-            analysisStats.tier2Passed++;
+          if (t3) {
+            // Track costs for Tier 3
+            analysisStats.totalTokens += t3.tokensUsed;
+            analysisStats.totalCost += t3.cost;
+            // attach Tier 2 audit for later
+            (t3 as any)._t2 = t2Analysis || null;
           }
+          finalAnalysis = t3;
+        } else {
+          console.log(`💰 Tier 2 did not meet escalation thresholds for ${pair.symbol}`);
+          finalAnalysis = t2Analysis; // Not published; used for logging only
         }
 
-        // Track costs
-        if (finalAnalysis) {
-          analysisStats.totalTokens += finalAnalysis.tokensUsed;
-          analysisStats.totalCost += finalAnalysis.cost;
-        }
+        // Costs are accounted per-tier (T2/T3) above to avoid double-counting
 
         // Enforce Tier 3 + strict gates before publishing
-        const finalQualityThreshold = 70;
-        const finalConfidenceThreshold = 60;
+        const finalQualityThreshold = CONFIG.finalQualityThreshold;
+        const finalConfidenceThreshold = CONFIG.finalConfidenceThreshold;
         const prices = historicalData.map(p => p.price);
 
         if (finalAnalysis && finalAnalysis.tier === 3 && finalAnalysis.recommendation !== 'HOLD' &&
@@ -285,8 +303,8 @@ serve(async (req) => {
               (signal as any)._audit = {
                 t1_score: tier1Analysis.score,
                 t1_confirmations: tier1Analysis.confirmations,
-                t2_quality: null,
-                t2_confidence: null,
+                t2_quality: (finalAnalysis as any)?._t2?.qualityScore ?? null,
+                t2_confidence: (finalAnalysis as any)?._t2?.confidence ?? null,
                 t3_quality: finalAnalysis.qualityScore,
                 t3_confidence: finalAnalysis.confidence,
                 indicator_checklist: gates.checklist,
@@ -542,7 +560,31 @@ async function performTier1Analysis(pair: MarketData, historicalData: PricePoint
       confirmations.push('Near Resistance Level');
       technicalFactors.push('NEAR_RESISTANCE');
     }
-    
+
+    // MACD and ATR confirmations
+    const macd = computeMACDHistogram(prices);
+    if (macd.hist > 0) {
+      score += 10;
+      confirmations.push('MACD histogram positive');
+      technicalFactors.push('MACD_BULLISH');
+    } else if (macd.hist < 0) {
+      score += 10;
+      confirmations.push('MACD histogram negative');
+      technicalFactors.push('MACD_BEARISH');
+    }
+
+    const atr = computeATRApprox(prices, 14);
+    const isJPY = pair.symbol.includes('JPY');
+    const atrFloor = isJPY ? 0.02 : 0.0002;
+    if (atr > atrFloor) {
+      score += 5;
+      confirmations.push(`ATR sufficient (${atr.toFixed(6)})`);
+      technicalFactors.push('ATR_OK');
+    } else {
+      confirmations.push(`ATR low (${atr.toFixed(6)})`);
+      technicalFactors.push('ATR_LOW');
+    }
+
   } catch (error) {
     console.error(`❌ Tier 1 analysis error for ${pair.symbol}:`, error);
     score = 0;
@@ -970,8 +1012,10 @@ function prepareTechnicalSummary(prices: number[], currentPrice: number): string
   const rsi = calculateRSI(prices);
   const ema50 = calculateEMA(prices, 50);
   const ema200 = calculateEMA(prices, 200);
+  const macd = computeMACDHistogram(prices);
+  const atr = computeATRApprox(prices, 14);
   
-  return `RSI: ${rsi.toFixed(1)}, EMA50: ${ema50.toFixed(5)}, EMA200: ${ema200.toFixed(5)}, Current: ${currentPrice}`;
+  return `RSI: ${rsi.toFixed(1)}, EMA50: ${ema50.toFixed(5)}, EMA200: ${ema200.toFixed(5)}, MACD_hist: ${macd.hist.toFixed(6)}, ATR14: ${atr.toFixed(6)}, Current: ${currentPrice}`;
 }
 
 function getCurrentSessionText(): string {
