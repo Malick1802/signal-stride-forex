@@ -3,8 +3,8 @@ name: Cost-Optimized Trading Signal Generation
 
 on:
   schedule:
-    # Optimized schedule: every 5 minutes during market hours (more reliable)
-    - cron: '*/5 * * * 0,1-5'
+    # Optimized schedule: every 8 minutes during market hours for better signal coverage
+    - cron: '*/8 * * * 0,1-5'
   workflow_dispatch:
     inputs:
       force_generation:
@@ -30,24 +30,6 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       
-    - name: Resolve environment defaults
-      run: |
-        SUPABASE_URL_INPUT="${{ secrets.SUPABASE_URL }}"
-        SUPABASE_ANON_KEY_INPUT="${{ secrets.SUPABASE_ANON_KEY }}"
-        DEBUG_INPUT="${{ github.event.inputs.debug_mode }}"
-        FORCE_INPUT="${{ github.event.inputs.force_generation }}"
-
-        if [ -z "$SUPABASE_URL_INPUT" ]; then SUPABASE_URL_INPUT="https://ugtaodrvbpfeyhdgmisn.supabase.co"; fi
-        if [ -z "$SUPABASE_ANON_KEY_INPUT" ]; then SUPABASE_ANON_KEY_INPUT="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVndGFvZHJ2YnBmZXloZGdtaXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQwNjA2MTUsImV4cCI6MjA0OTYzNjYxNX0.Z-71hRCpHB0YivrsTb2kZQdObcF42BQVYIQ8_yMb_JM"; fi
-        if [ -z "$DEBUG_INPUT" ]; then DEBUG_INPUT="false"; fi
-        if [ -z "$FORCE_INPUT" ]; then FORCE_INPUT="false"; fi
-
-        echo "SUPABASE_URL=$SUPABASE_URL_INPUT" >> $GITHUB_ENV
-        echo "SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY_INPUT" >> $GITHUB_ENV
-        echo "DEBUG_MODE=$DEBUG_INPUT" >> $GITHUB_ENV
-        echo "FORCE_GENERATION=$FORCE_INPUT" >> $GITHUB_ENV
-
-        echo "Supabase host: $(echo "$SUPABASE_URL_INPUT" | sed -E 's#https?://##g')"
     - name: Workflow Start Notification
       run: |
         echo "🚀 OPTIMIZED GitHub Actions Signal Generation Started"
@@ -63,44 +45,28 @@ jobs:
         chmod +x .github/scripts/check-market-hours.sh
         ./.github/scripts/check-market-hours.sh
 
-    - name: Function preflight (non-blocking)
-      env:
-        SUPABASE_URL: ${{ env.SUPABASE_URL }}
-        SUPABASE_ANON_KEY: ${{ env.SUPABASE_ANON_KEY }}
-      run: |
-        echo "Preflight test: generate-signals (skipGeneration)..."
-        curl -s -X POST "$SUPABASE_URL/functions/v1/generate-signals" \
-          -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
-          -H "Content-Type: application/json" \
-          -H "apikey: $SUPABASE_ANON_KEY" \
-          -d '{"test":true,"skipGeneration":true,"trigger":"github_actions"}' \
-          -w "\nHTTP %{http_code}\n" || true
-
-    - name: Update Market Data
-      if: steps.market-check.outputs.market_open == 'true' || env.FORCE_GENERATION == 'true'
-      env:
-        SUPABASE_URL: ${{ env.SUPABASE_URL }}
-        SUPABASE_ANON_KEY: ${{ env.SUPABASE_ANON_KEY }}
-        DEBUG_MODE: ${{ env.DEBUG_MODE }}
-        GITHUB_RUN_ID: ${{ github.run_id }}
-      run: |
-        chmod +x .github/scripts/update-market-data.sh
-        ./.github/scripts/update-market-data.sh
-
     - name: Generate Trading Signals (Optimized)
-      if: steps.market-check.outputs.market_open == 'true' || env.FORCE_GENERATION == 'true'
+      if: steps.market-check.outputs.market_open == 'true' || github.event.inputs.force_generation == 'true'
       env:
-        SUPABASE_URL: ${{ env.SUPABASE_URL }}
-        SUPABASE_ANON_KEY: ${{ env.SUPABASE_ANON_KEY }}
-        DEBUG_MODE: ${{ env.DEBUG_MODE }}
-        FORCE_GENERATION: ${{ env.FORCE_GENERATION }}
-        GITHUB_RUN_ID: ${{ github.run_id }}
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://ugtaodrvbpfeyhdgmisn.supabase.co' }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVndGFvZHJ2YnBmZXloZGdtaXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQwNjA2MTUsImV4cCI6MjA0OTYzNjYxNX0.Z-71hRCpHB0YivrsTb2kZQdObcF42BQVYIQ8_yMb_JM' }}
+        DEBUG_MODE: ${{ github.event.inputs.debug_mode || 'false' }}
       run: |
         chmod +x .github/scripts/generate-signals.sh
         ./.github/scripts/generate-signals.sh
 
+    - name: Update Market Data
+      if: steps.market-check.outputs.market_open == 'true' || github.event.inputs.force_generation == 'true'
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://ugtaodrvbpfeyhdgmisn.supabase.co' }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVndGFvZHJ2YnBmZXloZGdtaXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQwNjA2MTUsImV4cCI6MjA0OTYzNjYxNX0.Z-71hRCpHB0YivrsTb2kZQdObcF42BQVYIQ8_yMb_JM' }}
+        DEBUG_MODE: ${{ github.event.inputs.debug_mode || 'false' }}
+      run: |
+        chmod +x .github/scripts/update-market-data.sh
+        ./.github/scripts/update-market-data.sh
+
     - name: Market Closed Notice
-      if: steps.market-check.outputs.market_open == 'false' && env.FORCE_GENERATION != 'true'
+      if: steps.market-check.outputs.market_open == 'false' && github.event.inputs.force_generation != 'true'
       run: |
         echo "🛑 Market is currently closed. Skipping optimized signal generation."
         echo "Current time: ${{ steps.market-check.outputs.current_time }}"
@@ -147,7 +113,7 @@ jobs:
         echo "  - Tier 2/3: Only top 6-8 pairs get expensive AI analysis"
         echo "  - Reduced tokens: 500 max (down from 1200)"
         echo "  - Smart concurrency: 2 pairs max simultaneous"
-        echo "  - 5-minute schedule (reliable frequency for stability)"
+        echo "  - 8-minute schedule (increased frequency for better coverage)"
         echo ""
         if [ "${{ steps.market-check.outputs.market_open }}" = "true" ] || [ "${{ github.event.inputs.force_generation }}" = "true" ]; then
           echo "Actions Performed: OPTIMIZED Signal Generation ✅, Market Data Update ✅"
@@ -155,6 +121,6 @@ jobs:
           echo "Actions Performed: Market Hours Check Only (Market Closed)"
         fi
         
-        echo "Next scheduled run: In ~5 minutes (if market open)"
+        echo "Next scheduled run: In ~8 minutes (if market open)"
         echo "Expected performance: <120s execution, cost-optimized analysis"
         echo "=============================="
