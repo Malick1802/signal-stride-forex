@@ -470,11 +470,11 @@ const SignalDebuggingDashboard = () => {
                 <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-md">
                   <h4 className="font-semibold mb-2">Signal Optimization Recommendations</h4>
                   <ul className="space-y-2 text-sm">
-                    {stats.riskRewardRatio < 1.2 && (
+                    {stats.riskRewardRatio < 1.5 && (
                       <li className="flex gap-2">
                         <AlertTriangle className="h-4 w-4 text-amber-500 flex-shrink-0 mt-0.5" />
                         <span>
-                          <strong>Improve Risk-Reward Ratio:</strong> Current ratio (1:{stats.riskRewardRatio.toFixed(1)}) is below the recommended 1:1.2 minimum.
+                          <strong>Improve Risk-Reward Ratio:</strong> Current ratio (1:{stats.riskRewardRatio.toFixed(1)}) is below the recommended 1:1.5 minimum. 
                           Either widen take profit targets or tighten stop losses.
                         </span>
                       </li>

@@ -605,22 +605,13 @@ async function executeTier2Analysis(
   
   console.log(`💰 TIER 2: Cost-effective analysis for ${symbol}...`);
   
-  const passThreshold = forceMode ? 35 : (lowThreshold ? 40 : 45);
-  const passConfidence = 60;
-  const escalateConfidence = 65;
-  
   const optimizedPrompt = `${symbol} @ ${currentPrice}
 Trend: ${trendStrength}, Regime: ${marketRegime}
 Session: ${sessionAnalysis.session} (${sessionAnalysis.recommendation})
 Local Score: ${tier1Score}/100
-Pass Threshold: ${passThreshold}
 
-Decision Rules:
-- If qualityScore >= ${passThreshold} OR confidence >= ${passConfidence}, DO NOT return "HOLD". Choose "BUY" or "SELL" with valid SL/TP.
-- Return "HOLD" only when qualityScore < ${passThreshold} or setup is invalid/unclear.
-
-Respond with a single JSON object only:
-{"recommendation": "BUY"|"SELL"|"HOLD", "confidence": [45-85], "entryPrice": ${currentPrice}, "stopLoss": [level], "takeProfits": [2-3 levels], "reasoning": "brief", "qualityScore": [0-100]}`;
+Quick JSON analysis:
+{"recommendation": "BUY"|"SELL"|"HOLD", "confidence": [45-80], "entryPrice": ${currentPrice}, "stopLoss": [level], "takeProfits": [2-3 levels], "reasoning": "brief", "qualityScore": [0-100]}`;
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -631,7 +622,7 @@ Respond with a single JSON object only:
     body: JSON.stringify({
       model: 'gpt-4o-mini', // Cost-effective model
       messages: [
-        { role: 'system', content: `Forex analyst. Quick quality assessment. JSON only. HOLD allowed only if qualityScore < ${passThreshold}. If qualityScore >= ${passThreshold} or confidence >= ${passConfidence}, output BUY or SELL (not HOLD).` },
+        { role: 'system', content: 'Forex analyst. Quick quality assessment. JSON only.' },
         { role: 'user', content: optimizedPrompt }
       ],
       temperature: 0.2,
@@ -659,15 +650,12 @@ Respond with a single JSON object only:
     const analysis = JSON.parse(analysisMatch[0]);
     
     // Determine if this should be escalated to Tier 3
-    const q = Number(analysis.qualityScore || 0);
-    const c = Number(analysis.confidence || 0);
-    const shouldEscalate = (
-                          (analysis.recommendation !== 'HOLD' && c >= 60 && q >= Math.max(50, passThreshold)) ||
-                          (analysis.recommendation === 'HOLD' && (q >= passThreshold + 15 || c >= 65))
-                        );
+    const shouldEscalate = analysis.recommendation !== 'HOLD' && 
+                          analysis.confidence >= 60 && 
+                          (analysis.qualityScore || 0) >= 50;
     
     if (shouldEscalate) {
-      console.log(`⬆️ ESCALATING: ${symbol} from Tier 2 to Tier 3 (rec:${analysis.recommendation}, C:${c}%, Q:${q}, pass:${passThreshold})`);
+      console.log(`⬆️ ESCALATING: ${symbol} from Tier 2 to Tier 3 (C:${analysis.confidence}%, Q:${analysis.qualityScore || 0})`);
       return await executeTier3Analysis(openAIApiKey, symbol, currentPrice, recentPrices, atr, trendStrength, marketRegime, sessionAnalysis, tier1Score, forceMode, lowThreshold);
     }
     
@@ -721,12 +709,8 @@ Market Context:
 
 Technical Requirements:
 - Stop Loss: minimum 30 pips
-- Take Profits: minimum 30 pips, R:R 1.2:1+
-- Quality threshold: ${forceMode ? 35 : (lowThreshold ? 40 : 45)}
-
-Decision Rule:
-- If qualityScore >= Quality threshold, recommendation MUST be "BUY" or "SELL" (not "HOLD").
-- Use "HOLD" only if qualityScore is below threshold or the setup is invalid per the pip and R:R rules.
+- Take Profits: minimum 30 pips, R:R 1.5:1+
+- Quality threshold: ${forceMode ? 35 : (lowThreshold ? 40 : 50)}
 
 Comprehensive JSON analysis:
 {
@@ -734,7 +718,7 @@ Comprehensive JSON analysis:
   "confidence": [40-85],
   "entryPrice": ${currentPrice},
   "stopLoss": [price level],
-  "takeProfits": [3 levels at ≥1.2:1 (e.g., 1.2:1, 1.5:1, 2:1)],
+  "takeProfits": [3 levels at 1.5:1, 2:1, 3:1 ratios],
   "reasoning": "[detailed setup explanation]",
   "technicalFactors": ["factor1", "factor2", "factor3"],
   "riskAssessment": "[comprehensive risk analysis]",
@@ -792,26 +776,17 @@ Comprehensive JSON analysis:
     
     if (analysis.recommendation !== 'HOLD') {
       const confidenceThreshold = forceMode ? 40 : (lowThreshold ? 50 : 60);
-      const qualityThreshold = forceMode ? 35 : (lowThreshold ? 40 : 45);
+      const qualityThreshold = forceMode ? 35 : (lowThreshold ? 40 : 50);
       
       // Quality validation
       if (analysis.confidence < confidenceThreshold || analysis.confidence > 95) {
         console.log(`💎 ${symbol} Tier 3 confidence ${analysis.confidence}% outside range - converting to HOLD`);
-        return { 
-          ...analysis, 
-          recommendation: 'HOLD' as const, 
-          qualityScore: Math.min(analysis.qualityScore || 0, 60),
-          reasoning: `${analysis.reasoning || ''}${analysis.reasoning ? ' | ' : ''}Confidence outside allowed range (${analysis.confidence}%)`
-        };
+        return { ...analysis, recommendation: 'HOLD' as const, qualityScore: Math.min(analysis.qualityScore || 0, 60) };
       }
       
       if ((analysis.qualityScore || 0) < qualityThreshold) {
         console.log(`💎 ${symbol} Tier 3 quality score ${analysis.qualityScore || 0} below threshold ${qualityThreshold} - converting to HOLD`);
-        return { 
-          ...analysis, 
-          recommendation: 'HOLD' as const,
-          reasoning: `${analysis.reasoning || ''}${analysis.reasoning ? ' | ' : ''}Quality below threshold (${analysis.qualityScore || 0} < ${qualityThreshold})`
-        };
+        return { ...analysis, recommendation: 'HOLD' as const };
       }
       
       // Pip validation
@@ -822,54 +797,19 @@ Comprehensive JSON analysis:
       
       if (stopLossPips < 30) {
         console.log(`💎 ${symbol} Tier 3 stop loss only ${stopLossPips.toFixed(1)} pips - below 30 pip minimum`);
-        return { 
-          ...analysis, 
-          recommendation: 'HOLD' as const,
-          reasoning: `${analysis.reasoning || ''}${analysis.reasoning ? ' | ' : ''}Stop loss below 30 pip minimum (${stopLossPips.toFixed(1)} pips)`
-        };
+        return { ...analysis, recommendation: 'HOLD' as const };
       }
       
       if (takeProfitPips < 30) {
         console.log(`💎 ${symbol} Tier 3 take profit only ${takeProfitPips.toFixed(1)} pips - below 30 pip minimum`);
-        return { 
-          ...analysis, 
-          recommendation: 'HOLD' as const,
-          reasoning: `${analysis.reasoning || ''}${analysis.reasoning ? ' | ' : ''}Take profit below 30 pip minimum (${takeProfitPips.toFixed(1)} pips)`
-        };
+        return { ...analysis, recommendation: 'HOLD' as const };
       }
       
       // R:R validation
       const rrRatio = takeProfitPips / stopLossPips;
-      if (rrRatio < 1.2) {
-        console.log(`💎 ${symbol} Tier 3 R:R ratio ${rrRatio.toFixed(2)}:1 below 1.2:1 minimum`);
-        return { 
-          ...analysis, 
-          recommendation: 'HOLD' as const,
-          reasoning: `${analysis.reasoning || ''}${analysis.reasoning ? ' | ' : ''}R:R below 1.2 minimum (${rrRatio.toFixed(2)}:1)`
-        };
-      }
-    } else {
-      // HOLD path: if above threshold, force a directional decision via follow-up
-      const passThreshold = forceMode ? 35 : (lowThreshold ? 40 : 45);
-      const q = analysis.qualityScore || 0;
-      if (q >= passThreshold) {
-        console.log(`💎 ${symbol} Tier 3 returned HOLD but quality ${q} >= ${passThreshold} — running decide-direction follow-up`);
-        const decided = await decideDirectionTier3(openAIApiKey, symbol, currentPrice, recentPrices, atr, trendStrength, marketRegime, sessionAnalysis, analysis);
-        if (decided) {
-          return decided;
-        }
-        console.log(`💎 ${symbol} decide-direction follow-up failed validation — keeping HOLD`);
-        return { 
-          ...analysis, 
-          recommendation: 'HOLD' as const,
-          reasoning: `${analysis.reasoning || ''}${analysis.reasoning ? ' | ' : ''}Hold after follow-up (failed constraints or no clear direction)`
-        };
-      } else {
-        console.log(`💎 ${symbol} Tier 3 HOLD with quality ${q} < pass threshold ${passThreshold}`);
-        return { 
-          ...analysis,
-          reasoning: `${analysis.reasoning || ''}${analysis.reasoning ? ' | ' : ''}Hold due to quality below pass threshold (${q} < ${passThreshold})`
-        };
+      if (rrRatio < 1.5) {
+        console.log(`💎 ${symbol} Tier 3 R:R ratio ${rrRatio.toFixed(2)}:1 below 1.5:1 minimum`);
+        return { ...analysis, recommendation: 'HOLD' as const };
       }
     }
     
@@ -877,101 +817,6 @@ Comprehensive JSON analysis:
     
   } catch (parseError) {
     console.error(`❌ Error parsing Tier 3 response for ${symbol}:`, parseError);
-    return null;
-  }
-}
-
-// Tier 3 follow-up: force a directional decision when HOLD is returned above threshold
-async function decideDirectionTier3(
-  openAIApiKey: string,
-  symbol: string,
-  currentPrice: number,
-  recentPrices: any[],
-  atr: number,
-  trendStrength: string,
-  marketRegime: string,
-  sessionAnalysis: any,
-  prev: EnhancedAISignalAnalysis
-): Promise<EnhancedAISignalAnalysis | null> {
-  try {
-    const high = Math.max(...recentPrices.map((p: any) => p.price));
-    const low = Math.min(...recentPrices.map((p: any) => p.price));
-    const posInRange = ((currentPrice - low) / (high - low) * 100).toFixed(1);
-
-    const prompt = `FOLLOW-UP DECISION for ${symbol} @ ${currentPrice}
-Previous: HOLD with quality ${prev.qualityScore}. You MUST choose BUY or SELL (HOLD not allowed).
-Constraints:
-- Min stop loss: 30 pips
-- Min take profit: 30 pips
-- Min R:R: 1.2:1
-- Pip size: 0.01 for JPY pairs, else 0.0001
-Context:
-- Trend: ${trendStrength}, Regime: ${marketRegime}
-- Session: ${sessionAnalysis.session} (${sessionAnalysis.recommendation})
-- Range Position: ${posInRange}% | ATR: ${atr.toFixed(5)}
-- Prior reasoning: ${prev.reasoning || 'n/a'}
-
-JSON only:
-{"recommendation":"BUY"|"SELL","confidence":[50-85],"entryPrice":${currentPrice},"stopLoss":price,"takeProfits":[price,price,price],"reasoning":"brief directional rationale","technicalFactors":["factor"],"riskAssessment":"concise","qualityScore":[${Math.max(45, prev.qualityScore || 45)}-100]}`;
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4.1-2025-04-14',
-        messages: [
-          { role: 'system', content: 'Senior forex analyst. Decide direction ONLY. JSON output. Enforce pip and R:R constraints.' },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.2,
-        max_tokens: 450
-      }),
-    });
-
-    if (!response.ok) {
-      console.log(`⚠️ Decide-direction call failed for ${symbol}: ${response.status}`);
-      return null;
-    }
-
-    const data = await response.json();
-    const aiContent = data.choices[0].message.content;
-    const match = aiContent.match(/\{[\s\S]*\}/);
-    if (!match) return null;
-
-    const decision = JSON.parse(match[0]);
-
-    // Validate constraints like in Tier 3
-    const isJPY = symbol.includes('JPY');
-    const pip = isJPY ? 0.01 : 0.0001;
-    const slPips = Math.abs((decision.entryPrice ?? currentPrice) - decision.stopLoss) / pip;
-    const tp1 = Array.isArray(decision.takeProfits) && decision.takeProfits.length > 0 ? decision.takeProfits[0] : null;
-    const tpPips = tp1 ? Math.abs(tp1 - (decision.entryPrice ?? currentPrice)) / pip : 0;
-
-    if (!['BUY','SELL'].includes(decision.recommendation)) return null;
-    if (slPips < 30 || tpPips < 30) return null;
-    const rr = tpPips / slPips;
-    if (rr < 1.2) return null;
-
-    const final: EnhancedAISignalAnalysis = {
-      recommendation: decision.recommendation,
-      confidence: Math.min(Math.max(Number(decision.confidence || prev.confidence || 55), 45), 90),
-      entryPrice: Number(decision.entryPrice ?? currentPrice),
-      stopLoss: Number(decision.stopLoss),
-      takeProfits: (decision.takeProfits || []).map((n: any) => Number(n)).filter((n: number) => Number.isFinite(n)).slice(0,3),
-      reasoning: `${prev.reasoning || ''}${prev.reasoning ? ' | ' : ''}Decide-direction follow-up: ${decision.reasoning || 'direction chosen'}`,
-      technicalFactors: Array.isArray(decision.technicalFactors) ? decision.technicalFactors : ['follow-up'],
-      riskAssessment: decision.riskAssessment || 'follow-up',
-      marketRegime,
-      sessionAnalysis: sessionAnalysis.session,
-      qualityScore: Math.max(prev.qualityScore || 0, Number(decision.qualityScore || prev.qualityScore || 60))
-    };
-
-    return final;
-  } catch (err) {
-    console.log(`⚠️ decideDirectionTier3 error for ${symbol}:`, err);
     return null;
   }
 }
@@ -1070,7 +915,7 @@ async function convertEnhancedAIAnalysisToSignal(
   lowThreshold: boolean = false
 ): Promise<SignalData | null> {
   try {
-    const qualityThreshold = lowThreshold ? 40 : 45; // Unified with Tier 3 and main loop
+    const qualityThreshold = lowThreshold ? 40 : 50; // Relaxed for more signal generation
     if (aiAnalysis.recommendation === 'HOLD' || aiAnalysis.qualityScore < qualityThreshold) {
       return null;
     }
