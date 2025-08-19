@@ -1,7 +1,8 @@
 
-import React, { useState, memo } from 'react';
+import React, { useState, memo, useMemo } from 'react';
 import { validateSignal, createSafeSignal } from '@/utils/signalValidation';
 import { useRealTimeMarketData } from '@/hooks/useRealTimeMarketData';
+import { processChartData, mergeChartDataWithCurrentPrice, createFallbackChartData } from '@/utils/chartDataUtils';
 import SignalHeader from './SignalHeader';
 import RealTimeChart from './RealTimeChart';
 import RealTimePriceDisplay from './RealTimePriceDisplay';
@@ -118,19 +119,17 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
   // Use server price or live price, fallback to entry price
   const currentPrice = serverCurrentPrice || liveCurrentPrice || signalEntryPrice;
   
-  // Use centralized chart data from signal for consistency
-  const chartDataToDisplay = Array.isArray(safeSignal.chartData) 
-    ? safeSignal.chartData
-        .filter(point => point && typeof point === 'object' && point.time && point.price)
-        .map(point => ({
-          timestamp: point.time,
-          time: new Date(point.time).toLocaleTimeString(),
-          price: point.price
-        }))
-    : [];
+  // Process centralized chart data from signal with proper timestamp handling
+  const chartDataToDisplay = useMemo(() => {
+    const historicalChartData = processChartData(safeSignal.chartData || []);
+    return historicalChartData.length > 0 
+      ? mergeChartDataWithCurrentPrice(historicalChartData, currentPrice)
+      : createFallbackChartData(currentPrice, signalEntryPrice, isMarketOpen);
+  }, [safeSignal.chartData, currentPrice, signalEntryPrice, isMarketOpen]);
 
   // Enhanced connection status
-  const connectionStatus = isMarketOpen && chartDataToDisplay.length > 0;
+  const connectionStatus = (isMarketOpen || chartDataToDisplay.length > 0) && 
+    chartDataToDisplay.some(point => typeof point.price === 'number' && !isNaN(point.price));
 
   return (
     <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 overflow-hidden">
