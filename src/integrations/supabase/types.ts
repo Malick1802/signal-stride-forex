@@ -1422,6 +1422,7 @@ export type Database = {
           id: string
           notes: string | null
           pnl_pips: number
+          processed_by: string | null
           signal_id: string
           target_hit_level: number | null
         }
@@ -1432,6 +1433,7 @@ export type Database = {
           id?: string
           notes?: string | null
           pnl_pips: number
+          processed_by?: string | null
           signal_id: string
           target_hit_level?: number | null
         }
@@ -1442,6 +1444,7 @@ export type Database = {
           id?: string
           notes?: string | null
           pnl_pips?: number
+          processed_by?: string | null
           signal_id?: string
           target_hit_level?: number | null
         }
@@ -1793,6 +1796,8 @@ export type Database = {
           current_price: number | null
           economic_impact: string | null
           expected_duration_hours: number | null
+          expire_reason: string | null
+          expired_by: string | null
           fibonacci_entry: number | null
           fibonacci_targets: number[] | null
           final_confidence: number | null
@@ -1803,6 +1808,7 @@ export type Database = {
           id: string
           indicator_checklist: Json | null
           is_centralized: boolean | null
+          last_expiration_check: string | null
           last_performance_update: string | null
           last_price: number | null
           market_conditions: string[] | null
@@ -1858,6 +1864,8 @@ export type Database = {
           current_price?: number | null
           economic_impact?: string | null
           expected_duration_hours?: number | null
+          expire_reason?: string | null
+          expired_by?: string | null
           fibonacci_entry?: number | null
           fibonacci_targets?: number[] | null
           final_confidence?: number | null
@@ -1868,6 +1876,7 @@ export type Database = {
           id?: string
           indicator_checklist?: Json | null
           is_centralized?: boolean | null
+          last_expiration_check?: string | null
           last_performance_update?: string | null
           last_price?: number | null
           market_conditions?: string[] | null
@@ -1923,6 +1932,8 @@ export type Database = {
           current_price?: number | null
           economic_impact?: string | null
           expected_duration_hours?: number | null
+          expire_reason?: string | null
+          expired_by?: string | null
           fibonacci_entry?: number | null
           fibonacci_targets?: number[] | null
           final_confidence?: number | null
@@ -1933,6 +1944,7 @@ export type Database = {
           id?: string
           indicator_checklist?: Json | null
           is_centralized?: boolean | null
+          last_expiration_check?: string | null
           last_performance_update?: string | null
           last_price?: number | null
           market_conditions?: string[] | null
