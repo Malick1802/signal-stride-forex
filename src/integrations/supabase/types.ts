@@ -357,10 +357,13 @@ export type Database = {
           ask: number | null
           bid: number | null
           current_price: number
+          fastforex_price: number | null
+          fastforex_timestamp: string | null
           id: string
           is_market_open: boolean | null
           last_update: string
           price_change_24h: number | null
+          price_change_detected: boolean | null
           source: string | null
           symbol: string
           volume_24h: number | null
@@ -369,10 +372,13 @@ export type Database = {
           ask?: number | null
           bid?: number | null
           current_price: number
+          fastforex_price?: number | null
+          fastforex_timestamp?: string | null
           id?: string
           is_market_open?: boolean | null
           last_update?: string
           price_change_24h?: number | null
+          price_change_detected?: boolean | null
           source?: string | null
           symbol: string
           volume_24h?: number | null
@@ -381,10 +387,13 @@ export type Database = {
           ask?: number | null
           bid?: number | null
           current_price?: number
+          fastforex_price?: number | null
+          fastforex_timestamp?: string | null
           id?: string
           is_market_open?: boolean | null
           last_update?: string
           price_change_24h?: number | null
+          price_change_detected?: boolean | null
           source?: string | null
           symbol?: string
           volume_24h?: number | null
@@ -870,6 +879,8 @@ export type Database = {
           ask: number | null
           bid: number | null
           created_at: string
+          fastforex_price: number | null
+          fastforex_timestamp: string | null
           id: string
           price: number
           source: string | null
@@ -880,6 +891,8 @@ export type Database = {
           ask?: number | null
           bid?: number | null
           created_at?: string
+          fastforex_price?: number | null
+          fastforex_timestamp?: string | null
           id?: string
           price: number
           source?: string | null
@@ -890,6 +903,8 @@ export type Database = {
           ask?: number | null
           bid?: number | null
           created_at?: string
+          fastforex_price?: number | null
+          fastforex_timestamp?: string | null
           id?: string
           price?: number
           source?: string | null
