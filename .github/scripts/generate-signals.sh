@@ -11,7 +11,7 @@ echo "  - Tier 2/3: Only top 6-8 pairs get expensive AI analysis"
 echo "  - 90% cheaper OpenAI model (gpt-4o-mini for paid analysis)"
 echo "  - 60% fewer tokens per paid analysis"
 echo "  - Smart concurrency and optimized delays"
-echo "  - 8-minute schedule (increased frequency for better coverage)"
+echo "  - 5-minute schedule (reliable frequency for stability)"
 echo "  - Quality-first approach for genuine signals"
 echo "Workflow: $GITHUB_WORKFLOW"
 echo "Run number: $GITHUB_RUN_NUMBER"
@@ -26,6 +26,10 @@ success=false
 while [ $retry_count -lt $max_retries ] && [ "$success" = false ]; do
   echo "🔄 Enhanced generation attempt $((retry_count + 1)) of $max_retries"
   
+  # Normalize booleans (default to false if unset)
+  force_value=${FORCE_GENERATION:-false}
+  debug_value=${DEBUG_MODE:-false}
+  
   response=$(curl -s -w "\n%{http_code}" -X POST \
     "$SUPABASE_URL/functions/v1/generate-signals" \
     -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
@@ -33,16 +37,25 @@ while [ $retry_count -lt $max_retries ] && [ "$success" = false ]; do
     -H "apikey: $SUPABASE_ANON_KEY" \
     -H "X-GitHub-Run-ID: $GITHUB_RUN_ID" \
     -H "X-Enhanced-Generation: true" \
-    -d "{\"trigger\": \"github_actions\", \"run_id\": \"$GITHUB_RUN_ID\", \"attempt\": $((retry_count + 1)), \"optimized\": true, \"maxAnalyzedPairs\": 27, \"fullCoverage\": true}" \
-    --max-time 120)
+    -d "{\"trigger\": \"github_actions\", \"run_id\": \"$GITHUB_RUN_ID\", \"attempt\": $((retry_count + 1)), \"optimized\": true, \"maxAnalyzedPairs\": 27, \"fullCoverage\": true, \"force\": $force_value, \"debug\": $debug_value}" \
+    --max-time 110)
   
   # Extract HTTP status code and response
   http_code=$(echo "$response" | tail -n1)
   response_body=$(echo "$response" | head -n -1)
   
   echo "HTTP Status: $http_code"
-  if [ "$DEBUG_MODE" = "true" ]; then
+  if [ "$debug_value" = "true" ]; then
     echo "Response body: $response_body"
+  fi
+
+  # Treat known benign condition as non-fatal skip
+  if [ "$http_code" -eq 400 ]; then
+    reason=$(echo "$response_body" | jq -r '.stats.reason // .reason // ""' 2>/dev/null || echo "")
+    if [ "$reason" = "no_market_data" ]; then
+      echo "ℹ️ No market data available. Treating as SKIPPED (not a failure)."
+      exit 0
+    fi
   fi
   
   if [ "$http_code" -eq 200 ]; then

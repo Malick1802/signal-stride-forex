@@ -30,6 +30,13 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
       
+    - name: Resolve environment defaults
+      run: |
+        echo "SUPABASE_URL=${{ secrets.SUPABASE_URL || 'https://ugtaodrvbpfeyhdgmisn.supabase.co' }}" >> $GITHUB_ENV
+        echo "SUPABASE_ANON_KEY=${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVndGFvZHJ2YnBmZXloZGdtaXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQwNjA2MTUsImV4cCI6MjA0OTYzNjYxNX0.Z-71hRCpHB0YivrsTb2kZQdObcF42BQVYIQ8_yMb_JM' }}" >> $GITHUB_ENV
+        echo "DEBUG_MODE=${{ github.event.inputs.debug_mode || 'false' }}" >> $GITHUB_ENV
+        echo "FORCE_GENERATION=${{ github.event.inputs.force_generation || 'false' }}" >> $GITHUB_ENV
+
     - name: Workflow Start Notification
       run: |
         echo "🚀 OPTIMIZED GitHub Actions Signal Generation Started"
@@ -45,22 +52,38 @@ jobs:
         chmod +x .github/scripts/check-market-hours.sh
         ./.github/scripts/check-market-hours.sh
 
-    - name: Update Market Data
-      if: steps.market-check.outputs.market_open == 'true' || github.event.inputs.force_generation == 'true'
+    - name: Function preflight (non-blocking)
       env:
-        SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://ugtaodrvbpfeyhdgmisn.supabase.co' }}
-        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVndGFvZHJ2YnBmZXloZGdtaXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQwNjA2MTUsImV4cCI6MjA0OTYzNjYxNX0.Z-71hRCpHB0YivrsTb2kZQdObcF42BQVYIQ8_yMb_JM' }}
-        DEBUG_MODE: ${{ github.event.inputs.debug_mode || 'false' }}
+        SUPABASE_URL: ${{ env.SUPABASE_URL }}
+        SUPABASE_ANON_KEY: ${{ env.SUPABASE_ANON_KEY }}
+      run: |
+        echo "Preflight test: generate-signals (skipGeneration)..."
+        curl -s -X POST "$SUPABASE_URL/functions/v1/generate-signals" \
+          -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+          -H "Content-Type: application/json" \
+          -H "apikey: $SUPABASE_ANON_KEY" \
+          -d '{"test":true,"skipGeneration":true,"trigger":"github_actions"}' \
+          -w "\nHTTP %{http_code}\n" || true
+
+    - name: Update Market Data
+      if: steps.market-check.outputs.market_open == 'true' || env.FORCE_GENERATION == 'true'
+      env:
+        SUPABASE_URL: ${{ env.SUPABASE_URL }}
+        SUPABASE_ANON_KEY: ${{ env.SUPABASE_ANON_KEY }}
+        DEBUG_MODE: ${{ env.DEBUG_MODE }}
+        GITHUB_RUN_ID: ${{ github.run_id }}
       run: |
         chmod +x .github/scripts/update-market-data.sh
         ./.github/scripts/update-market-data.sh
 
     - name: Generate Trading Signals (Optimized)
-      if: steps.market-check.outputs.market_open == 'true' || github.event.inputs.force_generation == 'true'
+      if: steps.market-check.outputs.market_open == 'true' || env.FORCE_GENERATION == 'true'
       env:
-        SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://ugtaodrvbpfeyhdgmisn.supabase.co' }}
-        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVndGFvZHJ2YnBmZXloZGdtaXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQwNjA2MTUsImV4cCI6MjA0OTYzNjYxNX0.Z-71hRCpHB0YivrsTb2kZQdObcF42BQVYIQ8_yMb_JM' }}
-        DEBUG_MODE: ${{ github.event.inputs.debug_mode || 'false' }}
+        SUPABASE_URL: ${{ env.SUPABASE_URL }}
+        SUPABASE_ANON_KEY: ${{ env.SUPABASE_ANON_KEY }}
+        DEBUG_MODE: ${{ env.DEBUG_MODE }}
+        FORCE_GENERATION: ${{ env.FORCE_GENERATION }}
+        GITHUB_RUN_ID: ${{ github.run_id }}
       run: |
         chmod +x .github/scripts/generate-signals.sh
         ./.github/scripts/generate-signals.sh
