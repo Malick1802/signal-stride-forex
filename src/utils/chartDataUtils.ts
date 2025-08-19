@@ -8,29 +8,45 @@ export interface ChartDataPoint {
   isFrozen?: boolean;
 }
 
-// Convert various timestamp formats to milliseconds
+// Normalize timestamp from various formats to milliseconds
 export const normalizeTimestamp = (timestamp: any): number => {
+  // Handle null/undefined
+  if (!timestamp) return Date.now();
+  
+  // Already a number - check if it needs conversion
   if (typeof timestamp === 'number') {
-    // Handle microseconds (timestamps > 1e15)
+    // Handle scientific notation (e.g., 1.755614071534e+12)
     if (timestamp > 1e15) {
       return Math.floor(timestamp / 1000); // Convert microseconds to milliseconds
     }
-    // Handle seconds (timestamps < 1e12)
-    if (timestamp < 1e12) {
-      return timestamp * 1000; // Convert seconds to milliseconds
+    // If it's already in milliseconds range (13 digits)
+    if (timestamp > 1e12) {
+      return Math.floor(timestamp);
     }
-    // Already milliseconds
-    return timestamp;
+    // If it's in seconds (10 digits), convert to milliseconds
+    if (timestamp > 1e9) {
+      return timestamp * 1000;
+    }
+    // Very small numbers, treat as seconds
+    return timestamp * 1000;
   }
   
+  // Handle string timestamps
   if (typeof timestamp === 'string') {
+    // Try parsing scientific notation or regular numbers
     const parsed = parseFloat(timestamp);
     if (!isNaN(parsed)) {
       return normalizeTimestamp(parsed);
     }
+    // Try Date parsing
+    const dateTime = new Date(timestamp).getTime();
+    if (!isNaN(dateTime)) {
+      return dateTime;
+    }
   }
   
-  return Date.now(); // Fallback to current time
+  // Fallback to current time
+  return Date.now();
 };
 
 // Process raw chart data from database into display format

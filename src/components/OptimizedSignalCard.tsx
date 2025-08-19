@@ -89,13 +89,40 @@ const OptimizedSignalCard = memo<OptimizedSignalCardProps>(({
   // Use server price or live price, fallback to entry price
   const currentPrice = serverCurrentPrice || liveCurrentPrice || signalEntryPrice;
   
-  // Process centralized chart data from signal with proper timestamp handling
+  // Process chart data and merge with current price
   const chartDataToDisplay = useMemo(() => {
-    const historicalChartData = processChartData(safeSignal.chartData || []);
-    return historicalChartData.length > 0 
-      ? mergeChartDataWithCurrentPrice(historicalChartData, currentPrice)
-      : createFallbackChartData(currentPrice, signalEntryPrice, isMarketOpen);
-  }, [safeSignal.chartData, currentPrice, signalEntryPrice, isMarketOpen]);
+    if (!isVisible) return []; // Don't process if not visible
+    
+    let processedData: { timestamp: number; time: string; price: number; isEntry?: boolean; isFrozen?: boolean }[] = [];
+    
+    // Process historical chart data if available
+    if (signal.chartData && Array.isArray(signal.chartData) && signal.chartData.length > 0) {
+      try {
+        processedData = processChartData(signal.chartData);
+      } catch (error) {
+        console.error('❌ Error processing optimized chart data:', error);
+        processedData = [];
+      }
+    }
+    
+    // If no valid historical data, create fallback data
+    if (processedData.length === 0) {
+      const fallbackPrice = currentPrice || signal.current_price || signalEntryPrice;
+      processedData = createFallbackChartData(
+        fallbackPrice,
+        signalEntryPrice,
+        isMarketOpen ?? true
+      );
+    }
+    
+    // Merge with current price if available
+    const priceToMerge = currentPrice || signal.current_price;
+    if (priceToMerge && priceToMerge > 0) {
+      processedData = mergeChartDataWithCurrentPrice(processedData, priceToMerge);
+    }
+
+    return processedData;
+  }, [signal.chartData, signalEntryPrice, signal.current_price, currentPrice, isMarketOpen, isVisible]);
 
   const connectionStatus = (isMarketOpen || chartDataToDisplay.length > 0) && 
     chartDataToDisplay.some(point => typeof point.price === 'number' && !isNaN(point.price));

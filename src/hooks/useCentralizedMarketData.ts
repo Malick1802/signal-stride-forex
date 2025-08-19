@@ -23,26 +23,35 @@ export const useCentralizedMarketData = ({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!pair || !enabled) return;
-
+    if (!enabled || !pair) return;
+    
+    console.log('🔄 Setting up centralized market data for:', pair);
+    
     const fetchMarketData = async () => {
-      setIsLoading(true);
-      setError(null);
-
       try {
+        setIsLoading(true);
+        setError(null);
+        
         const { data: marketData, error } = await supabase
           .from('centralized_market_state')
           .select('*')
           .eq('symbol', pair)
-          .single();
+          .maybeSingle();
 
         if (error) {
-          console.warn('Market data fetch error:', error);
+          console.error('❌ Error fetching centralized market data:', error);
           setError(error.message);
           return;
         }
 
         if (marketData) {
+          console.log('📊 Centralized market data received:', {
+            symbol: marketData.symbol,
+            price: marketData.current_price,
+            isOpen: marketData.is_market_open,
+            lastUpdate: marketData.last_update,
+            source: marketData.source
+          });
           setData({
             symbol: marketData.symbol,
             current_price: marketData.current_price,
@@ -50,49 +59,60 @@ export const useCentralizedMarketData = ({
             last_update: marketData.last_update,
             source: marketData.source || 'centralized'
           });
+          setError(null); // Clear any previous errors
         }
       } catch (err) {
-        console.error('Error fetching market data:', err);
-        setError('Failed to fetch market data');
+        console.error('❌ Error in fetchMarketData:', err);
+        setError(err instanceof Error ? err.message : 'Failed to fetch market data');
       } finally {
         setIsLoading(false);
       }
     };
 
-    // Initial fetch
     fetchMarketData();
 
-    // Set up real-time subscription
-    const subscription = supabase
-      .channel(`market_${pair}`)
+    // Set up realtime subscription for market data updates
+    const channel = supabase
+      .channel(`centralized-market-${pair}`)
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'UPDATE',
           schema: 'public',
           table: 'centralized_market_state',
           filter: `symbol=eq.${pair}`
         },
         (payload) => {
-          console.log('Market data update received:', payload);
-          if (payload.new && typeof payload.new === 'object') {
-            const newData = payload.new as any;
-            setData({
-              symbol: newData.symbol,
-              current_price: newData.current_price,
-              is_market_open: newData.is_market_open ?? true,
-              last_update: newData.last_update,
-              source: newData.source || 'centralized'
-            });
-          }
+          console.log('📡 Real-time centralized market update:', {
+            symbol: payload.new.symbol,
+            newPrice: payload.new.current_price,
+            oldPrice: payload.old?.current_price,
+            isMarketOpen: payload.new.is_market_open,
+            source: payload.new.source,
+            timestamp: payload.new.last_update
+          });
+          setData({
+            symbol: payload.new.symbol,
+            current_price: payload.new.current_price,
+            is_market_open: payload.new.is_market_open ?? true,
+            last_update: payload.new.last_update,
+            source: payload.new.source || 'centralized'
+          });
+          setError(null); // Clear errors on successful update
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('📡 Centralized market subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Successfully subscribed to centralized market data for:', pair);
+        }
+      });
 
     return () => {
-      subscription.unsubscribe();
+      console.log('🔌 Unsubscribing from centralized market data for:', pair);
+      supabase.removeChannel(channel);
     };
-  }, [pair, enabled]);
+  }, [enabled, pair]);
 
   return {
     currentPrice: data?.current_price || null,

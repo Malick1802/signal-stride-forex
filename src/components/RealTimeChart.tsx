@@ -94,24 +94,38 @@ const RealTimeChart: React.FC<RealTimeChartProps> = ({
     };
   }, [chartData]);
 
+  // Determine connection status based on data availability and market status
+  const connectionStatus = useMemo(() => {
+    if (isLoading) return 'LOADING';
+    
+    // Check for real market data (server-provided current prices)
+    const hasRealTimeData = currentPrice && currentPrice > 0 && 
+      (chartData.some(point => !point.isFrozen) || chartData.length > 3);
+    
+    if (!isConnected) return 'OFFLINE';
+    if (!marketStatus.isOpen) return 'MARKET_CLOSED';
+    if (hasRealTimeData) return 'LIVE';
+    if (chartData.length > 0) return 'CONNECTING';
+    return 'OFFLINE';
+  }, [isLoading, isConnected, marketStatus.isOpen, chartData, currentPrice]);
+
   const hasValidData = chartData.length > 0 && chartData.some(d => typeof d.price === 'number' && !isNaN(d.price));
   const isFrozenChart = chartData.length > 0 && chartData.some(d => d.isFrozen);
 
   return (
-    <div className="relative">
-      {/* Enhanced Live Status Indicator */}
+    <div className="relative">{/* Enhanced Live Status Indicator */}
       <div className="absolute top-2 right-2 z-10">
         <div className="flex items-center space-x-2 text-xs">
           <div className={`w-2 h-2 rounded-full ${
             !marketStatus.isOpen ? 'bg-gray-400' :
-            isConnected && hasValidData ? 'bg-green-400 animate-pulse' :
-            isLoading ? 'bg-yellow-400 animate-pulse' : 'bg-red-400'
+            connectionStatus === 'LIVE' && hasValidData ? 'bg-green-400 animate-pulse' :
+            connectionStatus === 'LOADING' || connectionStatus === 'CONNECTING' ? 'bg-yellow-400 animate-pulse' : 'bg-red-400'
           }`} />
           <span className="text-muted-foreground font-mono">
             {!marketStatus.isOpen ? 'MARKET CLOSED' :
              isFrozenChart ? 'FROZEN' :
-             isConnected && hasValidData ? 'LIVE' :
-             isLoading ? 'CONNECTING' : 'OFFLINE'}
+             connectionStatus === 'LIVE' && hasValidData ? 'LIVE' :
+             connectionStatus === 'LOADING' || connectionStatus === 'CONNECTING' ? 'CONNECTING' : 'OFFLINE'}
           </span>
         </div>
       </div>

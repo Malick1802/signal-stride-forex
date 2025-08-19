@@ -119,13 +119,65 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
   // Use server price or live price, fallback to entry price
   const currentPrice = serverCurrentPrice || liveCurrentPrice || signalEntryPrice;
   
-  // Process centralized chart data from signal with proper timestamp handling
+  // Process and merge chart data with current price  
   const chartDataToDisplay = useMemo(() => {
-    const historicalChartData = processChartData(safeSignal.chartData || []);
-    return historicalChartData.length > 0 
-      ? mergeChartDataWithCurrentPrice(historicalChartData, currentPrice)
-      : createFallbackChartData(currentPrice, signalEntryPrice, isMarketOpen);
-  }, [safeSignal.chartData, currentPrice, signalEntryPrice, isMarketOpen]);
+    console.log('📊 SignalCard processing chart data:', {
+      signalId: signal.id,
+      hasChartData: !!signal.chartData,
+      chartDataLength: Array.isArray(signal.chartData) ? signal.chartData.length : 0,
+      hasCurrentPrice: !!currentPrice,
+      currentPrice,
+      serverCurrentPrice,
+      liveCurrentPrice,
+      isMarketOpen
+    });
+
+    let processedData: { timestamp: number; time: string; price: number; isEntry?: boolean; isFrozen?: boolean }[] = [];
+    
+    // Process historical chart data if available
+    if (signal.chartData && Array.isArray(signal.chartData) && signal.chartData.length > 0) {
+      try {
+        processedData = processChartData(signal.chartData);
+        console.log('📊 Processed historical chart data:', {
+          originalLength: signal.chartData.length,
+          processedLength: processedData.length,
+          sampleData: processedData.slice(0, 2)
+        });
+      } catch (error) {
+        console.error('❌ Error processing chart data:', error);
+        processedData = [];
+      }
+    }
+    
+    // If no valid historical data, create fallback data
+    if (processedData.length === 0) {
+      const fallbackPrice = currentPrice || signal.current_price || signalEntryPrice;
+      processedData = createFallbackChartData(
+        fallbackPrice,
+        signalEntryPrice,
+        isMarketOpen ?? true
+      );
+      console.log('📊 Created fallback chart data:', {
+        length: processedData.length,
+        fallbackPrice,
+        entryPrice: signalEntryPrice
+      });
+    }
+    
+    // Merge with current price if available and different from last point
+    const priceToMerge = currentPrice || signal.current_price;
+    if (priceToMerge && priceToMerge > 0) {
+      const originalLength = processedData.length;
+      processedData = mergeChartDataWithCurrentPrice(processedData, priceToMerge);
+      console.log('📊 Merged current price:', {
+        priceToMerge,
+        originalLength,
+        newLength: processedData.length
+      });
+    }
+
+    return processedData;
+  }, [signal.chartData, signal.id, signalEntryPrice, signal.current_price, currentPrice, liveCurrentPrice, serverCurrentPrice, isMarketOpen]);
 
   // Enhanced connection status
   const connectionStatus = (isMarketOpen || chartDataToDisplay.length > 0) && 
