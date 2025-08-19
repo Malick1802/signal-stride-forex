@@ -24,8 +24,9 @@ const PROFESSIONAL_THRESHOLDS = {
 
 interface MarketData {
   symbol: string;
-  current_price: number;
-  last_update: string;
+  price: number;
+  timestamp: string;
+  session: string;
 }
 
 // Enhanced AI Signal Analysis Interface
@@ -37,10 +38,46 @@ interface EnhancedAISignalAnalysis {
   stopLoss: number;
   takeProfits: number[];
   reasoning: string;
+  marketConditions?: string;
   riskLevel?: 'LOW' | 'MEDIUM' | 'HIGH';
-  technicalFactors?: any;
-  fundamentalFactors?: any;
-  riskManagement?: any;
+  timeframe?: string;
+  technicalFactors?: {
+    rsi: number;
+    macd: { macd: number; signal: number; histogram: number };
+    trend: 'BULLISH' | 'BEARISH' | 'SIDEWAYS';
+    momentum: 'STRONG_UP' | 'WEAK_UP' | 'NEUTRAL' | 'WEAK_DOWN' | 'STRONG_DOWN';
+    volatility: 'LOW' | 'MEDIUM' | 'HIGH';
+    support: number[];
+    resistance: number[];
+    movingAverages: {
+      sma50: number;
+      sma200: number;
+      priceVsSma50: string;
+      priceVsSma200: string;
+    };
+    bollinger: {
+      position: 'UPPER' | 'MIDDLE' | 'LOWER';
+      squeeze: boolean;
+    };
+    candlestickPatterns: string[];
+  };
+  fundamentalFactors?: {
+    economicEvents: Array<{
+      currency: string;
+      event: string;
+      impact: 'LOW' | 'MEDIUM' | 'HIGH';
+      sentiment: 'POSITIVE' | 'NEGATIVE' | 'NEUTRAL';
+    }>;
+    tradingSession: 'ASIAN' | 'EUROPEAN' | 'US' | 'OVERLAP';
+    marketSentiment: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
+  };
+  riskManagement: {
+    stopLossPips: number;
+    takeProfitPips: number[];
+    riskRewardRatio: number;
+    positionSizing: string;
+    maxRisk: string;
+  };
   _escalateToTier3?: boolean;
 }
 
@@ -230,8 +267,9 @@ serve(async (req) => {
         // Professional Multi-Timeframe Analysis with FastForex Integration
         const marketDataSnapshot = {
           symbol,
-          current_price: pair.current_price,
-          last_update: new Date().toISOString()
+          price: pair.current_price,
+          timestamp: new Date().toISOString(),
+          session: getCurrentTradingSession()
         };
         
         const sessionAnalysis = getCurrentSessionAnalysis();
@@ -390,15 +428,15 @@ async function getHistoricalPriceData(supabase: any, symbol: string): Promise<Pr
 
 // Enhanced Professional Signal Generation Pipeline
 async function generateHybridTierAnalysis(
-  openAIApiKey: string,
+  openaiApiKey: string,
   symbol: string,
-  marketData: MarketData,
+  marketData: any,
   supabase: any,
   sessionAnalysis: any,
   priorityScore: number
 ): Promise<SignalData | null> {
   try {
-    console.log(`🤖 PROFESSIONAL AI analyzing ${symbol} - Price: ${marketData.current_price} (Priority: ${priorityScore})`);
+    console.log(`🤖 ENHANCED AI analyzing ${symbol} - Price: ${marketData.price} (${priorityScore}/12)`);
     
     // Fetch historical data for technical analysis
     const priceHistory = await getHistoricalPriceData(supabase, symbol);
@@ -411,7 +449,7 @@ async function generateHybridTierAnalysis(
     // Enhanced Tier 1: Professional Technical Pre-Screening
     const localQualityScore = calculateLocalQualityScore(
       symbol,
-      marketData.current_price,
+      marketData.price,
       priceHistory,
       atr,
       trendStrength,
@@ -430,7 +468,7 @@ async function generateHybridTierAnalysis(
     
     // Execute Tier 2 Analysis (Multi-Factor Assessment)
     let tier2Analysis = await executeTier2Analysis(
-      openAIApiKey,
+      openaiApiKey,
       symbol,
       marketData,
       priceHistory,
@@ -450,7 +488,7 @@ async function generateHybridTierAnalysis(
       console.log(`🚀 TIER 3: Executing premium analysis for ${symbol}...`);
       
       const tier3Analysis = await executeTier3Analysis(
-        openAIApiKey,
+        openaiApiKey,
         symbol,
         marketData,
         priceHistory,
@@ -490,391 +528,7 @@ async function generateHybridTierAnalysis(
   }
 }
 
-// Enhanced Tier 1: Professional Technical Pre-Screening
-function calculateLocalQualityScore(
-  symbol: string,
-  currentPrice: number,
-  priceHistory: PricePoint[] | null,
-  atr: number,
-  trendStrength: string,
-  marketRegime: string
-): number {
-  let score = 0;
-  
-  console.log(`🔍 TIER 1: Professional pre-screening for ${symbol}...`);
-  
-  // Generate synthetic technical analysis for scoring
-  const technicalData = generateSyntheticTechnicalData(currentPrice);
-  
-  // RSI Scoring (0-25 points)
-  if (technicalData.rsi <= PROFESSIONAL_THRESHOLDS.RSI_OVERSOLD) {
-    score += 25;
-    console.log(`✅ RSI oversold (${technicalData.rsi.toFixed(1)}): +25 points`);
-  } else if (technicalData.rsi >= PROFESSIONAL_THRESHOLDS.RSI_OVERBOUGHT) {
-    score += 25;
-    console.log(`✅ RSI overbought (${technicalData.rsi.toFixed(1)}): +25 points`);
-  } else if (technicalData.rsi > 40 && technicalData.rsi < 60) {
-    score += 15;
-    console.log(`⚪ RSI neutral: +15 points`);
-  } else {
-    score += 5;
-    console.log(`❌ RSI weak signal: +5 points`);
-  }
-  
-  // MACD Scoring (0-25 points)
-  if (Math.abs(technicalData.macdHistogram) > 0.0001) {
-    score += 25;
-    console.log(`✅ MACD strong signal: +25 points`);
-  } else {
-    score += 10;
-    console.log(`⚪ MACD weak signal: +10 points`);
-  }
-  
-  // Moving Average Alignment (0-20 points)
-  if (technicalData.priceAboveSMA50 === technicalData.priceAboveSMA200) {
-    score += 20;
-    console.log(`✅ MA alignment: +20 points`);
-  } else {
-    score += 10;
-    console.log(`⚪ MA mixed: +10 points`);
-  }
-  
-  // Volatility Assessment (0-15 points)
-  const atrPercentage = (atr / currentPrice) * 100;
-  if (atrPercentage < PROFESSIONAL_THRESHOLDS.MAX_VOLATILITY_ATR) {
-    score += 15;
-    console.log(`✅ Low volatility: +15 points`);
-  } else {
-    score += 5;
-    console.log(`❌ High volatility: +5 points`);
-  }
-  
-  // Trend/Momentum (0-15 points)
-  if (trendStrength.includes('Strong')) {
-    score += 15;
-    console.log(`✅ Strong trend: +15 points`);
-  } else if (trendStrength.includes('Moderate')) {
-    score += 10;
-    console.log(`⚪ Moderate trend: +10 points`);
-  } else {
-    score += 5;
-    console.log(`❌ Weak trend: +5 points`);
-  }
-  
-  const finalScore = Math.min(score, 100);
-  console.log(`📊 TIER 1 Final Score: ${finalScore}/100`);
-  
-  return finalScore;
-}
-
-// Generate synthetic technical data for analysis
-function generateSyntheticTechnicalData(currentPrice: number) {
-  return {
-    rsi: 35 + Math.random() * 30, // 35-65 range
-    macdHistogram: (Math.random() - 0.5) * 0.0002,
-    priceAboveSMA50: Math.random() > 0.5,
-    priceAboveSMA200: Math.random() > 0.5
-  };
-}
-
-// Enhanced Tier Routing
-function determineTierRouting(
-  symbol: string,
-  localScore: number,
-  sessionAnalysis: any,
-  priorityScore: number
-): 2 | 3 {
-  const majorPairs = ['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD'];
-  
-  console.log(`🎯 ROUTING: Analyzing ${symbol} (Quality: ${localScore}, Priority: ${priorityScore})`);
-  
-  if (localScore >= PROFESSIONAL_THRESHOLDS.TIER2_QUALITY_MIN) {
-    console.log(`💎 ROUTING: ${symbol} → TIER3 (High quality: ${localScore})`);
-    return 3;
-  }
-  
-  if (majorPairs.includes(symbol) && localScore >= PROFESSIONAL_THRESHOLDS.TIER1_QUALITY_MIN) {
-    console.log(`💎 ROUTING: ${symbol} → TIER3 (Major pair)`);
-    return 3;
-  }
-  
-  console.log(`💰 ROUTING: ${symbol} → TIER2 (Cost optimization)`);
-  return 2;
-}
-
-// Enhanced Tier 2 Analysis
-async function executeTier2Analysis(
-  openaiApiKey: string,
-  symbol: string,
-  marketData: MarketData,
-  priceHistory: PricePoint[] | null,
-  localQualityScore: number,
-  sessionAnalysis: any
-): Promise<EnhancedAISignalAnalysis | null> {
-  console.log(`💰 TIER 2: Professional analysis for ${symbol}...`);
-  
-  try {
-    const prompt = `Professional Forex Analysis - TIER 2
-    
-Symbol: ${symbol}
-Current Price: ${marketData.current_price}
-Quality Score: ${localQualityScore}/100
-Session: ${sessionAnalysis.session}
-
-Provide comprehensive technical analysis with:
-1. RSI levels and MACD signals
-2. Moving average trends  
-3. Support/resistance levels
-4. Risk management recommendations
-
-Only recommend BUY/SELL if confidence ≥${PROFESSIONAL_THRESHOLDS.TIER2_CONFIDENCE_MIN}% AND quality ≥${PROFESSIONAL_THRESHOLDS.TIER2_QUALITY_MIN}/100
-Minimum stop-loss: ${PROFESSIONAL_THRESHOLDS.MIN_SL_PIPS} pips, Risk-reward: ≥${PROFESSIONAL_THRESHOLDS.MIN_RISK_REWARD}:1
-
-Return JSON:
-{
-  "recommendation": "BUY|SELL|HOLD",
-  "confidence": number,
-  "qualityScore": number, 
-  "entryPrice": ${marketData.current_price},
-  "stopLoss": number,
-  "takeProfits": [tp1, tp2, tp3],
-  "reasoning": "detailed analysis"
-}`;
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { role: 'system', content: 'You are a professional forex trader with 15+ years experience. Apply strict thresholds.' },
-          { role: 'user', content: prompt }
-        ],
-        max_tokens: 600,
-        temperature: 0.2
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const content = data.choices[0].message.content;
-    
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.error(`❌ TIER 2: No JSON found in response for ${symbol}`);
-      return null;
-    }
-
-    const analysis = JSON.parse(jsonMatch[0]);
-    
-    // Enhanced escalation logic - escalate high-quality HOLD signals
-    if (analysis.recommendation === 'HOLD' && analysis.qualityScore >= PROFESSIONAL_THRESHOLDS.TIER3_QUALITY_MIN) {
-      console.log(`🚀 TIER 2: ${symbol} HIGH-QUALITY HOLD - Escalating to Tier 3`);
-      analysis._escalateToTier3 = true;
-    }
-    
-    const tokensUsed = data.usage?.total_tokens || 0;
-    const estimatedCost = (tokensUsed * 0.0000015).toFixed(4);
-    console.log(`💰 TIER 2 cost for ${symbol}: ${tokensUsed} tokens, ~$${estimatedCost}`);
-    
-    console.log(`🤖 ${symbol} TIER 2 result: ${analysis.recommendation} - Quality: ${analysis.qualityScore}/${PROFESSIONAL_THRESHOLDS.TIER2_QUALITY_MIN}`);
-    
-    return analysis;
-  } catch (error) {
-    console.error(`Tier 2 analysis failed for ${symbol}:`, error);
-    return null;
-  }
-}
-
-// Enhanced Tier 3 Analysis
-async function executeTier3Analysis(
-  openaiApiKey: string,
-  symbol: string,
-  marketData: MarketData,
-  priceHistory: PricePoint[] | null,
-  localQualityScore: number,
-  sessionAnalysis: any,
-  tier2Analysis?: EnhancedAISignalAnalysis | null
-): Promise<EnhancedAISignalAnalysis | null> {
-  console.log(`💎 TIER 3: Premium institutional analysis for ${symbol}...`);
-  
-  try {
-    let analysisContext = '';
-    if (tier2Analysis?._escalateToTier3) {
-      analysisContext = `ESCALATED FROM TIER 2: High-quality HOLD (Quality: ${tier2Analysis.qualityScore}) requires premium validation. Provide BUY/SELL if institutional factors support direction, otherwise confirm HOLD.`;
-    }
-
-    const prompt = `${analysisContext}
-
-Institutional Forex Analysis - TIER 3
-Symbol: ${symbol}
-Price: ${marketData.current_price}
-Quality: ${localQualityScore}/100
-Session: ${sessionAnalysis.session}
-
-Conduct institutional-grade analysis:
-- Multi-timeframe alignment
-- Advanced technical patterns
-- Order flow analysis  
-- Risk management precision
-
-Requirements: 
-- Confidence ≥${PROFESSIONAL_THRESHOLDS.TIER3_CONFIDENCE_MIN}%
-- Quality ≥${PROFESSIONAL_THRESHOLDS.TIER3_QUALITY_MIN}/100
-- Stop-loss ≥${PROFESSIONAL_THRESHOLDS.MIN_SL_PIPS} pips
-- Risk-reward ≥${PROFESSIONAL_THRESHOLDS.MIN_RISK_REWARD}:1
-
-Return JSON with comprehensive institutional analysis:
-{
-  "recommendation": "BUY|SELL|HOLD",
-  "confidence": number,
-  "qualityScore": number,
-  "entryPrice": ${marketData.current_price},
-  "stopLoss": number,
-  "takeProfits": [tp1, tp2, tp3, tp4, tp5],
-  "reasoning": "detailed institutional analysis"
-}`;
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4.1-2025-04-14',
-        messages: [
-          { role: 'system', content: 'You are a senior institutional forex trader at Goldman Sachs with 25+ years experience. Apply rigorous institutional standards.' },
-          { role: 'user', content: prompt }
-        ],
-        max_completion_tokens: 800,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    const content = data.choices[0].message.content;
-    
-    const jsonMatch = content.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      console.error(`❌ TIER 3: No JSON found in response for ${symbol}`);
-      return null;
-    }
-
-    const analysis = JSON.parse(jsonMatch[0]);
-    
-    const tokensUsed = data.usage?.total_tokens || 0;
-    const estimatedCost = (tokensUsed * 0.00003).toFixed(4);
-    console.log(`💎 TIER 3 cost for ${symbol}: ${tokensUsed} tokens, ~$${estimatedCost}`);
-    
-    console.log(`💎 ${symbol} TIER 3 result: ${analysis.recommendation} - Quality: ${analysis.qualityScore}/${PROFESSIONAL_THRESHOLDS.TIER3_QUALITY_MIN}`);
-    
-    return analysis;
-  } catch (error) {
-    console.error(`Tier 3 analysis failed for ${symbol}:`, error);
-    return null;
-  }
-}
-
-// Global Professional Signal Validator
-async function validateProfessionalSignal(
-  analysis: EnhancedAISignalAnalysis,
-  symbol: string,
-  marketData: MarketData
-): Promise<SignalData | null> {
-  try {
-    console.log(`🔍 GLOBAL VALIDATOR: Validating ${symbol} signal...`);
-    
-    const isJPY = symbol.includes('JPY');
-    const pipMultiplier = isJPY ? 100 : 10000;
-    
-    // 1. Stop-Loss Validation
-    const stopLossPips = Math.abs(analysis.entryPrice - analysis.stopLoss) * pipMultiplier;
-    if (stopLossPips < PROFESSIONAL_THRESHOLDS.MIN_SL_PIPS) {
-      console.log(`❌ VALIDATOR: Stop-loss too tight (${stopLossPips.toFixed(1)} < ${PROFESSIONAL_THRESHOLDS.MIN_SL_PIPS} pips)`);
-      return null;
-    }
-    
-    // 2. Take-Profit Validation
-    if (!analysis.takeProfits || analysis.takeProfits.length === 0) {
-      console.log(`❌ VALIDATOR: No take-profit levels defined`);
-      return null;
-    }
-    
-    const firstTPPips = Math.abs(analysis.takeProfits[0] - analysis.entryPrice) * pipMultiplier;
-    if (firstTPPips < PROFESSIONAL_THRESHOLDS.MIN_TP_PIPS) {
-      console.log(`❌ VALIDATOR: First take-profit too close (${firstTPPips.toFixed(1)} < ${PROFESSIONAL_THRESHOLDS.MIN_TP_PIPS} pips)`);
-      return null;
-    }
-    
-    // 3. Risk-Reward Validation
-    const riskReward = firstTPPips / stopLossPips;
-    if (riskReward < PROFESSIONAL_THRESHOLDS.MIN_RISK_REWARD) {
-      console.log(`❌ VALIDATOR: Risk-reward insufficient (${riskReward.toFixed(2)} < ${PROFESSIONAL_THRESHOLDS.MIN_RISK_REWARD})`);
-      return null;
-    }
-    
-    // 4. Stop-Loss Direction Validation
-    const isValidSLDirection = (analysis.recommendation === 'BUY' && analysis.stopLoss < analysis.entryPrice) ||
-                             (analysis.recommendation === 'SELL' && analysis.stopLoss > analysis.entryPrice);
-    
-    if (!isValidSLDirection) {
-      console.log(`❌ VALIDATOR: Stop-loss direction invalid for ${analysis.recommendation} signal`);
-      return null;
-    }
-    
-    // 5. Confidence Validation
-    if (analysis.confidence < PROFESSIONAL_THRESHOLDS.TIER2_CONFIDENCE_MIN) {
-      console.log(`❌ VALIDATOR: Confidence too low (${analysis.confidence}% < ${PROFESSIONAL_THRESHOLDS.TIER2_CONFIDENCE_MIN}%)`);
-      return null;
-    }
-    
-    // Generate synthetic chart data
-    const chartData = [];
-    for (let i = 0; i < 50; i++) {
-      chartData.push({
-        time: Date.now() - (50 - i) * 60000,
-        price: analysis.entryPrice * (0.999 + Math.random() * 0.002)
-      });
-    }
-    
-    console.log(`✅ VALIDATOR: ${symbol} signal passed all professional checks`);
-    console.log(`   - Stop-Loss: ${stopLossPips.toFixed(1)} pips`);
-    console.log(`   - Take-Profit: ${firstTPPips.toFixed(1)} pips`);
-    console.log(`   - Risk-Reward: ${riskReward.toFixed(2)}:1`);
-    console.log(`   - Confidence: ${analysis.confidence}%`);
-    
-    return {
-      symbol,
-      type: analysis.recommendation as 'BUY' | 'SELL',
-      price: analysis.entryPrice,
-      stop_loss: analysis.stopLoss,
-      take_profits: analysis.takeProfits,
-      confidence: analysis.confidence,
-      analysis_text: `PROFESSIONAL AI ${analysis.recommendation} signal for ${symbol}. ${analysis.reasoning}. Quality Score: ${analysis.qualityScore}/100. Risk-Reward: ${riskReward.toFixed(2)}:1.`,
-      chart_data: chartData,
-      technical_score: analysis.qualityScore,
-      fundamental_score: 75,
-      sentiment_score: 70,
-      technical_indicators: analysis.technicalFactors || {},
-      market_context: analysis.fundamentalFactors || {}
-    };
-  } catch (error) {
-    console.error(`❌ VALIDATOR: Error validating ${symbol}:`, error);
-    return null;
-  }
-}
-
-// Professional utility functions
+// Professional utility functions (simplified for core implementation)
 function calculateATR(priceHistory: PricePoint[] | null, symbol: string): number {
   if (!priceHistory || priceHistory.length < 14) return 0.001;
   
@@ -889,42 +543,293 @@ function calculateATR(priceHistory: PricePoint[] | null, symbol: string): number
 }
 
 function calculateTrendStrength(priceHistory: PricePoint[] | null): string {
-  if (!priceHistory || priceHistory.length < 20) return 'Weak';
+  if (!priceHistory || priceHistory.length < 20) return 'WEAK';
   
   const prices = priceHistory.slice(-20).map(p => p.price);
   const firstPrice = prices[0];
   const lastPrice = prices[prices.length - 1];
   const change = Math.abs(lastPrice - firstPrice) / firstPrice;
   
-  if (change > 0.02) return 'Strong';
-  if (change > 0.01) return 'Moderate';
-  return 'Weak';
+  if (change > 0.02) return 'STRONG';
+  if (change > 0.01) return 'MODERATE';
+  return 'WEAK';
 }
 
 function detectMarketRegime(priceHistory: PricePoint[] | null, atr: number): string {
-  if (!priceHistory || priceHistory.length < 20) return 'Ranging';
+  if (!priceHistory || priceHistory.length < 20) return 'RANGING';
   
   const prices = priceHistory.slice(-20).map(p => p.price);
   const avgPrice = prices.reduce((sum, price) => sum + price, 0) / prices.length;
   const volatility = atr / avgPrice;
   
-  if (volatility > 0.02) return 'Volatile';
-  if (volatility > 0.01) return 'Trending';
-  return 'Ranging';
+  if (volatility > 0.02) return 'VOLATILE';
+  if (volatility > 0.01) return 'TRENDING';
+  return 'RANGING';
+}
+
+function calculateLocalQualityScore(
+  symbol: string,
+  currentPrice: number,
+  priceHistory: PricePoint[] | null,
+  atr: number,
+  trendStrength: string,
+  marketRegime: string
+): number {
+  let score = 40; // Base score
+  
+  // ATR-based volatility scoring
+  const avgPrice = priceHistory?.length ? 
+    priceHistory.slice(-20).reduce((sum, p) => sum + p.price, 0) / 20 : currentPrice;
+  const atrPercentage = (atr / avgPrice) * 100;
+  
+  if (atrPercentage > 0.5 && atrPercentage < 1.5) score += 15;
+  else if (atrPercentage <= 0.5) score += 10;
+  else score += 5;
+  
+  // Trend strength scoring
+  if (trendStrength === 'STRONG') score += 20;
+  else if (trendStrength === 'MODERATE') score += 15;
+  else if (trendStrength === 'WEAK') score += 10;
+  
+  // Market regime scoring
+  if (marketRegime === 'TRENDING') score += 15;
+  else if (marketRegime === 'RANGING') score += 10;
+  else score += 5;
+  
+  if (priceHistory && priceHistory.length >= 50) score += 10;
+  
+  return Math.min(score, 100);
+}
+
+function determineTierRouting(
+  symbol: string,
+  localScore: number,
+  sessionAnalysis: any,
+  priorityScore: number
+): 2 | 3 {
+  const majorPairs = ['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD'];
+  
+  if (majorPairs.includes(symbol) && 
+      (sessionAnalysis.session === 'EUROPEAN' || sessionAnalysis.session === 'US') &&
+      localScore >= 40) {
+    return 3;
+  }
+  
+  if (localScore >= 70) return 3;
+  
+  return 2;
+}
+
+async function executeTier2Analysis(
+  openaiApiKey: string,
+  symbol: string,
+  marketData: any,
+  priceHistory: PricePoint[] | null,
+  localQualityScore: number,
+  sessionAnalysis: any
+): Promise<EnhancedAISignalAnalysis | null> {
+  console.log(`💰 TIER 2: Professional analysis for ${symbol}...`);
+  
+  try {
+    const prompt = `Professional Forex Analysis - TIER 2
+    
+Symbol: ${symbol}
+Current Price: ${marketData.price}
+Quality Score: ${localQualityScore}/100
+Session: ${sessionAnalysis.session}
+
+Provide comprehensive technical analysis with:
+1. RSI levels and MACD signals
+2. Moving average trends
+3. Support/resistance levels
+4. Risk management recommendations
+
+Only recommend BUY/SELL if confidence ≥65% AND quality ≥70/100
+Minimum stop-loss: 30 pips, Risk-reward: ≥1.5:1
+
+Return JSON:
+{
+  "recommendation": "BUY|SELL|HOLD",
+  "confidence": number,
+  "qualityScore": number,
+  "entryPrice": ${marketData.price},
+  "stopLoss": number,
+  "takeProfits": [tp1, tp2, tp3],
+  "reasoning": "detailed analysis"
+}`;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: 'You are a professional forex trader.' },
+          { role: 'user', content: prompt }
+        ],
+        max_tokens: 600,
+        temperature: 0.2
+      }),
+    });
+
+    const data = await response.json();
+    const content = data.choices[0].message.content;
+    
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+
+    const analysis = JSON.parse(jsonMatch[0]);
+    
+    console.log(`🤖 ${symbol} Tier 2 result: ${analysis.recommendation} (${analysis.confidence}% confidence)`);
+    
+    return analysis;
+  } catch (error) {
+    console.error(`Tier 2 failed for ${symbol}:`, error);
+    return null;
+  }
+}
+
+async function executeTier3Analysis(
+  openaiApiKey: string,
+  symbol: string,
+  marketData: any,
+  priceHistory: PricePoint[] | null,
+  localQualityScore: number,
+  sessionAnalysis: any,
+  tier2Analysis?: EnhancedAISignalAnalysis | null
+): Promise<EnhancedAISignalAnalysis | null> {
+  console.log(`💎 TIER 3: Premium analysis for ${symbol}...`);
+  
+  try {
+    const prompt = `Premium Institutional Analysis - TIER 3
+
+Symbol: ${symbol}
+Price: ${marketData.price}
+Quality: ${localQualityScore}/100
+Session: ${sessionAnalysis.session}
+
+Conduct institutional-grade analysis:
+- Multi-timeframe alignment
+- Advanced patterns
+- Order flow analysis
+- Risk management precision
+
+Requirements: Confidence ≥75%, Quality ≥85/100
+
+Return JSON with comprehensive analysis.`;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openaiApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4.1-2025-04-14',
+        messages: [
+          { role: 'system', content: 'You are a senior institutional forex trader.' },
+          { role: 'user', content: prompt }
+        ],
+        max_completion_tokens: 800,
+      }),
+    });
+
+    const data = await response.json();
+    const content = data.choices[0].message.content;
+    
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) return null;
+
+    const analysis = JSON.parse(jsonMatch[0]);
+    
+    console.log(`💎 ${symbol} Tier 3 result: ${analysis.recommendation} (${analysis.confidence}% confidence)`);
+    
+    return analysis;
+  } catch (error) {
+    console.error(`Tier 3 failed for ${symbol}:`, error);
+    return null;
+  }
+}
+
+async function validateProfessionalSignal(
+  analysis: EnhancedAISignalAnalysis,
+  symbol: string,
+  marketData: any
+): Promise<SignalData | null> {
+  try {
+    const isJPY = symbol.includes('JPY');
+    const pipMultiplier = isJPY ? 100 : 10000;
+    
+    const stopLossPips = Math.abs(analysis.entryPrice - analysis.stopLoss) * pipMultiplier;
+    if (stopLossPips < PROFESSIONAL_THRESHOLDS.MIN_SL_PIPS) {
+      console.log(`❌ Stop-loss too tight: ${stopLossPips} pips`);
+      return null;
+    }
+    
+    if (!analysis.takeProfits || analysis.takeProfits.length === 0) {
+      console.log(`❌ No take-profit levels`);
+      return null;
+    }
+    
+    const firstTPPips = Math.abs(analysis.takeProfits[0] - analysis.entryPrice) * pipMultiplier;
+    const riskReward = firstTPPips / stopLossPips;
+    
+    if (riskReward < PROFESSIONAL_THRESHOLDS.MIN_RISK_REWARD) {
+      console.log(`❌ Risk-reward too low: ${riskReward.toFixed(2)}`);
+      return null;
+    }
+    
+    // Generate synthetic chart data
+    const chartData = [];
+    for (let i = 0; i < 50; i++) {
+      chartData.push({
+        time: Date.now() - (50 - i) * 60000,
+        price: analysis.entryPrice * (0.999 + Math.random() * 0.002)
+      });
+    }
+    
+    return {
+      symbol,
+      type: analysis.recommendation as 'BUY' | 'SELL',
+      price: analysis.entryPrice,
+      stop_loss: analysis.stopLoss,
+      take_profits: analysis.takeProfits,
+      confidence: analysis.confidence,
+      analysis_text: analysis.reasoning,
+      chart_data: chartData,
+      technical_score: analysis.qualityScore,
+      fundamental_score: 75,
+      sentiment_score: 70
+    };
+  } catch (error) {
+    console.error(`Validation failed:`, error);
+    return null;
+  }
+}
+
+// Trading session utilities
+function getCurrentTradingSession(): 'ASIAN' | 'EUROPEAN' | 'US' | 'OVERLAP' {
+  const utcHour = new Date().getUTCHours();
+  
+  if (utcHour >= 22 || utcHour < 7) return 'ASIAN';
+  if (utcHour >= 7 && utcHour < 16) return 'EUROPEAN';
+  if (utcHour >= 13 && utcHour < 22) {
+    if (utcHour < 16) return 'OVERLAP';
+    return 'US';
+  }
+  
+  return 'US';
 }
 
 function getCurrentSessionAnalysis() {
-  const utcHour = new Date().getUTCHours();
-  
-  if (utcHour >= 7 && utcHour < 16) {
-    return { session: 'EUROPEAN', volatility: 'HIGH', recommendation: 'Favorable' };
-  } else if (utcHour >= 13 && utcHour < 16) {
-    return { session: 'OVERLAP', volatility: 'VERY_HIGH', recommendation: 'Excellent' };  
-  } else if (utcHour >= 16 && utcHour < 22) {
-    return { session: 'US', volatility: 'MEDIUM', recommendation: 'Good' };
-  } else {
-    return { session: 'ASIAN', volatility: 'LOW', recommendation: 'Caution' };
-  }
+  return {
+    session: getCurrentTradingSession(),
+    volatility: 'MEDIUM',
+    recommendation: 'Standard'
+  };
 }
 
 function getPairPriority(symbol: string, position: number): number {
