@@ -1763,6 +1763,7 @@ export type Database = {
       trading_signals: {
         Row: {
           ai_model_used: string | null
+          allow_tier2_publish: boolean | null
           analysis_cost: number | null
           analysis_text: string | null
           asset_type: string | null
@@ -1775,8 +1776,13 @@ export type Database = {
           expected_duration_hours: number | null
           fibonacci_entry: number | null
           fibonacci_targets: number[] | null
+          final_confidence: number | null
+          final_quality: number | null
           fundamental_score: number | null
+          gate_fail_reasons: string[] | null
+          gates_passed: boolean | null
           id: string
+          indicator_checklist: Json | null
           is_centralized: boolean | null
           last_price: number | null
           market_conditions: string[] | null
@@ -1796,6 +1802,12 @@ export type Database = {
           status: string
           stop_loss: number
           symbol: string
+          t1_confirmations: string[] | null
+          t1_score: number | null
+          t2_confidence: number | null
+          t2_quality: number | null
+          t3_confidence: number | null
+          t3_quality: number | null
           take_profits: number[] | null
           targets_hit: number[] | null
           technical_indicators: Json | null
@@ -1811,6 +1823,7 @@ export type Database = {
         }
         Insert: {
           ai_model_used?: string | null
+          allow_tier2_publish?: boolean | null
           analysis_cost?: number | null
           analysis_text?: string | null
           asset_type?: string | null
@@ -1823,8 +1836,13 @@ export type Database = {
           expected_duration_hours?: number | null
           fibonacci_entry?: number | null
           fibonacci_targets?: number[] | null
+          final_confidence?: number | null
+          final_quality?: number | null
           fundamental_score?: number | null
+          gate_fail_reasons?: string[] | null
+          gates_passed?: boolean | null
           id?: string
+          indicator_checklist?: Json | null
           is_centralized?: boolean | null
           last_price?: number | null
           market_conditions?: string[] | null
@@ -1844,6 +1862,12 @@ export type Database = {
           status?: string
           stop_loss: number
           symbol: string
+          t1_confirmations?: string[] | null
+          t1_score?: number | null
+          t2_confidence?: number | null
+          t2_quality?: number | null
+          t3_confidence?: number | null
+          t3_quality?: number | null
           take_profits?: number[] | null
           targets_hit?: number[] | null
           technical_indicators?: Json | null
@@ -1859,6 +1883,7 @@ export type Database = {
         }
         Update: {
           ai_model_used?: string | null
+          allow_tier2_publish?: boolean | null
           analysis_cost?: number | null
           analysis_text?: string | null
           asset_type?: string | null
@@ -1871,8 +1896,13 @@ export type Database = {
           expected_duration_hours?: number | null
           fibonacci_entry?: number | null
           fibonacci_targets?: number[] | null
+          final_confidence?: number | null
+          final_quality?: number | null
           fundamental_score?: number | null
+          gate_fail_reasons?: string[] | null
+          gates_passed?: boolean | null
           id?: string
+          indicator_checklist?: Json | null
           is_centralized?: boolean | null
           last_price?: number | null
           market_conditions?: string[] | null
@@ -1892,6 +1922,12 @@ export type Database = {
           status?: string
           stop_loss?: number
           symbol?: string
+          t1_confirmations?: string[] | null
+          t1_score?: number | null
+          t2_confidence?: number | null
+          t2_quality?: number | null
+          t3_confidence?: number | null
+          t3_quality?: number | null
           take_profits?: number[] | null
           targets_hit?: number[] | null
           technical_indicators?: Json | null

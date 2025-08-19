@@ -244,8 +244,8 @@ serve(async (req) => {
             analysisStats.tier3Passed++;
           }
         } else {
-          // TIER 2: Cost-Effective Professional Analysis
-          console.log(`💰 ROUTING: ${pair.symbol} → TIER 2 (Cost optimization)`);
+          // TIER 2: Cost-Effective Professional Analysis (pre-qualification only)
+          console.log(`💰 ROUTING: ${pair.symbol} → TIER 2 (Cost optimization, no direct publish)`);
           finalAnalysis = await performTier2Analysis(openAIApiKey, pair, historicalData, tier1Analysis);
           analysisStats.tier2Analyzed++;
           
@@ -260,23 +260,51 @@ serve(async (req) => {
           analysisStats.totalCost += finalAnalysis.cost;
         }
 
-        // Professional signal validation
-        const professionalThreshold = 55;
-        const confidenceThreshold = 50;
-        
-        if (finalAnalysis && 
-            finalAnalysis.recommendation !== 'HOLD' && 
-            finalAnalysis.qualityScore >= professionalThreshold &&
-            finalAnalysis.confidence >= confidenceThreshold) {
-          
-          const signal = await convertProfessionalAnalysisToSignal(pair, finalAnalysis, historicalData);
-          
-          if (signal) {
-            generatedSignals.push(signal);
-            console.log(`✅ PROFESSIONAL SIGNAL: ${signal.type} ${pair.symbol} (${signal.confidence}% confidence, Tier ${finalAnalysis.tier})`);
+        // Enforce Tier 3 + strict gates before publishing
+        const finalQualityThreshold = 70;
+        const finalConfidenceThreshold = 60;
+        const prices = historicalData.map(p => p.price);
+
+        if (finalAnalysis && finalAnalysis.tier === 3 && finalAnalysis.recommendation !== 'HOLD' &&
+            finalAnalysis.qualityScore >= finalQualityThreshold &&
+            finalAnalysis.confidence >= finalConfidenceThreshold) {
+          // Evaluate publish gates
+          const gates = evaluatePublishGates({
+            prices,
+            symbol: pair.symbol,
+            direction: finalAnalysis.recommendation,
+            entryPrice: finalAnalysis.entryPrice,
+            stopLoss: finalAnalysis.stopLoss,
+            tier1Confirmations: tier1Analysis.confirmations
+          });
+
+          if (gates.passed) {
+            const signal = await convertProfessionalAnalysisToSignal(pair, finalAnalysis, historicalData);
+            if (signal) {
+              // Attach audit for DB insert
+              (signal as any)._audit = {
+                t1_score: tier1Analysis.score,
+                t1_confirmations: tier1Analysis.confirmations,
+                t2_quality: null,
+                t2_confidence: null,
+                t3_quality: finalAnalysis.qualityScore,
+                t3_confidence: finalAnalysis.confidence,
+                indicator_checklist: gates.checklist,
+                gates_passed: true,
+                gate_fail_reasons: [],
+                final_quality: finalAnalysis.qualityScore,
+                final_confidence: finalAnalysis.confidence
+              };
+              generatedSignals.push(signal);
+              console.log(`✅ PROFESSIONAL SIGNAL (Tier 3, gates passed): ${signal.type} ${pair.symbol} (Q:${finalAnalysis.qualityScore}, C:${finalAnalysis.confidence}%)`);
+            }
+          } else {
+            console.log(`🛑 Gates failed for ${pair.symbol}: ${gates.reasons.join('; ')}`);
           }
+        } else if (finalAnalysis && finalAnalysis.tier === 2) {
+          console.log(`🛑 ${pair.symbol} Tier 2 is pre-qualification only. Not publishing (Q:${finalAnalysis.qualityScore}/${finalQualityThreshold}, C:${finalAnalysis.confidence}/${finalConfidenceThreshold})`);
         } else {
-          console.log(`🛑 ${pair.symbol} - ${finalAnalysis?.recommendation || 'HOLD'} (Q:${finalAnalysis?.qualityScore || 0}/${professionalThreshold}, C:${finalAnalysis?.confidence || 0}%)`);
+          console.log(`🛑 ${pair.symbol} - ${finalAnalysis?.recommendation || 'HOLD'} (Q:${finalAnalysis?.qualityScore || 0}/${finalQualityThreshold}, C:${finalAnalysis?.confidence || 0}/${finalConfidenceThreshold})`);
         }
 
       } catch (error) {
@@ -317,6 +345,18 @@ serve(async (req) => {
             tier_level: signal.tierLevel,
             validation_score: signal.validationScore,
             quality_confirmations: signal.qualityConfirmations,
+            // New audit fields
+            t1_score: (signal as any)._audit?.t1_score ?? null,
+            t1_confirmations: (signal as any)._audit?.t1_confirmations ?? null,
+            t2_quality: (signal as any)._audit?.t2_quality ?? null,
+            t2_confidence: (signal as any)._audit?.t2_confidence ?? null,
+            t3_quality: (signal as any)._audit?.t3_quality ?? null,
+            t3_confidence: (signal as any)._audit?.t3_confidence ?? null,
+            indicator_checklist: (signal as any)._audit?.indicator_checklist ?? null,
+            gates_passed: (signal as any)._audit?.gates_passed ?? false,
+            gate_fail_reasons: (signal as any)._audit?.gate_fail_reasons ?? null,
+            final_quality: (signal as any)._audit?.final_quality ?? null,
+            final_confidence: (signal as any)._audit?.final_confidence ?? null,
             status: 'active',
             is_centralized: true,
             user_id: null,
@@ -794,6 +834,106 @@ async function convertProfessionalAnalysisToSignal(
     console.error(`❌ Signal conversion error for ${pair.symbol}:`, error);
     return null;
   }
+}
+
+// Gate evaluation helpers
+function computeMACDHistogram(prices: number[], fast = 12, slow = 26, signal = 9) {
+  if (prices.length < slow + signal + 2) return { hist: 0, macd: 0, signalLine: 0 };
+  const emaFast = calculateEMA(prices, fast);
+  const emaSlow = calculateEMA(prices, slow);
+  const macdLine = emaFast - emaSlow;
+  // Build MACD series for last (signal) points to get signal line
+  const macdSeries: number[] = [];
+  for (let i = prices.length - (signal + 1); i < prices.length; i++) {
+    const slice = prices.slice(0, i + 1);
+    macdSeries.push(calculateEMA(slice, fast) - calculateEMA(slice, slow));
+  }
+  const signalLine = calculateEMA(macdSeries, signal);
+  const hist = macdLine - signalLine;
+  return { hist, macd: macdLine, signalLine };
+}
+
+function computeATRApprox(prices: number[], period: number = 14) {
+  if (prices.length < period + 2) return 0;
+  const trs: number[] = [];
+  for (let i = prices.length - period; i < prices.length; i++) {
+    const prev = prices[i - 1];
+    const cur = prices[i];
+    trs.push(Math.abs(cur - prev));
+  }
+  const atr = trs.reduce((a, b) => a + b, 0) / trs.length;
+  return atr;
+}
+
+function detectRSIDivergence(prices: number[], period: number = 14) {
+  if (prices.length < period * 4) return { bullish: false, bearish: false };
+  // Use last 30 bars to detect simple divergence
+  const window = prices.slice(-30);
+  // Find two recent lows and highs
+  const minIdx1 = window.indexOf(Math.min(...window.slice(0, 15)));
+  const minIdx2 = 15 + window.slice(15).indexOf(Math.min(...window.slice(15)));
+  const maxIdx1 = window.indexOf(Math.max(...window.slice(0, 15)));
+  const maxIdx2 = 15 + window.slice(15).indexOf(Math.max(...window.slice(15)));
+  const rsiSeries: number[] = [];
+  for (let i = prices.length - 30; i < prices.length; i++) {
+    const slice = prices.slice(0, i + 1);
+    rsiSeries.push(calculateRSI(slice, period));
+  }
+  const rsiMin1 = Math.min(...rsiSeries.slice(0, 15));
+  const rsiMin2 = Math.min(...rsiSeries.slice(15));
+  const rsiMax1 = Math.max(...rsiSeries.slice(0, 15));
+  const rsiMax2 = Math.max(...rsiSeries.slice(15));
+  const bullish = window[minIdx2] < window[minIdx1] && rsiMin2 > rsiMin1; // lower low, higher RSI low
+  const bearish = window[maxIdx2] > window[maxIdx1] && rsiMax2 < rsiMax1; // higher high, lower RSI high
+  return { bullish, bearish };
+}
+
+function evaluatePublishGates(params: {
+  prices: number[];
+  symbol: string;
+  direction: 'BUY' | 'SELL';
+  entryPrice: number;
+  stopLoss: number;
+  tier1Confirmations: string[];
+}) {
+  const { prices, symbol, direction, entryPrice, stopLoss, tier1Confirmations } = params;
+  const current = prices[prices.length - 1];
+  const ema50 = calculateEMA(prices, 50);
+  const ema200 = calculateEMA(prices, 200);
+  const macd = computeMACDHistogram(prices);
+  const atr = computeATRApprox(prices, 14);
+  const isJPY = symbol.includes('JPY');
+  const atrFloor = isJPY ? 0.02 : 0.0002;
+  const riskDistance = Math.abs(entryPrice - stopLoss);
+  const macdOk = direction === 'BUY' ? macd.hist > 0 : macd.hist < 0;
+  const macdMagnitudeOk = Math.abs(macd.hist) > (isJPY ? 0.002 : 0.00002);
+  const trendStrong = direction === 'BUY'
+    ? current > ema50 && ema50 > ema200
+    : current < ema50 && ema50 < ema200;
+  const timeframeAlignmentOk = trendStrong; // proxy for H4/D1 alignment
+  const atrOk = atr > atrFloor && riskDistance >= 0.5 * atr && riskDistance <= 3 * atr;
+  const div = detectRSIDivergence(prices);
+  const rsiDivergenceOrTrend = direction === 'BUY' ? (div.bullish || trendStrong) : (div.bearish || trendStrong);
+  const confirmationsCount = tier1Confirmations.length;
+  const checklist = {
+    timeframe_alignment_ok: timeframeAlignmentOk,
+    macd_ok: macdOk && macdMagnitudeOk,
+    atr_ok: atrOk,
+    rsi_divergence_or_trend: rsiDivergenceOrTrend,
+    confirmations_count: confirmationsCount,
+    atr_value: atr,
+    macd_hist: macd.hist,
+    ema50,
+    ema200
+  };
+  const reasons: string[] = [];
+  if (!checklist.timeframe_alignment_ok) reasons.push('Timeframe alignment failed');
+  if (!(checklist.macd_ok)) reasons.push('MACD histogram not aligned');
+  if (!checklist.atr_ok) reasons.push('ATR/stop distance invalid');
+  if (!checklist.rsi_divergence_or_trend) reasons.push('No RSI divergence or strong trend');
+  if (confirmationsCount < 4) reasons.push('Insufficient confirmations');
+  const passed = checklist.timeframe_alignment_ok && checklist.macd_ok && checklist.atr_ok && checklist.rsi_divergence_or_trend && confirmationsCount >= 4;
+  return { passed, checklist, reasons };
 }
 
 // Helper functions
