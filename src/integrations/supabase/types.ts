@@ -1787,6 +1787,10 @@ export type Database = {
           confidence: number
           correlation_checked: boolean | null
           created_at: string
+          current_percentage: number | null
+          current_pips: number | null
+          current_pnl: number | null
+          current_price: number | null
           economic_impact: string | null
           expected_duration_hours: number | null
           fibonacci_entry: number | null
@@ -1799,6 +1803,7 @@ export type Database = {
           id: string
           indicator_checklist: Json | null
           is_centralized: boolean | null
+          last_performance_update: string | null
           last_price: number | null
           market_conditions: string[] | null
           market_context: Json | null
@@ -1847,6 +1852,10 @@ export type Database = {
           confidence: number
           correlation_checked?: boolean | null
           created_at?: string
+          current_percentage?: number | null
+          current_pips?: number | null
+          current_pnl?: number | null
+          current_price?: number | null
           economic_impact?: string | null
           expected_duration_hours?: number | null
           fibonacci_entry?: number | null
@@ -1859,6 +1868,7 @@ export type Database = {
           id?: string
           indicator_checklist?: Json | null
           is_centralized?: boolean | null
+          last_performance_update?: string | null
           last_price?: number | null
           market_conditions?: string[] | null
           market_context?: Json | null
@@ -1907,6 +1917,10 @@ export type Database = {
           confidence?: number
           correlation_checked?: boolean | null
           created_at?: string
+          current_percentage?: number | null
+          current_pips?: number | null
+          current_pnl?: number | null
+          current_price?: number | null
           economic_impact?: string | null
           expected_duration_hours?: number | null
           fibonacci_entry?: number | null
@@ -1919,6 +1933,7 @@ export type Database = {
           id?: string
           indicator_checklist?: Json | null
           is_centralized?: boolean | null
+          last_performance_update?: string | null
           last_price?: number | null
           market_conditions?: string[] | null
           market_context?: Json | null
@@ -2017,6 +2032,36 @@ export type Database = {
       }
     }
     Views: {
+      harmful_signal_expiration_cron_jobs: {
+        Row: {
+          active: boolean | null
+          command: string | null
+          jobid: number | null
+          jobname: string | null
+          nodename: string | null
+          nodeport: number | null
+          schedule: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          command?: string | null
+          jobid?: number | null
+          jobname?: string | null
+          nodename?: string | null
+          nodeport?: number | null
+          schedule?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          command?: string | null
+          jobid?: number | null
+          jobname?: string | null
+          nodename?: string | null
+          nodeport?: number | null
+          schedule?: string | null
+        }
+        Relationships: []
+      }
       signal_quality_dashboard: {
         Row: {
           avg_confidence: number | null
@@ -2039,6 +2084,19 @@ export type Database = {
       calculate_atr_for_symbol: {
         Args: { period?: number; symbol_name: string; timeframe_name: string }
         Returns: number
+      }
+      calculate_signal_performance: {
+        Args: {
+          signal_current_price: number
+          signal_entry_price: number
+          signal_symbol: string
+          signal_type: string
+        }
+        Returns: {
+          percentage: number
+          pips: number
+          pnl: number
+        }[]
       }
       cleanup_expired_verification_codes: {
         Args: Record<PropertyKey, never>
