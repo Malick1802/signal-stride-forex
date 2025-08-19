@@ -26,6 +26,11 @@ interface SignalCardProps {
     analysisText?: string;
     chartData: Array<{ time: number; price: number }>;
     targetsHit?: number[];
+    // Centralized performance data
+    current_pips?: number;
+    current_percentage?: number;
+    current_pnl?: number;
+    current_price?: number | null;
   } | null;
   analysis: Record<string, string>;
   analyzingSignal: string | null;
@@ -92,19 +97,15 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
     return null;
   }
 
-  // Get live centralized real-time market data with error handling
-  const {
-    currentPrice: liveCurrentPrice,
-    getPriceChange,
-    dataSource,
-    lastUpdateTime,
-    isConnected,
-    isMarketOpen,
-    priceData: centralizedChartData,
-    isLoading
-  } = useRealTimeMarketData({
-    pair: safeSignal.pair,
-    entryPrice: safeSignal.entryPrice
+  // Use centralized performance data from database (server-calculated)
+  const currentPips = signal.current_pips || 0;
+  const currentPercentage = signal.current_percentage || 0; 
+  const currentPnl = signal.current_pnl || 0;
+  const serverCurrentPrice = signal.current_price;
+  
+  // Get live market price for display only
+  const { currentPrice: liveCurrentPrice, isMarketOpen, dataSource } = useRealTimeMarketData({
+    pair: safeSignal.pair
   });
 
   // Fixed signal entry price (never changes) with validation
@@ -114,25 +115,22 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
     return null;
   }
   
-  // Use live current price for real-time updates, fallback to entry price only if no live data
-  const currentPrice = liveCurrentPrice || signalEntryPrice;
+  // Use server price or live price, fallback to entry price
+  const currentPrice = serverCurrentPrice || liveCurrentPrice || signalEntryPrice;
   
-  // Get live price change data (this will be market data, not signal performance)
-  const { change, percentage } = getPriceChange();
-
-  // Use ONLY centralized chart data for real-time updates with safety checks
-  const chartDataToDisplay = Array.isArray(centralizedChartData) 
-    ? centralizedChartData
-        .filter(point => point && typeof point === 'object' && point.timestamp && point.price)
+  // Use centralized chart data from signal for consistency
+  const chartDataToDisplay = Array.isArray(safeSignal.chartData) 
+    ? safeSignal.chartData
+        .filter(point => point && typeof point === 'object' && point.time && point.price)
         .map(point => ({
-          timestamp: point.timestamp,
-          time: point.time,
+          timestamp: point.time,
+          time: new Date(point.time).toLocaleTimeString(),
           price: point.price
         }))
     : [];
 
   // Enhanced connection status
-  const connectionStatus = isConnected && chartDataToDisplay.length > 0;
+  const connectionStatus = isMarketOpen && chartDataToDisplay.length > 0;
 
   return (
     <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 overflow-hidden">
@@ -142,19 +140,19 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
         currentPrice={currentPrice}
         confidence={safeSignal.confidence}
         isMarketOpen={isMarketOpen}
-        change={change}
-        percentage={percentage}
-        dataSource={dataSource}
-        lastUpdateTime={lastUpdateTime}
+        change={currentPips}
+        percentage={currentPercentage}
+        dataSource="Centralized Database"
+        lastUpdateTime=""
         entryPrice={signalEntryPrice}
       />
 
       <RealTimePriceDisplay
         currentPrice={liveCurrentPrice}
-        change={change}
-        percentage={percentage}
-        lastUpdateTime={lastUpdateTime}
-        dataSource={dataSource}
+        change={currentPips}
+        percentage={currentPercentage}
+        lastUpdateTime=""
+        dataSource="Centralized Database"
         isConnected={connectionStatus}
         isMarketOpen={isMarketOpen}
         entryPrice={signalEntryPrice}
@@ -168,7 +166,7 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
         currentPrice={liveCurrentPrice}
         isConnected={connectionStatus}
         entryPrice={signalEntryPrice}
-        isLoading={isLoading}
+        isLoading={false}
       />
 
       <SignalPriceDetails

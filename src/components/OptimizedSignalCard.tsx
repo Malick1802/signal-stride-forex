@@ -26,6 +26,11 @@ interface OptimizedSignalCardProps {
     analysisText?: string;
     chartData: Array<{ time: number; price: number }>;
     targetsHit?: number[];
+    // Centralized performance data
+    current_pips?: number;
+    current_percentage?: number;
+    current_pnl?: number;
+    current_price?: number | null;
   } | null;
   analysis: Record<string, string>;
   analyzingSignal: string | null;
@@ -63,20 +68,16 @@ const OptimizedSignalCard = memo<OptimizedSignalCardProps>(({
     return null;
   }
 
-  // Only initialize real-time data when visible
-  const {
-    currentPrice: liveCurrentPrice,
-    getPriceChange,
-    dataSource,
-    lastUpdateTime,
-    isConnected,
-    isMarketOpen,
-    priceData: centralizedChartData,
-    isLoading
-  } = useRealTimeMarketData({
+  // Use centralized performance data from database (server-calculated)
+  const currentPips = signal.current_pips || 0;
+  const currentPercentage = signal.current_percentage || 0;
+  const currentPnl = signal.current_pnl || 0;
+  const serverCurrentPrice = signal.current_price;
+  
+  // Get live market price for display only
+  const { currentPrice: liveCurrentPrice, isMarketOpen, dataSource } = useRealTimeMarketData({
     pair: safeSignal.pair,
-    entryPrice: safeSignal.entryPrice,
-    enabled: isVisible // Only fetch when visible
+    enabled: isVisible
   });
 
   const signalEntryPrice = parseFloat(safeSignal.entryPrice);
@@ -84,20 +85,21 @@ const OptimizedSignalCard = memo<OptimizedSignalCardProps>(({
     return null;
   }
   
-  const currentPrice = liveCurrentPrice || signalEntryPrice;
-  const { change, percentage } = getPriceChange();
-
-  const chartDataToDisplay = Array.isArray(centralizedChartData) 
-    ? centralizedChartData
-        .filter(point => point && typeof point === 'object' && point.timestamp && point.price)
+  // Use server price or live price, fallback to entry price
+  const currentPrice = serverCurrentPrice || liveCurrentPrice || signalEntryPrice;
+  
+  // Use centralized chart data from signal for consistency
+  const chartDataToDisplay = Array.isArray(safeSignal.chartData) 
+    ? safeSignal.chartData
+        .filter(point => point && typeof point === 'object' && point.time && point.price)
         .map(point => ({
-          timestamp: point.timestamp,
-          time: point.time,
+          timestamp: point.time,
+          time: new Date(point.time).toLocaleTimeString(),
           price: point.price
         }))
     : [];
 
-  const connectionStatus = isConnected && chartDataToDisplay.length > 0;
+  const connectionStatus = isMarketOpen && chartDataToDisplay.length > 0;
 
   const handleAnalysisToggle = useCallback((open: boolean) => {
     setIsAnalysisOpen(open);
@@ -111,19 +113,19 @@ const OptimizedSignalCard = memo<OptimizedSignalCardProps>(({
         currentPrice={currentPrice}
         confidence={safeSignal.confidence}
         isMarketOpen={isMarketOpen}
-        change={change}
-        percentage={percentage}
-        dataSource={dataSource}
-        lastUpdateTime={lastUpdateTime}
+        change={currentPips}
+        percentage={currentPercentage}
+        dataSource="Centralized Database"
+        lastUpdateTime=""
         entryPrice={signalEntryPrice}
       />
 
       <RealTimePriceDisplay
         currentPrice={liveCurrentPrice}
-        change={change}
-        percentage={percentage}
-        lastUpdateTime={lastUpdateTime}
-        dataSource={dataSource}
+        change={currentPips}
+        percentage={currentPercentage}
+        lastUpdateTime=""
+        dataSource="Centralized Database"
         isConnected={connectionStatus}
         isMarketOpen={isMarketOpen}
         entryPrice={signalEntryPrice}
@@ -137,7 +139,7 @@ const OptimizedSignalCard = memo<OptimizedSignalCardProps>(({
         currentPrice={liveCurrentPrice}
         isConnected={connectionStatus}
         entryPrice={signalEntryPrice}
-        isLoading={isLoading}
+        isLoading={false}
       />
 
       <SignalPriceDetails

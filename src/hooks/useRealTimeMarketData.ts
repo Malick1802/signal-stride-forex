@@ -1,113 +1,97 @@
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { useCentralizedMarketData } from './useCentralizedMarketData';
-import { calculateSignalPerformance } from '@/utils/pipCalculator';
+// DEPRECATED: Real-time market data now centralized in database
+// Use signal's current_price, current_pips, current_percentage instead
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
 
 interface UseRealTimeMarketDataProps {
   pair: string;
-  entryPrice: string | number;
-  enabled?: boolean; // New prop for conditional fetching
+  signalId?: string; // For getting centralized performance data
+  enabled?: boolean;
 }
 
-interface PriceChangeData {
-  change: number;
-  percentage: number;
-  isProfit: boolean;
+interface CentralizedPriceData {
+  currentPrice: number | null;
+  lastUpdate: string;
+  isMarketOpen: boolean;
 }
 
 export const useRealTimeMarketData = ({ 
   pair, 
-  entryPrice, 
+  signalId,
   enabled = true 
 }: UseRealTimeMarketDataProps) => {
-  const [priceData, setPriceData] = useState<Array<{ timestamp: number; time: string; price: number }>>([]);
-  const [currentPrice, setCurrentPrice] = useState<number | null>(null);
-  const [lastUpdateTime, setLastUpdateTime] = useState<string>('');
-  const [dataSource, setDataSource] = useState<string>('Initializing...');
-  const [isConnected, setIsConnected] = useState(false);
+  const [priceData, setPriceData] = useState<CentralizedPriceData>({
+    currentPrice: null,
+    lastUpdate: '',
+    isMarketOpen: false
+  });
   const [isLoading, setIsLoading] = useState(true);
-  
-  const timeoutRef = useRef<NodeJS.Timeout>();
-  const mountedRef = useRef(true);
-
-  // Only fetch centralized data when enabled
-  const {
-    marketData,
-    isConnected: centralizedConnected,
-    dataSource: centralizedDataSource,
-    isLoading: centralizedLoading
-  } = useCentralizedMarketData(enabled ? pair : '');
 
   useEffect(() => {
-    mountedRef.current = true;
-    return () => {
-      mountedRef.current = false;
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!enabled || !mountedRef.current) {
+    if (!enabled || !pair) {
       setIsLoading(false);
       return;
     }
 
-    if (marketData && marketData.priceHistory.length > 0) {
-      const transformedData = marketData.priceHistory.map(point => ({
-        timestamp: point.timestamp,
-        time: point.time,
-        price: point.price
-      }));
+    const fetchCentralizedPrice = async () => {
+      try {
+        // Get current market price from centralized state
+        const { data: marketData } = await supabase
+          .from('centralized_market_state')
+          .select('current_price, last_update, is_market_open')
+          .eq('symbol', pair)
+          .single();
 
-      setPriceData(transformedData);
-      setCurrentPrice(marketData.currentPrice);
-      setLastUpdateTime(marketData.lastUpdate);
-      setDataSource(centralizedDataSource);
-      setIsConnected(centralizedConnected && marketData.isMarketOpen);
-      setIsLoading(false);
-    } else if (!centralizedLoading) {
-      // Fallback when no market data but not loading
-      const fallbackPrice = parseFloat(entryPrice.toString());
-      if (!isNaN(fallbackPrice)) {
-        setCurrentPrice(fallbackPrice);
-        setDataSource('Entry Price (Market Closed)');
-        setIsConnected(false);
+        if (marketData) {
+          setPriceData({
+            currentPrice: marketData.current_price,
+            lastUpdate: marketData.last_update,
+            isMarketOpen: marketData.is_market_open
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching centralized market data:', error);
+      } finally {
+        setIsLoading(false);
       }
-      setIsLoading(false);
-    }
-  }, [marketData, centralizedConnected, centralizedDataSource, centralizedLoading, entryPrice, enabled]);
-
-  const getPriceChange = useCallback((): PriceChangeData => {
-    if (!currentPrice || !entryPrice || !enabled) {
-      return { change: 0, percentage: 0, isProfit: false };
-    }
-
-    // Use real FastForex prices for accurate pip calculations
-    const entryPriceNum = parseFloat(entryPrice.toString());
-    const fastforexPrice = marketData?.currentPrice || currentPrice; // Ensure we use FastForex price
-    const change = fastforexPrice - entryPriceNum;
-    const percentage = entryPriceNum > 0 ? (change / entryPriceNum) * 100 : 0;
-    
-    // Validate pip calculation accuracy with FastForex precision
-    const isPipCalculationValid = Math.abs(change) > 0.00001; // Minimum meaningful change
-    
-    return {
-      change: isPipCalculationValid ? change : 0,
-      percentage: isPipCalculationValid ? percentage : 0,
-      isProfit: change > 0
     };
-  }, [currentPrice, entryPrice, enabled, marketData]);
+
+    fetchCentralizedPrice();
+
+    // Subscribe to real-time updates
+    const channel = supabase
+      .channel(`market-${pair}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'centralized_market_state',
+          filter: `symbol=eq.${pair}`
+        },
+        (payload) => {
+          const newData = payload.new as any;
+          setPriceData({
+            currentPrice: newData.current_price,
+            lastUpdate: newData.last_update,
+            isMarketOpen: newData.is_market_open
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [pair, enabled]);
 
   return {
-    priceData: enabled ? priceData : [],
-    currentPrice: enabled ? currentPrice : null,
-    getPriceChange,
-    dataSource: enabled ? dataSource : 'Disabled',
-    lastUpdateTime: enabled ? lastUpdateTime : '',
-    isConnected: enabled ? isConnected : false,
-    isMarketOpen: enabled ? (marketData?.isMarketOpen ?? false) : false,
-    isLoading: enabled ? isLoading : false
+    currentPrice: priceData.currentPrice,
+    lastUpdateTime: priceData.lastUpdate,
+    isMarketOpen: priceData.isMarketOpen,
+    isLoading,
+    dataSource: 'Centralized FastForex',
+    isConnected: priceData.currentPrice !== null
   };
 };

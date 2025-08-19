@@ -1,12 +1,14 @@
 
-import { useMemo } from 'react';
-import { calculateSignalPerformance } from '@/utils/pipCalculator';
+// DEPRECATED: Use centralized server-calculated performance instead
+// This hook is now for backward compatibility only
+// All performance data comes from trading_signals table columns:
+// current_pips, current_percentage, current_pnl, current_price
 
-interface UseSignalPerformanceProps {
-  entryPrice: number;
-  currentPrice: number | null;
-  signalType: 'BUY' | 'SELL';
-  symbol: string;
+interface CentralizedSignalPerformance {
+  current_pips: number;
+  current_percentage: number;
+  current_pnl: number;
+  current_price: number | null;
 }
 
 interface SignalPerformance {
@@ -17,12 +19,12 @@ interface SignalPerformance {
 }
 
 export const useSignalPerformance = ({ 
-  entryPrice, 
-  currentPrice, 
-  signalType,
-  symbol 
-}: UseSignalPerformanceProps): SignalPerformance => {
-  return useMemo(() => {
-    return calculateSignalPerformance(entryPrice, currentPrice, signalType, symbol);
-  }, [entryPrice, currentPrice, signalType, symbol]);
+  centralizedData 
+}: { centralizedData: CentralizedSignalPerformance }): SignalPerformance => {
+  return {
+    pips: centralizedData.current_pips || 0,
+    percentage: centralizedData.current_percentage || 0,
+    isProfit: (centralizedData.current_pips || 0) > 0,
+    profitLoss: centralizedData.current_pnl || 0
+  };
 };
