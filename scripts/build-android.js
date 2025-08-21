@@ -25,13 +25,19 @@ try {
   // Copy android.html to dist as index.html for Android
   if (fs.existsSync('android.html')) {
     const androidHtml = fs.readFileSync('android.html', 'utf8');
-    // Update the script path for production
+    // Update the script path for production - match Vite's output structure
     const updatedHtml = androidHtml.replace(
       '/src/main-android.tsx',
-      '/assets/main-android.js'
+      './assets/main-android.js'
     );
     fs.writeFileSync('dist/index.html', updatedHtml);
     console.log('✅ Android HTML configured');
+  }
+
+  // Ensure assets directory exists and copy necessary files
+  const assetsDir = 'dist/assets';
+  if (!fs.existsSync(assetsDir)) {
+    fs.mkdirSync(assetsDir, { recursive: true });
   }
 
   // Ensure main-android.tsx is built
