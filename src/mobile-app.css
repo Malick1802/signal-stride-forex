@@ -108,11 +108,39 @@ button:focus, input:focus, select:focus, textarea:focus {
   }
 }
 
-/* Better button touch targets for trading */
-.mobile-app button {
-  min-height: 44px;
-  min-width: 44px;
-  touch-action: manipulation;
+/* Android optimizations */
+.android-app {
+  -webkit-overflow-scrolling: touch;
+  -webkit-transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0);
+  overflow-y: auto;
+  height: 100%;
+}
+
+/* Fix scrolling issues on Android */
+body, html {
+  overflow-x: hidden;
+  overflow-y: auto;
+  height: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Ensure proper scroll behavior */
+* {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Landing page specific fixes */
+.landing-page {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Android WebView optimizations */
+.mobile-app main {
+  -webkit-overflow-scrolling: touch;
+  overflow-y: auto;
+  height: 100%;
 }
 
 /* Optimize charts for mobile */

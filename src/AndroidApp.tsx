@@ -14,6 +14,7 @@ import { Capacitor } from '@capacitor/core';
 // Import CSS
 import './index.css';
 import './mobile-app.css';
+import './android-scroll-fix.css';
 
 const queryClient = new QueryClient({
   defaultOptions: {
