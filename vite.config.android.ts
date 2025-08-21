@@ -4,6 +4,8 @@ import path from "path";
 
 // Android-specific Vite configuration
 export default defineConfig(({ mode }) => ({
+  // Ensure relative asset paths for Capacitor (file://)
+  base: '',
   // Android-specific cache to avoid conflicts
   cacheDir: `node_modules/.vite-cache-android`,
   plugins: [react()],
