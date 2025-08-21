@@ -31,10 +31,23 @@ const config: CapacitorConfig = {
     webContentsDebuggingEnabled: true,
     backgroundColor: '#0f172a',
     loggingBehavior: 'debug',
-    appendUserAgent: 'ForexAlertPro/1.0'
+    appendUserAgent: 'ForexAlertPro/1.0',
+    // Network configuration for Supabase
+    captureInput: true,
+    webSecurity: true,
+    // Content Security Policy for native networking
+    overrideUserAgent: 'ForexAlertPro/1.0 (Android)',
+    mixedContentMode: 'compatibility'
   },
   ios: {
     contentInset: 'automatic'
+  },
+  // Add server configuration for better error handling
+  server: {
+    // Only enable for dev builds, remove for production
+    androidScheme: 'https',
+    // Handle network errors gracefully
+    errorPath: '/error.html'
   }
 };
 

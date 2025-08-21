@@ -265,37 +265,78 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log('AuthContext: Attempting signup for:', email);
     const redirectUrl = `${window.location.origin}/`;
     
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: redirectUrl
+    try {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: redirectUrl
+        }
+      });
+      
+      if (error) {
+        console.error('AuthContext: Signup error:', error);
+        
+        // Provide user-friendly error messages for Android
+        if (error.message?.includes('fetch')) {
+          return { 
+            error: { 
+              ...error, 
+              message: 'Network connection failed. Please check your internet connection and try again.' 
+            } 
+          };
+        }
+      } else {
+        console.log('AuthContext: Signup successful');
       }
-    });
-    
-    if (error) {
-      console.error('AuthContext: Signup error:', error);
-    } else {
-      console.log('AuthContext: Signup successful');
+      
+      return { error };
+    } catch (networkError: any) {
+      console.error('AuthContext: Network error during signup:', networkError);
+      return { 
+        error: { 
+          message: 'Connection failed. Please check your network and try again.',
+          name: 'NetworkError'
+        } 
+      };
     }
-    
-    return { error };
   };
 
   const signIn = async (email: string, password: string) => {
     console.log('AuthContext: Attempting signin for:', email);
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
     
-    if (error) {
-      console.error('AuthContext: Signin error:', error);
-    } else {
-      console.log('AuthContext: Signin successful');
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (error) {
+        console.error('AuthContext: Signin error:', error);
+        
+        // Provide user-friendly error messages for Android
+        if (error.message?.includes('fetch')) {
+          return { 
+            error: { 
+              ...error, 
+              message: 'Network connection failed. Please check your internet connection and try again.' 
+            } 
+          };
+        }
+      } else {
+        console.log('AuthContext: Signin successful');
+      }
+      
+      return { error };
+    } catch (networkError: any) {
+      console.error('AuthContext: Network error during signin:', networkError);
+      return { 
+        error: { 
+          message: 'Connection failed. Please check your network and try again.',
+          name: 'NetworkError'
+        } 
+      };
     }
-    
-    return { error };
   };
 
   const signOut = async () => {
