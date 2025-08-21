@@ -3,6 +3,7 @@
     <domain-config cleartextTrafficPermitted="true">
         <!-- Allow HTTPS connections to Supabase -->
         <domain includeSubdomains="true">ugtaodrvbpfeyhdgmisn.supabase.co</domain>
+        <domain includeSubdomains="true">ugtaodrvbpfeyhdgmisn.functions.supabase.co</domain>
         <!-- Allow development connections -->
         <domain includeSubdomains="true">localhost</domain>
         <domain includeSubdomains="true">10.0.2.2</domain>

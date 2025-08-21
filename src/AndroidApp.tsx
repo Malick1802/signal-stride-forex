@@ -7,6 +7,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import MobileAppWrapper from './components/MobileAppWrapper';
 import AppContent from './components/AppContent';
 import AndroidErrorBoundary from './components/AndroidErrorBoundary';
+import AndroidConnectionStatus from './components/AndroidConnectionStatus';
 import { Capacitor } from '@capacitor/core';
 
 // Import CSS
@@ -67,6 +68,7 @@ const AndroidApp = () => {
             <MobileAppWrapper activeTab={activeTab} onTabChange={setActiveTab}>
               <AppContent activeTab={activeTab} onTabChange={setActiveTab} />
             </MobileAppWrapper>
+            <AndroidConnectionStatus />
             <Toaster />
             <Sonner />
           </HashRouter>

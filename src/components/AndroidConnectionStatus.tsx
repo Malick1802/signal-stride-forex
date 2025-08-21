@@ -12,8 +12,11 @@ const AndroidConnectionStatus = () => {
   const isNative = Capacitor.isNativePlatform();
   const connection = isNative ? mobileConnection : productionConnection;
   
-  const isConnected = connection.isConnected || connection.isOnline;
-  const isRetrying = connection.retryCount > 0;
+  const isOnline = (connection as any).isOnline as boolean;
+  const nativeConnected = (connection as any).isConnected as boolean | undefined;
+  const supabaseConnected = (connection as any).isSupabaseConnected as boolean | undefined;
+  const isConnected = isNative ? !!nativeConnected : !!(isOnline && (supabaseConnected ?? true));
+  const isRetrying = (connection as any).retryCount > 0;
 
   if (isConnected) {
     return (
