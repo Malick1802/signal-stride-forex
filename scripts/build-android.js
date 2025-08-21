@@ -16,7 +16,7 @@ try {
 
   // Step 2: Build the web app with Android config
   console.log('2️⃣ Building web application for Android...');
-  execSync('npm run build -- --config vite.config.android.ts', { stdio: 'inherit' });
+  execSync('npm run build:android', { stdio: 'inherit' });
   console.log('✅ Android web build complete\n');
 
   // Step 3: Copy Android-specific files
