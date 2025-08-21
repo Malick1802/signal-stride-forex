@@ -12,6 +12,8 @@ import AndroidDebugPanel from './components/AndroidDebugPanel';
 import ErrorRecovery from './components/ErrorRecovery';
 import { Capacitor } from '@capacitor/core';
 import { useAppInitialization } from './hooks/useAppInitialization';
+import MobileInitializer from './components/MobileInitializer';
+import AutoPushInit from './components/AutoPushInit';
 
 // Import CSS
 import './index.css';
@@ -62,6 +64,8 @@ const AndroidApp = () => {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <HashRouter>
+            <MobileInitializer />
+            <AutoPushInit />
             <MobileAppWrapper activeTab={activeTab} onTabChange={setActiveTab}>
               <AppContent activeTab={activeTab} onTabChange={setActiveTab} />
             </MobileAppWrapper>
