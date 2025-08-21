@@ -1,3 +1,5 @@
+import { calculateTakeProfitPips } from '@/utils/pipCalculator';
+
 export interface TakeProfit {
   level: number;
   price: string;
@@ -13,9 +15,6 @@ export const mapTakeProfitsFromArray = (
   if (!Array.isArray(takeProfitsArray) || takeProfitsArray.length === 0) {
     return [];
   }
-
-  // Import pip calculator inside the function to avoid circular dependencies
-  const { calculateTakeProfitPips } = require('@/utils/pipCalculator');
   const entryPriceFloat = parseFloat(entryPrice);
 
   return takeProfitsArray
@@ -37,7 +36,6 @@ export const mapTakeProfitsFromProps = (
   takeProfit4?: string,
   takeProfit5?: string
 ): TakeProfit[] => {
-  const { calculateTakeProfitPips } = require('@/utils/pipCalculator');
   const entryPriceFloat = parseFloat(entryPrice);
   
   const targets = [
