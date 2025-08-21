@@ -33,28 +33,12 @@ const ProgressiveAuthProvider: React.FC<ProgressiveAuthProviderProps> = ({ child
   });
 
   useEffect(() => {
-    // Progressive loading stages
-    if (!loading && user) {
-      setAuthState(prev => ({
-        ...prev,
-        hasBasicAuth: true,
-        loadingStage: 'subscription'
-      }));
-      
-      // Small delay to show progress
-      setTimeout(() => {
-        setAuthState(prev => ({
-          ...prev,
-          hasSubscription: !!subscription,
-          loadingStage: 'complete',
-          isInitialized: true
-        }));
-      }, 300);
-    } else if (!loading && !user) {
+    // Immediate loading without artificial delays
+    if (!loading) {
       setAuthState({
         isInitialized: true,
-        hasBasicAuth: false,
-        hasSubscription: false,
+        hasBasicAuth: !!user,
+        hasSubscription: !!subscription,
         loadingStage: 'complete'
       });
     }

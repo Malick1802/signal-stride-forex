@@ -1,4 +1,51 @@
 
+/* Enhanced Mobile CSS for Android Optimization */
+
+/* Ensure smooth scrolling and prevent overscroll */
+html {
+  scroll-behavior: smooth;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  overscroll-behavior: none;
+}
+
+body {
+  overscroll-behavior: none;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  -ms-overflow-style: -ms-autohiding-scrollbar;
+}
+
+/* Fix for Android scrolling issues */
+.overflow-auto, .overflow-y-auto {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* Better touch targets for mobile */
+button, .btn, .touch-target {
+  min-height: 44px;
+  min-width: 44px;
+  touch-action: manipulation;
+}
+
+/* Remove focus outlines on mobile */
+button:focus, input:focus, select:focus, textarea:focus {
+  outline: none;
+}
+
+/* Loading animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
 /* ForexAlert Pro Mobile App Styles */
 .mobile-app {
   /* Prevent overscroll bounce on iOS */

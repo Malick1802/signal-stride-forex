@@ -32,12 +32,15 @@ const config: CapacitorConfig = {
     backgroundColor: '#0f172a',
     loggingBehavior: 'debug',
     appendUserAgent: 'ForexAlertPro/1.0',
-    // Network configuration for Supabase
     captureInput: true,
     webSecurity: true,
-    // Content Security Policy for native networking
     overrideUserAgent: 'ForexAlertPro/1.0 (Android)',
-    mixedContentMode: 'compatibility'
+    mixedContentMode: 'compatibility',
+    // Enhanced network timeouts
+    networkTimeout: 30000,
+    clearCache: true,
+    // Hardware acceleration for smooth scrolling
+    hardwareAccelerated: true
   },
   ios: {
     contentInset: 'automatic'
