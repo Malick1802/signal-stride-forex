@@ -34,6 +34,7 @@ export class MobileNotificationManager {
             id: this.generateSafeId(),
             schedule: { at: new Date(Date.now() + 1000) }, // 1 second from now
             sound: 'default',
+            smallIcon: 'ic_stat_your_custom_icon',
             attachments: undefined,
             actionTypeId: '',
             extra: {
@@ -276,6 +277,7 @@ export class MobileNotificationManager {
             id: this.generateSafeId(),
             schedule: { at: new Date(Date.now() + 100) },
             sound: 'beep.wav',
+            smallIcon: 'ic_stat_your_custom_icon',
             attachments: undefined,
             actionTypeId: '',
             channelId: 'forex_signals',
@@ -314,6 +316,7 @@ export class MobileNotificationManager {
             id: this.generateSafeId(),
             schedule: { at: new Date(Date.now() + 100) },
             sound: 'notification.wav',
+            smallIcon: 'ic_stat_your_custom_icon',
             attachments: undefined,
             actionTypeId: '',
             channelId: 'trade_alerts',
