@@ -131,6 +131,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (error) {
         console.error('AuthContext: Error checking subscription:', error);
+        
+        // Handle different error types
+        if (error.message?.includes('401') || error.message?.includes('Authentication')) {
+          console.log('AuthContext: Authentication error, refreshing session...');
+          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+          
+          if (!refreshError && refreshData.session) {
+            // Retry with new token
+            console.log('AuthContext: Retrying subscription check with refreshed token');
+            const { data: retryData, error: retryError } = await supabase.functions.invoke('check-subscription', {
+              headers: {
+                Authorization: `Bearer ${refreshData.session.access_token}`,
+              },
+            });
+            
+            if (!retryError && retryData) {
+              console.log('AuthContext: Subscription data received after retry:', retryData);
+              setSubscription(retryData);
+              setCachedSubscription(userId, retryData);
+              return;
+            }
+          }
+        }
+        
         // Set a fallback subscription state instead of leaving it null
         setSubscription({
           subscribed: false,
