@@ -1,6 +1,8 @@
 
-import React from 'react';
-import Dashboard from './Dashboard';
+import React, { lazy, Suspense } from 'react';
+import MobileLoadingScreen from './MobileLoadingScreen';
+
+const Dashboard = lazy(() => import('./Dashboard'));
 
 interface LazyDashboardProps {
   user: any;
@@ -13,7 +15,11 @@ interface LazyDashboardProps {
 }
 
 const LazyDashboard: React.FC<LazyDashboardProps> = (props) => {
-  return <Dashboard {...props} />;
+  return (
+    <Suspense fallback={<MobileLoadingScreen message="Loading Dashboard..." />}>
+      <Dashboard {...props} />
+    </Suspense>
+  );
 };
 
 export default LazyDashboard;
