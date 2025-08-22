@@ -99,18 +99,20 @@ export class OfflineSignalCache {
       }
 
       const db = await this.openDB();
-      const transaction = db.transaction([this.storeName], 'readwrite');
-      const store = transaction.objectStore(this.storeName);
       
-      // Clear old cache if we exceed max size
+      // Clear old cache if we exceed max size first
       const allKeys = await this.getAllKeys();
       if (allKeys.length > this.maxCacheSize) {
         await this.clearOldEntries();
       }
       
+      // Create a new transaction for putting data
+      const transaction = db.transaction([this.storeName], 'readwrite');
+      const store = transaction.objectStore(this.storeName);
       const timestamp = Date.now();
       
-      for (const signal of signals) {
+      // Process all signals in a single transaction
+      const promises = signals.map(signal => {
         const cachedSignal: CachedSignal = {
           id: signal.id,
           data: signal,
@@ -118,12 +120,19 @@ export class OfflineSignalCache {
           version: 1
         };
         
-        await new Promise<void>((resolve, reject) => {
+        return new Promise<void>((resolve, reject) => {
           const request = store.put(cachedSignal);
           request.onsuccess = () => resolve();
           request.onerror = () => reject(request.error);
         });
-      }
+      });
+      
+      // Wait for transaction to complete
+      await Promise.all(promises);
+      await new Promise<void>((resolve, reject) => {
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+      });
       
       console.log(`📦 Cached ${signals.length} signals offline`);
     } catch (error) {
@@ -234,15 +243,20 @@ export class OfflineSignalCache {
   }
 
   private async getAllKeys(): Promise<IDBValidKey[]> {
-    const db = await this.openDB();
-    const transaction = db.transaction([this.storeName], 'readonly');
-    const store = transaction.objectStore(this.storeName);
-    
-    return new Promise((resolve, reject) => {
-      const request = store.getAllKeys();
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error);
-    });
+    try {
+      const db = await this.openDB();
+      const transaction = db.transaction([this.storeName], 'readonly');
+      const store = transaction.objectStore(this.storeName);
+      
+      return new Promise((resolve, reject) => {
+        const request = store.getAllKeys();
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+        transaction.onerror = () => reject(transaction.error);
+      });
+    } catch {
+      return [];
+    }
   }
 
   private async getLatestEntry(): Promise<CachedSignal | null> {
@@ -262,30 +276,35 @@ export class OfflineSignalCache {
   }
 
   private async clearOldEntries(): Promise<void> {
-    const db = await this.openDB();
-    const transaction = db.transaction([this.storeName], 'readwrite');
-    const store = transaction.objectStore(this.storeName);
-    const index = store.index('timestamp');
-    
-    const entriesToKeep = this.maxCacheSize - 10; // Keep some buffer
-    let count = 0;
-    
-    return new Promise((resolve, reject) => {
-      const request = index.openCursor(null, 'prev');
-      request.onsuccess = () => {
-        const cursor = request.result;
-        if (cursor) {
-          count++;
-          if (count > entriesToKeep) {
-            cursor.delete();
+    try {
+      const db = await this.openDB();
+      const transaction = db.transaction([this.storeName], 'readwrite');
+      const store = transaction.objectStore(this.storeName);
+      const index = store.index('timestamp');
+      
+      const entriesToKeep = this.maxCacheSize - 10; // Keep some buffer
+      let count = 0;
+      
+      return new Promise((resolve, reject) => {
+        const request = index.openCursor(null, 'prev');
+        request.onsuccess = () => {
+          const cursor = request.result;
+          if (cursor) {
+            count++;
+            if (count > entriesToKeep) {
+              cursor.delete();
+            }
+            cursor.continue();
+          } else {
+            resolve();
           }
-          cursor.continue();
-        } else {
-          resolve();
-        }
-      };
-      request.onerror = () => reject(request.error);
-    });
+        };
+        request.onerror = () => reject(request.error);
+        transaction.onerror = () => reject(transaction.error);
+      });
+    } catch (error) {
+      console.warn('⚠️ Could not clear old entries:', error);
+    }
   }
 
   async clearCache(): Promise<void> {

@@ -2,6 +2,7 @@ import React, { useState, memo, useCallback } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useEnhancedSignalMonitoring } from '@/hooks/useEnhancedSignalMonitoring';
 import { useMobileSignalMonitoring } from '@/hooks/useMobileSignalMonitoring';
+import { useMobileAppInitializer } from '@/hooks/useMobileAppInitializer';
 import { useSystemHealthMonitor } from '@/hooks/useSystemHealthMonitor';
 import { Capacitor } from '@capacitor/core';
 import { useToast } from '@/hooks/use-toast';
