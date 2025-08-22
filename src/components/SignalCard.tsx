@@ -183,7 +183,7 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
           safeSignal.pair,
           signal?.takeProfit4,
           signal?.takeProfit5
-        )}
+        ).filter(tp => parseFloat(tp.price) > 0)} // Filter out null/zero targets
         currentPrice={currentPrice}
         signalType={safeSignal.type}
         targetsHit={signal?.targetsHit || []}

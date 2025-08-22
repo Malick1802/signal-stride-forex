@@ -1,7 +1,9 @@
 import React, { useState, memo, useCallback } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
-import { useMonitorOnlySignals } from '@/hooks/useMonitorOnlySignals';
+import { useEnhancedSignalMonitoring } from '@/hooks/useEnhancedSignalMonitoring';
+import { useMobileSignalMonitoring } from '@/hooks/useMobileSignalMonitoring';
 import { useSystemHealthMonitor } from '@/hooks/useSystemHealthMonitor';
+import { Capacitor } from '@capacitor/core';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
@@ -17,11 +19,17 @@ const TradingSignals = memo(() => {
   const { signals, loading, lastUpdate, signalDistribution, fetchSignals } = useTradingSignals();
   const { toast } = useToast();
   
-  // Enhanced monitoring systems
-  
-  // Server-side signal monitoring (notifications only)
-  useMonitorOnlySignals();
+  // Enhanced monitoring systems - Mobile gets immediate processing
+  const { monitorSignalsEnhanced } = useEnhancedSignalMonitoring();
+  const { monitorActiveSignals, isMonitoring } = useMobileSignalMonitoring();
   const { systemHealth, verifySystemHealth } = useSystemHealthMonitor();
+  
+  // Log monitoring status for debugging
+  React.useEffect(() => {
+    if (Capacitor.isNativePlatform()) {
+      Logger.info('monitoring', `Mobile signal monitoring active: ${isMonitoring}`);
+    }
+  }, [isMonitoring]);
 
   // AI Analysis state for SignalCard
   const [analysis, setAnalysis] = useState<Record<string, string>>({});
