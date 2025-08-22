@@ -17,14 +17,16 @@ export const mapTakeProfitsFromArray = (
   }
   const entryPriceFloat = parseFloat(entryPrice);
 
-  return takeProfitsArray
+  // Filter out zero/invalid targets BEFORE mapping to ensure correct level numbering
+  const validTargets = takeProfitsArray.filter(price => price && price > 0);
+  
+  return validTargets
     .map((price, index) => ({
-      level: index + 1,
+      level: index + 1, // Now correctly numbered 1, 2, 3... for only valid targets
       price: price.toFixed(5),
       label: `Target ${index + 1}`,
       pips: calculateTakeProfitPips(entryPriceFloat, price, pair)
-    }))
-    .filter(tp => parseFloat(tp.price) > 0); // Filter out zero/invalid targets
+    }));
 };
 
 export const mapTakeProfitsFromProps = (
