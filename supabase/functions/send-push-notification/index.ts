@@ -79,6 +79,8 @@ serve(async (req) => {
       notification: {
         title,
         body,
+        icon: '/android-chrome-192x192.png',
+        click_action: 'https://da46b985-2e68-44b3-90bc-922d481bf104.lovableproject.com',
         sound: 'default',
         badge: '1'
       },

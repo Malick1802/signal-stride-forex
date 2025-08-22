@@ -28,20 +28,12 @@ class AndroidErrorBoundary extends Component<Props, State> {
     console.error('🚨 Android Error Boundary details:', error, errorInfo);
     this.setState({ errorInfo });
 
-    // Enhanced error reporting for debugging
+    // Report to console for debugging
     console.group('🚨 Android App Error Details');
     console.error('Error:', error);
     console.error('Error Info:', errorInfo);
     console.error('Component Stack:', errorInfo.componentStack);
-    console.error('Error Stack:', error.stack);
-    console.error('User Agent:', navigator.userAgent);
-    console.error('Timestamp:', new Date().toISOString());
     console.groupEnd();
-
-    // Check if this is the critical require() error
-    if (error.message?.includes('require is not defined')) {
-      console.error('🔥 CRITICAL: CommonJS require() used in browser - check signalTargetMapping.ts');
-    }
   }
 
   private handleRestart = () => {
