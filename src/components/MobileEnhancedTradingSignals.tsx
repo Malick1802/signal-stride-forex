@@ -185,8 +185,6 @@ export const MobileEnhancedTradingSignals: React.FC<MobileEnhancedTradingSignals
                 confidence: signal.confidence,
                 created_at: signal.timestamp
               }}
-              optimizationLevel={optimizationLevel}
-              performanceMode={showPerformanceOptimized}
             />
           ))
         )}
