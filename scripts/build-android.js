@@ -6,33 +6,92 @@ const path = require('path');
 
 console.log('🚀 Building ForexAlert Pro for Android...\n');
 
+// Helper function to run commands with better error handling
+function runCommand(command, description) {
+  try {
+    console.log(`⏳ ${description}...`);
+    execSync(command, { stdio: 'inherit' });
+    console.log(`✅ ${description} complete\n`);
+    return true;
+  } catch (error) {
+    console.error(`❌ ${description} failed:`, error.message);
+    return false;
+  }
+}
+
+// Verification function
+function verifyBuild() {
+  const distExists = fs.existsSync('dist');
+  const indexExists = fs.existsSync('dist/index.html');
+  const assetsExists = fs.existsSync('dist/assets');
+  
+  console.log('🔍 Build verification:');
+  console.log(`   dist/ exists: ${distExists ? '✅' : '❌'}`);
+  console.log(`   index.html exists: ${indexExists ? '✅' : '❌'}`);
+  console.log(`   assets/ exists: ${assetsExists ? '✅' : '❌'}`);
+  
+  if (assetsExists) {
+    const assetFiles = fs.readdirSync('dist/assets');
+    const jsFiles = assetFiles.filter(f => f.endsWith('.js'));
+    const cssFiles = assetFiles.filter(f => f.endsWith('.css'));
+    console.log(`   JS files: ${jsFiles.length} found`);
+    console.log(`   CSS files: ${cssFiles.length} found`);
+  }
+  
+  return distExists && indexExists && assetsExists;
+}
+
 try {
-  // Step 1: Clean previous builds
-  console.log('1️⃣ Cleaning previous builds...');
+  // Step 1: Clean previous builds and caches
+  console.log('1️⃣ Comprehensive cleanup...');
+  
+  // Remove build artifacts
   if (fs.existsSync('dist')) {
     fs.rmSync('dist', { recursive: true, force: true });
   }
-  console.log('✅ Clean complete\n');
+  
+  // Clear Android build cache
+  if (fs.existsSync('android/app/build')) {
+    fs.rmSync('android/app/build', { recursive: true, force: true });
+  }
+  
+  // Clear Vite caches
+  const viteCaches = fs.readdirSync('node_modules').filter(dir => 
+    dir.startsWith('.vite-cache') || dir.startsWith('.vite')
+  );
+  viteCaches.forEach(cache => {
+    const cachePath = path.join('node_modules', cache);
+    if (fs.existsSync(cachePath)) {
+      fs.rmSync(cachePath, { recursive: true, force: true });
+    }
+  });
+  
+  console.log('✅ Comprehensive cleanup complete\n');
 
   // Step 2: Build the web app with Android config
   console.log('2️⃣ Building web application for Android...');
   let built = false;
-  try {
-    execSync('npm run build:android', { stdio: 'inherit' });
-    built = true;
-    console.log('✅ Android web build (package script) complete\n');
-  } catch (e1) {
-    console.warn('⚠️ npm run build:android failed, trying fallback...');
-    try {
-      execSync('npm run build -- --config vite.config.android.ts', { stdio: 'inherit' });
-      built = true;
-      console.log('✅ Android web build (npm build --config) complete\n');
-    } catch (e2) {
-      console.warn('⚠️ npm run build -- --config failed, trying direct vite...');
-      execSync('npx vite build --config vite.config.android.ts', { stdio: 'inherit' });
-      built = true;
-      console.log('✅ Android web build (npx vite) complete\n');
+  
+  // Try multiple build approaches with verification
+  const buildCommands = [
+    { cmd: 'npm run build:android', desc: 'Package script build' },
+    { cmd: 'npx vite build --config vite.config.android.ts --mode production', desc: 'Direct Vite build (production)' },
+    { cmd: 'npx vite build --config vite.config.android.ts', desc: 'Direct Vite build (default)' }
+  ];
+  
+  for (const { cmd, desc } of buildCommands) {
+    if (runCommand(cmd, desc)) {
+      if (verifyBuild()) {
+        built = true;
+        break;
+      } else {
+        console.warn(`⚠️ Build succeeded but verification failed for: ${desc}`);
+      }
     }
+  }
+  
+  if (!built) {
+    throw new Error('All build attempts failed');
   }
 
   // Step 3: Copy Android-specific files
@@ -80,11 +139,20 @@ try {
     console.warn('Run: npx cap add android\n');
   }
 
-  console.log('🎉 Android build complete!');
-  console.log('\n📱 Next steps:');
-  console.log('1. Run: npx cap add android (if not done)');
-  console.log('2. Run: npx cap open android');
-  console.log('3. Build and run from Android Studio');
+  // Final verification
+  if (!verifyBuild()) {
+    throw new Error('Final build verification failed');
+  }
+
+  console.log('🎉 Android build complete and verified!');
+  console.log('\n📱 Next steps for deployment:');
+  console.log('1. npx cap sync android (to sync changes)');
+  console.log('2. npx cap open android (opens Android Studio)');
+  console.log('3. In Android Studio:');
+  console.log('   • Build → Clean Project');
+  console.log('   • Build → Rebuild Project'); 
+  console.log('   • Run the app on device/emulator');
+  console.log('\n🚀 Quick deploy: npm run android:release');
 
 } catch (error) {
   console.error('❌ Build failed:', error.message);
