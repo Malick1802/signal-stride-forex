@@ -45,13 +45,12 @@ const config: CapacitorConfig = {
   ios: {
     contentInset: 'automatic'
   },
-  // Add server configuration for better error handling
-  server: {
-    // Only enable for dev builds, remove for production
-    androidScheme: 'https',
-    // Handle network errors gracefully
-    errorPath: '/error.html'
-  }
+  // Production build configuration - server config removed for native mode
+  // Uncomment below for development with live reload:
+  // server: {
+  //   url: 'https://da46b985-2e68-44b3-90bc-922d481bf104.lovableproject.com?forceHideBadge=true',
+  //   cleartext: true
+  // }
 };
 
 export default config;
