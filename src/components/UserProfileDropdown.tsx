@@ -18,7 +18,9 @@ import {
   Camera,
   Bell,
   CreditCard,
-  Shield
+  Shield,
+  Lock,
+  Key
 } from 'lucide-react';
 import UserProfile from './UserProfile';
 import { SettingsDialog } from './SettingsDialog';
@@ -141,6 +143,14 @@ export const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({
             <span>Change Avatar</span>
           </DropdownMenuItem>
 
+          <DropdownMenuItem 
+            onClick={handleProfileClick}
+            className="text-slate-200 hover:text-white hover:bg-slate-800 cursor-pointer"
+          >
+            <Lock className="mr-2 h-4 w-4" />
+            <span>Change Password</span>
+          </DropdownMenuItem>
+
           <SettingsDialog>
             <DropdownMenuItem className="text-slate-200 hover:text-white hover:bg-slate-800 cursor-pointer">
               <Bell className="mr-2 h-4 w-4" />
@@ -151,7 +161,7 @@ export const UserProfileDropdown: React.FC<UserProfileDropdownProps> = ({
           <SettingsDialog>
             <DropdownMenuItem className="text-slate-200 hover:text-white hover:bg-slate-800 cursor-pointer">
               <Settings className="mr-2 h-4 w-4" />
-              <span>Settings</span>
+              <span>Account Settings</span>
             </DropdownMenuItem>
           </SettingsDialog>
 
