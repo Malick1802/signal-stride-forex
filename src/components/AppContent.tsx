@@ -159,40 +159,42 @@ const AppContent = ({ activeTab = 'signals', onTabChange }: AppContentProps = {}
   console.log('AppContent: Rendering current view:', currentView);
 
   return (
-    <div className="w-full">
+    <ProgressiveAuthProvider>
       <MobileInitializer />
-      {currentView === 'landing' && (
-        <LandingPage onNavigate={handleLandingNavigation} />
-      )}
-      {currentView === 'auth' && (
-        <AuthPage onNavigate={handleAuthNavigation} />
-      )}
-      
-      {user && (
-        <Suspense fallback={<MobileLoadingScreen message={`Loading ${currentView}...`} />}>
-          {currentView === 'dashboard' && (
-            <LazyDashboard
-              user={user}
-              onLogout={handleLogout}
-              onNavigateToAffiliate={navigateToAffiliate}
-              onNavigateToAdmin={navigateToAdmin}
-              onNavigateToSubscription={navigateToSubscription}
-              activeTab={activeTab}
-              onTabChange={onTabChange || handleTabChange}
-            />
-          )}
-          {currentView === 'subscription' && (
-            <LazySubscriptionPage onNavigate={handleAuthNavigation} />
-          )}
-          {currentView === 'affiliate' && (
-            <LazyAffiliatePage onNavigate={handleAuthNavigation} />
-          )}
-          {currentView === 'admin' && isAdmin && (
-            <LazyAdminDashboard onNavigate={handleAuthNavigation} />
-          )}
-        </Suspense>
-      )}
-    </div>
+      <div className="w-full min-h-screen">
+        {currentView === 'landing' && (
+          <LandingPage onNavigate={handleLandingNavigation} />
+        )}
+        {currentView === 'auth' && (
+          <AuthPage onNavigate={handleAuthNavigation} />
+        )}
+        
+        {user && (
+          <Suspense fallback={<MobileLoadingScreen message={`Loading ${currentView}...`} />}>
+            {currentView === 'dashboard' && (
+              <LazyDashboard
+                user={user}
+                onLogout={handleLogout}
+                onNavigateToAffiliate={navigateToAffiliate}
+                onNavigateToAdmin={navigateToAdmin}
+                onNavigateToSubscription={navigateToSubscription}
+                activeTab={activeTab}
+                onTabChange={onTabChange || handleTabChange}
+              />
+            )}
+            {currentView === 'subscription' && (
+              <LazySubscriptionPage onNavigate={handleAuthNavigation} />
+            )}
+            {currentView === 'affiliate' && (
+              <LazyAffiliatePage onNavigate={handleAuthNavigation} />
+            )}
+            {currentView === 'admin' && isAdmin && (
+              <LazyAdminDashboard onNavigate={handleAuthNavigation} />
+            )}
+          </Suspense>
+        )}
+      </div>
+    </ProgressiveAuthProvider>
   );
 };
 

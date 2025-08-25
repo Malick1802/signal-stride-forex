@@ -14,23 +14,15 @@ export default function MobileAppWrapper({ children, activeTab, onTabChange }: M
   const [isOnline, setIsOnline] = useState(true);
 
   useEffect(() => {
-    console.log('🚀 MobileAppWrapper: Streamlined initialization');
+    console.log('🚀 MobileAppWrapper: Ultra-minimal initialization');
     
-    // Online check and immediate ready state
+    // Quick online check
     setIsOnline(navigator.onLine);
+    
+    // Mark ready immediately - no complex initialization
     setIsReady(true);
     
-    // Listen for online/offline changes
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
+    console.log('✅ MobileAppWrapper ready immediately');
   }, []);
 
   // Simple offline check
@@ -68,21 +60,19 @@ export default function MobileAppWrapper({ children, activeTab, onTabChange }: M
 
   return (
     <MobileErrorBoundary>
-      <div className="min-h-screen bg-background overflow-y-auto">
-        {/* Main content area with proper scrolling */}
-        <div className="flex flex-col min-h-screen">
-          <main className="flex-1 overflow-y-auto -webkit-overflow-scrolling-touch">
-            {children}
-          </main>
-          
-          {/* Mobile navigation bar for native platforms */}
-          {Capacitor.isNativePlatform() && (
-            <MobileNavigationBar 
-              activeTab={activeTab || 'signals'}
-              onTabChange={onTabChange || (() => {})}
-            />
-          )}
+      <div className="min-h-screen bg-background pb-20">
+        {/* Main content area - Always show children (web UI) */}
+        <div className="h-full">
+          {children}
         </div>
+        
+        {/* Mobile navigation bar for native platforms */}
+        {Capacitor.isNativePlatform() && (
+          <MobileNavigationBar 
+            activeTab={activeTab || 'signals'}
+            onTabChange={onTabChange || (() => {})}
+          />
+        )}
       </div>
     </MobileErrorBoundary>
   );

@@ -5,7 +5,10 @@ const config: CapacitorConfig = {
   appId: 'app.lovable.da46b9852e6844b390bc922d481bf104',
   appName: 'ForexAlert Pro',
   webDir: 'dist',
-  // Server config removed - using native mode for production builds
+  server: {
+    url: "https://da46b985-2e68-44b3-90bc-922d481bf104.lovableproject.com?forceHideBadge=true",
+    cleartext: true
+  },
   plugins: {
     SplashScreen: {
       launchShowDuration: 1000,
@@ -31,26 +34,11 @@ const config: CapacitorConfig = {
     webContentsDebuggingEnabled: true,
     backgroundColor: '#0f172a',
     loggingBehavior: 'debug',
-    appendUserAgent: 'ForexAlertPro/1.0',
-    captureInput: true,
-    webSecurity: true,
-    overrideUserAgent: 'ForexAlertPro/1.0 (Android)',
-    mixedContentMode: 'compatibility',
-    // Enhanced network timeouts
-    networkTimeout: 30000,
-    clearCache: true,
-    // Hardware acceleration for smooth scrolling
-    hardwareAccelerated: true
+    appendUserAgent: 'ForexAlertPro/1.0'
   },
   ios: {
     contentInset: 'automatic'
-  },
-  // Production build configuration - server config removed for native mode
-  // Uncomment below for development with live reload:
-  // server: {
-  //   url: 'https://da46b985-2e68-44b3-90bc-922d481bf104.lovableproject.com?forceHideBadge=true',
-  //   cleartext: true
-  // }
+  }
 };
 
 export default config;

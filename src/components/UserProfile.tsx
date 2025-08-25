@@ -7,8 +7,6 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { SMSSettings } from "./SMSSettings";
 import { PushNotificationSettings } from "./PushNotificationSettings";
-import { PasswordChangeForm } from "./PasswordChangeForm";
-import { AccountSettings } from "./AccountSettings";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function UserProfile({ open, onOpenChange }: { open: boolean; onOpenChange: (v: boolean) => void }) {
@@ -69,12 +67,10 @@ export default function UserProfile({ open, onOpenChange }: { open: boolean; onO
           <div className="text-center py-8 text-muted">Loading...</div>
         ) : (
           <Tabs defaultValue="profile" className="w-full">
-            <TabsList className="grid w-full grid-cols-5">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="profile">Profile</TabsTrigger>
-              <TabsTrigger value="security">Security</TabsTrigger>
-              <TabsTrigger value="settings">Settings</TabsTrigger>
-              <TabsTrigger value="push-notifications">Push</TabsTrigger>
-              <TabsTrigger value="sms-notifications">SMS</TabsTrigger>
+              <TabsTrigger value="push-notifications">Push Notifications</TabsTrigger>
+              <TabsTrigger value="sms-notifications">SMS Notifications</TabsTrigger>
             </TabsList>
             
             <TabsContent value="profile">
@@ -168,14 +164,6 @@ export default function UserProfile({ open, onOpenChange }: { open: boolean; onO
                   )}
                 </div>
               </form>
-            </TabsContent>
-            
-            <TabsContent value="security">
-              <PasswordChangeForm />
-            </TabsContent>
-            
-            <TabsContent value="settings">
-              <AccountSettings />
             </TabsContent>
             
             <TabsContent value="push-notifications">

@@ -2,7 +2,6 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { safeParseFloat, safeParseArray } from '@/utils/signalValidation';
-import { mapTakeProfitsFromArray } from '@/utils/signalTargetMapping';
 import Logger from '@/utils/logger';
 
 interface TradingSignal {
@@ -211,22 +210,9 @@ export const useTradingSignals = () => {
               Logger.debug('signals', `Using fallback chart data for ${signal.symbol}`);
             }
 
-            // Enhanced take profits handling with proper null filtering
+            // Enhanced take profits handling with null safety
             const takeProfits = safeParseArray(signal.take_profits);
             const targetsHit = safeParseArray(signal.targets_hit);
-            
-            // Map take profits using utility that filters out null/zero values
-            const mappedTakeProfits = mapTakeProfitsFromArray(
-              takeProfits,
-              storedEntryPrice.toFixed(5),
-              signal.symbol
-            );
-            
-            // Extract valid target prices, ensuring no null/zero values
-            const validTakeProfits = mappedTakeProfits.map(tp => tp.price);
-            while (validTakeProfits.length < 5) {
-              validTakeProfits.push('0.00000'); // Pad to maintain array structure
-            }
 
             const transformedSignal: TradingSignal = {
               id: signal.id,
@@ -234,11 +220,11 @@ export const useTradingSignals = () => {
               type: signal.type,
               entryPrice: storedEntryPrice.toFixed(5),
               stopLoss: safeParseFloat(signal.stop_loss, 0).toFixed(5),
-              takeProfit1: validTakeProfits[0],
-              takeProfit2: validTakeProfits[1],
-              takeProfit3: validTakeProfits[2],
-              takeProfit4: validTakeProfits[3],
-              takeProfit5: validTakeProfits[4],
+              takeProfit1: takeProfits[0] ? takeProfits[0].toFixed(5) : '0.00000',
+              takeProfit2: takeProfits[1] ? takeProfits[1].toFixed(5) : '0.00000',
+              takeProfit3: takeProfits[2] ? takeProfits[2].toFixed(5) : '0.00000',
+              takeProfit4: takeProfits[3] ? takeProfits[3].toFixed(5) : '0.00000',
+              takeProfit5: takeProfits[4] ? takeProfits[4].toFixed(5) : '0.00000',
               confidence: Math.floor(safeParseFloat(signal.confidence, 70)),
               timestamp: signal.created_at || new Date().toISOString(),
               status: signal.status || 'active',
