@@ -357,13 +357,10 @@ export type Database = {
           ask: number | null
           bid: number | null
           current_price: number
-          fastforex_price: number | null
-          fastforex_timestamp: string | null
           id: string
           is_market_open: boolean | null
           last_update: string
           price_change_24h: number | null
-          price_change_detected: boolean | null
           source: string | null
           symbol: string
           volume_24h: number | null
@@ -372,13 +369,10 @@ export type Database = {
           ask?: number | null
           bid?: number | null
           current_price: number
-          fastforex_price?: number | null
-          fastforex_timestamp?: string | null
           id?: string
           is_market_open?: boolean | null
           last_update?: string
           price_change_24h?: number | null
-          price_change_detected?: boolean | null
           source?: string | null
           symbol: string
           volume_24h?: number | null
@@ -387,13 +381,10 @@ export type Database = {
           ask?: number | null
           bid?: number | null
           current_price?: number
-          fastforex_price?: number | null
-          fastforex_timestamp?: string | null
           id?: string
           is_market_open?: boolean | null
           last_update?: string
           price_change_24h?: number | null
-          price_change_detected?: boolean | null
           source?: string | null
           symbol?: string
           volume_24h?: number | null
@@ -532,36 +523,6 @@ export type Database = {
           },
         ]
       }
-      currency_correlation_matrix: {
-        Row: {
-          calculation_period: number | null
-          correlation_coefficient: number
-          id: string
-          last_updated: string
-          pair_1: string
-          pair_2: string
-          timeframe: string
-        }
-        Insert: {
-          calculation_period?: number | null
-          correlation_coefficient: number
-          id?: string
-          last_updated?: string
-          pair_1: string
-          pair_2: string
-          timeframe?: string
-        }
-        Update: {
-          calculation_period?: number | null
-          correlation_coefficient?: number
-          id?: string
-          last_updated?: string
-          pair_1?: string
-          pair_2?: string
-          timeframe?: string
-        }
-        Relationships: []
-      }
       economic_events: {
         Row: {
           actual_value: string | null
@@ -598,216 +559,6 @@ export type Database = {
           previous_value?: string | null
           sentiment_score?: number | null
           title?: string
-        }
-        Relationships: []
-      }
-      economic_events_impact: {
-        Row: {
-          actual_value: string | null
-          affected_pairs: string[] | null
-          avoid_signals_after_minutes: number | null
-          avoid_signals_before_minutes: number | null
-          created_at: string
-          currency: string
-          directional_bias: string | null
-          event_name: string
-          event_time: string
-          forecast_value: string | null
-          id: string
-          impact_level: string
-          previous_value: string | null
-          volatility_increase_expected: number | null
-        }
-        Insert: {
-          actual_value?: string | null
-          affected_pairs?: string[] | null
-          avoid_signals_after_minutes?: number | null
-          avoid_signals_before_minutes?: number | null
-          created_at?: string
-          currency: string
-          directional_bias?: string | null
-          event_name: string
-          event_time: string
-          forecast_value?: string | null
-          id?: string
-          impact_level: string
-          previous_value?: string | null
-          volatility_increase_expected?: number | null
-        }
-        Update: {
-          actual_value?: string | null
-          affected_pairs?: string[] | null
-          avoid_signals_after_minutes?: number | null
-          avoid_signals_before_minutes?: number | null
-          created_at?: string
-          currency?: string
-          directional_bias?: string | null
-          event_name?: string
-          event_time?: string
-          forecast_value?: string | null
-          id?: string
-          impact_level?: string
-          previous_value?: string | null
-          volatility_increase_expected?: number | null
-        }
-        Relationships: []
-      }
-      enhanced_technical_indicators: {
-        Row: {
-          atr_14: number | null
-          bb_bandwidth: number | null
-          bb_lower: number | null
-          bb_middle: number | null
-          bb_position: string | null
-          bb_squeeze: boolean | null
-          bb_upper: number | null
-          candlestick_pattern: string | null
-          chart_pattern: string | null
-          created_at: string
-          ema_20: number | null
-          ema_200: number | null
-          ema_50: number | null
-          fibonacci_extensions: Json | null
-          fibonacci_retracements: Json | null
-          id: string
-          macd_bearish_divergence: boolean | null
-          macd_bullish_divergence: boolean | null
-          macd_histogram: number | null
-          macd_line: number | null
-          macd_signal: number | null
-          macd_strength: number | null
-          market_regime: string | null
-          pattern_confidence: number | null
-          pivot_point: number | null
-          resistance_1: number | null
-          resistance_2: number | null
-          resistance_3: number | null
-          resistance_levels: number[] | null
-          roc_12: number | null
-          rsi_14: number | null
-          rsi_bearish_divergence: boolean | null
-          rsi_bullish_divergence: boolean | null
-          rsi_overbought_strength: string | null
-          rsi_oversold_strength: string | null
-          sma_20: number | null
-          sma_200: number | null
-          sma_50: number | null
-          stochastic: number | null
-          support_1: number | null
-          support_2: number | null
-          support_3: number | null
-          support_levels: number[] | null
-          symbol: string
-          timeframe: string
-          timestamp: string
-          trend_direction: string | null
-          trend_strength: number | null
-          volatility_profile: string | null
-          williams_r: number | null
-        }
-        Insert: {
-          atr_14?: number | null
-          bb_bandwidth?: number | null
-          bb_lower?: number | null
-          bb_middle?: number | null
-          bb_position?: string | null
-          bb_squeeze?: boolean | null
-          bb_upper?: number | null
-          candlestick_pattern?: string | null
-          chart_pattern?: string | null
-          created_at?: string
-          ema_20?: number | null
-          ema_200?: number | null
-          ema_50?: number | null
-          fibonacci_extensions?: Json | null
-          fibonacci_retracements?: Json | null
-          id?: string
-          macd_bearish_divergence?: boolean | null
-          macd_bullish_divergence?: boolean | null
-          macd_histogram?: number | null
-          macd_line?: number | null
-          macd_signal?: number | null
-          macd_strength?: number | null
-          market_regime?: string | null
-          pattern_confidence?: number | null
-          pivot_point?: number | null
-          resistance_1?: number | null
-          resistance_2?: number | null
-          resistance_3?: number | null
-          resistance_levels?: number[] | null
-          roc_12?: number | null
-          rsi_14?: number | null
-          rsi_bearish_divergence?: boolean | null
-          rsi_bullish_divergence?: boolean | null
-          rsi_overbought_strength?: string | null
-          rsi_oversold_strength?: string | null
-          sma_20?: number | null
-          sma_200?: number | null
-          sma_50?: number | null
-          stochastic?: number | null
-          support_1?: number | null
-          support_2?: number | null
-          support_3?: number | null
-          support_levels?: number[] | null
-          symbol: string
-          timeframe: string
-          timestamp: string
-          trend_direction?: string | null
-          trend_strength?: number | null
-          volatility_profile?: string | null
-          williams_r?: number | null
-        }
-        Update: {
-          atr_14?: number | null
-          bb_bandwidth?: number | null
-          bb_lower?: number | null
-          bb_middle?: number | null
-          bb_position?: string | null
-          bb_squeeze?: boolean | null
-          bb_upper?: number | null
-          candlestick_pattern?: string | null
-          chart_pattern?: string | null
-          created_at?: string
-          ema_20?: number | null
-          ema_200?: number | null
-          ema_50?: number | null
-          fibonacci_extensions?: Json | null
-          fibonacci_retracements?: Json | null
-          id?: string
-          macd_bearish_divergence?: boolean | null
-          macd_bullish_divergence?: boolean | null
-          macd_histogram?: number | null
-          macd_line?: number | null
-          macd_signal?: number | null
-          macd_strength?: number | null
-          market_regime?: string | null
-          pattern_confidence?: number | null
-          pivot_point?: number | null
-          resistance_1?: number | null
-          resistance_2?: number | null
-          resistance_3?: number | null
-          resistance_levels?: number[] | null
-          roc_12?: number | null
-          rsi_14?: number | null
-          rsi_bearish_divergence?: boolean | null
-          rsi_bullish_divergence?: boolean | null
-          rsi_overbought_strength?: string | null
-          rsi_oversold_strength?: string | null
-          sma_20?: number | null
-          sma_200?: number | null
-          sma_50?: number | null
-          stochastic?: number | null
-          support_1?: number | null
-          support_2?: number | null
-          support_3?: number | null
-          support_levels?: number[] | null
-          symbol?: string
-          timeframe?: string
-          timestamp?: string
-          trend_direction?: string | null
-          trend_strength?: number | null
-          volatility_profile?: string | null
-          williams_r?: number | null
         }
         Relationships: []
       }
@@ -879,8 +630,6 @@ export type Database = {
           ask: number | null
           bid: number | null
           created_at: string
-          fastforex_price: number | null
-          fastforex_timestamp: string | null
           id: string
           price: number
           source: string | null
@@ -891,8 +640,6 @@ export type Database = {
           ask?: number | null
           bid?: number | null
           created_at?: string
-          fastforex_price?: number | null
-          fastforex_timestamp?: string | null
           id?: string
           price: number
           source?: string | null
@@ -903,8 +650,6 @@ export type Database = {
           ask?: number | null
           bid?: number | null
           created_at?: string
-          fastforex_price?: number | null
-          fastforex_timestamp?: string | null
           id?: string
           price?: number
           source?: string | null
@@ -991,93 +736,6 @@ export type Database = {
         }
         Relationships: []
       }
-      market_session_analysis: {
-        Row: {
-          avg_volatility: number | null
-          avoid_pairs: string[] | null
-          created_at: string
-          high_volatility_pairs: string[] | null
-          id: string
-          low_volatility_pairs: string[] | null
-          peak_activity_hours: number[] | null
-          recommended_pairs: string[] | null
-          session_date: string
-          session_name: string
-          session_sentiment: string | null
-          volume_profile: Json | null
-        }
-        Insert: {
-          avg_volatility?: number | null
-          avoid_pairs?: string[] | null
-          created_at?: string
-          high_volatility_pairs?: string[] | null
-          id?: string
-          low_volatility_pairs?: string[] | null
-          peak_activity_hours?: number[] | null
-          recommended_pairs?: string[] | null
-          session_date: string
-          session_name: string
-          session_sentiment?: string | null
-          volume_profile?: Json | null
-        }
-        Update: {
-          avg_volatility?: number | null
-          avoid_pairs?: string[] | null
-          created_at?: string
-          high_volatility_pairs?: string[] | null
-          id?: string
-          low_volatility_pairs?: string[] | null
-          peak_activity_hours?: number[] | null
-          recommended_pairs?: string[] | null
-          session_date?: string
-          session_name?: string
-          session_sentiment?: string | null
-          volume_profile?: Json | null
-        }
-        Relationships: []
-      }
-      multi_timeframe_data: {
-        Row: {
-          atr: number | null
-          close_price: number
-          created_at: string
-          high_price: number
-          id: string
-          low_price: number
-          open_price: number
-          symbol: string
-          timeframe: string
-          timestamp: string
-          volume: number | null
-        }
-        Insert: {
-          atr?: number | null
-          close_price: number
-          created_at?: string
-          high_price: number
-          id?: string
-          low_price: number
-          open_price: number
-          symbol: string
-          timeframe: string
-          timestamp: string
-          volume?: number | null
-        }
-        Update: {
-          atr?: number | null
-          close_price?: number
-          created_at?: string
-          high_price?: number
-          id?: string
-          low_price?: number
-          open_price?: number
-          symbol?: string
-          timeframe?: string
-          timestamp?: string
-          volume?: number | null
-        }
-        Relationships: []
-      }
       phone_verification_codes: {
         Row: {
           attempts: number
@@ -1110,107 +768,6 @@ export type Database = {
           verified?: boolean
         }
         Relationships: []
-      }
-      professional_risk_management: {
-        Row: {
-          account_risk_percentage: number
-          atr_multiplier: number
-          confidence_adjusted_size: number | null
-          correlated_pairs: string[] | null
-          correlation_conflict: boolean | null
-          created_at: string
-          dynamic_stop_price: number | null
-          economic_events_nearby: boolean | null
-          expected_pnl_pips: number | null
-          id: string
-          market_volatility: string | null
-          max_correlated_positions: number | null
-          maximum_drawdown_allowed: number | null
-          maximum_lot_size: number
-          minimum_stop_distance: number
-          news_sentiment_score: number | null
-          optimal_entry_time: boolean | null
-          position_value: number | null
-          quality_score: number | null
-          recommended_lot_size: number
-          risk_reward_ratio: number
-          session_volatility: number | null
-          signal_id: string | null
-          stop_loss_pips: number
-          take_profit_pips: number[] | null
-          trading_session: string | null
-          trailing_stop_enabled: boolean | null
-          updated_at: string
-        }
-        Insert: {
-          account_risk_percentage?: number
-          atr_multiplier?: number
-          confidence_adjusted_size?: number | null
-          correlated_pairs?: string[] | null
-          correlation_conflict?: boolean | null
-          created_at?: string
-          dynamic_stop_price?: number | null
-          economic_events_nearby?: boolean | null
-          expected_pnl_pips?: number | null
-          id?: string
-          market_volatility?: string | null
-          max_correlated_positions?: number | null
-          maximum_drawdown_allowed?: number | null
-          maximum_lot_size: number
-          minimum_stop_distance: number
-          news_sentiment_score?: number | null
-          optimal_entry_time?: boolean | null
-          position_value?: number | null
-          quality_score?: number | null
-          recommended_lot_size: number
-          risk_reward_ratio: number
-          session_volatility?: number | null
-          signal_id?: string | null
-          stop_loss_pips: number
-          take_profit_pips?: number[] | null
-          trading_session?: string | null
-          trailing_stop_enabled?: boolean | null
-          updated_at?: string
-        }
-        Update: {
-          account_risk_percentage?: number
-          atr_multiplier?: number
-          confidence_adjusted_size?: number | null
-          correlated_pairs?: string[] | null
-          correlation_conflict?: boolean | null
-          created_at?: string
-          dynamic_stop_price?: number | null
-          economic_events_nearby?: boolean | null
-          expected_pnl_pips?: number | null
-          id?: string
-          market_volatility?: string | null
-          max_correlated_positions?: number | null
-          maximum_drawdown_allowed?: number | null
-          maximum_lot_size?: number
-          minimum_stop_distance?: number
-          news_sentiment_score?: number | null
-          optimal_entry_time?: boolean | null
-          position_value?: number | null
-          quality_score?: number | null
-          recommended_lot_size?: number
-          risk_reward_ratio?: number
-          session_volatility?: number | null
-          signal_id?: string | null
-          stop_loss_pips?: number
-          take_profit_pips?: number[] | null
-          trading_session?: string | null
-          trailing_stop_enabled?: boolean | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "professional_risk_management_signal_id_fkey"
-            columns: ["signal_id"]
-            isOneToOne: false
-            referencedRelation: "trading_signals"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       profiles: {
         Row: {
@@ -1422,7 +979,6 @@ export type Database = {
           id: string
           notes: string | null
           pnl_pips: number
-          processed_by: string | null
           signal_id: string
           target_hit_level: number | null
         }
@@ -1433,7 +989,6 @@ export type Database = {
           id?: string
           notes?: string | null
           pnl_pips: number
-          processed_by?: string | null
           signal_id: string
           target_hit_level?: number | null
         }
@@ -1444,7 +999,6 @@ export type Database = {
           id?: string
           notes?: string | null
           pnl_pips?: number
-          processed_by?: string | null
           signal_id?: string
           target_hit_level?: number | null
         }
@@ -1453,125 +1007,6 @@ export type Database = {
             foreignKeyName: "signal_outcomes_signal_id_fkey"
             columns: ["signal_id"]
             isOneToOne: true
-            referencedRelation: "trading_signals"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      signal_validation_metrics: {
-        Row: {
-          backtest_performance: Json | null
-          created_at: string
-          fundamental_score: number | null
-          historical_pattern_match: number | null
-          id: string
-          minimum_requirements_met: boolean | null
-          overall_quality_grade: string
-          predicted_success_rate: number | null
-          professional_grade: boolean | null
-          sentiment_score: number | null
-          signal_id: string | null
-          technical_score: number
-          tier1_confirmations: string[] | null
-          tier1_passed: boolean | null
-          tier1_score: number
-          tier2_confirmations: string[] | null
-          tier2_cost: number | null
-          tier2_model: string | null
-          tier2_passed: boolean | null
-          tier2_score: number | null
-          tier2_tokens_used: number | null
-          tier3_confirmations: string[] | null
-          tier3_cost: number | null
-          tier3_model: string | null
-          tier3_passed: boolean | null
-          tier3_reasoning: string | null
-          tier3_score: number | null
-          tier3_tokens_used: number | null
-          timeframe_15m_aligned: boolean | null
-          timeframe_1h_aligned: boolean | null
-          timeframe_1m_aligned: boolean | null
-          timeframe_4h_aligned: boolean | null
-          timeframe_5m_aligned: boolean | null
-          timeframe_daily_aligned: boolean | null
-        }
-        Insert: {
-          backtest_performance?: Json | null
-          created_at?: string
-          fundamental_score?: number | null
-          historical_pattern_match?: number | null
-          id?: string
-          minimum_requirements_met?: boolean | null
-          overall_quality_grade: string
-          predicted_success_rate?: number | null
-          professional_grade?: boolean | null
-          sentiment_score?: number | null
-          signal_id?: string | null
-          technical_score?: number
-          tier1_confirmations?: string[] | null
-          tier1_passed?: boolean | null
-          tier1_score?: number
-          tier2_confirmations?: string[] | null
-          tier2_cost?: number | null
-          tier2_model?: string | null
-          tier2_passed?: boolean | null
-          tier2_score?: number | null
-          tier2_tokens_used?: number | null
-          tier3_confirmations?: string[] | null
-          tier3_cost?: number | null
-          tier3_model?: string | null
-          tier3_passed?: boolean | null
-          tier3_reasoning?: string | null
-          tier3_score?: number | null
-          tier3_tokens_used?: number | null
-          timeframe_15m_aligned?: boolean | null
-          timeframe_1h_aligned?: boolean | null
-          timeframe_1m_aligned?: boolean | null
-          timeframe_4h_aligned?: boolean | null
-          timeframe_5m_aligned?: boolean | null
-          timeframe_daily_aligned?: boolean | null
-        }
-        Update: {
-          backtest_performance?: Json | null
-          created_at?: string
-          fundamental_score?: number | null
-          historical_pattern_match?: number | null
-          id?: string
-          minimum_requirements_met?: boolean | null
-          overall_quality_grade?: string
-          predicted_success_rate?: number | null
-          professional_grade?: boolean | null
-          sentiment_score?: number | null
-          signal_id?: string | null
-          technical_score?: number
-          tier1_confirmations?: string[] | null
-          tier1_passed?: boolean | null
-          tier1_score?: number
-          tier2_confirmations?: string[] | null
-          tier2_cost?: number | null
-          tier2_model?: string | null
-          tier2_passed?: boolean | null
-          tier2_score?: number | null
-          tier2_tokens_used?: number | null
-          tier3_confirmations?: string[] | null
-          tier3_cost?: number | null
-          tier3_model?: string | null
-          tier3_passed?: boolean | null
-          tier3_reasoning?: string | null
-          tier3_score?: number | null
-          tier3_tokens_used?: number | null
-          timeframe_15m_aligned?: boolean | null
-          timeframe_1h_aligned?: boolean | null
-          timeframe_1m_aligned?: boolean | null
-          timeframe_4h_aligned?: boolean | null
-          timeframe_5m_aligned?: boolean | null
-          timeframe_daily_aligned?: boolean | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "signal_validation_metrics_signal_id_fkey"
-            columns: ["signal_id"]
-            isOneToOne: false
             referencedRelation: "trading_signals"
             referencedColumns: ["id"]
           },
@@ -1780,207 +1215,99 @@ export type Database = {
       }
       trading_signals: {
         Row: {
-          ai_model_used: string | null
-          allow_tier2_publish: boolean | null
-          analysis_cost: number | null
           analysis_text: string | null
           asset_type: string | null
           change_24h: number | null
           chart_data: Json | null
           confidence: number
-          correlation_checked: boolean | null
           created_at: string
-          current_percentage: number | null
-          current_pips: number | null
-          current_pnl: number | null
-          current_price: number | null
           economic_impact: string | null
-          expected_duration_hours: number | null
-          expire_reason: string | null
-          expired_by: string | null
-          fibonacci_entry: number | null
-          fibonacci_targets: number[] | null
-          final_confidence: number | null
-          final_quality: number | null
           fundamental_score: number | null
-          gate_fail_reasons: string[] | null
-          gates_passed: boolean | null
           id: string
-          indicator_checklist: Json | null
           is_centralized: boolean | null
-          last_expiration_check: string | null
-          last_performance_update: string | null
           last_price: number | null
           market_conditions: string[] | null
           market_context: Json | null
-          market_regime: string | null
-          multi_timeframe_confirmed: boolean | null
-          news_impact_assessed: boolean | null
           pattern_detected: string | null
           pips: number
-          pivot_entry: number | null
           price: number
-          professional_grade: boolean | null
-          quality_confirmations: string[] | null
           risk_reward_ratio: number | null
           sentiment_score: number | null
-          session_optimal: boolean | null
           status: string
           stop_loss: number
           symbol: string
-          t1_confirmations: string[] | null
-          t1_score: number | null
-          t2_confidence: number | null
-          t2_quality: number | null
-          t3_confidence: number | null
-          t3_quality: number | null
           take_profits: number[] | null
           targets_hit: number[] | null
           technical_indicators: Json | null
           technical_score: number | null
-          tier_level: number | null
           timestamp: string
           type: string
           updated_at: string
           user_id: string | null
-          validation_score: number | null
-          volatility_profile: string | null
           volume: number | null
         }
         Insert: {
-          ai_model_used?: string | null
-          allow_tier2_publish?: boolean | null
-          analysis_cost?: number | null
           analysis_text?: string | null
           asset_type?: string | null
           change_24h?: number | null
           chart_data?: Json | null
           confidence: number
-          correlation_checked?: boolean | null
           created_at?: string
-          current_percentage?: number | null
-          current_pips?: number | null
-          current_pnl?: number | null
-          current_price?: number | null
           economic_impact?: string | null
-          expected_duration_hours?: number | null
-          expire_reason?: string | null
-          expired_by?: string | null
-          fibonacci_entry?: number | null
-          fibonacci_targets?: number[] | null
-          final_confidence?: number | null
-          final_quality?: number | null
           fundamental_score?: number | null
-          gate_fail_reasons?: string[] | null
-          gates_passed?: boolean | null
           id?: string
-          indicator_checklist?: Json | null
           is_centralized?: boolean | null
-          last_expiration_check?: string | null
-          last_performance_update?: string | null
           last_price?: number | null
           market_conditions?: string[] | null
           market_context?: Json | null
-          market_regime?: string | null
-          multi_timeframe_confirmed?: boolean | null
-          news_impact_assessed?: boolean | null
           pattern_detected?: string | null
           pips: number
-          pivot_entry?: number | null
           price: number
-          professional_grade?: boolean | null
-          quality_confirmations?: string[] | null
           risk_reward_ratio?: number | null
           sentiment_score?: number | null
-          session_optimal?: boolean | null
           status?: string
           stop_loss: number
           symbol: string
-          t1_confirmations?: string[] | null
-          t1_score?: number | null
-          t2_confidence?: number | null
-          t2_quality?: number | null
-          t3_confidence?: number | null
-          t3_quality?: number | null
           take_profits?: number[] | null
           targets_hit?: number[] | null
           technical_indicators?: Json | null
           technical_score?: number | null
-          tier_level?: number | null
           timestamp?: string
           type: string
           updated_at?: string
           user_id?: string | null
-          validation_score?: number | null
-          volatility_profile?: string | null
           volume?: number | null
         }
         Update: {
-          ai_model_used?: string | null
-          allow_tier2_publish?: boolean | null
-          analysis_cost?: number | null
           analysis_text?: string | null
           asset_type?: string | null
           change_24h?: number | null
           chart_data?: Json | null
           confidence?: number
-          correlation_checked?: boolean | null
           created_at?: string
-          current_percentage?: number | null
-          current_pips?: number | null
-          current_pnl?: number | null
-          current_price?: number | null
           economic_impact?: string | null
-          expected_duration_hours?: number | null
-          expire_reason?: string | null
-          expired_by?: string | null
-          fibonacci_entry?: number | null
-          fibonacci_targets?: number[] | null
-          final_confidence?: number | null
-          final_quality?: number | null
           fundamental_score?: number | null
-          gate_fail_reasons?: string[] | null
-          gates_passed?: boolean | null
           id?: string
-          indicator_checklist?: Json | null
           is_centralized?: boolean | null
-          last_expiration_check?: string | null
-          last_performance_update?: string | null
           last_price?: number | null
           market_conditions?: string[] | null
           market_context?: Json | null
-          market_regime?: string | null
-          multi_timeframe_confirmed?: boolean | null
-          news_impact_assessed?: boolean | null
           pattern_detected?: string | null
           pips?: number
-          pivot_entry?: number | null
           price?: number
-          professional_grade?: boolean | null
-          quality_confirmations?: string[] | null
           risk_reward_ratio?: number | null
           sentiment_score?: number | null
-          session_optimal?: boolean | null
           status?: string
           stop_loss?: number
           symbol?: string
-          t1_confirmations?: string[] | null
-          t1_score?: number | null
-          t2_confidence?: number | null
-          t2_quality?: number | null
-          t3_confidence?: number | null
-          t3_quality?: number | null
           take_profits?: number[] | null
           targets_hit?: number[] | null
           technical_indicators?: Json | null
           technical_score?: number | null
-          tier_level?: number | null
           timestamp?: string
           type?: string
           updated_at?: string
           user_id?: string | null
-          validation_score?: number | null
-          volatility_profile?: string | null
           volume?: number | null
         }
         Relationships: []
@@ -2044,81 +1371,18 @@ export type Database = {
       }
     }
     Views: {
-      harmful_signal_expiration_cron_jobs: {
-        Row: {
-          active: boolean | null
-          command: string | null
-          jobid: number | null
-          jobname: string | null
-          nodename: string | null
-          nodeport: number | null
-          schedule: string | null
-        }
-        Insert: {
-          active?: boolean | null
-          command?: string | null
-          jobid?: number | null
-          jobname?: string | null
-          nodename?: string | null
-          nodeport?: number | null
-          schedule?: string | null
-        }
-        Update: {
-          active?: boolean | null
-          command?: string | null
-          jobid?: number | null
-          jobname?: string | null
-          nodename?: string | null
-          nodeport?: number | null
-          schedule?: string | null
-        }
-        Relationships: []
-      }
-      signal_quality_dashboard: {
-        Row: {
-          avg_confidence: number | null
-          avg_cost_per_signal: number | null
-          avg_quality_score: number | null
-          hour_bucket: string | null
-          professional_signals: number | null
-          signals_generated: number | null
-          symbols_analyzed: string[] | null
-          tier_level: number | null
-        }
-        Relationships: []
-      }
+      [_ in never]: never
     }
     Functions: {
       build_mlm_hierarchy: {
         Args: { new_affiliate_id: string; parent_code?: string }
         Returns: undefined
       }
-      calculate_atr_for_symbol: {
-        Args: { period?: number; symbol_name: string; timeframe_name: string }
-        Returns: number
-      }
-      calculate_signal_performance: {
-        Args: {
-          signal_current_price: number
-          signal_entry_price: number
-          signal_symbol: string
-          signal_type: string
-        }
-        Returns: {
-          percentage: number
-          pips: number
-          pnl: number
-        }[]
-      }
       cleanup_expired_verification_codes: {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
       cleanup_old_signals: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      cleanup_old_timeframe_data: {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }

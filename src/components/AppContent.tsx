@@ -1,11 +1,11 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useSignalNotifications } from '@/hooks/useSignalNotifications';
 import LandingPage from './LandingPage';
 import AuthPage from './AuthPage';
 import MobileLoadingScreen from './MobileLoadingScreen';
 import LazyLoadFallback from './LazyLoadFallback';
 import ProgressiveAuthProvider from './ProgressiveAuthProvider';
-import { MobileInitializer } from './MobileInitializer';
 import { supabase } from '@/integrations/supabase/client';
 import { Capacitor } from '@capacitor/core';
 
@@ -41,6 +41,9 @@ const AppContent = ({ activeTab = 'signals', onTabChange }: AppContentProps = {}
   const { user, loading, subscription, session } = useAuth();
   const [currentView, setCurrentView] = useState<ViewType>('landing');
   const [isAdmin, setIsAdmin] = useState(false);
+
+  // Initialize signal notifications for authenticated users
+  useSignalNotifications();
 
   useEffect(() => {
     const checkAdminStatus = async () => {
@@ -160,7 +163,6 @@ const AppContent = ({ activeTab = 'signals', onTabChange }: AppContentProps = {}
 
   return (
     <ProgressiveAuthProvider>
-      <MobileInitializer />
       <div className="w-full min-h-screen">
         {currentView === 'landing' && (
           <LandingPage onNavigate={handleLandingNavigation} />

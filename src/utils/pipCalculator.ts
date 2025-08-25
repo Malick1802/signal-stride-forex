@@ -1,5 +1,4 @@
 
-import { getInstrumentSpec } from '@/utils/instrumentSpecs';
 export interface PipCalculationResult {
   pips: number;
   percentage: number;
@@ -12,11 +11,11 @@ export const isJPYPair = (symbol: string): boolean => {
 };
 
 export const getPipMultiplier = (symbol: string): number => {
-  return getInstrumentSpec(symbol).pipMultiplier;
+  return isJPYPair(symbol) ? 100 : 10000;
 };
 
 export const getPipValue = (symbol: string): number => {
-  return getInstrumentSpec(symbol).pipSize;
+  return isJPYPair(symbol) ? 0.01 : 0.0001;
 };
 
 export const calculatePips = (
@@ -150,34 +149,6 @@ export const calculateRiskRewardRatio = (
   return takeProfitPips / stopLossPips;
 };
 
-// Helper: Estimate pip value per standard lot in USD based on instrument spec and price
-const estimatePipValuePerStandardLotUSD = (symbol: string, price: number): number => {
-  const spec = getInstrumentSpec(symbol);
-
-  if (spec.category === 'forex') {
-    const base = spec.baseCurrency ?? symbol.slice(0, 3);
-    const quote = spec.quoteCurrency ?? symbol.slice(-3);
-    const units = spec.contractSize || 100000;
-    const pipValueInQuote = spec.pipSize * units; // value in quote currency
-
-    if (quote === 'USD') {
-      // XXXUSD
-      return pipValueInQuote; // e.g., EURUSD -> $10 per pip per lot
-    }
-    if (base === 'USD' && price > 0) {
-      // USDXXX
-      return pipValueInQuote / price; // e.g., USDJPY -> 1000 / USDJPY
-    }
-
-    // Cross without USD conversion available — fallback approximation
-    return 10;
-  }
-
-  // Metals, indices, crypto: approximate USD-based contract
-  const contract = spec.contractSize || 1;
-  return spec.pipSize * contract;
-};
-
 // ENHANCED: Position sizing calculation based on risk percentage
 export const calculatePositionSize = (
   accountBalance: number,
@@ -188,16 +159,14 @@ export const calculatePositionSize = (
 ): { lotSize: number; riskAmount: number; maxLoss: number } => {
   const riskAmount = (accountBalance * riskPercentage) / 100;
   const stopLossPips = calculateStopLossPips(entryPrice, stopLoss, symbol);
-
-  // Estimate pip value per lot in USD according to instrument and price
-  const pipValuePerLotUSD = estimatePipValuePerStandardLotUSD(symbol, entryPrice);
-
+  
+  // Standard lot pip values
+  const pipValuePerLot = isJPYPair(symbol) ? 1000 : 10; // $10 per pip for standard lot (USD account)
+  
   // Calculate lot size
-  const lotSize = stopLossPips > 0 && pipValuePerLotUSD > 0
-    ? riskAmount / (stopLossPips * pipValuePerLotUSD)
-    : 0;
-  const maxLoss = stopLossPips * pipValuePerLotUSD * lotSize;
-
+  const lotSize = stopLossPips > 0 ? riskAmount / (stopLossPips * pipValuePerLot) : 0;
+  const maxLoss = stopLossPips * pipValuePerLot * lotSize;
+  
   return {
     lotSize: Math.max(0.01, Math.min(lotSize, 10)), // Min 0.01, Max 10 lots
     riskAmount,

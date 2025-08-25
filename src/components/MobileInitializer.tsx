@@ -1,14 +1,12 @@
 import React, { useEffect } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { MobileNotificationManager } from '@/utils/mobileNotifications';
-import MobileNotificationTester from './MobileNotificationTester';
 
 interface MobileInitializerProps {
   onStatusUpdate?: (status: string) => void;
-  showTester?: boolean;
 }
 
-export const MobileInitializer: React.FC<MobileInitializerProps> = ({ onStatusUpdate, showTester = false }) => {
+export const MobileInitializer: React.FC<MobileInitializerProps> = ({ onStatusUpdate }) => {
   useEffect(() => {
     const initializeMobileFeatures = async () => {
       if (!Capacitor.isNativePlatform()) {
@@ -37,11 +35,7 @@ export const MobileInitializer: React.FC<MobileInitializerProps> = ({ onStatusUp
     initializeMobileFeatures();
   }, [onStatusUpdate]);
 
-  if (showTester && Capacitor.isNativePlatform()) {
-    return <MobileNotificationTester onStatusUpdate={onStatusUpdate} />;
-  }
-
-  // This component doesn't render anything by default
+  // This component doesn't render anything
   return null;
 };
 
