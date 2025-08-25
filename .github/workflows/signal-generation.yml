@@ -4,7 +4,7 @@ name: Cost-Optimized Trading Signal Generation
 on:
   schedule:
     # Optimized schedule: every 1 minute during market hours for real-time FastForex updates
-    - cron: '*/1 * * * 0,1-5'
+    - cron: '*/8 * * * 0,1-5'
   workflow_dispatch:
     inputs:
       force_generation:
@@ -21,7 +21,7 @@ on:
 jobs:
   generate-signals:
     runs-on: ubuntu-latest
-    timeout-minutes: 6
+    timeout-minutes: 10
     concurrency:
       group: signal-generation
       cancel-in-progress: true

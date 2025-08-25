@@ -34,7 +34,7 @@ while [ $retry_count -lt $max_retries ] && [ "$success" = false ]; do
   curl_exit=0
   endpoint="$SUPABASE_URL/functions/v1/generate-signals"
   [ "${DEBUG_MODE:-false}" = "true" ] && echo "🔎 Endpoint: $endpoint"
-  response=$(curl -sS -w "\n%{http_code}" --connect-timeout 10 --max-time 60 --retry 2 --retry-delay 2 --retry-all-errors -X POST \
+response=$(curl -sS -w "\n%{http_code}" --connect-timeout 15 --max-time 240 --retry 2 --retry-delay 2 --retry-all-errors -X POST \
     "$endpoint" \
     -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
     -H "Content-Type: application/json" \
