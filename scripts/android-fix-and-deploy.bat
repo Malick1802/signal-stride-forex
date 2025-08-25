@@ -33,9 +33,8 @@ if not exist "dist\index.html" (
 )
 
 :: Step 4: Force Capacitor sync with cleaning
-echo 4️⃣ Force syncing with Capacitor...
-call npx cap clean android
-call npx cap sync android --force
+echo 4️⃣ Syncing with Capacitor...
+call npx cap sync android
 if %errorlevel% neq 0 (
     echo ❌ Capacitor sync failed
     pause
