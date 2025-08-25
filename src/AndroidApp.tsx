@@ -12,6 +12,7 @@ import AndroidDebugPanel from './components/AndroidDebugPanel';
 import ErrorRecovery from './components/ErrorRecovery';
 import { Capacitor } from '@capacitor/core';
 import { useAppInitialization } from './hooks/useAppInitialization';
+import { useAndroidRealTimeSync } from './hooks/useAndroidRealTimeSync';
 
 // Import CSS
 import './index.css';
@@ -31,6 +32,7 @@ const queryClient = new QueryClient({
 const AndroidApp = () => {
   const [activeTab, setActiveTab] = useState('signals');
   const { isInitialized, isInitializing, error, progress, currentStep, retry } = useAppInitialization();
+  const { isConnected, lastSignalUpdate, lastPriceUpdate, forceDataRefresh } = useAndroidRealTimeSync();
 
   // Show initialization screen or error recovery if needed
   if (error) {
