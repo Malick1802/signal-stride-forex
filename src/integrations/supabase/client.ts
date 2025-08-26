@@ -18,12 +18,19 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   },
   realtime: {
     params: {
-      eventsPerSecond: 10
+      eventsPerSecond: 10,
+      timeout: 60000
     }
   },
   global: {
     headers: {
       'x-client-info': 'forex-signal-pro-mobile'
+    },
+    fetch: (url, options = {}) => {
+      return fetch(url, {
+        ...options,
+        signal: AbortSignal.timeout(30000), // 30 second timeout
+      });
     }
   }
 });

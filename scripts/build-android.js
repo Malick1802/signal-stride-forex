@@ -16,7 +16,7 @@ try {
 
   // Step 2: Build the web app with Android config
   console.log('2️⃣ Building web application for Android...');
-  execSync('npm run build -- --config vite.config.android.ts', { stdio: 'inherit' });
+  execSync('npm run build -- --config vite.config.android.ts --mode production --force', { stdio: 'inherit' });
   console.log('✅ Android web build complete\n');
 
   // Step 3: Copy Android-specific files
@@ -52,10 +52,13 @@ try {
   }
 
   console.log('🎉 Android build complete!');
-  console.log('\n📱 Next steps:');
-  console.log('1. Run: npx cap add android (if not done)');
-  console.log('2. Run: npx cap open android');
-  console.log('3. Build and run from Android Studio');
+  console.log('\n📱 Next steps for APK build:');
+  console.log('1. Run: npx cap sync android');
+  console.log('2. Run: npx cap open android'); 
+  console.log('3. Build APK from Android Studio');
+  console.log('\n🔧 For live development:');
+  console.log('1. Comment out server config in capacitor.config.ts');
+  console.log('2. Run: npx cap run android --livereload');
 
 } catch (error) {
   console.error('❌ Build failed:', error.message);
