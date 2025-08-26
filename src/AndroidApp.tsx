@@ -8,6 +8,7 @@ import MobileAppWrapper from './components/MobileAppWrapper';
 import AppContent from './components/AppContent';
 import AndroidErrorBoundary from './components/AndroidErrorBoundary';
 import { Capacitor } from '@capacitor/core';
+import { useAndroidRealTimeSync } from './hooks/useAndroidRealTimeSync';
 
 // Import CSS
 import './index.css';
@@ -26,6 +27,13 @@ const queryClient = new QueryClient({
 const AndroidApp = () => {
   const [isReady, setIsReady] = useState(false);
   const [activeTab, setActiveTab] = useState('signals');
+  const [syncStatus, setSyncStatus] = useState<string>('Initializing...');
+
+  // Setup Android real-time sync
+  const { forceRefreshSignals, isConnected } = useAndroidRealTimeSync({
+    onStatusUpdate: setSyncStatus,
+    aggressiveMode: true
+  });
 
   useEffect(() => {
     console.log('🚀 AndroidApp initializing on platform:', Capacitor.getPlatform());
@@ -54,6 +62,12 @@ const AndroidApp = () => {
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-400 mx-auto mb-4"></div>
           <h1 className="text-xl font-semibold">ForexAlert Pro</h1>
           <p className="text-gray-400 mt-2">Starting Android app...</p>
+          <p className="text-emerald-400 text-sm mt-1">{syncStatus}</p>
+          {Capacitor.isNativePlatform() && (
+            <p className="text-gray-500 text-xs mt-1">
+              🔗 {isConnected ? 'Connected' : 'Reconnecting...'}
+            </p>
+          )}
         </div>
       </div>
     );
