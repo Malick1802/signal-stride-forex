@@ -20,7 +20,7 @@ interface EnhancedSignalData {
 
 export const useEnhancedSignalMonitoring = () => {
   const { toast } = useToast();
-  const { expireSignalImmediately, validateSignalStatus } = useSignalStatusManager();
+  const { expireSignalImmediately, validateSignalStatus, forceExpireCompletedSignals } = useSignalStatusManager();
   const [stopLossConfirmations, setStopLossConfirmations] = useState<Record<string, {
     count: number, 
     firstDetectedAt: number,
@@ -335,10 +335,11 @@ export const useEnhancedSignalMonitoring = () => {
         .eq('is_centralized', true);
 
       if (signalsError || !activeSignals?.length) {
+        Logger.debug('monitoring', 'No active signals found for enhanced monitoring');
         return;
       }
 
-      Logger.debug('monitoring', `Enhanced monitoring ${activeSignals.length} signals`);
+      Logger.info('monitoring', `🔍 Enhanced monitoring ${activeSignals.length} active signals`);
 
       // Get current market prices
       const symbols = [...new Set(activeSignals.map(s => s.symbol))];
@@ -386,6 +387,18 @@ export const useEnhancedSignalMonitoring = () => {
           currentTrailingStop: undefined
         };
 
+        // CRITICAL FIX: Check for invalid stop loss configurations and fix them
+        const isInvalidStopLoss = (enhancedSignal.type === 'BUY' && enhancedSignal.stopLoss >= enhancedSignal.entryPrice) ||
+                                  (enhancedSignal.type === 'SELL' && enhancedSignal.stopLoss <= enhancedSignal.entryPrice);
+        
+        if (isInvalidStopLoss) {
+          Logger.error('monitoring', `🚨 INVALID SL CONFIG: ${signal.symbol} ${signal.type} - Entry: ${enhancedSignal.entryPrice}, SL: ${enhancedSignal.stopLoss}`);
+          
+          // Force expire this signal immediately as it has invalid configuration
+          await expireSignalImmediately(signal.id, 'stop_loss_hit', enhancedSignal.targetsHit);
+          continue;
+        }
+
         // PHASE 3: Validate signal status before processing
         const statusValidation = await validateSignalStatus(signal.id);
         if (!statusValidation.isValid && statusValidation.shouldBeExpired) {
@@ -394,7 +407,7 @@ export const useEnhancedSignalMonitoring = () => {
           continue;
         }
 
-        Logger.debug('monitoring', `Enhanced validating ${signal.symbol} - Current: ${currentPrice}, Entry: ${enhancedSignal.entryPrice}, SL: ${enhancedSignal.stopLoss}`);
+        Logger.debug('monitoring', `✅ Monitoring ${signal.symbol} ${signal.type} - Current: ${currentPrice}, Entry: ${enhancedSignal.entryPrice}, SL: ${enhancedSignal.stopLoss}, TPs: ${enhancedSignal.takeProfits.join('/')}, TargetsHit: [${enhancedSignal.targetsHit.join(',')}]`);
 
         // Check take profits FIRST (priority over stop loss) with FIXED validation
         const newTargetsHit = validateTakeProfitHits(enhancedSignal, currentPrice);
@@ -453,6 +466,16 @@ export const useEnhancedSignalMonitoring = () => {
   }, [validateStopLossHit, validateTakeProfitHits, processSignalOutcome, calculateTrailingStop, clearStaleConfirmations, expireSignalImmediately, validateSignalStatus]);
 
   useEffect(() => {
+    // Initial repair of invalid signals and status inconsistencies
+    const performInitialRepair = async () => {
+      const repairResult = await forceExpireCompletedSignals();
+      if (repairResult.repaired > 0) {
+        Logger.info('monitoring', `🔧 Initial repair completed: ${repairResult.repaired} signals fixed`);
+      }
+    };
+    
+    performInitialRepair();
+    
     // Initial monitoring
     monitorSignalsEnhanced();
 
@@ -481,7 +504,7 @@ export const useEnhancedSignalMonitoring = () => {
       clearInterval(monitorInterval);
       supabase.removeChannel(priceChannel);
     };
-  }, [monitorSignalsEnhanced]);
+  }, [monitorSignalsEnhanced, forceExpireCompletedSignals]);
 
   return {
     monitorSignalsEnhanced
