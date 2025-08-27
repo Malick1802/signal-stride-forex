@@ -36,31 +36,13 @@ const AndroidApp = () => {
   });
 
   useEffect(() => {
-    const platform = Capacitor.getPlatform();
-    const isNative = Capacitor.isNativePlatform();
-    console.log('🚀 AndroidApp initializing');
-    console.log('📱 Platform:', platform);
-    console.log('🔧 Native:', isNative);
-    console.log('🌐 User Agent:', navigator.userAgent);
-    console.log('🏠 Location:', window.location.href);
+    console.log('🚀 AndroidApp initializing on platform:', Capacitor.getPlatform());
     
-    // Initialize Capacitor for Android
+    // Ultra-minimal initialization
     const initializeApp = async () => {
       try {
-        if (isNative) {
-          // Initialize Capacitor app
-          const { App } = await import('@capacitor/app');
-          console.log('📱 Capacitor App imported successfully');
-          
-          // Setup app state listener
-          App.addListener('appStateChange', ({ isActive }) => {
-            console.log('📱 App state changed:', isActive);
-            if (isActive) {
-              forceRefreshSignals();
-            }
-          });
-        }
-        
+        // Basic readiness check
+        await new Promise(resolve => setTimeout(resolve, 100));
         setIsReady(true);
         console.log('✅ AndroidApp ready');
       } catch (error) {
@@ -70,7 +52,7 @@ const AndroidApp = () => {
     };
 
     initializeApp();
-  }, [forceRefreshSignals]);
+  }, []);
 
   // Simple loading screen
   if (!isReady) {
@@ -81,12 +63,11 @@ const AndroidApp = () => {
           <h1 className="text-xl font-semibold">ForexAlert Pro</h1>
           <p className="text-gray-400 mt-2">Starting Android app...</p>
           <p className="text-emerald-400 text-sm mt-1">{syncStatus}</p>
-          <p className="text-blue-400 text-xs mt-1">
-            📱 Platform: {Capacitor.getPlatform()} {Capacitor.isNativePlatform() ? '(Native)' : '(Web)'}
-          </p>
-          <p className="text-gray-500 text-xs mt-1">
-            🔗 {isConnected ? 'Connected' : 'Reconnecting...'}
-          </p>
+          {Capacitor.isNativePlatform() && (
+            <p className="text-gray-500 text-xs mt-1">
+              🔗 {isConnected ? 'Connected' : 'Reconnecting...'}
+            </p>
+          )}
         </div>
       </div>
     );

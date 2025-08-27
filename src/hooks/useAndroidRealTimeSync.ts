@@ -39,20 +39,8 @@ export const useAndroidRealTimeSync = (options: AndroidRealTimeSyncOptions = {})
   // Aggressive reconnection logic
   const setupRealtimeConnection = useCallback(async () => {
     try {
-      const platform = Capacitor.getPlatform();
-      console.log('📱 Platform detected:', platform);
-      
-      if (!Capacitor.isNativePlatform() && platform === 'web') {
-        onStatusUpdate?.('🌐 Web platform detected - using fallback sync');
-        // For web/debugging, still setup periodic refresh
-        if (syncIntervalRef.current) {
-          clearInterval(syncIntervalRef.current);
-        }
-        
-        syncIntervalRef.current = setInterval(() => {
-          console.log('🌐 Web: Periodic sync');
-          forceRefreshSignals();
-        }, 30000);
+      if (!Capacitor.isNativePlatform()) {
+        onStatusUpdate?.('📱 Not on native platform, using web mode');
         return;
       }
 
