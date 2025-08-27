@@ -36,7 +36,12 @@ const AndroidApp = () => {
   });
 
   useEffect(() => {
-    console.log('🚀 AndroidApp initializing on platform:', Capacitor.getPlatform());
+    const platform = Capacitor.getPlatform();
+    const isNative = Capacitor.isNativePlatform();
+    console.log('🚀 AndroidApp initializing');
+    console.log('📱 Platform:', platform);
+    console.log('🔧 Native:', isNative);
+    console.log('🌐 User Agent:', navigator.userAgent);
     
     // Ultra-minimal initialization
     const initializeApp = async () => {
@@ -63,11 +68,12 @@ const AndroidApp = () => {
           <h1 className="text-xl font-semibold">ForexAlert Pro</h1>
           <p className="text-gray-400 mt-2">Starting Android app...</p>
           <p className="text-emerald-400 text-sm mt-1">{syncStatus}</p>
-          {Capacitor.isNativePlatform() && (
-            <p className="text-gray-500 text-xs mt-1">
-              🔗 {isConnected ? 'Connected' : 'Reconnecting...'}
-            </p>
-          )}
+          <p className="text-blue-400 text-xs mt-1">
+            📱 Platform: {Capacitor.getPlatform()} {Capacitor.isNativePlatform() ? '(Native)' : '(Web)'}
+          </p>
+          <p className="text-gray-500 text-xs mt-1">
+            🔗 {isConnected ? 'Connected' : 'Reconnecting...'}
+          </p>
         </div>
       </div>
     );
