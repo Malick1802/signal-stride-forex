@@ -18,7 +18,8 @@ echo 🏗️ Building for production...
 call npm run build -- --config vite.config.android.ts --mode production
 
 echo 📋 Copying android.html to dist/index.html...
-copy android.html dist\index.html
+copy android.html dist\index.html /Y
+
 
 echo 🔄 Syncing with Capacitor...
 call npx cap sync android

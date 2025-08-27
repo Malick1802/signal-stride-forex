@@ -42,12 +42,25 @@ const AndroidApp = () => {
     console.log('📱 Platform:', platform);
     console.log('🔧 Native:', isNative);
     console.log('🌐 User Agent:', navigator.userAgent);
+    console.log('🏠 Location:', window.location.href);
     
-    // Ultra-minimal initialization
+    // Initialize Capacitor for Android
     const initializeApp = async () => {
       try {
-        // Basic readiness check
-        await new Promise(resolve => setTimeout(resolve, 100));
+        if (isNative) {
+          // Initialize Capacitor app
+          const { App } = await import('@capacitor/app');
+          console.log('📱 Capacitor App imported successfully');
+          
+          // Setup app state listener
+          App.addListener('appStateChange', ({ isActive }) => {
+            console.log('📱 App state changed:', isActive);
+            if (isActive) {
+              forceRefreshSignals();
+            }
+          });
+        }
+        
         setIsReady(true);
         console.log('✅ AndroidApp ready');
       } catch (error) {
@@ -57,7 +70,7 @@ const AndroidApp = () => {
     };
 
     initializeApp();
-  }, []);
+  }, [forceRefreshSignals]);
 
   // Simple loading screen
   if (!isReady) {
