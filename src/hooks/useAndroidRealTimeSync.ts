@@ -40,21 +40,31 @@ export const useAndroidRealTimeSync = (options: AndroidRealTimeSyncOptions = {})
   const setupRealtimeConnection = useCallback(async () => {
     try {
       const platform = Capacitor.getPlatform();
-      console.log('📱 Platform detected:', platform);
+      const isNative = Capacitor.isNativePlatform();
+      const userAgent = navigator.userAgent;
       
-      if (!Capacitor.isNativePlatform() && platform === 'web') {
-        onStatusUpdate?.('🌐 Web platform detected - using fallback sync');
-        // For web/debugging, still setup periodic refresh
+      console.log('📱 Capacitor Platform:', platform);
+      console.log('🔧 Is Native:', isNative);
+      console.log('🌐 User Agent:', userAgent);
+      
+      // Force Android detection if we're in a WebView with our app identifier
+      const isAndroidApp = userAgent.includes('ForexAlertPro') || userAgent.includes('wv');
+      
+      if (!isNative && !isAndroidApp) {
+        onStatusUpdate?.('🌐 Web browser detected - limited functionality');
+        // Setup minimal web sync
         if (syncIntervalRef.current) {
           clearInterval(syncIntervalRef.current);
         }
         
         syncIntervalRef.current = setInterval(() => {
-          console.log('🌐 Web: Periodic sync');
+          console.log('🌐 Web: Basic sync');
           forceRefreshSignals();
-        }, 30000);
+        }, 60000);
         return;
       }
+      
+      onStatusUpdate?.('📱 Android native app detected - full sync enabled');
 
       onStatusUpdate?.('🔗 Setting up Android real-time connection...');
 

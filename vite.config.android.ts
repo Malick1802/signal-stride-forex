@@ -17,10 +17,13 @@ export default defineConfig(({ mode }) => ({
     outDir: 'dist',
     minify: mode === 'production' ? 'terser' : false,
     sourcemap: false,
+    emptyOutDir: true,
     rollupOptions: {
-      input: path.resolve(__dirname, 'android.html'),
+      input: {
+        main: path.resolve(__dirname, 'android.html')
+      },
       output: {
-        entryFileNames: 'assets/main-android.js',
+        entryFileNames: 'assets/[name].js',
         chunkFileNames: 'assets/[name]-[hash].js',
         assetFileNames: 'assets/[name]-[hash].[ext]'
       }

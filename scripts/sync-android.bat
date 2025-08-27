@@ -17,8 +17,15 @@ call npm install
 echo 🏗️ Building for production...
 call npm run build -- --config vite.config.android.ts --mode production
 
-echo 📋 Copying android.html to dist/index.html...
-copy android.html dist\index.html
+echo 📋 Ensuring proper Android build structure...
+if not exist "dist\index.html" (
+  echo ❌ Build failed - no index.html found
+  pause
+  exit /b 1
+)
+
+echo 📦 Verifying android build files...
+dir dist /b
 
 echo 🔄 Syncing with Capacitor...
 call npx cap sync android
