@@ -7,6 +7,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import MobileAppWrapper from './components/MobileAppWrapper';
 import AppContent from './components/AppContent';
 import AndroidErrorBoundary from './components/AndroidErrorBoundary';
+import { MobileInitializer } from './components/MobileInitializer';
 import { Capacitor } from '@capacitor/core';
 import { useAndroidRealTimeSync } from './hooks/useAndroidRealTimeSync';
 
@@ -37,16 +38,28 @@ const AndroidApp = () => {
 
   useEffect(() => {
     console.log('🚀 AndroidApp initializing on platform:', Capacitor.getPlatform());
+    console.log('📱 Is native platform:', Capacitor.isNativePlatform());
     
-    // Ultra-minimal initialization
+    // Enhanced Android native initialization
     const initializeApp = async () => {
       try {
-        // Basic readiness check
-        await new Promise(resolve => setTimeout(resolve, 100));
+        setSyncStatus('Checking platform...');
+        
+        if (!Capacitor.isNativePlatform()) {
+          console.warn('⚠️ Not running on native platform - push notifications will not work');
+          setSyncStatus('⚠️ Web mode - limited features');
+        } else {
+          console.log('✅ Native Android platform detected');
+          setSyncStatus('✅ Native platform ready');
+        }
+        
+        // Allow time for Capacitor to fully initialize
+        await new Promise(resolve => setTimeout(resolve, 1000));
         setIsReady(true);
         console.log('✅ AndroidApp ready');
       } catch (error) {
         console.error('❌ AndroidApp initialization error:', error);
+        setSyncStatus(`❌ Init error: ${error}`);
         setIsReady(true); // Still set ready to prevent infinite loading
       }
     };
@@ -78,6 +91,7 @@ const AndroidApp = () => {
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <HashRouter>
+            <MobileInitializer onStatusUpdate={setSyncStatus} />
             <MobileAppWrapper activeTab={activeTab} onTabChange={setActiveTab}>
               <AppContent activeTab={activeTab} onTabChange={setActiveTab} />
             </MobileAppWrapper>
