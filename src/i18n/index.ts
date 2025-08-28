@@ -1,5 +1,4 @@
 import i18n from 'i18next';
-import Backend from 'i18next-http-backend';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import { initReactI18next } from 'react-i18next';
 
@@ -18,7 +17,6 @@ export const SUPPORTED_LANGUAGES = {
 export const RTL_LANGUAGES = ['ar'];
 
 i18n
-  .use(Backend)
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
@@ -30,16 +28,50 @@ i18n
     },
 
     detection: {
-      order: ['localStorage', 'cookie', 'navigator', 'htmlTag'],
-      caches: ['localStorage', 'cookie'],
+      order: ['localStorage', 'navigator'],
+      caches: ['localStorage'],
       lookupLocalStorage: 'i18nextLng',
-      lookupCookie: 'i18nextLng',
-      lookupFromPathIndex: 0,
-      lookupFromSubdomainIndex: 0,
     },
 
-    backend: {
-      loadPath: '/locales/{{lng}}/{{ns}}.json',
+    resources: {
+      en: {
+        common: {
+          nav: {
+            signals: "Signals",
+            expired: "Expired", 
+            tools: "Tools",
+            profile: "Profile",
+            settings: "Settings",
+            logout: "Logout"
+          },
+          actions: {
+            loading: "Loading...",
+            refresh: "Refresh",
+            retry: "Try Again"
+          }
+        },
+        signals: {
+          title: "Trading Signals",
+          noSignals: "No signals available",
+          loading: "Loading signals..."
+        },
+        dashboard: {
+          welcome: "Welcome to ForexAlert Pro",
+          stats: {
+            activeSignals: "Active Signals"
+          }
+        },
+        landing: {
+          hero: {
+            title: "Premium Forex Trading Signals",
+            subtitle: "AI-powered trading signals"
+          }
+        },
+        auth: {
+          login: "Sign In",
+          signup: "Sign Up"
+        }
+      }
     },
 
     react: {
