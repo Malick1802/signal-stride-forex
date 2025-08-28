@@ -40,31 +40,13 @@ const AndroidApp = () => {
     console.log('🚀 AndroidApp initializing on platform:', Capacitor.getPlatform());
     console.log('📱 Is native platform:', Capacitor.isNativePlatform());
     
-    // Enhanced Android native initialization
-    const initializeApp = async () => {
-      try {
-        setSyncStatus('Checking platform...');
-        
-        if (!Capacitor.isNativePlatform()) {
-          console.warn('⚠️ Not running on native platform - push notifications will not work');
-          setSyncStatus('⚠️ Web mode - limited features');
-        } else {
-          console.log('✅ Native Android platform detected');
-          setSyncStatus('✅ Native platform ready');
-        }
-        
-        // Allow time for Capacitor to fully initialize
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        setIsReady(true);
-        console.log('✅ AndroidApp ready');
-      } catch (error) {
-        console.error('❌ AndroidApp initialization error:', error);
-        setSyncStatus(`❌ Init error: ${error}`);
-        setIsReady(true); // Still set ready to prevent infinite loading
-      }
-    };
-
-    initializeApp();
+    // Immediate initialization to prevent dark screen
+    const timer = setTimeout(() => {
+      setIsReady(true);
+      console.log('✅ AndroidApp ready');
+    }, 500); // Much shorter delay
+    
+    return () => clearTimeout(timer);
   }, []);
 
   // Simple loading screen

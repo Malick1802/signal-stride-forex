@@ -18,11 +18,9 @@ export default defineConfig(({ mode }) => ({
     minify: mode === 'production' ? 'terser' : false,
     sourcemap: false,
     rollupOptions: {
-      input: {
-        main: path.resolve(__dirname, 'src/main-android.tsx')
-      },
+      input: path.resolve(__dirname, 'src/main-android.tsx'),
       output: {
-        entryFileNames: 'assets/[name].js',
+        entryFileNames: 'assets/main.js',
         chunkFileNames: 'assets/[name]-[hash].js',
         assetFileNames: 'assets/[name]-[hash].[ext]'
       }

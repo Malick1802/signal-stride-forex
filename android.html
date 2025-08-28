@@ -47,5 +47,15 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/assets/main.js"></script>
+    <script>
+      // Fallback error handling
+      window.addEventListener('error', function(e) {
+        console.error('💥 Global error:', e.error);
+      });
+      
+      window.addEventListener('unhandledrejection', function(e) {
+        console.error('💥 Unhandled promise rejection:', e.reason);
+      });
+    </script>
   </body>
 </html>
