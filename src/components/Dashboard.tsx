@@ -151,12 +151,12 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
   };
 
   const tabItems = [
-    { id: 'signals', label: 'Trading Signals', shortLabel: 'Signals' },
-    { id: 'expired', label: 'Expired', shortLabel: 'Expired' },
-    ...(isAdmin ? [{ id: 'diagnostics', label: 'Tools', shortLabel: 'Tools', icon: Settings }] : []),
-    ...(isAdmin ? [{ id: 'testing', label: 'Test', shortLabel: 'Test', icon: TrendingUp }] : []),
+    { id: 'signals', label: 'Active Signals', shortLabel: 'Active' },
+    { id: 'expired', label: 'Expired Signals', shortLabel: 'Expired' },
+    { id: 'diagnostics', label: 'Storage Diagnostics', shortLabel: 'Diagnostics', icon: Settings },
+    { id: 'testing', label: 'Signal Testing', shortLabel: 'Testing', icon: TrendingUp },
     { id: 'subscription', label: 'Subscription', shortLabel: 'Sub', icon: CreditCard },
-    { id: 'affiliate', label: 'Affiliate', shortLabel: 'Affiliate', icon: Users },
+    { id: 'affiliate', label: 'Affiliate Program', shortLabel: 'Affiliate', icon: Users },
     ...(isAdmin ? [{ id: 'admin', label: 'Admin Dashboard', shortLabel: 'Admin', icon: Shield }] : [])
   ];
 
@@ -192,11 +192,6 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
               <Button variant="ghost" size="sm" onClick={() => setMobileMenuOpen(false)}>
                 <X className="h-4 w-4" />
               </Button>
-            </div>
-            
-            {/* Mobile Menu */}
-            <div className="mb-4 p-2 bg-white/5 rounded-lg">
-              <div className="text-white text-sm">Menu</div>
             </div>
             
             {tabItems.map(tab => (
@@ -357,7 +352,7 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
                   onClick={handleLogout}
                   disabled={loggingOut}
                   className="p-2.5 text-gray-400 hover:text-red-400 transition-colors disabled:opacity-50"
-                  aria-label="Logout"
+                  aria-label="Log out"
                 >
                   <LogOut className={`h-6 w-6 md:h-5 md:w-5 ${loggingOut ? 'animate-spin' : ''}`} />
                 </button>
@@ -390,12 +385,12 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
       <div className="md:hidden bg-black/10 backdrop-blur-sm border-b border-white/10">
         <div className="px-3 py-2">
           <Tabs value={activeTab} onValueChange={onTabChange || setInternalActiveTab} className="w-full">
-            <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4' : 'grid-cols-2'} bg-white/10 border border-white/20`}>
+            <TabsList className="grid w-full grid-cols-4 bg-white/10 border border-white/20">
               <TabsTrigger 
                 value="signals" 
                 className="text-xs text-gray-300 data-[state=active]:text-emerald-400 data-[state=active]:bg-emerald-500/20"
               >
-                Signals
+                Active
               </TabsTrigger>
               <TabsTrigger 
                 value="expired"
@@ -403,22 +398,18 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
               >
                 Expired
               </TabsTrigger>
-              {isAdmin && (
-                <TabsTrigger 
-                  value="diagnostics"
-                  className="text-xs text-gray-300 data-[state=active]:text-emerald-400 data-[state=active]:bg-emerald-500/20"
-                >
-                  Tools
-                </TabsTrigger>
-              )}
-              {isAdmin && (
-                <TabsTrigger 
-                  value="testing"
-                  className="text-xs text-gray-300 data-[state=active]:text-emerald-400 data-[state=active]:bg-emerald-500/20"
-                >
-                  Test
-                </TabsTrigger>
-              )}
+              <TabsTrigger 
+                value="diagnostics"
+                className="text-xs text-gray-300 data-[state=active]:text-emerald-400 data-[state=active]:bg-emerald-500/20"
+              >
+                Diag
+              </TabsTrigger>
+              <TabsTrigger 
+                value="testing"
+                className="text-xs text-gray-300 data-[state=active]:text-emerald-400 data-[state=active]:bg-emerald-500/20"
+              >
+                Test
+              </TabsTrigger>
             </TabsList>
           </Tabs>
         </div>

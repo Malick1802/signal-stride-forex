@@ -18,48 +18,6 @@ const API_CACHE_PATTERNS = [
   /\/api\/market-data/
 ];
 
-// Helper function to check if a request URL is cacheable
-function isCacheableRequest(request) {
-  try {
-    const url = new URL(request.url);
-    // Only cache HTTP and HTTPS requests
-    if (!['http:', 'https:'].includes(url.protocol)) {
-      console.log('📱 Skipping non-HTTP(S) request:', url.protocol, url.href);
-      return false;
-    }
-    // Skip chrome-extension and other browser-specific schemes
-    if (url.protocol.startsWith('chrome-extension:') || 
-        url.protocol.startsWith('moz-extension:') ||
-        url.protocol.startsWith('webkit:') ||
-        url.protocol.startsWith('data:') ||
-        url.protocol.startsWith('blob:')) {
-      console.log('📱 Skipping browser extension/special request:', url.href);
-      return false;
-    }
-    return true;
-  } catch (error) {
-    console.warn('⚠️ Invalid URL for caching:', request.url, error);
-    return false;
-  }
-}
-
-// Safe cache put operation with error handling
-async function safeCachePut(cacheName, request, response) {
-  if (!isCacheableRequest(request)) {
-    return false;
-  }
-  
-  try {
-    const cache = await caches.open(cacheName);
-    await cache.put(request, response);
-    console.log('📱 Cached successfully:', request.url);
-    return true;
-  } catch (error) {
-    console.warn('⚠️ Failed to cache request:', request.url, error.message);
-    return false;
-  }
-}
-
 // Install event - cache static assets
 self.addEventListener('install', (event) => {
   console.log('📱 Service Worker installing...');
@@ -108,30 +66,30 @@ self.addEventListener('activate', (event) => {
 // Fetch event - implement caching strategy
 self.addEventListener('fetch', (event) => {
   const { request } = event;
+  const url = new URL(request.url);
   
   // Skip non-GET requests
   if (request.method !== 'GET') {
     return;
   }
   
-  // Skip non-cacheable requests early (chrome-extension://, etc.)
-  if (!isCacheableRequest(request)) {
-    return; // Let the browser handle it normally
-  }
-  
-  const url = new URL(request.url);
-  
   // Handle API requests with network-first strategy
   if (API_CACHE_PATTERNS.some(pattern => pattern.test(url.pathname))) {
     event.respondWith(
       fetch(request)
-        .then(async response => {
+        .then(response => {
           // Clone the response for caching
           const responseClone = response.clone();
           
-          // Cache successful responses using safe caching
+          // Cache successful responses (with error handling)
           if (response.ok) {
-            await safeCachePut(OFFLINE_CACHE_NAME, request, responseClone);
+            caches.open(OFFLINE_CACHE_NAME)
+              .then(cache => {
+                cache.put(request, responseClone);
+              })
+              .catch(error => {
+                console.warn('⚠️ Failed to cache API response:', error);
+              });
           }
           
           return response;
@@ -187,7 +145,7 @@ self.addEventListener('fetch', (event) => {
         
         // Not in cache, fetch from network
         return fetch(request)
-          .then(async response => {
+          .then(response => {
             // Don't cache non-successful responses
             if (!response.ok) {
               return response;
@@ -196,8 +154,10 @@ self.addEventListener('fetch', (event) => {
             // Clone the response for caching
             const responseClone = response.clone();
             
-            // Use safe caching method
-            await safeCachePut(CACHE_NAME, request, responseClone);
+            caches.open(CACHE_NAME)
+              .then(cache => {
+                cache.put(request, responseClone);
+              });
             
             return response;
           })

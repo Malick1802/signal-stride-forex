@@ -26,23 +26,23 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
   const { user } = useAuth();
   const [stats, setStats] = useState<Stat[]>([
     { 
-      label: 'Average Accuracy', 
+      label: 'Accuracy', 
       value: '85-95%', 
-      description: 'Monthly signal accuracy rate',
+      description: 'Signal Win Rate',
       icon: TrendingUp,
       color: 'text-emerald-400'
     },
     { 
       label: 'Active Users', 
       value: '2.5K+', 
-      description: 'Traders using our platform',
+      description: 'Traders Worldwide',
       icon: Users,
       color: 'text-blue-400'
     },
     { 
-      label: 'Total Pips', 
+      label: 'Monthly Pips', 
       value: '500+', 
-      description: 'This month profit in pips',
+      description: 'Average Target',
       icon: Star,
       color: 'text-yellow-400'
     },
@@ -52,28 +52,28 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
     {
       icon: TrendingUp,
       title: 'AI-Powered Signals',
-      description: 'Advanced algorithms analyze market patterns to deliver high-precision trading signals.',
+      description: 'Advanced algorithms analyze market data to identify high-probability trading opportunities in real-time.',
       color: 'bg-emerald-500/20 text-emerald-400',
       image: aiSignalsImage
     },
     {
       icon: Clock,
-      title: 'Real-Time Mobile Alerts',
-      description: 'Get instant notifications on your mobile device whenever new trading opportunities arise.',
+      title: 'Real-Time Alerts',
+      description: 'Get instant notifications on your mobile device when new signals are available.',
       color: 'bg-blue-500/20 text-blue-400',
       image: mobileAlertsImage
     },
     {
       icon: Shield,
-      title: 'Advanced Risk Management',
-      description: 'Built-in stop-loss and take-profit levels to protect your capital and maximize profits.',
+      title: 'Risk Management',
+      description: 'Every signal includes stop-loss and take-profit levels to help manage your trading risk.',
       color: 'bg-purple-500/20 text-purple-400',
       image: riskManagementImage
     },
     {
       icon: Users,
       title: 'Expert Analysis',
-      description: 'Every signal comes with detailed market analysis and trading recommendations.',
+      description: 'Benefit from insights of experienced forex traders and market analysts.',
       color: 'bg-orange-500/20 text-orange-400',
       image: expertAnalysisImage
     }
@@ -118,7 +118,7 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
             </div>
           </div>
           
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-2">
             {user ? (
               <>
                 <Button
@@ -146,14 +146,14 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
                   size="sm"
                   className="text-white hover:text-emerald-400 hover:bg-white/10"
                 >
-                  Login
+                  Sign In
                 </Button>
                 <Button
                   onClick={handleAuthNavigation}
                   size="sm"
                   className="bg-gradient-to-r from-emerald-500 to-blue-500 hover:shadow-lg hover:shadow-emerald-500/25"
                 >
-                  Get Started Free
+                  Get Started
                 </Button>
               </>
             )}
@@ -181,11 +181,12 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
           </div>
 
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-6 leading-tight">
-            Professional Forex Trading Signals
+            AI-Powered Forex Signals
+            <span className="block text-emerald-400 mt-2">For Mobile Traders</span>
           </h1>
           
           <p className="text-lg text-gray-300 mb-8 max-w-2xl mx-auto leading-relaxed">
-            Get instant, AI-powered forex signals with precise entry points, stop-loss, and take-profit levels. Join thousands of successful traders.
+            Get high-probability forex signals with real-time notifications, advanced analysis, and expert insights - all optimized for mobile trading.
           </p>
 
           {!user ? (
@@ -194,7 +195,7 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
               size="lg"
               className="bg-gradient-to-r from-emerald-500 to-blue-500 hover:shadow-lg hover:shadow-emerald-500/25 text-lg px-8 py-4 rounded-xl backdrop-blur-sm"
             >
-              Get Started Free
+              Start Free Trial
             </Button>
           ) : (
             <Button
@@ -202,7 +203,7 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
               size="lg"
               className="bg-gradient-to-r from-emerald-500 to-blue-500 hover:shadow-lg hover:shadow-emerald-500/25 text-lg px-8 py-4 rounded-xl backdrop-blur-sm"
             >
-              Dashboard
+              Open Dashboard
             </Button>
           )}
         </div>
@@ -236,7 +237,7 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
-              Powerful Features for Professional Trading
+              Why Choose ForexAlert Pro?
             </h2>
             <p className="text-gray-300 max-w-2xl mx-auto">
               Everything you need for successful mobile forex trading in one powerful app.
@@ -292,35 +293,35 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
           <Card className="bg-gradient-to-r from-emerald-500/10 to-blue-500/10 backdrop-blur-md border-emerald-500/20 border-2">
             <CardContent className="p-8">
               <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
-                Start Trading Smarter Today
+                Ready to Start Trading?
               </h2>
               <p className="text-gray-300 mb-8 text-lg">
-                Join thousands of traders who trust ForexAlert Pro for their daily trading signals.
+                Join thousands of successful traders. Start your free trial today.
               </p>
               
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-                  {!user ? (
-                    <>
-                      <Button
-                        onClick={handleAuthNavigation}
-                        size="lg"
-                        className="bg-gradient-to-r from-emerald-500 to-blue-500 hover:shadow-lg hover:shadow-emerald-500/25 text-lg px-8 py-4 rounded-xl w-full sm:w-auto backdrop-blur-sm"
-                      >
-                        Get Started Free
-                      </Button>
-                      <div className="text-gray-400 text-sm">
-                        No credit card required • 7-day free trial
-                      </div>
-                    </>
-                  ) : (
+                {!user ? (
+                  <>
                     <Button
-                      onClick={handleDashboardNavigation}
+                      onClick={handleAuthNavigation}
                       size="lg"
                       className="bg-gradient-to-r from-emerald-500 to-blue-500 hover:shadow-lg hover:shadow-emerald-500/25 text-lg px-8 py-4 rounded-xl w-full sm:w-auto backdrop-blur-sm"
                     >
-                      Dashboard
+                      Start Free Trial
                     </Button>
-                  )}
+                    <div className="text-gray-400 text-sm">
+                      No credit card required • 7-day free trial
+                    </div>
+                  </>
+                ) : (
+                  <Button
+                    onClick={handleDashboardNavigation}
+                    size="lg"
+                    className="bg-gradient-to-r from-emerald-500 to-blue-500 hover:shadow-lg hover:shadow-emerald-500/25 text-lg px-8 py-4 rounded-xl w-full sm:w-auto backdrop-blur-sm"
+                  >
+                    Go to Dashboard
+                  </Button>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -337,7 +338,7 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
             <span className="text-lg font-bold text-white">ForexAlert Pro</span>
           </div>
           <p className="text-gray-400 text-sm">
-            © 2025 ForexAlert Pro. All rights reserved.
+            © 2024 ForexAlert Pro. Professional forex trading signals for mobile traders.
           </p>
         </div>
       </footer>
