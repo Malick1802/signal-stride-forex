@@ -74,25 +74,59 @@ serve(async (req) => {
 
     const fcmPayload = {
       registration_ids: eligibleProfiles.map(p => p.push_token),
+      priority: 'high',
+      content_available: true,
       notification: {
         title,
         body,
         icon: '/android-chrome-192x192.png',
         click_action: 'https://da46b985-2e68-44b3-90bc-922d481bf104.lovableproject.com',
+        sound: 'default',
+        badge: '1'
       },
       data: {
         ...data,
         type: notificationType,
         timestamp: new Date().toISOString(),
+        title,
+        body
       },
       android: {
+        priority: 'high',
         notification: {
           channel_id: 'forex_signals',
           priority: 'high',
+          sound: 'default',
           default_sound: true,
           default_vibrate_timings: true,
+          default_light_settings: true,
+          visibility: 1,
+          importance: 'high',
+          notification_priority: 2
         },
+        data: {
+          ...data,
+          type: notificationType,
+          timestamp: new Date().toISOString()
+        }
       },
+      apns: {
+        payload: {
+          aps: {
+            alert: {
+              title,
+              body
+            },
+            sound: 'default',
+            badge: 1,
+            'content-available': 1
+          }
+        },
+        headers: {
+          'apns-priority': '10',
+          'apns-push-type': 'alert'
+        }
+      }
     };
 
     console.log('🚀 Sending FCM request...');
