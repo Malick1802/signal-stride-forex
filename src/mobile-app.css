@@ -1,4 +1,51 @@
 
+/* Enhanced Mobile CSS for Android Optimization */
+
+/* Ensure smooth scrolling and prevent overscroll */
+html {
+  scroll-behavior: smooth;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+  overscroll-behavior: none;
+}
+
+body {
+  overscroll-behavior: none;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
+  -ms-overflow-style: -ms-autohiding-scrollbar;
+}
+
+/* Fix for Android scrolling issues */
+.overflow-auto, .overflow-y-auto {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* Better touch targets for mobile */
+button, .btn, .touch-target {
+  min-height: 44px;
+  min-width: 44px;
+  touch-action: manipulation;
+}
+
+/* Remove focus outlines on mobile */
+button:focus, input:focus, select:focus, textarea:focus {
+  outline: none;
+}
+
+/* Loading animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
 /* ForexAlert Pro Mobile App Styles */
 .mobile-app {
   /* Prevent overscroll bounce on iOS */
@@ -61,11 +108,39 @@
   }
 }
 
-/* Better button touch targets for trading */
-.mobile-app button {
-  min-height: 44px;
-  min-width: 44px;
-  touch-action: manipulation;
+/* Android optimizations */
+.android-app {
+  -webkit-overflow-scrolling: touch;
+  -webkit-transform: translate3d(0, 0, 0);
+  transform: translate3d(0, 0, 0);
+  overflow-y: auto;
+  height: 100%;
+}
+
+/* Fix scrolling issues on Android */
+body, html {
+  overflow-x: hidden;
+  overflow-y: auto;
+  height: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Ensure proper scroll behavior */
+* {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Landing page specific fixes */
+.landing-page {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Android WebView optimizations */
+.mobile-app main {
+  -webkit-overflow-scrolling: touch;
+  overflow-y: auto;
+  height: 100%;
 }
 
 /* Optimize charts for mobile */

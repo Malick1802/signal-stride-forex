@@ -16,25 +16,54 @@ try {
 
   // Step 2: Build the web app with Android config
   console.log('2️⃣ Building web application for Android...');
-  execSync('npm run build -- --config vite.config.android.ts', { stdio: 'inherit' });
-  console.log('✅ Android web build complete\n');
+  let built = false;
+  try {
+    execSync('npm run build:android', { stdio: 'inherit' });
+    built = true;
+    console.log('✅ Android web build (package script) complete\n');
+  } catch (e1) {
+    console.warn('⚠️ npm run build:android failed, trying fallback...');
+    try {
+      execSync('npm run build -- --config vite.config.android.ts', { stdio: 'inherit' });
+      built = true;
+      console.log('✅ Android web build (npm build --config) complete\n');
+    } catch (e2) {
+      console.warn('⚠️ npm run build -- --config failed, trying direct vite...');
+      execSync('npx vite build --config vite.config.android.ts', { stdio: 'inherit' });
+      built = true;
+      console.log('✅ Android web build (npx vite) complete\n');
+    }
+  }
 
   // Step 3: Copy Android-specific files
   console.log('3️⃣ Setting up Android files...');
   
-  // Copy android.html to dist as index.html for Android
-  if (fs.existsSync('android.html')) {
+  // Prefer the built android.html from Vite, then ensure index.html exists for Capacitor
+  const builtAndroidHtmlPath = path.join('dist', 'android.html');
+  const distIndexPath = path.join('dist', 'index.html');
+  if (fs.existsSync(builtAndroidHtmlPath)) {
+    fs.copyFileSync(builtAndroidHtmlPath, distIndexPath);
+    console.log('✅ Using built android.html as index.html');
+  } else if (fs.existsSync('android.html')) {
     const androidHtml = fs.readFileSync('android.html', 'utf8');
-    // Update the script path for production
+    // Fallback: Update the script path for production - match Vite's output structure
     const updatedHtml = androidHtml.replace(
       '/src/main-android.tsx',
-      '/assets/main-android.js'
+      './assets/main-android.js'
     );
-    fs.writeFileSync('dist/index.html', updatedHtml);
-    console.log('✅ Android HTML configured');
+    fs.writeFileSync(distIndexPath, updatedHtml);
+    console.log('✅ Android HTML configured (fallback)');
+  } else {
+    console.warn('⚠️ android.html not found. Ensure vite.config.android.ts input is correct.');
   }
 
-  // Ensure main-android.tsx is built
+  // Ensure assets directory exists (Vite should have created it)
+  const assetsDir = 'dist/assets';
+  if (!fs.existsSync(assetsDir)) {
+    fs.mkdirSync(assetsDir, { recursive: true });
+  }
+
+  // Quick sanity check
   if (fs.existsSync('src/main-android.tsx')) {
     console.log('✅ Android entry point ready');
   }

@@ -67,10 +67,10 @@ export const useCentralizedMarketData = (symbol: string) => {
     try {
       console.log(`🚀 [${symbol}] Fetching live data${isRetry ? ' (retry)' : ''} - Market Open`);
 
-      // Get current market state
+      // Get current market state with FastForex metadata
       const { data: marketState, error: stateError } = await supabase
         .from('centralized_market_state')
-        .select('*')
+        .select('*, fastforex_price, fastforex_timestamp, price_change_detected')
         .eq('symbol', symbol)
         .single();
 
@@ -82,16 +82,19 @@ export const useCentralizedMarketData = (symbol: string) => {
         return;
       }
 
-      // Validate data freshness - reject stale data during market hours
-      if (marketState && isDataStale(marketState.last_update, 15)) {
-        console.warn(`⚠️ [${symbol}] Data is stale, market may be transitioning`);
-        setDataSource(`Stale Data - Last Update: ${new Date(marketState.last_update).toLocaleTimeString()}`);
+      // Validate FastForex data freshness - reject stale data during market hours
+      if (marketState && isDataStale(marketState.last_update, 20)) {
+        console.warn(`⚠️ [${symbol}] FastForex data is stale, may be transitioning`);
+        setDataSource(`Stale FastForex Data - Last Update: ${new Date(marketState.last_update).toLocaleTimeString()}`);
+      } else if (marketState?.fastforex_timestamp) {
+        console.log(`✅ [${symbol}] Fresh FastForex data - Updated: ${new Date(marketState.fastforex_timestamp).toLocaleTimeString()}`);
+        setDataSource(`Live FastForex Data - Updated: ${new Date(marketState.fastforex_timestamp).toLocaleTimeString()}`);
       }
 
-      // Get recent price history
+      // Get recent price history with FastForex metadata
       const { data: priceHistory, error: historyError } = await supabase
         .from('live_price_history')
-        .select('price, timestamp')
+        .select('price, timestamp, fastforex_price, fastforex_timestamp')
         .eq('symbol', symbol)
         .order('timestamp', { ascending: false })
         .limit(200);
@@ -136,8 +139,8 @@ export const useCentralizedMarketData = (symbol: string) => {
           })
           .filter(Boolean) as PriceData[];
 
-        // Always ensure we have current price data during market hours
-        const currentPrice = parseFloat(marketState.current_price.toString());
+        // Always ensure we have current FastForex price data during market hours
+        const currentPrice = parseFloat((marketState.fastforex_price || marketState.current_price).toString());
         if (chartData.length === 0 && currentPrice && marketStatus.isOpen) {
           const now = Date.now();
           chartData.push({
@@ -151,7 +154,7 @@ export const useCentralizedMarketData = (symbol: string) => {
             price: currentPrice,
             volume: 100000
           });
-          console.log(`📊 [${symbol}] Created live fallback data point`);
+          console.log(`📊 [${symbol}] Created FastForex fallback data point: ${currentPrice}`);
         }
 
         // Enhanced change calculation - only during market hours
@@ -173,7 +176,9 @@ export const useCentralizedMarketData = (symbol: string) => {
           currentPrice,
           bid: parseFloat(marketState.bid?.toString() || '0'),
           ask: parseFloat(marketState.ask?.toString() || '0'),
-          lastUpdate: new Date(marketState.last_update).toLocaleTimeString(),
+          lastUpdate: marketState.fastforex_timestamp 
+            ? new Date(marketState.fastforex_timestamp).toLocaleTimeString()
+            : new Date(marketState.last_update).toLocaleTimeString(),
           isMarketOpen: marketStatus.isOpen,
           priceHistory: chartData,
           change24h,
@@ -182,13 +187,17 @@ export const useCentralizedMarketData = (symbol: string) => {
 
         // Update state immediately
         setMarketData(centralizedData);
-        setIsConnected(marketStatus.isOpen && !isDataStale(marketState.last_update, 10));
-        setDataSource(marketStatus.isOpen ? `Live Market Data - ${marketStatus.name}` : 'Market Closed');
+        const fastforexTimestamp = marketState.fastforex_timestamp || marketState.last_update;
+        setIsConnected(marketStatus.isOpen && !isDataStale(fastforexTimestamp, 20));
+        setDataSource(marketStatus.isOpen ? 
+          `Direct FastForex Data - ${marketStatus.name}${marketState.price_change_detected ? ' [UPDATED]' : ''}` : 
+          'Market Closed'
+        );
         setIsInitialLoad(false);
         setIsLoading(false);
         lastUpdateRef.current = Date.now();
         
-        console.log(`✅ [${symbol}] Live data updated: ${chartData.length} points, price: ${currentPrice}`);
+        console.log(`✅ [${symbol}] FastForex data updated: ${chartData.length} points, price: ${currentPrice}, change detected: ${marketState.price_change_detected}`);
       }
 
     } catch (error) {
@@ -328,9 +337,9 @@ export const useCentralizedMarketData = (symbol: string) => {
       const now = Date.now();
       const timeSinceUpdate = now - lastUpdateRef.current;
       
-      // If no updates for 2 minutes during market hours, force refresh
-      if (timeSinceUpdate > 120000) {
-        console.log(`⚠️ [${symbol}] Stale data detected during market hours, forcing refresh...`);
+      // If no FastForex updates for 30 seconds during market hours, force refresh
+      if (timeSinceUpdate > 30000) {
+        console.log(`⚠️ [${symbol}] Stale FastForex data detected during market hours, forcing refresh...`);
         fetchCentralizedData();
       }
     }, 30000);
@@ -365,7 +374,7 @@ export const useCentralizedMarketData = (symbol: string) => {
     }
 
     try {
-      console.log(`🚀 [${symbol}] Triggering market update...`);
+      console.log(`🚀 [${symbol}] Triggering FastForex market update...`);
       
       const { data, error } = await supabase.functions.invoke('centralized-market-stream');
       

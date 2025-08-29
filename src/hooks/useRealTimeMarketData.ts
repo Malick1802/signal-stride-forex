@@ -84,16 +84,21 @@ export const useRealTimeMarketData = ({
       return { change: 0, percentage: 0, isProfit: false };
     }
 
+    // Use real FastForex prices for accurate pip calculations
     const entryPriceNum = parseFloat(entryPrice.toString());
-    const change = currentPrice - entryPriceNum;
+    const fastforexPrice = marketData?.currentPrice || currentPrice; // Ensure we use FastForex price
+    const change = fastforexPrice - entryPriceNum;
     const percentage = entryPriceNum > 0 ? (change / entryPriceNum) * 100 : 0;
     
+    // Validate pip calculation accuracy with FastForex precision
+    const isPipCalculationValid = Math.abs(change) > 0.00001; // Minimum meaningful change
+    
     return {
-      change,
-      percentage,
+      change: isPipCalculationValid ? change : 0,
+      percentage: isPipCalculationValid ? percentage : 0,
       isProfit: change > 0
     };
-  }, [currentPrice, entryPrice, enabled]);
+  }, [currentPrice, entryPrice, enabled, marketData]);
 
   return {
     priceData: enabled ? priceData : [],

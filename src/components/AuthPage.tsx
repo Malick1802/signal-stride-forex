@@ -193,7 +193,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-emerald-500 transition-colors pr-12"
-                placeholder={isLogin ? "Enter your password" : "Create a password (min 6 characters)"}
+                placeholder={isLogin ? 'Enter your password' : 'Create a password (min 6 characters)'}
                 minLength={isLogin ? undefined : 6}
                 required
               />

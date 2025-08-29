@@ -84,7 +84,7 @@ const SignalOptimizationMetrics = ({
           <CardContent>
             <div className="flex items-center gap-2">
               <Badge>1:{riskRewardRatio.toFixed(1)}</Badge>
-              {riskRewardRatio < 1.5 ? (
+              {riskRewardRatio < 1.2 ? (
                 <AlertTriangle className="h-4 w-4 text-amber-500" />
               ) : (
                 <TrendingUp className="h-4 w-4 text-green-500" />

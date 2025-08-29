@@ -1,0 +1,44 @@
+{
+  "nav": {
+    "signals": "الإشارات",
+    "expired": "منتهية الصلاحية",
+    "tools": "الأدوات",
+    "test": "اختبار",
+    "profile": "الملف الشخصي",
+    "settings": "الإعدادات",
+    "logout": "تسجيل الخروج"
+  },
+  "language": {
+    "change": "تغيير اللغة",
+    "select": "اختيار اللغة",
+    "current": "اللغة الحالية"
+  },
+  "actions": {
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "close": "إغلاق",
+    "submit": "إرسال",
+    "reset": "إعادة تعيين",
+    "refresh": "تحديث",
+    "retry": "إعادة المحاولة",
+    "loading": "جاري التحميل...",
+    "error": "خطأ",
+    "success": "نجح"
+  },
+  "time": {
+    "now": "الآن",
+    "today": "اليوم",
+    "yesterday": "أمس",
+    "ago": "منذ",
+    "minutes": "دقائق",
+    "hours": "ساعات",
+    "days": "أيام"
+  },
+  "status": {
+    "active": "نشط",
+    "expired": "منتهي الصلاحية",
+    "pending": "قيد الانتظار",
+    "completed": "مكتمل",
+    "cancelled": "ملغى"
+  }
+}

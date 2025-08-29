@@ -1,0 +1,44 @@
+{
+  "nav": {
+    "signals": "信号",
+    "expired": "已过期",
+    "tools": "工具",
+    "test": "测试",
+    "profile": "个人资料",
+    "settings": "设置",
+    "logout": "退出登录"
+  },
+  "language": {
+    "change": "更改语言",
+    "select": "选择语言",
+    "current": "当前语言"
+  },
+  "actions": {
+    "save": "保存",
+    "cancel": "取消",
+    "close": "关闭",
+    "submit": "提交",
+    "reset": "重置",
+    "refresh": "刷新",
+    "retry": "重试",
+    "loading": "加载中...",
+    "error": "错误",
+    "success": "成功"
+  },
+  "time": {
+    "now": "现在",
+    "today": "今天",
+    "yesterday": "昨天",
+    "ago": "之前",
+    "minutes": "分钟",
+    "hours": "小时",
+    "days": "天"
+  },
+  "status": {
+    "active": "活跃",
+    "expired": "已过期",
+    "pending": "等待中",
+    "completed": "已完成",
+    "cancelled": "已取消"
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "hero": {
+    "title": "Signaux Forex Premium avec IA",
+    "subtitle": "Obtenez des signaux de trading alimentés par l'IA avec des alertes en temps réel et une analyse d'expert",
+    "cta": {
+      "dashboard": "Voir le Tableau de Bord",
+      "signup": "Commencer l'Essai Gratuit",
+      "login": "Se Connecter"
+    }
+  },
+  "stats": {
+    "activeUsers": {
+      "label": "Utilisateurs Actifs",
+      "description": "Traders professionnels utilisant notre plateforme"
+    },
+    "signalsGenerated": {
+      "label": "Signaux Générés",
+      "description": "Signaux de trading de haute qualité délivrés"
+    },
+    "avgAccuracy": {
+      "label": "Précision Moyenne",
+      "description": "Taux de réussite sur tous les signaux de trading"
+    },
+    "totalPips": {
+      "label": "Total des Pips Générés",
+      "description": "Potentiel de profit cumulé délivré"
+    }
+  },
+  "features": {
+    "title": "Pourquoi Choisir ForexAlert Pro ?",
+    "aiSignals": {
+      "title": "Signaux Alimentés par l'IA",
+      "description": "Des algorithmes avancés analysent les conditions du marché 24h/24 et 7j/7 pour identifier les opportunités de trading à haute probabilité avec des alertes en temps réel."
+    },
+    "expertAnalysis": {
+      "title": "Analyse d'Expert",
+      "description": "Obtenez des insights détaillés du marché et une analyse technique de notre équipe de traders professionnels et de systèmes d'IA."
+    },
+    "mobileAlerts": {
+      "title": "Alertes Mobiles",
+      "description": "Ne manquez jamais une opportunité de trading avec des notifications push instantanées sur votre appareil mobile, où que vous soyez."
+    },
+    "riskManagement": {
+      "title": "Gestion des Risques",
+      "description": "Chaque signal inclut des niveaux de stop-loss et de take-profit pour vous aider à gérer les risques et maximiser les retours potentiels."
+    }
+  },
+  "cta": {
+    "title": "Prêt à Commencer le Trading ?",
+    "description": "Rejoignez des milliers de traders à succès qui font confiance à ForexAlert Pro pour leurs signaux de trading.",
+    "button": "Commencer Maintenant"
+  },
+  "footer": {
+    "copyright": "© 2024 ForexAlert Pro. Tous droits réservés."
+  }
+}

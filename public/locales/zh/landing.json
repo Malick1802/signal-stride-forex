@@ -1,0 +1,56 @@
+{
+  "hero": {
+    "title": "高级外汇交易信号",
+    "subtitle": "获取AI驱动的交易信号，提供实时警报和专家分析",
+    "cta": {
+      "dashboard": "查看仪表板",
+      "signup": "开始免费试用",
+      "login": "登录"
+    }
+  },
+  "stats": {
+    "activeUsers": {
+      "label": "活跃用户",
+      "description": "使用我们平台的专业交易员"
+    },
+    "signalsGenerated": {
+      "label": "生成信号",
+      "description": "交付的高质量交易信号"
+    },
+    "avgAccuracy": {
+      "label": "平均准确率",
+      "description": "所有交易信号的成功率"
+    },
+    "totalPips": {
+      "label": "总生成点数",
+      "description": "交付的累积利润潜力"
+    }
+  },
+  "features": {
+    "title": "为什么选择ForexAlert Pro？",
+    "aiSignals": {
+      "title": "AI驱动信号",
+      "description": "先进算法24/7分析市场条件，通过实时警报识别高概率交易机会。"
+    },
+    "expertAnalysis": {
+      "title": "专家分析",
+      "description": "从我们的专业交易团队和AI系统获得详细的市场洞察和技术分析。"
+    },
+    "mobileAlerts": {
+      "title": "移动警报",
+      "description": "无论您身在何处，都不会错过任何交易机会，移动设备上的即时推送通知。"
+    },
+    "riskManagement": {
+      "title": "风险管理",
+      "description": "每个信号都包含止损和止盈水平，帮助您管理风险并最大化潜在回报。"
+    }
+  },
+  "cta": {
+    "title": "准备开始交易了吗？",
+    "description": "加入数千名信任ForexAlert Pro交易信号的成功交易员。",
+    "button": "立即开始"
+  },
+  "footer": {
+    "copyright": "© 2024 ForexAlert Pro. 保留所有权利。"
+  }
+}

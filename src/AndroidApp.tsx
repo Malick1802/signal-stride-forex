@@ -7,11 +7,16 @@ import { AuthProvider } from './contexts/AuthContext';
 import MobileAppWrapper from './components/MobileAppWrapper';
 import AppContent from './components/AppContent';
 import AndroidErrorBoundary from './components/AndroidErrorBoundary';
+import AndroidConnectionStatus from './components/AndroidConnectionStatus';
+import AndroidDebugPanel from './components/AndroidDebugPanel';
+import ErrorRecovery from './components/ErrorRecovery';
 import { Capacitor } from '@capacitor/core';
+import { useAppInitialization } from './hooks/useAppInitialization';
 
 // Import CSS
 import './index.css';
 import './mobile-app.css';
+import './android-scroll-fix.css';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -24,36 +29,29 @@ const queryClient = new QueryClient({
 });
 
 const AndroidApp = () => {
-  const [isReady, setIsReady] = useState(false);
   const [activeTab, setActiveTab] = useState('signals');
+  const { isInitialized, isInitializing, error, progress, currentStep, retry } = useAppInitialization();
 
-  useEffect(() => {
-    console.log('🚀 AndroidApp initializing on platform:', Capacitor.getPlatform());
-    
-    // Ultra-minimal initialization
-    const initializeApp = async () => {
-      try {
-        // Basic readiness check
-        await new Promise(resolve => setTimeout(resolve, 100));
-        setIsReady(true);
-        console.log('✅ AndroidApp ready');
-      } catch (error) {
-        console.error('❌ AndroidApp initialization error:', error);
-        setIsReady(true); // Still set ready to prevent infinite loading
-      }
-    };
+  // Show initialization screen or error recovery if needed
+  if (error) {
+    return <ErrorRecovery error={error} retry={retry} />;
+  }
 
-    initializeApp();
-  }, []);
-
-  // Simple loading screen
-  if (!isReady) {
+  if (isInitializing) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center">
-        <div className="text-center text-white">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-400 mx-auto mb-4"></div>
-          <h1 className="text-xl font-semibold">ForexAlert Pro</h1>
-          <p className="text-gray-400 mt-2">Starting Android app...</p>
+        <div className="text-center text-white space-y-4">
+          <div className="w-16 h-16 border-4 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto"></div>
+          <div>
+            <p className="text-lg font-semibold">{currentStep}</p>
+            <div className="w-64 bg-slate-700 rounded-full h-2 mt-2 mx-auto">
+              <div 
+                className="bg-blue-400 h-2 rounded-full transition-all duration-300" 
+                style={{ width: `${progress}%` }}
+              ></div>
+            </div>
+            <p className="text-sm text-slate-300 mt-1">{progress}%</p>
+          </div>
         </div>
       </div>
     );
@@ -67,6 +65,8 @@ const AndroidApp = () => {
             <MobileAppWrapper activeTab={activeTab} onTabChange={setActiveTab}>
               <AppContent activeTab={activeTab} onTabChange={setActiveTab} />
             </MobileAppWrapper>
+            <AndroidConnectionStatus />
+            {Capacitor.isNativePlatform() && <AndroidDebugPanel />}
             <Toaster />
             <Sonner />
           </HashRouter>
