@@ -49,19 +49,23 @@ const AndroidApp = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  // Simple loading screen
+  // Show immediate loading screen with platform info
   if (!isReady) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center">
-        <div className="text-center text-white">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-400 mx-auto mb-4"></div>
-          <h1 className="text-xl font-semibold">ForexAlert Pro</h1>
-          <p className="text-gray-400 mt-2">Starting Android app...</p>
-          <p className="text-emerald-400 text-sm mt-1">{syncStatus}</p>
-          {Capacitor.isNativePlatform() && (
-            <p className="text-gray-500 text-xs mt-1">
-              🔗 {isConnected ? 'Connected' : 'Reconnecting...'}
-            </p>
+        <div className="text-center text-white space-y-4">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-emerald-400 mx-auto"></div>
+          <h1 className="text-2xl font-bold">ForexAlert Pro</h1>
+          <div className="space-y-2">
+            <p className="text-gray-300">Platform: {Capacitor.getPlatform()}</p>
+            <p className="text-gray-300">Native: {Capacitor.isNativePlatform() ? '✅ Yes' : '❌ No'}</p>
+            <p className="text-emerald-400 text-sm">{syncStatus}</p>
+          </div>
+          {!Capacitor.isNativePlatform() && (
+            <div className="mt-4 p-4 bg-red-900/50 rounded-lg border border-red-700">
+              <p className="text-red-200 text-sm font-semibold">⚠️ Warning: Running in web mode</p>
+              <p className="text-red-300 text-xs mt-1">This should be a native Android app</p>
+            </div>
           )}
         </div>
       </div>
