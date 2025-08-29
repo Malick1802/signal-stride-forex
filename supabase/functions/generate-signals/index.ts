@@ -54,15 +54,15 @@ interface PricePoint {
   price: number;
 }
 
-// Configuration: tier flow and thresholds
+// Configuration: ENHANCED tier flow and significantly higher thresholds for premium signal quality
 const CONFIG = {
   sequentialTiers: true,
   allowTier3Cap: false,
-  tier1PassThreshold: 50,
-  tier2EscalationQuality: 60,
-  tier2EscalationConfidence: 55,
-  finalQualityThreshold: 70,
-  finalConfidenceThreshold: 60,
+  tier1PassThreshold: 75,        // Increased from 50 → 75 (50% higher)
+  tier2EscalationQuality: 80,    // Increased from 60 → 80 (33% higher)
+  tier2EscalationConfidence: 75, // Increased from 55 → 75 (36% higher) 
+  finalQualityThreshold: 85,     // Increased from 70 → 85 (21% higher)
+  finalConfidenceThreshold: 80,  // Increased from 60 → 80 (33% higher)
 } as const;
 
 serve(async (req) => {
