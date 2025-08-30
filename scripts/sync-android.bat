@@ -9,7 +9,7 @@ if %errorlevel% neq 0 (
     call npm run build -- --config vite.config.android.ts
     if %errorlevel% neq 0 (
         echo Alternative build failed, trying direct vite build...
-        call npx vite build --config vite.config.android.ts
+        call npx vite build --config vite.config.android.ts --mode production
         if %errorlevel% neq 0 (
             echo All build attempts failed!
             pause
@@ -19,7 +19,16 @@ if %errorlevel% neq 0 (
 )
 
 echo.
-echo Step 2: Syncing with Capacitor Android platform...
+echo Step 2: Copying android.html to dist/index.html...
+if exist "android.html" (
+    copy "android.html" "dist\index.html" >nul
+    echo ✅ Android HTML copied successfully
+) else (
+    echo ⚠️ android.html not found, using existing dist/index.html
+)
+
+echo.
+echo Step 3: Syncing with Capacitor Android platform...
 call npx cap sync android
 if %errorlevel% neq 0 (
     echo Capacitor sync failed!
