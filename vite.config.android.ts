@@ -22,7 +22,7 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       input: path.resolve(__dirname, 'android.html'),
       output: {
-        entryFileNames: 'assets/main-android.js',
+        entryFileNames: 'main.js', // Simple filename for Capacitor
         chunkFileNames: 'assets/[name]-[hash].js',
         assetFileNames: 'assets/[name]-[hash].[ext]'
       }

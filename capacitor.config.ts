@@ -45,13 +45,7 @@ const config: CapacitorConfig = {
   ios: {
     contentInset: 'automatic'
   },
-  // Add server configuration for better error handling
-  server: {
-    // Only enable for dev builds, remove for production
-    androidScheme: 'https',
-    // Handle network errors gracefully
-    errorPath: '/error.html'
-  }
+  // Server config removed for pure native mode - no web server routing
 };
 
 export default config;
