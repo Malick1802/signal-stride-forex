@@ -5,7 +5,7 @@ import path from "path";
 // Android-specific Vite configuration
 export default defineConfig(({ mode }) => ({
   // Ensure relative asset paths for Capacitor (file://)
-  base: './',
+  base: '',
   // Android-specific cache to avoid conflicts
   cacheDir: `node_modules/.vite-cache-android`,
   plugins: [react()],
@@ -22,7 +22,7 @@ export default defineConfig(({ mode }) => ({
     rollupOptions: {
       input: path.resolve(__dirname, 'android.html'),
       output: {
-        entryFileNames: 'main.js',
+        entryFileNames: 'main.js', // Simple filename for Capacitor
         chunkFileNames: 'assets/[name]-[hash].js',
         assetFileNames: 'assets/[name]-[hash].[ext]'
       }
