@@ -1299,6 +1299,39 @@ export type Database = {
         }
         Relationships: []
       }
+      push_notification_jobs: {
+        Row: {
+          created_at: string
+          error: string | null
+          id: string
+          job_type: string
+          payload: Json
+          processed_at: string | null
+          retry_count: number
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          job_type: string
+          payload: Json
+          processed_at?: string | null
+          retry_count?: number
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          error?: string | null
+          id?: string
+          job_type?: string
+          payload?: Json
+          processed_at?: string | null
+          retry_count?: number
+          status?: string
+        }
+        Relationships: []
+      }
       real_trades: {
         Row: {
           created_at: string | null
@@ -2129,6 +2162,10 @@ export type Database = {
           subscription_amount: number
           subscription_id?: string
         }
+        Returns: undefined
+      }
+      enqueue_push_job: {
+        Args: { job_type: string; payload: Json }
         Returns: undefined
       }
       generate_affiliate_code: {
