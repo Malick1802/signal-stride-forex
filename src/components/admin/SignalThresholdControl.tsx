@@ -3,11 +3,7 @@ import { Settings, TrendingUp, TrendingDown, Activity, RefreshCw, AlertCircle, C
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-
-// Create a custom typed interface for our RPC calls
-interface SupabaseRPC {
-  rpc: (functionName: string, params?: Record<string, any>) => Promise<{ data: any; error: any }>;
-}
+import { supabase } from '@/integrations/supabase/client';
 
 type ThresholdLevel = 'LOW' | 'MEDIUM' | 'HIGH';
 
@@ -54,16 +50,20 @@ const SignalThresholdControl = () => {
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // Import supabase client dynamically to avoid type conflicts
-  const getSupabaseClient = async () => {
-    const { supabase } = await import('@/integrations/supabase/client');
-    return supabase as unknown as SupabaseRPC;
+  // Helper function to safely call RPC functions
+  const callRpcFunction = async (functionName: string, params: Record<string, any> = {}) => {
+    try {
+      // @ts-ignore - Bypass TypeScript for RPC calls
+      return await supabase.rpc(functionName, params);
+    } catch (error) {
+      console.error(`RPC call failed for ${functionName}:`, error);
+      throw error;
+    }
   };
 
   const fetchCurrentThreshold = async () => {
     try {
-      const client = await getSupabaseClient();
-      const { data, error } = await client.rpc('get_app_setting', { 
+      const { data, error } = await callRpcFunction('get_app_setting', { 
         setting_name: 'signal_threshold_level' 
       });
 
@@ -87,8 +87,7 @@ const SignalThresholdControl = () => {
     
     setIsUpdating(true);
     try {
-      const client = await getSupabaseClient();
-      const { error } = await client.rpc('update_app_setting', { 
+      const { error } = await callRpcFunction('update_app_setting', { 
         setting_name: 'signal_threshold_level',
         setting_value: newLevel
       });
