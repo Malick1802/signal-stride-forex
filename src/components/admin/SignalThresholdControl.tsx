@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, TrendingUp, TrendingDown, Activity, RefreshCw, AlertCircle, CheckCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -53,11 +52,9 @@ const SignalThresholdControl = () => {
 
   const fetchCurrentThreshold = async () => {
     try {
-      const { data, error } = await supabase
-        .from('app_settings')
-        .select('signal_threshold_level, updated_at')
-        .eq('singleton', true)
-        .single();
+      const { data, error } = await supabase.rpc('get_app_setting', { 
+        setting_name: 'signal_threshold_level' 
+      });
 
       if (error) {
         console.error('Error fetching threshold:', error);
@@ -65,8 +62,7 @@ const SignalThresholdControl = () => {
       }
 
       if (data) {
-        setCurrentLevel(data.signal_threshold_level as ThresholdLevel);
-        setLastUpdated(data.updated_at);
+        setCurrentLevel((data as string) as ThresholdLevel || 'HIGH');
       }
     } catch (error) {
       console.error('Error fetching threshold:', error);
@@ -80,15 +76,10 @@ const SignalThresholdControl = () => {
     
     setIsUpdating(true);
     try {
-      const { error } = await supabase
-        .from('app_settings')
-        .upsert({
-          singleton: true,
-          signal_threshold_level: newLevel,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: 'singleton'
-        });
+      const { error } = await supabase.rpc('update_app_setting', { 
+        setting_name: 'signal_threshold_level',
+        setting_value: newLevel
+      });
 
       if (error) {
         throw error;
