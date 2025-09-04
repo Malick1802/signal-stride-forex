@@ -62,7 +62,7 @@ const SignalThresholdControl = () => {
       }
 
       if (data) {
-        setCurrentLevel((data as string) as ThresholdLevel || 'HIGH');
+        setCurrentLevel((data as ThresholdLevel) || 'HIGH');
       }
     } catch (error) {
       console.error('Error fetching threshold:', error);
