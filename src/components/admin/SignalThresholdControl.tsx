@@ -3,7 +3,11 @@ import { Settings, TrendingUp, TrendingDown, Activity, RefreshCw, AlertCircle, C
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
+
+// Create a custom typed interface for our RPC calls
+interface SupabaseRPC {
+  rpc: (functionName: string, params?: Record<string, any>) => Promise<{ data: any; error: any }>;
+}
 
 type ThresholdLevel = 'LOW' | 'MEDIUM' | 'HIGH';
 
@@ -50,11 +54,16 @@ const SignalThresholdControl = () => {
   const [lastUpdated, setLastUpdated] = useState<string | null>(null);
   const { toast } = useToast();
 
+  // Import supabase client dynamically to avoid type conflicts
+  const getSupabaseClient = async () => {
+    const { supabase } = await import('@/integrations/supabase/client');
+    return supabase as unknown as SupabaseRPC;
+  };
+
   const fetchCurrentThreshold = async () => {
     try {
-      // Define the function call with explicit typing
-      const rpcCall = supabase.rpc as any;
-      const { data, error } = await rpcCall('get_app_setting', { 
+      const client = await getSupabaseClient();
+      const { data, error } = await client.rpc('get_app_setting', { 
         setting_name: 'signal_threshold_level' 
       });
 
@@ -78,9 +87,8 @@ const SignalThresholdControl = () => {
     
     setIsUpdating(true);
     try {
-      // Define the function call with explicit typing
-      const rpcCall = supabase.rpc as any;
-      const { error } = await rpcCall('update_app_setting', { 
+      const client = await getSupabaseClient();
+      const { error } = await client.rpc('update_app_setting', { 
         setting_name: 'signal_threshold_level',
         setting_value: newLevel
       });
