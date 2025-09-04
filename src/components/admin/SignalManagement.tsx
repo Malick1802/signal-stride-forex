@@ -4,6 +4,7 @@ import { Activity, TrendingUp, Target, Clock } from 'lucide-react';
 import { useSignalManagement } from '@/hooks/useSignalManagement';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import SignalThresholdControl from './SignalThresholdControl';
 
 const SignalManagement = () => {
   const { signalStats, statsLoading, recentSignals, signalsLoading } = useSignalManagement();
@@ -42,6 +43,9 @@ const SignalManagement = () => {
 
   return (
     <div className="space-y-6">
+      {/* Signal Threshold Control */}
+      <SignalThresholdControl />
+
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
