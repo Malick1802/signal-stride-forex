@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
@@ -30,10 +29,10 @@ serve(async (req) => {
 
     console.log(`📱 Sending push notification: ${title} to ${userIds?.length || 'all'} users`);
 
-    // Get active users with push tokens (include signal_complete flag)
+    // Get active users with push tokens
     let query = supabase
       .from('profiles')
-      .select('push_token, device_type, push_enabled, push_new_signals, push_targets_hit, push_stop_loss, push_signal_complete, push_market_updates')
+      .select('push_token, device_type, push_enabled, push_new_signals, push_targets_hit, push_stop_loss, push_market_updates')
       .not('push_token', 'is', null)
       .eq('push_enabled', true);
 
@@ -55,8 +54,8 @@ serve(async (req) => {
       });
     }
 
-    // Filter users based on notification preferences (add signal_complete)
-    const eligibleProfiles = profiles.filter((profile: any) => {
+    // Filter users based on notification preferences
+    const eligibleProfiles = profiles.filter(profile => {
       switch (notificationType) {
         case 'new_signal':
           return profile.push_new_signals;
@@ -64,8 +63,6 @@ serve(async (req) => {
           return profile.push_targets_hit;
         case 'stop_loss':
           return profile.push_stop_loss;
-        case 'signal_complete':
-          return profile.push_signal_complete;
         case 'market_update':
           return profile.push_market_updates;
         default:
@@ -76,60 +73,26 @@ serve(async (req) => {
     console.log(`📱 Found ${eligibleProfiles.length} eligible users for ${notificationType} notifications`);
 
     const fcmPayload = {
-      registration_ids: eligibleProfiles.map((p: any) => p.push_token),
-      priority: 'high',
-      content_available: true,
+      registration_ids: eligibleProfiles.map(p => p.push_token),
       notification: {
         title,
         body,
         icon: '/android-chrome-192x192.png',
         click_action: 'https://da46b985-2e68-44b3-90bc-922d481bf104.lovableproject.com',
-        sound: 'default',
-        badge: '1'
       },
       data: {
         ...data,
         type: notificationType,
         timestamp: new Date().toISOString(),
-        title,
-        body
       },
       android: {
-        priority: 'high',
         notification: {
-          channel_id: notificationType === 'market_update' ? 'market_updates' : notificationType === 'signal_complete' ? 'trade_alerts' : 'forex_signals',
+          channel_id: 'forex_signals',
           priority: 'high',
-          sound: 'default',
           default_sound: true,
           default_vibrate_timings: true,
-          default_light_settings: true,
-          visibility: 1,
-          importance: 'high',
-          notification_priority: 2
         },
-        data: {
-          ...data,
-          type: notificationType,
-          timestamp: new Date().toISOString()
-        }
       },
-      apns: {
-        payload: {
-          aps: {
-            alert: {
-              title,
-              body
-            },
-            sound: 'default',
-            badge: 1,
-            'content-available': 1
-          }
-        },
-        headers: {
-          'apns-priority': '10',
-          'apns-push-type': 'alert'
-        }
-      }
     };
 
     console.log('🚀 Sending FCM request...');
@@ -148,7 +111,7 @@ serve(async (req) => {
 
     // Handle invalid tokens
     if (fcmResult.results) {
-      const invalidTokens: string[] = [];
+      const invalidTokens = [];
       fcmResult.results.forEach((result: any, index: number) => {
         if (result.error === 'InvalidRegistration' || result.error === 'NotRegistered') {
           invalidTokens.push(eligibleProfiles[index].push_token);
@@ -179,7 +142,7 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('❌ Error in send-push-notification:', error);
-    return new Response(JSON.stringify({ error: (error as Error).message }), {
+    return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

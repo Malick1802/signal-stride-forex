@@ -3,13 +3,16 @@ import React from 'react';
 import { Copy, CircleCheck, Target } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { calculateStopLossPips } from '@/utils/pipCalculator';
-import { TakeProfit } from '@/utils/signalTargetMapping';
+import { calculateStopLossPips, calculateTakeProfitPips } from '@/utils/pipCalculator';
 
 interface SignalPriceDetailsProps {
   entryPrice: string;
   stopLoss: string;
-  takeProfits: TakeProfit[];
+  takeProfit1: string;
+  takeProfit2: string;
+  takeProfit3: string;
+  takeProfit4: string;
+  takeProfit5: string;
   currentPrice: number | null;
   signalType: string;
   targetsHit: number[];
@@ -19,7 +22,11 @@ interface SignalPriceDetailsProps {
 const SignalPriceDetails = ({
   entryPrice,
   stopLoss,
-  takeProfits,
+  takeProfit1,
+  takeProfit2,
+  takeProfit3,
+  takeProfit4,
+  takeProfit5,
   currentPrice,
   signalType,
   targetsHit,
@@ -92,6 +99,39 @@ const SignalPriceDetails = ({
   // Calculate pip distances from entry price
   const entryPriceFloat = parseFloat(entryPrice);
   const stopLossPips = calculateStopLossPips(entryPriceFloat, parseFloat(stopLoss), pair);
+  
+  const takeProfits = [
+    { 
+      level: 1, 
+      price: takeProfit1, 
+      label: "Target 1",
+      pips: calculateTakeProfitPips(entryPriceFloat, parseFloat(takeProfit1), pair)
+    },
+    { 
+      level: 2, 
+      price: takeProfit2, 
+      label: "Target 2",
+      pips: calculateTakeProfitPips(entryPriceFloat, parseFloat(takeProfit2), pair)
+    },
+    { 
+      level: 3, 
+      price: takeProfit3, 
+      label: "Target 3",
+      pips: calculateTakeProfitPips(entryPriceFloat, parseFloat(takeProfit3), pair)
+    },
+    { 
+      level: 4, 
+      price: takeProfit4, 
+      label: "Target 4",
+      pips: calculateTakeProfitPips(entryPriceFloat, parseFloat(takeProfit4), pair)
+    },
+    { 
+      level: 5, 
+      price: takeProfit5, 
+      label: "Target 5",
+      pips: calculateTakeProfitPips(entryPriceFloat, parseFloat(takeProfit5), pair)
+    }
+  ];
 
   return (
     <div className="p-4 space-y-3">

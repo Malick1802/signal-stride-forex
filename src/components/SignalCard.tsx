@@ -2,7 +2,6 @@
 import React, { useState, memo } from 'react';
 import { validateSignal, createSafeSignal } from '@/utils/signalValidation';
 import { useRealTimeMarketData } from '@/hooks/useRealTimeMarketData';
-import { mapTakeProfitsFromProps } from '@/utils/signalTargetMapping';
 import SignalHeader from './SignalHeader';
 import RealTimeChart from './RealTimeChart';
 import RealTimePriceDisplay from './RealTimePriceDisplay';
@@ -175,15 +174,11 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
       <SignalPriceDetails
         entryPrice={safeSignal.entryPrice}
         stopLoss={safeSignal.stopLoss}
-        takeProfits={mapTakeProfitsFromProps(
-          safeSignal.takeProfit1,
-          safeSignal.takeProfit2,
-          safeSignal.takeProfit3,
-          safeSignal.entryPrice,
-          safeSignal.pair,
-          signal?.takeProfit4,
-          signal?.takeProfit5
-        )}
+        takeProfit1={safeSignal.takeProfit1}
+        takeProfit2={safeSignal.takeProfit2}
+        takeProfit3={safeSignal.takeProfit3}
+        takeProfit4={signal?.takeProfit4 || '0.00000'}
+        takeProfit5={signal?.takeProfit5 || '0.00000'}
         currentPrice={currentPrice}
         signalType={safeSignal.type}
         targetsHit={signal?.targetsHit || []}

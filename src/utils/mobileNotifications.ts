@@ -34,7 +34,6 @@ export class MobileNotificationManager {
             id: this.generateSafeId(),
             schedule: { at: new Date(Date.now() + 1000) }, // 1 second from now
             sound: 'default',
-            smallIcon: 'ic_stat_your_custom_icon',
             attachments: undefined,
             actionTypeId: '',
             extra: {
@@ -56,56 +55,39 @@ export class MobileNotificationManager {
    * Create notification channels for Android
    */
   static async setupNotificationChannels(): Promise<void> {
-    if (!Capacitor.isNativePlatform()) {
-      console.log('📱 Skipping notification channels - not native platform');
+    if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') {
       return;
     }
 
     try {
       const { LocalNotifications } = await import('@capacitor/local-notifications');
       
-      // High priority signal channel with custom sound
       await LocalNotifications.createChannel({
-        id: 'forex_signals',
+        id: 'forex-signals',
         name: 'Forex Trading Signals',
-        description: 'Critical trading signals and market updates',
-        sound: 'beep.wav',
-        importance: 5,
-        visibility: 1,
-        lights: true,
-        vibration: true,
-        lightColor: '#FF0000'
-      });
-
-      // Trade alerts with different sound
-      await LocalNotifications.createChannel({
-        id: 'trade_alerts', 
-        name: 'Trade Alerts',
-        description: 'Target hits, stop losses, and trade outcomes',
-        sound: 'notification.wav',
-        importance: 5,
-        visibility: 1,
-        lights: true,
-        vibration: true,
-        lightColor: '#00FF00'
-      });
-
-      // Market updates channel
-      await LocalNotifications.createChannel({
-        id: 'market_updates',
-        name: 'Market Updates', 
-        description: 'General market news and updates',
+        description: 'New trading signals and market updates',
         sound: 'default',
-        importance: 4,
+        importance: 5,
         visibility: 1,
         lights: true,
         vibration: true
       });
 
-      console.log('✅ Enhanced notification channels created with custom sounds');
+      await LocalNotifications.createChannel({
+        id: 'trade-alerts',
+        name: 'Trade Alerts',
+        description: 'Target hits, stop losses, and trade updates',
+        sound: 'default',
+        importance: 5,
+        visibility: 1,
+        lights: true,
+        vibration: true
+      });
+
+      console.log('✅ Notification channels created');
     } catch (error) {
       console.error('❌ Failed to create notification channels:', error);
-      // Don't throw - app should work without channels
+      throw error;
     }
   }
 
@@ -114,57 +96,24 @@ export class MobileNotificationManager {
    */
   static async initializeListeners(): Promise<void> {
     if (!Capacitor.isNativePlatform()) {
-      console.log('📱 Skipping notification listeners - not native platform');
       return;
     }
 
     try {
-      const [localNotifications, pushNotifications] = await Promise.all([
-        import('@capacitor/local-notifications'),
-        import('@capacitor/push-notifications')
-      ]);
+      const { LocalNotifications } = await import('@capacitor/local-notifications');
       
-      const { LocalNotifications } = localNotifications;
-      const { PushNotifications } = pushNotifications;
-      
-      // Local notification listeners
+      // Listen for notification taps
       LocalNotifications.addListener('localNotificationReceived', (notification) => {
         console.log('📱 Local notification received:', notification);
       });
 
       LocalNotifications.addListener('localNotificationActionPerformed', (notificationAction) => {
         console.log('📱 Local notification action performed:', notificationAction);
-        // Handle navigation based on notification data
-        if (notificationAction.notification.extra?.route) {
-          console.log('🔄 Navigating to:', notificationAction.notification.extra.route);
-        }
       });
 
-      // Push notification listeners for background handling
-      PushNotifications.addListener('pushNotificationReceived', (notification) => {
-        console.log('📱 Push notification received in foreground:', notification);
-        
-        // Show local notification when app is in foreground
-        this.showInstantSignalNotification(
-          notification.title || 'New Alert',
-          notification.body || 'You have a new notification',
-          notification.data
-        );
-      });
-
-      PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
-        console.log('📱 Push notification action performed:', notification);
-        
-        // Handle deep linking and navigation
-        if (notification.notification.data?.route) {
-          console.log('🔄 Navigating to route:', notification.notification.data.route);
-        }
-      });
-
-      console.log('✅ Enhanced notification listeners initialized');
+      console.log('✅ Local notification listeners initialized');
     } catch (error) {
       console.error('❌ Failed to initialize notification listeners:', error);
-      // Don't throw - app should work without listeners
     }
   }
 
@@ -276,22 +225,19 @@ export class MobileNotificationManager {
             body,
             id: this.generateSafeId(),
             schedule: { at: new Date(Date.now() + 100) },
-            sound: 'beep.wav',
-            smallIcon: 'ic_stat_your_custom_icon',
+            sound: 'default',
             attachments: undefined,
             actionTypeId: '',
-            channelId: 'forex_signals',
             extra: {
               ...data,
               source: 'signal',
-              type: 'instant',
-              route: '/dashboard'
+              type: 'instant'
             }
           }
         ]
       });
 
-      console.log('✅ Enhanced instant signal notification scheduled');
+      console.log('✅ Instant signal notification scheduled');
     } catch (error) {
       console.error('❌ Failed to show instant signal notification:', error);
     }
@@ -315,22 +261,19 @@ export class MobileNotificationManager {
             body,
             id: this.generateSafeId(),
             schedule: { at: new Date(Date.now() + 100) },
-            sound: 'notification.wav',
-            smallIcon: 'ic_stat_your_custom_icon',
+            sound: 'default',
             attachments: undefined,
             actionTypeId: '',
-            channelId: 'trade_alerts',
             extra: {
               ...data,
               source: 'signal',
-              type: 'outcome',
-              route: '/dashboard'
+              type: 'outcome'
             }
           }
         ]
       });
 
-      console.log('✅ Enhanced signal outcome notification scheduled');
+      console.log('✅ Signal outcome notification scheduled');
     } catch (error) {
       console.error('❌ Failed to show signal outcome notification:', error);
     }

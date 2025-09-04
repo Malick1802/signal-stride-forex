@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🌊 FastForex direct market stream (15s refresh cycle)...');
+    console.log('🌊 FastForex baseline market stream (60s refresh cycle)...');
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -26,7 +26,7 @@ serve(async (req) => {
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // EXPANDED currency pairs for centralized streaming - Now supports all 27 pairs
+    // EXPANDED currency pairs for centralized streaming - Now supports all 26 pairs
     const streamingPairs = [
       // Major pairs
       'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
@@ -37,7 +37,7 @@ serve(async (req) => {
       'NZDCHF', 'NZDJPY', 'AUDJPY', 'CHFJPY', 'EURCAD', 'GBPAUD'
     ];
 
-    console.log(`📊 Fetching fresh FastForex data for ${streamingPairs.length} pairs (15s cycle)`);
+    console.log(`📊 Fetching fresh FastForex data for ${streamingPairs.length} pairs (60s cycle)`);
 
     // Check market hours
     const now = new Date();
@@ -153,7 +153,7 @@ serve(async (req) => {
           const bid = parseFloat((price - sessionSpread/2).toFixed(pair.includes('JPY') ? 3 : 5));
           const ask = parseFloat((price + sessionSpread/2).toFixed(pair.includes('JPY') ? 3 : 5));
 
-          // Prepare fresh market state update with FastForex metadata
+          // Prepare fresh market state update
           marketUpdates.push({
             symbol: pair,
             current_price: price,
@@ -161,22 +161,17 @@ serve(async (req) => {
             ask,
             last_update: timestamp,
             is_market_open: true,
-            source: `fastforex-direct-${session.name.toLowerCase()}`,
-            fastforex_price: price,
-            fastforex_timestamp: timestamp,
-            price_change_detected: true
+            source: `fastforex-fresh-${session.name.toLowerCase()}`
           });
 
-          // Prepare fresh price history entry with FastForex metadata
+          // Prepare fresh price history entry
           priceHistory.push({
             symbol: pair,
             price,
             bid,
             ask,
             timestamp,
-            source: `fastforex-direct-${session.name.toLowerCase()}`,
-            fastforex_price: price,
-            fastforex_timestamp: timestamp
+            source: `fastforex-fresh-${session.name.toLowerCase()}`
           });
           
           console.log(`📈 ${pair}: ${price} (fresh FastForex, ${session.name} session)`);
@@ -226,18 +221,17 @@ serve(async (req) => {
       }
     }
 
-    console.log('✅ Direct FastForex market stream update completed (15s cycle)');
+    console.log('✅ Fresh FastForex market stream update completed (60s cycle)');
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: `Direct FastForex data updated for ${marketUpdates.length} pairs`,
+        message: `Fresh FastForex data updated for ${marketUpdates.length} pairs`,
         pairs: marketUpdates.map(u => u.symbol),
         timestamp,
-        source: 'fastforex-direct-15s',
+        source: 'fastforex-fresh-60s',
         isMarketOpen: true,
-        session: getMarketSession().name,
-        changeDetectionEnabled: true
+        session: getMarketSession().name
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -248,7 +242,7 @@ serve(async (req) => {
       JSON.stringify({ 
         error: error.message,
         timestamp: new Date().toISOString(),
-        source: 'fastforex-direct-error'
+        source: 'fastforex-error'
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

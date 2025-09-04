@@ -1,21 +1,22 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.8';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-github-run-id, x-enhanced-generation',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-github-run-id, x-optimized-mode',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
 interface MarketData {
   symbol: string;
-  current_price: number;
-  last_update: string;
+  price: number;
+  timestamp: string;
   session: string;
 }
 
-interface ProfessionalSignalAnalysis {
+interface EnhancedAISignalAnalysis {
   recommendation: 'BUY' | 'SELL' | 'HOLD';
   confidence: number;
   entryPrice: number;
@@ -27,9 +28,6 @@ interface ProfessionalSignalAnalysis {
   marketRegime: string;
   sessionAnalysis: string;
   qualityScore: number;
-  tier: 1 | 2 | 3;
-  tokensUsed: number;
-  cost: number;
 }
 
 interface SignalData {
@@ -43,10 +41,6 @@ interface SignalData {
   analysisText: string;
   technicalIndicators: any;
   chartData: Array<{ time: number; price: number }>;
-  professionalGrade: boolean;
-  tierLevel: number;
-  validationScore: number;
-  qualityConfirmations: string[];
 }
 
 interface PricePoint {
@@ -54,46 +48,15 @@ interface PricePoint {
   price: number;
 }
 
-// 3-Level Threshold Configuration
-type ThresholdLevel = 'LOW' | 'MEDIUM' | 'HIGH';
-
-interface ThresholdConfig {
-  tier1PassThreshold: number;
-  tier2EscalationQuality: number;
-  tier2EscalationConfidence: number;
-  finalQualityThreshold: number;
-  finalConfidenceThreshold: number;
-}
-
-const THRESHOLD_CONFIGS: Record<ThresholdLevel, ThresholdConfig> = {
-  LOW: {
-    tier1PassThreshold: 40,        // Easy entry - more signals
-    tier2EscalationQuality: 50,    // Lower quality gate
-    tier2EscalationConfidence: 45, // Lower confidence gate
-    finalQualityThreshold: 55,     // More lenient final gate
-    finalConfidenceThreshold: 50,  // More lenient confidence
-  },
-  MEDIUM: {
-    tier1PassThreshold: 60,        // Moderate entry
-    tier2EscalationQuality: 65,    // Moderate quality gate
-    tier2EscalationConfidence: 60, // Moderate confidence gate
-    finalQualityThreshold: 70,     // Balanced final gate
-    finalConfidenceThreshold: 65,  // Balanced confidence
-  },
-  HIGH: {
-    tier1PassThreshold: 75,        // Current strict settings
-    tier2EscalationQuality: 80,    
-    tier2EscalationConfidence: 75, 
-    finalQualityThreshold: 85,     
-    finalConfidenceThreshold: 80,  
-  }
-};
-
 serve(async (req) => {
-  console.log(`🚀 PROFESSIONAL 3-Tier Signal Generation Started - ${new Date().toISOString()}`);
+  console.log(`🚀 ENHANCED AI-powered signal generation called - Method: ${req.method}`);
   
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    console.log('📋 CORS preflight request handled');
+    return new Response(null, { 
+      headers: corsHeaders,
+      status: 200 
+    });
   }
 
   try {
@@ -101,50 +64,73 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
 
+    console.log(`🔧 Environment check - Supabase: ${!!supabaseUrl}, OpenAI: ${!!openAIApiKey}`);
+
     if (!supabaseUrl || !supabaseKey || !openAIApiKey) {
-      throw new Error('Missing required environment variables');
+      throw new Error('Missing required environment variables (Supabase or OpenAI API key)');
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Get current threshold level from app settings
-    const { data: settingsData } = await supabase
-      .from('app_settings')
-      .select('signal_threshold_level')
-      .single();
-
-    const thresholdLevel: ThresholdLevel = settingsData?.signal_threshold_level || 'HIGH';
-    const CONFIG = THRESHOLD_CONFIGS[thresholdLevel];
-    
-    console.log(`🎯 Using ${thresholdLevel} threshold configuration`);
-
-    // Parse request parameters
+    // Parse request body
     let requestBody: any = {};
     try {
       const bodyText = await req.text();
-      if (bodyText) requestBody = JSON.parse(bodyText);
+      if (bodyText) {
+        requestBody = JSON.parse(bodyText);
+      }
     } catch (e) {
-      console.log('📝 Using default parameters');
+      console.log('📝 No request body or invalid JSON, using defaults');
     }
 
     const { 
+      test = false, 
+      skipGeneration = false, 
       force = false,
+      lowThreshold = false,
       debug = false,
-      maxSignals = 8,
-      fullAnalysis = true
+      trigger = 'manual',
+      run_id,
+      attempt = 1,
+      optimized = false,
+      maxAnalyzedPairs = 27, // Analyze ALL pairs by default - Tier 1 is FREE
+      fullCoverage = true
     } = requestBody;
 
-    console.log(`🎯 Professional Mode - Force: ${force}, Debug: ${debug}, Max Signals: ${maxSignals}`);
+    console.log(`🎯 Request params - Test: ${test}, Skip: ${skipGeneration}, Force: ${force}, Trigger: ${trigger}, ENHANCED AI-powered: true`);
+
+    // Test mode
+    if (test && skipGeneration) {
+      console.log('✅ Test mode - ENHANCED AI-powered function is responsive');
+      return new Response(JSON.stringify({ 
+        status: 'success', 
+        message: 'ENHANCED AI-powered edge function is working',
+        timestamp: new Date().toISOString(),
+        environment: {
+          supabase: !!supabaseUrl,
+          openai: !!openAIApiKey
+        }
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200
+      });
+    }
 
     // Get current market data
-    console.log('📊 Fetching centralized market data...');
+    console.log('📊 Fetching current market data...');
     const { data: marketData, error: marketError } = await supabase
       .from('centralized_market_state')
       .select('*')
-      .order('last_update', { ascending: false });
+      .order('last_update', { ascending: false })
+      .limit(30);
 
-    if (marketError || !marketData || marketData.length === 0) {
-      console.log('⚠️ No market data available');
+    if (marketError) {
+      console.error('❌ Market data fetch error:', marketError);
+      throw new Error(`Market data fetch failed: ${marketError.message}`);
+    }
+
+    if (!marketData || marketData.length === 0) {
+      console.log('⚠️ No market data available, cannot generate ENHANCED AI signals');
       return new Response(JSON.stringify({
         error: 'No market data available',
         stats: { signalsGenerated: 0, reason: 'no_market_data' }
@@ -154,233 +140,193 @@ serve(async (req) => {
       });
     }
 
-    console.log(`📈 Loaded market data for ${marketData.length} pairs`);
+    console.log(`📈 Market data loaded: ${marketData.length} currency pairs`);
 
-    // Check existing signals
-    const { data: existingSignals } = await supabase
+    // Check existing active signals
+    const { data: existingSignals, error: signalsError } = await supabase
       .from('trading_signals')
-      .select('symbol, type, confidence')
+      .select('id, symbol, type, confidence')
       .eq('status', 'active')
       .eq('is_centralized', true)
       .is('user_id', null);
 
-    const currentSignalCount = existingSignals?.length || 0;
-    const maxTotalSignals = 15;
-    const maxNewSignals = Math.min(maxSignals, maxTotalSignals - currentSignalCount);
-
-    console.log(`📋 Signal Status - Current: ${currentSignalCount}/${maxTotalSignals}, Can generate: ${maxNewSignals}`);
-
-    if (maxNewSignals <= 0 && !force) {
-      return new Response(JSON.stringify({
-        status: 'skipped',
-        reason: 'signal_limit_reached',
-        stats: { signalsGenerated: 0, currentSignals: currentSignalCount }
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+    if (signalsError) {
+      console.error('❌ Existing signals check error:', signalsError);
+      throw new Error(`Signals check failed: ${signalsError.message}`);
     }
 
-    // Clear existing signals if in force mode
+    const currentSignalCount = existingSignals?.length || 0;
+    const maxSignals = 20; // Increased back to 20 for full coverage
+    const maxNewSignals = fullCoverage ? Math.min(12, maxSignals - currentSignalCount) : Math.min(8, maxSignals - currentSignalCount); // Higher signal generation capacity
+
+    console.log(`📋 ENHANCED AI Signal status - Current: ${currentSignalCount}/${maxSignals}, Can generate: ${maxNewSignals}, ENHANCED AI-powered mode`);
+
+    // Clear existing signals when in force mode (similar to test mode)
+    let updatedCurrentSignalCount = currentSignalCount;
+    let updatedMaxNewSignals = maxNewSignals;
+    
     if (force && existingSignals && existingSignals.length > 0) {
-      console.log(`🔧 FORCE MODE: Clearing ${existingSignals.length} existing signals`);
-      await supabase
+      console.log(`🔧 FORCE MODE: Clearing ${existingSignals.length} existing signals before generation`);
+      
+      const { error: deleteError } = await supabase
         .from('trading_signals')
         .delete()
         .eq('status', 'active')
         .eq('is_centralized', true)
         .is('user_id', null);
+      
+      if (deleteError) {
+        console.error('❌ Error clearing existing signals:', deleteError);
+      } else {
+        console.log('✅ Successfully cleared existing signals for force generation');
+        
+        // Reset signal count after clearing
+        updatedCurrentSignalCount = 0;
+        updatedMaxNewSignals = Math.min(8, maxSignals);
+        console.log(`🔧 FORCE MODE: Updated status - Current: ${updatedCurrentSignalCount}/${maxSignals}, Can generate: ${updatedMaxNewSignals}`);
+      }
     }
 
-    // Professional 3-Tier Analysis Pipeline
+    if (updatedMaxNewSignals <= 0 && !force) {
+      console.log('⚠️ Signal limit reached, skipping ENHANCED AI generation');
+      return new Response(JSON.stringify({
+        status: 'skipped',
+        reason: 'signal_limit_reached',
+        stats: {
+          signalsGenerated: 0,
+          totalActiveSignals: updatedCurrentSignalCount,
+          signalLimit: maxSignals,
+          maxNewSignalsPerRun: optimized ? 4 : 6
+        }
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200
+      });
+    }
+
+    // Generate ENHANCED AI-powered signals
     const startTime = Date.now();
     const generatedSignals: SignalData[] = [];
-    const analysisStats = {
-      tier1Analyzed: 0,
-      tier1Passed: 0,
-      tier2Analyzed: 0,
-      tier2Passed: 0,
-      tier3Analyzed: 0,
-      tier3Passed: 0,
-      totalCost: 0,
-      totalTokens: 0,
-      thresholdLevel
-    };
+    const errors: string[] = [];
 
-    // Major pairs get priority for Tier 3 analysis
-    const majorPairs = ['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD'];
+    // Major currency pairs (prioritized for ENHANCED AI analysis)
+    const majorPairs = ['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD'];
     const availablePairs = marketData
       .filter(d => d.symbol && d.current_price > 0)
-      .filter(d => !existingSignals?.some(s => s.symbol === d.symbol));
+      .map(d => d.symbol)
+      .filter(symbol => !existingSignals?.some(s => s.symbol === symbol));
 
-    // Professional pair prioritization algorithm
-    const pairsWithScores = availablePairs.map(pair => {
-      const isMajor = majorPairs.includes(pair.symbol);
-      const sessionAnalysis = analyzeCurrentSession();
-      const isSessionOptimal = sessionAnalysis.recommendedPairs.includes(pair.symbol);
-      const shouldAvoid = sessionAnalysis.avoidPairs.includes(pair.symbol);
+    // Quality-First Full Coverage: analyze all pairs with intelligent prioritization
+    const pairsWithScores = availablePairs.map(symbol => {
+      const pair = marketData.find(d => d.symbol === symbol);
+      if (!pair) return { symbol, score: 0 };
       
-      let score = 0;
+      // Enhanced scoring algorithm for quality prioritization
+      const recentData = marketData.filter(d => d.symbol === symbol).slice(-20);
+      if (recentData.length < 5) return { symbol, score: 0 };
       
-      // Major pair bonus (40 points)
-      if (isMajor) score += 40;
+      const prices = recentData.map(d => d.current_price);
+      const high = Math.max(...prices);
+      const low = Math.min(...prices);
+      const range = (high - low) / pair.current_price;
+      const momentum = (prices[prices.length - 1] - prices[0]) / prices[0];
       
-      // Session optimization (30 points)
-      if (isSessionOptimal) score += 30;
-      if (shouldAvoid) score -= 20;
+      // Enhanced scoring: volatility + momentum + major pair bonus
+      const volatilityScore = Math.abs(range) * 1000;
+      const momentumScore = Math.abs(momentum) * 500;
+      const majorPairBonus = majorPairs.includes(symbol) ? 200 : 0;
+      const score = volatilityScore + momentumScore + majorPairBonus;
       
-      // Price action scoring (30 points maximum)
-      try {
-        const priceHistory = [pair.current_price]; // Would get actual history in production
-        const volatility = Math.abs(pair.current_price - (pair.current_price * 0.999)) / pair.current_price;
-        score += Math.min(volatility * 10000, 30);
-      } catch (e) {
-        // Use default scoring if price history unavailable
-        score += 15;
-      }
-      
-      return { ...pair, analysisScore: Math.max(score, 0) };
+      return { symbol, score };
     });
 
-    // Sort by professional score - analyze all pairs but prioritize quality
-    const prioritizedPairs = pairsWithScores
-      .sort((a, b) => b.analysisScore - a.analysisScore);
+    // Sort by enhanced score - analyze all pairs unless limited
+    const allSortedPairs = pairsWithScores
+      .sort((a, b) => b.score - a.score)
+      .map(p => p.symbol);
+    
+    const pairsToAnalyze = fullCoverage ? allSortedPairs : allSortedPairs.slice(0, maxAnalyzedPairs);
 
-    console.log(`🔥 PROFESSIONAL MODE: Analyzing ${prioritizedPairs.length} pairs with 3-tier system (${thresholdLevel} thresholds)`);
+    // Prioritize major pairs first for better quality signals
+    const prioritizedPairs = [
+      ...pairsToAnalyze.filter(symbol => majorPairs.includes(symbol)),
+      ...pairsToAnalyze.filter(symbol => !majorPairs.includes(symbol))
+    ];
 
-    // 3-Tier Professional Analysis Pipeline
-    for (let i = 0; i < prioritizedPairs.length && generatedSignals.length < maxNewSignals; i++) {
-      const pair = prioritizedPairs[i];
+    console.log(`🔥 FULL COVERAGE MODE: Analyzing ALL ${prioritizedPairs.length}/${availablePairs.length} pairs (Tier 1 FREE, only top scorers get expensive analysis)`);
+
+    // Intelligent batching with progressive delays for rate limit management
+    const batchSize = 1; // Sequential processing for maximum reliability
+    for (let i = 0; i < prioritizedPairs.length && generatedSignals.length < updatedMaxNewSignals; i += batchSize) {
+      const batch = prioritizedPairs.slice(i, i + batchSize);
       
-      try {
-        console.log(`🎯 [${i + 1}/${prioritizedPairs.length}] Professional analysis: ${pair.symbol} (Score: ${Math.round(pair.analysisScore)})`);
-        
-        // Get historical data for comprehensive analysis
-        const historicalData = await getEnhancedHistoricalData(supabase, pair.symbol);
-        if (!historicalData || historicalData.length < 100) {
-          console.log(`⚠️ Insufficient data for ${pair.symbol}`);
-          continue;
-        }
+      // Sequential processing with intelligent delays
+      for (const symbol of batch) {
+        if (generatedSignals.length >= updatedMaxNewSignals) return;
 
-        // TIER 1: FREE Professional Local Pre-screening
-        const tier1Analysis = await performTier1Analysis(pair, historicalData);
-        analysisStats.tier1Analyzed++;
-        
-        console.log(`🔍 TIER 1: ${pair.symbol} - Score: ${tier1Analysis.score}/100 (Pass: ${CONFIG.tier1PassThreshold}+)`);
-        
-        if (tier1Analysis.score < CONFIG.tier1PassThreshold) {
-          console.log(`❌ TIER 1: ${pair.symbol} failed pre-screening (${tier1Analysis.score}/100)`);
-          continue;
-        }
-        
-        analysisStats.tier1Passed++;
-        
-        // Sequential routing: T1 -> T2 -> (optional) T3
-        let finalAnalysis: ProfessionalSignalAnalysis | null = null;
+        try {
+          const pair = marketData.find(d => d.symbol === symbol);
+          if (!pair || !pair.current_price) continue;
 
-        // TIER 2: Always run after Tier 1 pass
-        const t2Analysis = await performTier2Analysis(openAIApiKey, pair, historicalData, tier1Analysis);
-        analysisStats.tier2Analyzed++;
-        let escalateToTier3 = false;
-        if (t2Analysis) {
-          // Track costs for Tier 2
-          analysisStats.totalTokens += t2Analysis.tokensUsed;
-          analysisStats.totalCost += t2Analysis.cost;
+          console.log(`🤖 ENHANCED AI analyzing ${symbol} - Price: ${pair.current_price} (${i + 1}/${prioritizedPairs.length})`);
 
-          if ((t2Analysis.qualityScore ?? 0) >= CONFIG.tier2EscalationQuality && (t2Analysis.confidence ?? 0) >= CONFIG.tier2EscalationConfidence) {
-            analysisStats.tier2Passed++;
-            escalateToTier3 = true;
+          // Get historical price data with extended history
+          const historicalData = await getHistoricalPriceData(supabase, symbol);
+          if (!historicalData || historicalData.length < 100) {
+            console.log(`⚠️ Insufficient historical data for ${symbol}: ${historicalData?.length || 0} points`);
+            continue;
           }
-        }
 
-        if (escalateToTier3) {
-          console.log(`💎 ESCALATE: ${pair.symbol} → TIER 3 (from Tier 2 thresholds)`);
-          const t3 = await performTier3Analysis(openAIApiKey, pair, historicalData, tier1Analysis);
-          analysisStats.tier3Analyzed++;
-          if (t3 && t3.qualityScore >= 65) {
-            analysisStats.tier3Passed++;
+          // Generate HYBRID TIER AI analysis with cost optimization
+          const aiAnalysis = await generateHybridTierAnalysis(openAIApiKey, pair, historicalData, lowThreshold, force);
+          
+          // Optimized quality thresholds for natural signal generation (ALL pairs in Tier 1)
+          const qualityThreshold = force ? 35 : (lowThreshold ? 40 : 45); // Slightly lowered for better coverage
+          const confidenceThreshold = force ? 40 : (lowThreshold ? 45 : 50); // Slightly lowered for more signals
+          
+          if (!aiAnalysis || aiAnalysis.recommendation === 'HOLD' || aiAnalysis.qualityScore < qualityThreshold) {
+            console.log(`🤖 ${symbol} AI recommendation: ${aiAnalysis?.recommendation || 'HOLD'} - Quality: ${aiAnalysis?.qualityScore || 0}/${qualityThreshold} - No signal generated`);
+            continue;
           }
-          if (t3) {
-            // Track costs for Tier 3
-            analysisStats.totalTokens += t3.tokensUsed;
-            analysisStats.totalCost += t3.cost;
-            // attach Tier 2 audit for later
-            (t3 as any)._t2 = t2Analysis || null;
-          }
-          finalAnalysis = t3;
-        } else {
-          console.log(`💰 Tier 2 did not meet escalation thresholds for ${pair.symbol}`);
-          finalAnalysis = t2Analysis; // Not published; used for logging only
-        }
 
-        // Costs are accounted per-tier (T2/T3) above to avoid double-counting
+          console.log(`🤖 ${symbol} AI recommendation: ${aiAnalysis.recommendation} (${aiAnalysis.confidence}% confidence, Quality: ${aiAnalysis.qualityScore}/100)`);
 
-        // Enforce Tier 3 + strict gates before publishing
-        const finalQualityThreshold = CONFIG.finalQualityThreshold;
-        const finalConfidenceThreshold = CONFIG.finalConfidenceThreshold;
-        const prices = historicalData.map(p => p.price);
+          const signal = await convertEnhancedAIAnalysisToSignal(pair, aiAnalysis, historicalData, lowThreshold);
 
-        if (finalAnalysis && finalAnalysis.tier === 3 && finalAnalysis.recommendation !== 'HOLD' &&
-            finalAnalysis.qualityScore >= finalQualityThreshold &&
-            finalAnalysis.confidence >= finalConfidenceThreshold) {
-          // Evaluate publish gates
-          const gates = evaluatePublishGates({
-            prices,
-            symbol: pair.symbol,
-            direction: finalAnalysis.recommendation,
-            entryPrice: finalAnalysis.entryPrice,
-            stopLoss: finalAnalysis.stopLoss,
-            tier1Confirmations: tier1Analysis.confirmations
-          });
-
-          if (gates.passed) {
-            const signal = await convertProfessionalAnalysisToSignal(pair, finalAnalysis, historicalData);
-            if (signal) {
-              // Attach audit for DB insert
-              (signal as any)._audit = {
-                t1_score: tier1Analysis.score,
-                t1_confirmations: tier1Analysis.confirmations,
-                t2_quality: (finalAnalysis as any)?._t2?.qualityScore ?? null,
-                t2_confidence: (finalAnalysis as any)?._t2?.confidence ?? null,
-                t3_quality: finalAnalysis.qualityScore,
-                t3_confidence: finalAnalysis.confidence,
-                indicator_checklist: gates.checklist,
-                gates_passed: true,
-                gate_fail_reasons: [],
-                final_quality: finalAnalysis.qualityScore,
-                final_confidence: finalAnalysis.confidence
-              };
-              generatedSignals.push(signal);
-              console.log(`✅ PROFESSIONAL SIGNAL (Tier 3, gates passed): ${signal.type} ${pair.symbol} (Q:${finalAnalysis.qualityScore}, C:${finalAnalysis.confidence}%)`);
-            }
+          // Enhanced quality filter for premium signals
+          if (signal && signal.confidence >= confidenceThreshold && aiAnalysis.qualityScore >= qualityThreshold) {
+            generatedSignals.push(signal);
+            console.log(`✅ QUALITY SIGNAL: ${signal.type} ${symbol} (${signal.confidence}% confidence, ${aiAnalysis.qualityScore}/100 quality)`);
           } else {
-            console.log(`🛑 Gates failed for ${pair.symbol}: ${gates.reasons.join('; ')}`);
+            console.log(`❌ ${symbol} below quality standards (C:${signal?.confidence || 0}/${confidenceThreshold}%, Q:${aiAnalysis.qualityScore}/${qualityThreshold})`);
           }
-        } else if (finalAnalysis && finalAnalysis.tier === 2) {
-          console.log(`🛑 ${pair.symbol} Tier 2 is pre-qualification only. Not publishing (Q:${finalAnalysis.qualityScore}/${finalQualityThreshold}, C:${finalAnalysis.confidence}/${finalConfidenceThreshold})`);
-        } else {
-          console.log(`🛑 ${pair.symbol} - ${finalAnalysis?.recommendation || 'HOLD'} (Q:${finalAnalysis?.qualityScore || 0}/${finalQualityThreshold}, C:${finalAnalysis?.confidence || 0}/${finalConfidenceThreshold})`);
+        } catch (error) {
+          console.error(`❌ Error analyzing ${symbol}:`, error);
+          errors.push(`${symbol}: ${error.message}`);
+          
+          // Rate limit handling with exponential backoff
+          if (error.message.includes('rate limit')) {
+            console.log(`⏱️ Rate limit detected, implementing 15-second backoff...`);
+            await new Promise(resolve => setTimeout(resolve, 15000));
+          }
         }
-
-      } catch (error) {
-        console.error(`❌ Error analyzing ${pair.symbol}:`, error);
         
-        // Rate limit handling
-        if (error.message?.includes('rate limit')) {
-          console.log(`⏱️ Rate limit detected - 20s backoff...`);
-          await new Promise(resolve => setTimeout(resolve, 20000));
+        // Progressive delay between pairs to manage rate limits
+        const delayMs = i < 5 ? 8000 : i < 15 ? 12000 : 16000; // Longer delays for later pairs
+        if (i + 1 < prioritizedPairs.length) {
+          console.log(`⏱️ Intelligent delay: ${delayMs/1000}s before next analysis...`);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
         }
       }
-      
-      // Professional pacing between analyses
-      if (i + 1 < prioritizedPairs.length && generatedSignals.length < maxNewSignals) {
-        const delayMs = 8000 + (i * 1000); // Progressive delays
-        console.log(`⏱️ Professional pacing: ${delayMs/1000}s...`);
-        await new Promise(resolve => setTimeout(resolve, delayMs));
-      }
+
     }
 
-    // Save professional signals to database
+    console.log(`🤖 ENHANCED AI signal generation complete - Generated: ${generatedSignals.length}, Errors: ${errors.length}`);
+
+    // Save ENHANCED AI-generated signals to database
     let savedCount = 0;
+    const signalDistribution = { newBuySignals: 0, newSellSignals: 0 };
+
     for (const signal of generatedSignals) {
       try {
         const { error: insertError } = await supabase
@@ -395,69 +341,65 @@ serve(async (req) => {
             confidence: signal.confidence,
             analysis_text: signal.analysisText,
             chart_data: signal.chartData,
-            professional_grade: signal.professionalGrade,
-            tier_level: signal.tierLevel,
-            validation_score: signal.validationScore,
-            quality_confirmations: signal.qualityConfirmations,
-            // New audit fields
-            t1_score: (signal as any)._audit?.t1_score ?? null,
-            t1_confirmations: (signal as any)._audit?.t1_confirmations ?? null,
-            t2_quality: (signal as any)._audit?.t2_quality ?? null,
-            t2_confidence: (signal as any)._audit?.t2_confidence ?? null,
-            t3_quality: (signal as any)._audit?.t3_quality ?? null,
-            t3_confidence: (signal as any)._audit?.t3_confidence ?? null,
-            indicator_checklist: (signal as any)._audit?.indicator_checklist ?? null,
-            gates_passed: (signal as any)._audit?.gates_passed ?? false,
-            gate_fail_reasons: (signal as any)._audit?.gate_fail_reasons ?? null,
-            final_quality: (signal as any)._audit?.final_quality ?? null,
-            final_confidence: (signal as any)._audit?.final_confidence ?? null,
             status: 'active',
             is_centralized: true,
             user_id: null,
-            market_regime: 'trending', // Would be determined by analysis
-            volatility_profile: 'normal'
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
           });
 
-        if (!insertError) {
+        if (insertError) {
+          console.error(`❌ Failed to save ENHANCED AI signal for ${signal.symbol}:`, insertError);
+          errors.push(`Save ${signal.symbol}: ${insertError.message}`);
+        } else {
           savedCount++;
-          console.log(`💾 Saved PROFESSIONAL ${signal.type} signal: ${signal.symbol}`);
+          if (signal.type === 'BUY') signalDistribution.newBuySignals++;
+          else signalDistribution.newSellSignals++;
+          console.log(`💾 Saved HIGH-QUALITY AI ${signal.type} signal for ${signal.symbol}`);
         }
       } catch (error) {
-        console.error(`❌ Save error for ${signal.symbol}:`, error);
+        console.error(`❌ Database error for ${signal.symbol}:`, error);
+        errors.push(`DB ${signal.symbol}: ${error.message}`);
       }
     }
 
     const executionTime = Date.now() - startTime;
-    
-    console.log(`✅ PROFESSIONAL GENERATION COMPLETE:`);
-    console.log(`   📊 Signals Generated: ${savedCount}/${generatedSignals.length}`);
-    console.log(`   🎯 Tier 1: ${analysisStats.tier1Passed}/${analysisStats.tier1Analyzed} passed`);
-    console.log(`   💰 Tier 2: ${analysisStats.tier2Passed}/${analysisStats.tier2Analyzed} passed`);
-    console.log(`   💎 Tier 3: ${analysisStats.tier3Passed}/${analysisStats.tier3Analyzed} passed`);
-    console.log(`   💵 Total Cost: $${analysisStats.totalCost.toFixed(4)}`);
-    console.log(`   ⏱️ Execution Time: ${executionTime}ms`);
-    console.log(`   🎚️ Threshold Level: ${thresholdLevel}`);
+    const finalActiveCount = updatedCurrentSignalCount + savedCount;
 
-    return new Response(JSON.stringify({
+    console.log(`✅ ENHANCED AI generation complete - Saved: ${savedCount}/${generatedSignals.length}, Total active: ${finalActiveCount}/${maxSignals}, Time: ${executionTime}ms`);
+
+    const response = {
       status: 'success',
       stats: {
         signalsGenerated: savedCount,
-        totalAnalyzed: prioritizedPairs.length,
+        totalGenerated: generatedSignals.length,
+        totalActiveSignals: finalActiveCount,
+        signalLimit: maxSignals,
         executionTime: `${executionTime}ms`,
-        tierStats: analysisStats,
-        professionalGrade: true,
-        thresholdLevel
-      }
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        signalDistribution,
+        maxNewSignalsPerRun: optimized ? 4 : 6,
+        enhancedAI: true,
+        qualityFiltered: true,
+        minimumQualityScore: force ? 35 : (lowThreshold ? 40 : 45),
+        concurrentLimit: batchSize,
+        errors: errors.length > 0 ? errors.slice(0, 3) : undefined
+      },
+      trigger,
+      timestamp: new Date().toISOString()
+    };
+
+    return new Response(JSON.stringify(response), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200
     });
 
   } catch (error) {
-    console.error('❌ PROFESSIONAL GENERATION ERROR:', error);
+    console.error('❌ Critical error in ENHANCED AI signal generation:', error);
     
     return new Response(JSON.stringify({
       error: error.message,
       status: 'error',
+      timestamp: new Date().toISOString(),
       stats: { signalsGenerated: 0 }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -466,130 +408,728 @@ serve(async (req) => {
   }
 });
 
-// Get enhanced historical data with multi-timeframe support
-async function getEnhancedHistoricalData(supabase: any, symbol: string): Promise<PricePoint[] | null> {
+// Get historical price data from database with extended history
+async function getHistoricalPriceData(supabase: any, symbol: string): Promise<PricePoint[] | null> {
   try {
-    // First try to get from multi-timeframe data (preferred)
-    const { data: mtData, error: mtError } = await supabase
-      .from('multi_timeframe_data')
-      .select('timestamp, close_price as price')
-      .eq('symbol', symbol)
-      .eq('timeframe', '1H')
-      .order('timestamp', { ascending: true })
-      .limit(200);
-    
-    if (!mtError && mtData && mtData.length >= 50) {
-      console.log(`📊 Using multi-timeframe data for ${symbol}: ${mtData.length} points`);
-      return mtData.map((point: any) => ({
-        timestamp: new Date(point.timestamp).getTime(),
-        price: parseFloat(point.price)
-      }));
-    }
-    
-    // Fallback to live price history
     const { data, error } = await supabase
       .from('live_price_history')
       .select('timestamp, price')
       .eq('symbol', symbol)
       .order('timestamp', { ascending: true })
-      .limit(200);
-    
-    if (error || !data || data.length < 20) {
-      console.log(`⚠️ Insufficient historical data for ${symbol}: ${data?.length || 0} points`);
+      .limit(500); // Increased data points for better analysis
+
+    if (error) {
+      console.error(`Error fetching historical data for ${symbol}:`, error);
       return null;
     }
-    
+
+    if (!data || data.length < 100) {
+      console.log(`Insufficient historical data for ${symbol}: ${data?.length || 0} points`);
+      return null;
+    }
+
     return data.map((point: any) => ({
       timestamp: new Date(point.timestamp).getTime(),
       price: parseFloat(point.price)
     }));
-    
   } catch (error) {
-    console.error(`❌ Error fetching historical data for ${symbol}:`, error);
+    console.error(`Error in getHistoricalPriceData for ${symbol}:`, error);
     return null;
   }
 }
 
-// Placeholder functions for the rest of the implementation
-// (These would be the same as in the original file)
-function analyzeCurrentSession() {
-  return {
-    recommendedPairs: ['EURUSD', 'GBPUSD', 'USDJPY'],
-    avoidPairs: []
-  };
+// HYBRID TIER ANALYSIS SYSTEM - Smart Cost Optimization with Quality Maintenance
+async function generateHybridTierAnalysis(
+  openAIApiKey: string,
+  pair: any,
+  historicalData: PricePoint[],
+  lowThreshold: boolean = false,
+  forceMode: boolean = false
+): Promise<EnhancedAISignalAnalysis | null> {
+  try {
+    const symbol = pair.symbol;
+    const currentPrice = pair.current_price;
+    
+    // TIER 1: LOCAL PRE-SCREENING (FREE)
+    console.log(`🔍 TIER 1: Local pre-screening for ${symbol}...`);
+    
+    const recentPrices = historicalData.slice(-100);
+    const extendedPrices = historicalData.slice(-200);
+    
+    // Technical analysis calculations
+    const highPrice = Math.max(...recentPrices.map(p => p.price));
+    const lowPrice = Math.min(...recentPrices.map(p => p.price));
+    const priceRange = highPrice - lowPrice;
+    const currentPositionInRange = ((currentPrice - lowPrice) / priceRange * 100).toFixed(1);
+    
+    // Volatility analysis
+    const atr = calculateATR(recentPrices);
+    const volatilityRatio = atr / currentPrice;
+    
+    // Trend analysis
+    const trendStrength = calculateTrendStrength(recentPrices);
+    const marketRegime = detectMarketRegime(recentPrices, atr);
+    
+    // Session analysis
+    const sessionAnalysis = getCurrentSessionAnalysis();
+    
+    // Economic calendar context (simplified)
+    const economicContext = getEconomicContext(symbol);
+    
+    // Helper functions for pip calculations
+    const isJPYPair = (symbol: string): boolean => symbol.includes('JPY');
+    const getPipValue = (symbol: string): number => isJPYPair(symbol) ? 0.01 : 0.0001;
+    const minStopLossPips = 30;
+    const minTakeProfitPips = 30;
+    
+    // TIER 1: Local Quality Pre-Screening
+    const tier1Score = calculateLocalQualityScore(symbol, currentPrice, recentPrices, atr, volatilityRatio, trendStrength, marketRegime, sessionAnalysis);
+    
+    if (!forceMode && tier1Score < 30) {
+      console.log(`❌ TIER 1: ${symbol} failed local pre-screening (score: ${tier1Score}/100)`);
+      return { recommendation: 'HOLD' as const, confidence: 30, entryPrice: currentPrice, stopLoss: 0, takeProfits: [], reasoning: 'Failed local pre-screening', technicalFactors: [], riskAssessment: 'High', marketRegime, sessionAnalysis: sessionAnalysis.session, qualityScore: tier1Score };
+    }
+    
+    console.log(`✅ TIER 1: ${symbol} passed local pre-screening (score: ${tier1Score}/100)`);
+    
+    // DYNAMIC TIER ROUTING based on pair priority and market conditions
+    const tierRouting = determineTierRouting(symbol, sessionAnalysis, tier1Score, forceMode, lowThreshold);
+    console.log(`🎯 ROUTING: ${symbol} → ${tierRouting.tier} (${tierRouting.reason})`);
+    
+    if (tierRouting.tier === 'TIER2') {
+      // TIER 2: GPT-4o-mini Quality Assessment (Low Cost)
+      return await executeTier2Analysis(openAIApiKey, symbol, currentPrice, recentPrices, atr, trendStrength, marketRegime, sessionAnalysis, tier1Score, forceMode, lowThreshold);
+    } else {
+      // TIER 3: GPT-4.1 Premium Analysis (High Quality) 
+      return await executeTier3Analysis(openAIApiKey, symbol, currentPrice, recentPrices, atr, trendStrength, marketRegime, sessionAnalysis, tier1Score, forceMode, lowThreshold);
+    }
+    
+  } catch (error) {
+    console.error(`❌ Error in HYBRID TIER analysis for ${pair.symbol}:`, error);
+    return null;
+  }
 }
 
-async function performTier1Analysis(pair: any, historicalData: PricePoint[]) {
-  // Simplified for brevity - would contain full analysis logic
-  return {
-    score: Math.floor(Math.random() * 100),
-    confirmations: ['Technical confirmation 1', 'Technical confirmation 2']
-  };
+// TIER 1: Local Quality Pre-Screening (FREE)
+function calculateLocalQualityScore(
+  symbol: string, 
+  currentPrice: number, 
+  recentPrices: any[], 
+  atr: number, 
+  volatilityRatio: number, 
+  trendStrength: string, 
+  marketRegime: string, 
+  sessionAnalysis: any
+): number {
+  let score = 0;
+  
+  // Volatility scoring (0-25 points)
+  if (volatilityRatio > 0.001 && volatilityRatio < 0.02) score += 25;
+  else if (volatilityRatio > 0.0005 && volatilityRatio < 0.025) score += 15;
+  else score += 5;
+  
+  // Trend strength scoring (0-25 points)
+  if (trendStrength.includes('Strong')) score += 25;
+  else if (trendStrength.includes('Moderate')) score += 20;
+  else if (trendStrength.includes('Weak')) score += 10;
+  
+  // Market regime scoring (0-20 points)
+  if (marketRegime === 'Trending') score += 20;
+  else if (marketRegime === 'Moderately Volatile') score += 15;
+  else if (marketRegime === 'Ranging') score += 10;
+  
+  // Session scoring (0-20 points)
+  if (sessionAnalysis.recommendation === 'Excellent') score += 20;
+  else if (sessionAnalysis.recommendation === 'Favorable') score += 15;
+  else if (sessionAnalysis.recommendation === 'Good') score += 10;
+  else score += 5;
+  
+  // Major pair bonus (0-10 points)
+  const majorPairs = ['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD'];
+  if (majorPairs.includes(symbol)) score += 10;
+  
+  return Math.min(score, 100);
 }
 
-async function performTier2Analysis(apiKey: string, pair: any, historicalData: PricePoint[], tier1: any) {
-  // Simplified for brevity - would contain full AI analysis
-  return {
-    recommendation: 'BUY' as const,
-    confidence: Math.floor(Math.random() * 100),
-    qualityScore: Math.floor(Math.random() * 100),
-    entryPrice: pair.current_price,
-    stopLoss: pair.current_price * 0.99,
-    takeProfits: [pair.current_price * 1.01, pair.current_price * 1.02],
-    reasoning: 'AI analysis reasoning',
-    technicalFactors: [],
-    riskAssessment: 'Moderate risk',
-    marketRegime: 'Trending',
-    sessionAnalysis: 'Favorable session',
-    tier: 2,
-    tokensUsed: 1000,
-    cost: 0.002
-  };
+// DYNAMIC TIER ROUTING
+function determineTierRouting(
+  symbol: string, 
+  sessionAnalysis: any, 
+  tier1Score: number, 
+  forceMode: boolean, 
+  lowThreshold: boolean
+): { tier: 'TIER2' | 'TIER3', reason: string } {
+  
+  // Major pairs get premium analysis during optimal sessions
+  const majorPairs = ['EURUSD', 'GBPUSD', 'USDJPY', 'EURGBP'];
+  const mediumPairs = ['USDCAD', 'AUDUSD', 'NZDUSD', 'USDCHF'];
+  
+  // Force mode always uses premium
+  if (forceMode) {
+    return { tier: 'TIER3', reason: 'Force mode - premium analysis' };
+  }
+  
+  // High-scoring pairs during excellent sessions get premium
+  if (tier1Score >= 70 && sessionAnalysis.recommendation === 'Excellent') {
+    return { tier: 'TIER3', reason: 'High score + excellent session' };
+  }
+  
+  // Major pairs during favorable sessions get premium
+  if (majorPairs.includes(symbol) && ['Excellent', 'Favorable'].includes(sessionAnalysis.recommendation)) {
+    return { tier: 'TIER3', reason: 'Major pair + favorable session' };
+  }
+  
+  // Medium priority pairs with high scores get premium
+  if (mediumPairs.includes(symbol) && tier1Score >= 75) {
+    return { tier: 'TIER3', reason: 'Medium pair + high score' };
+  }
+  
+  // Everything else goes to cost-effective tier 2
+  return { tier: 'TIER2', reason: 'Cost optimization' };
 }
 
-async function performTier3Analysis(apiKey: string, pair: any, historicalData: PricePoint[], tier1: any) {
-  // Simplified for brevity - would contain full premium AI analysis
-  return {
-    recommendation: 'BUY' as const,
-    confidence: Math.floor(Math.random() * 100),
-    qualityScore: Math.floor(Math.random() * 100),
-    entryPrice: pair.current_price,
-    stopLoss: pair.current_price * 0.99,
-    takeProfits: [pair.current_price * 1.01, pair.current_price * 1.02],
-    reasoning: 'Premium AI analysis reasoning',
-    technicalFactors: [],
-    riskAssessment: 'Low risk',
-    marketRegime: 'Trending',
-    sessionAnalysis: 'Optimal session',
-    tier: 3,
-    tokensUsed: 2000,
-    cost: 0.01
-  };
+// TIER 2: GPT-4o-mini Quality Assessment (Low Cost)
+async function executeTier2Analysis(
+  openAIApiKey: string,
+  symbol: string,
+  currentPrice: number,
+  recentPrices: any[],
+  atr: number,
+  trendStrength: string,
+  marketRegime: string,
+  sessionAnalysis: any,
+  tier1Score: number,
+  forceMode: boolean,
+  lowThreshold: boolean
+): Promise<EnhancedAISignalAnalysis | null> {
+  
+  console.log(`💰 TIER 2: Cost-effective analysis for ${symbol}...`);
+  
+  const passThreshold = forceMode ? 35 : (lowThreshold ? 40 : 45);
+  const passConfidence = 60;
+  const escalateConfidence = 65;
+  
+  const optimizedPrompt = `${symbol} @ ${currentPrice}
+Trend: ${trendStrength}, Regime: ${marketRegime}
+Session: ${sessionAnalysis.session} (${sessionAnalysis.recommendation})
+Local Score: ${tier1Score}/100
+Pass Threshold: ${passThreshold}
+
+Decision Rules:
+- If qualityScore >= ${passThreshold} OR confidence >= ${passConfidence}, DO NOT return "HOLD". Choose "BUY" or "SELL" with valid SL/TP.
+- Return "HOLD" only when qualityScore < ${passThreshold} or setup is invalid/unclear.
+
+Respond with a single JSON object only:
+{"recommendation": "BUY"|"SELL"|"HOLD", "confidence": [45-85], "entryPrice": ${currentPrice}, "stopLoss": [level], "takeProfits": [2-3 levels], "reasoning": "brief", "qualityScore": [0-100]}`;
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${openAIApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini', // Cost-effective model
+      messages: [
+        { role: 'system', content: `Forex analyst. Quick quality assessment. JSON only. HOLD allowed only if qualityScore < ${passThreshold}. If qualityScore >= ${passThreshold} or confidence >= ${passConfidence}, output BUY or SELL (not HOLD).` },
+        { role: 'user', content: optimizedPrompt }
+      ],
+      temperature: 0.2,
+      max_tokens: 300 // Reduced tokens for cost efficiency
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`OpenAI Tier 2 error: ${response.status}`);
+  }
+
+  const aiResponse = await response.json();
+  const usage = aiResponse.usage;
+  if (usage) {
+    const estimatedCost = (usage.prompt_tokens * 0.000075 + usage.completion_tokens * 0.0003) / 1000;
+    console.log(`💰 TIER 2 cost for ${symbol}: ${usage.total_tokens} tokens, ~$${estimatedCost.toFixed(4)}`);
+  }
+
+  const aiContent = aiResponse.choices[0].message.content;
+  
+  try {
+    const analysisMatch = aiContent.match(/\{[\s\S]*\}/);
+    if (!analysisMatch) throw new Error('No JSON in Tier 2 response');
+    
+    const analysis = JSON.parse(analysisMatch[0]);
+    
+    // Determine if this should be escalated to Tier 3
+    const q = Number(analysis.qualityScore || 0);
+    const c = Number(analysis.confidence || 0);
+    const shouldEscalate = (
+                          (analysis.recommendation !== 'HOLD' && c >= 60 && q >= Math.max(50, passThreshold)) ||
+                          (analysis.recommendation === 'HOLD' && (q >= passThreshold + 15 || c >= 65))
+                        );
+    
+    if (shouldEscalate) {
+      console.log(`⬆️ ESCALATING: ${symbol} from Tier 2 to Tier 3 (rec:${analysis.recommendation}, C:${c}%, Q:${q}, pass:${passThreshold})`);
+      return await executeTier3Analysis(openAIApiKey, symbol, currentPrice, recentPrices, atr, trendStrength, marketRegime, sessionAnalysis, tier1Score, forceMode, lowThreshold);
+    }
+    
+    return {
+      recommendation: analysis.recommendation || 'HOLD',
+      confidence: analysis.confidence || 45,
+      entryPrice: analysis.entryPrice || currentPrice,
+      stopLoss: analysis.stopLoss || 0,
+      takeProfits: analysis.takeProfits || [],
+      reasoning: analysis.reasoning || 'Tier 2 analysis',
+      technicalFactors: ['Tier 2 analysis'],
+      riskAssessment: 'Standard',
+      marketRegime,
+      sessionAnalysis: sessionAnalysis.session,
+      qualityScore: analysis.qualityScore || 50
+    };
+    
+  } catch (parseError) {
+    console.error(`❌ Error parsing Tier 2 response for ${symbol}:`, parseError);
+    return null;
+  }
 }
 
-function evaluatePublishGates(params: any) {
-  return {
-    passed: true,
-    reasons: [],
-    checklist: ['Gate 1 passed', 'Gate 2 passed']
-  };
+// TIER 3: GPT-4.1 Premium Analysis (High Quality)
+async function executeTier3Analysis(
+  openAIApiKey: string,
+  symbol: string,
+  currentPrice: number,
+  recentPrices: any[],
+  atr: number,
+  trendStrength: string,
+  marketRegime: string,
+  sessionAnalysis: any,
+  tier1Score: number,
+  forceMode: boolean,
+  lowThreshold: boolean
+): Promise<EnhancedAISignalAnalysis | null> {
+  
+  console.log(`💎 TIER 3: Premium analysis for ${symbol}...`);
+  
+  const highPrice = Math.max(...recentPrices.map(p => p.price));
+  const lowPrice = Math.min(...recentPrices.map(p => p.price));
+  const currentPositionInRange = ((currentPrice - lowPrice) / (highPrice - lowPrice) * 100).toFixed(1);
+  
+  const premiumPrompt = `PREMIUM FOREX ANALYSIS for ${symbol} @ ${currentPrice}
+Market Context:
+- Trend: ${trendStrength} | Regime: ${marketRegime}
+- Session: ${sessionAnalysis.session} (${sessionAnalysis.recommendation})
+- Range Position: ${currentPositionInRange}% | ATR: ${atr.toFixed(5)}
+- Local Quality Score: ${tier1Score}/100
+
+Technical Requirements:
+- Stop Loss: minimum 30 pips
+- Take Profits: minimum 30 pips, R:R 1.2:1+
+- Quality threshold: ${forceMode ? 35 : (lowThreshold ? 40 : 45)}
+
+Decision Rule:
+- If qualityScore >= Quality threshold, recommendation MUST be "BUY" or "SELL" (not "HOLD").
+- Use "HOLD" only if qualityScore is below threshold or the setup is invalid per the pip and R:R rules.
+
+Comprehensive JSON analysis:
+{
+  "recommendation": "BUY"|"SELL"|"HOLD",
+  "confidence": [40-85],
+  "entryPrice": ${currentPrice},
+  "stopLoss": [price level],
+  "takeProfits": [3 levels at ≥1.2:1 (e.g., 1.2:1, 1.5:1, 2:1)],
+  "reasoning": "[detailed setup explanation]",
+  "technicalFactors": ["factor1", "factor2", "factor3"],
+  "riskAssessment": "[comprehensive risk analysis]",
+  "marketRegime": "${marketRegime}",
+  "sessionAnalysis": "[session impact details]",
+  "qualityScore": [0-100]
+}`;
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${openAIApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4.1-2025-04-14', // Premium model
+      messages: [
+        { role: 'system', content: 'Senior forex analyst. Comprehensive quality analysis. Detailed JSON response.' },
+        { role: 'user', content: premiumPrompt }
+      ],
+      temperature: 0.2,
+      max_tokens: 800 // Full token allocation for detailed analysis
+    }),
+  });
+
+  if (!response.ok) {
+    if (response.status === 429) {
+      console.log(`⚠️ Rate limit hit for ${symbol}, implementing backoff...`);
+      await new Promise(resolve => setTimeout(resolve, 20000));
+      throw new Error(`OpenAI rate limit - will retry with backoff`);
+    }
+    throw new Error(`OpenAI Tier 3 error: ${response.status} ${response.statusText}`);
+  }
+
+  const aiResponse = await response.json();
+  const usage = aiResponse.usage;
+  if (usage) {
+    const estimatedCost = (usage.prompt_tokens * 0.00015 + usage.completion_tokens * 0.0006) / 1000;
+    console.log(`💎 TIER 3 cost for ${symbol}: ${usage.total_tokens} tokens, ~$${estimatedCost.toFixed(4)}`);
+  }
+
+  const aiContent = aiResponse.choices[0].message.content;
+  console.log(`💎 TIER 3 response for ${symbol}:`, aiContent.substring(0, 300) + '...');
+
+  try {
+    const analysisMatch = aiContent.match(/\{[\s\S]*\}/);
+    if (!analysisMatch) throw new Error('No JSON in Tier 3 response');
+    
+    const analysis: EnhancedAISignalAnalysis = JSON.parse(analysisMatch[0]);
+    
+    // Validate premium analysis response
+    if (!analysis.recommendation || !['BUY', 'SELL', 'HOLD'].includes(analysis.recommendation)) {
+      throw new Error('Invalid recommendation from Tier 3');
+    }
+    
+    if (analysis.recommendation !== 'HOLD') {
+      const confidenceThreshold = forceMode ? 40 : (lowThreshold ? 50 : 60);
+      const qualityThreshold = forceMode ? 35 : (lowThreshold ? 40 : 45);
+      
+      // Quality validation
+      if (analysis.confidence < confidenceThreshold || analysis.confidence > 95) {
+        console.log(`💎 ${symbol} Tier 3 confidence ${analysis.confidence}% outside range - converting to HOLD`);
+        return { 
+          ...analysis, 
+          recommendation: 'HOLD' as const, 
+          qualityScore: Math.min(analysis.qualityScore || 0, 60),
+          reasoning: `${analysis.reasoning || ''}${analysis.reasoning ? ' | ' : ''}Confidence outside allowed range (${analysis.confidence}%)`
+        };
+      }
+      
+      if ((analysis.qualityScore || 0) < qualityThreshold) {
+        console.log(`💎 ${symbol} Tier 3 quality score ${analysis.qualityScore || 0} below threshold ${qualityThreshold} - converting to HOLD`);
+        return { 
+          ...analysis, 
+          recommendation: 'HOLD' as const,
+          reasoning: `${analysis.reasoning || ''}${analysis.reasoning ? ' | ' : ''}Quality below threshold (${analysis.qualityScore || 0} < ${qualityThreshold})`
+        };
+      }
+      
+      // Pip validation
+      const isJPYPair = symbol.includes('JPY');
+      const getPipValue = isJPYPair ? 0.01 : 0.0001;
+      const stopLossPips = Math.abs(analysis.entryPrice - analysis.stopLoss) / getPipValue;
+      const takeProfitPips = analysis.takeProfits.length > 0 ? Math.abs(analysis.takeProfits[0] - analysis.entryPrice) / getPipValue : 0;
+      
+      if (stopLossPips < 30) {
+        console.log(`💎 ${symbol} Tier 3 stop loss only ${stopLossPips.toFixed(1)} pips - below 30 pip minimum`);
+        return { 
+          ...analysis, 
+          recommendation: 'HOLD' as const,
+          reasoning: `${analysis.reasoning || ''}${analysis.reasoning ? ' | ' : ''}Stop loss below 30 pip minimum (${stopLossPips.toFixed(1)} pips)`
+        };
+      }
+      
+      if (takeProfitPips < 30) {
+        console.log(`💎 ${symbol} Tier 3 take profit only ${takeProfitPips.toFixed(1)} pips - below 30 pip minimum`);
+        return { 
+          ...analysis, 
+          recommendation: 'HOLD' as const,
+          reasoning: `${analysis.reasoning || ''}${analysis.reasoning ? ' | ' : ''}Take profit below 30 pip minimum (${takeProfitPips.toFixed(1)} pips)`
+        };
+      }
+      
+      // R:R validation
+      const rrRatio = takeProfitPips / stopLossPips;
+      if (rrRatio < 1.2) {
+        console.log(`💎 ${symbol} Tier 3 R:R ratio ${rrRatio.toFixed(2)}:1 below 1.2:1 minimum`);
+        return { 
+          ...analysis, 
+          recommendation: 'HOLD' as const,
+          reasoning: `${analysis.reasoning || ''}${analysis.reasoning ? ' | ' : ''}R:R below 1.2 minimum (${rrRatio.toFixed(2)}:1)`
+        };
+      }
+    } else {
+      // HOLD path: if above threshold, force a directional decision via follow-up
+      const passThreshold = forceMode ? 35 : (lowThreshold ? 40 : 45);
+      const q = analysis.qualityScore || 0;
+      if (q >= passThreshold) {
+        console.log(`💎 ${symbol} Tier 3 returned HOLD but quality ${q} >= ${passThreshold} — running decide-direction follow-up`);
+        const decided = await decideDirectionTier3(openAIApiKey, symbol, currentPrice, recentPrices, atr, trendStrength, marketRegime, sessionAnalysis, analysis);
+        if (decided) {
+          return decided;
+        }
+        console.log(`💎 ${symbol} decide-direction follow-up failed validation — keeping HOLD`);
+        return { 
+          ...analysis, 
+          recommendation: 'HOLD' as const,
+          reasoning: `${analysis.reasoning || ''}${analysis.reasoning ? ' | ' : ''}Hold after follow-up (failed constraints or no clear direction)`
+        };
+      } else {
+        console.log(`💎 ${symbol} Tier 3 HOLD with quality ${q} < pass threshold ${passThreshold}`);
+        return { 
+          ...analysis,
+          reasoning: `${analysis.reasoning || ''}${analysis.reasoning ? ' | ' : ''}Hold due to quality below pass threshold (${q} < ${passThreshold})`
+        };
+      }
+    }
+    
+    return analysis;
+    
+  } catch (parseError) {
+    console.error(`❌ Error parsing Tier 3 response for ${symbol}:`, parseError);
+    return null;
+  }
 }
 
-async function convertProfessionalAnalysisToSignal(pair: any, analysis: ProfessionalSignalAnalysis, historicalData: PricePoint[]): Promise<SignalData | null> {
-  return {
-    symbol: pair.symbol,
-    type: analysis.recommendation,
-    price: analysis.entryPrice,
-    pips: 50,
-    stopLoss: analysis.stopLoss,
-    takeProfits: analysis.takeProfits,
-    confidence: analysis.confidence,
-    analysisText: analysis.reasoning,
-    technicalIndicators: {},
-    chartData: historicalData.map(p => ({ time: p.timestamp, price: p.price })),
-    professionalGrade: true,
-    tierLevel: analysis.tier,
-    validationScore: analysis.qualityScore,
-    qualityConfirmations: analysis.technicalFactors
-  };
+// Tier 3 follow-up: force a directional decision when HOLD is returned above threshold
+async function decideDirectionTier3(
+  openAIApiKey: string,
+  symbol: string,
+  currentPrice: number,
+  recentPrices: any[],
+  atr: number,
+  trendStrength: string,
+  marketRegime: string,
+  sessionAnalysis: any,
+  prev: EnhancedAISignalAnalysis
+): Promise<EnhancedAISignalAnalysis | null> {
+  try {
+    const high = Math.max(...recentPrices.map((p: any) => p.price));
+    const low = Math.min(...recentPrices.map((p: any) => p.price));
+    const posInRange = ((currentPrice - low) / (high - low) * 100).toFixed(1);
+
+    const prompt = `FOLLOW-UP DECISION for ${symbol} @ ${currentPrice}
+Previous: HOLD with quality ${prev.qualityScore}. You MUST choose BUY or SELL (HOLD not allowed).
+Constraints:
+- Min stop loss: 30 pips
+- Min take profit: 30 pips
+- Min R:R: 1.2:1
+- Pip size: 0.01 for JPY pairs, else 0.0001
+Context:
+- Trend: ${trendStrength}, Regime: ${marketRegime}
+- Session: ${sessionAnalysis.session} (${sessionAnalysis.recommendation})
+- Range Position: ${posInRange}% | ATR: ${atr.toFixed(5)}
+- Prior reasoning: ${prev.reasoning || 'n/a'}
+
+JSON only:
+{"recommendation":"BUY"|"SELL","confidence":[50-85],"entryPrice":${currentPrice},"stopLoss":price,"takeProfits":[price,price,price],"reasoning":"brief directional rationale","technicalFactors":["factor"],"riskAssessment":"concise","qualityScore":[${Math.max(45, prev.qualityScore || 45)}-100]}`;
+
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4.1-2025-04-14',
+        messages: [
+          { role: 'system', content: 'Senior forex analyst. Decide direction ONLY. JSON output. Enforce pip and R:R constraints.' },
+          { role: 'user', content: prompt }
+        ],
+        temperature: 0.2,
+        max_tokens: 450
+      }),
+    });
+
+    if (!response.ok) {
+      console.log(`⚠️ Decide-direction call failed for ${symbol}: ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json();
+    const aiContent = data.choices[0].message.content;
+    const match = aiContent.match(/\{[\s\S]*\}/);
+    if (!match) return null;
+
+    const decision = JSON.parse(match[0]);
+
+    // Validate constraints like in Tier 3
+    const isJPY = symbol.includes('JPY');
+    const pip = isJPY ? 0.01 : 0.0001;
+    const slPips = Math.abs((decision.entryPrice ?? currentPrice) - decision.stopLoss) / pip;
+    const tp1 = Array.isArray(decision.takeProfits) && decision.takeProfits.length > 0 ? decision.takeProfits[0] : null;
+    const tpPips = tp1 ? Math.abs(tp1 - (decision.entryPrice ?? currentPrice)) / pip : 0;
+
+    if (!['BUY','SELL'].includes(decision.recommendation)) return null;
+    if (slPips < 30 || tpPips < 30) return null;
+    const rr = tpPips / slPips;
+    if (rr < 1.2) return null;
+
+    const final: EnhancedAISignalAnalysis = {
+      recommendation: decision.recommendation,
+      confidence: Math.min(Math.max(Number(decision.confidence || prev.confidence || 55), 45), 90),
+      entryPrice: Number(decision.entryPrice ?? currentPrice),
+      stopLoss: Number(decision.stopLoss),
+      takeProfits: (decision.takeProfits || []).map((n: any) => Number(n)).filter((n: number) => Number.isFinite(n)).slice(0,3),
+      reasoning: `${prev.reasoning || ''}${prev.reasoning ? ' | ' : ''}Decide-direction follow-up: ${decision.reasoning || 'direction chosen'}`,
+      technicalFactors: Array.isArray(decision.technicalFactors) ? decision.technicalFactors : ['follow-up'],
+      riskAssessment: decision.riskAssessment || 'follow-up',
+      marketRegime,
+      sessionAnalysis: sessionAnalysis.session,
+      qualityScore: Math.max(prev.qualityScore || 0, Number(decision.qualityScore || prev.qualityScore || 60))
+    };
+
+    return final;
+  } catch (err) {
+    console.log(`⚠️ decideDirectionTier3 error for ${symbol}:`, err);
+    return null;
+  }
+}
+
+// Helper functions for enhanced analysis
+function calculateATR(pricePoints: PricePoint[]): number {
+  if (pricePoints.length < 2) return 0;
+  
+  let totalTrueRange = 0;
+  for (let i = 1; i < pricePoints.length; i++) {
+    const high = pricePoints[i].price;
+    const low = pricePoints[i].price;
+    const prevClose = pricePoints[i - 1].price;
+    
+    const trueRange = Math.max(
+      high - low,
+      Math.abs(high - prevClose),
+      Math.abs(low - prevClose)
+    );
+    
+    totalTrueRange += trueRange;
+  }
+  
+  return totalTrueRange / (pricePoints.length - 1);
+}
+
+function calculateTrendStrength(pricePoints: PricePoint[]): string {
+  if (pricePoints.length < 20) return 'Insufficient data';
+  
+  const prices = pricePoints.map(p => p.price);
+  const n = prices.length;
+  const sumX = (n * (n - 1)) / 2;
+  const sumY = prices.reduce((sum, price) => sum + price, 0);
+  const sumXY = prices.reduce((sum, price, i) => sum + (i * price), 0);
+  const sumX2 = prices.reduce((sum, _, i) => sum + (i * i), 0);
+  
+  const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+  const avgPrice = sumY / n;
+  const slopeStrength = Math.abs(slope) / avgPrice;
+  
+  if (slopeStrength > 0.003) return slope > 0 ? 'Strong Bullish' : 'Strong Bearish';
+  if (slopeStrength > 0.001) return slope > 0 ? 'Moderate Bullish' : 'Moderate Bearish';
+  return 'Weak/Sideways';
+}
+
+function detectMarketRegime(pricePoints: PricePoint[], atr: number): string {
+  if (pricePoints.length < 20) return 'Unknown';
+  
+  const prices = pricePoints.map(p => p.price);
+  const currentPrice = prices[prices.length - 1];
+  const volatilityRatio = atr / currentPrice;
+  
+  if (volatilityRatio > 0.025) return 'Highly Volatile';
+  if (volatilityRatio > 0.015) return 'Moderately Volatile';
+  
+  const highestHigh = Math.max(...prices.slice(-20));
+  const lowestLow = Math.min(...prices.slice(-20));
+  const priceRange = highestHigh - lowestLow;
+  const rangeRatio = priceRange / currentPrice;
+  
+  if (rangeRatio > 0.02) return 'Trending';
+  return 'Ranging';
+}
+
+function getCurrentSessionAnalysis(): { session: string; volatility: string; recommendation: string } {
+  const now = new Date();
+  const utcHour = now.getUTCHours();
+  
+  if (utcHour >= 8 && utcHour < 16) {
+    return { session: 'European', volatility: 'High', recommendation: 'Favorable' };
+  } else if (utcHour >= 13 && utcHour < 17) {
+    return { session: 'London-NY Overlap', volatility: 'Very High', recommendation: 'Excellent' };
+  } else if (utcHour >= 17 && utcHour < 22) {
+    return { session: 'US', volatility: 'Moderate', recommendation: 'Good' };
+  } else if (utcHour >= 0 && utcHour < 8) {
+    return { session: 'Asian', volatility: 'Low-Moderate', recommendation: 'Caution' };
+  }
+  
+  return { session: 'Low Activity', volatility: 'Very Low', recommendation: 'Avoid' };
+}
+
+function getEconomicContext(symbol: string): string {
+  // Simplified economic context - in production, this would fetch from economic calendar
+  const majorEventPairs = ['EURUSD', 'GBPUSD', 'USDJPY'];
+  if (majorEventPairs.includes(symbol)) {
+    return 'Monitor for major economic releases';
+  }
+  return 'Standard economic environment';
+}
+
+// Convert ENHANCED AI analysis to signal data format
+async function convertEnhancedAIAnalysisToSignal(
+  pair: any,
+  aiAnalysis: EnhancedAISignalAnalysis,
+  historicalData: PricePoint[],
+  lowThreshold: boolean = false
+): Promise<SignalData | null> {
+  try {
+    const qualityThreshold = lowThreshold ? 40 : 45; // Unified with Tier 3 and main loop
+    if (aiAnalysis.recommendation === 'HOLD' || aiAnalysis.qualityScore < qualityThreshold) {
+      return null;
+    }
+
+    // Directional and numeric validation to prevent invalid signals
+    const entry = Number(aiAnalysis.entryPrice);
+    const sl = Number(aiAnalysis.stopLoss);
+    const tpsRaw = Array.isArray(aiAnalysis.takeProfits) ? aiAnalysis.takeProfits : [];
+    const tps = tpsRaw.map((n: any) => Number(n)).filter((n: number) => Number.isFinite(n));
+
+    if (!Number.isFinite(entry) || entry <= 0) return null;
+    if (!Number.isFinite(sl)) return null;
+
+    const isBuy = aiAnalysis.recommendation === 'BUY';
+
+    // Enforce correct stop-loss direction
+    if ((isBuy && sl >= entry) || (!isBuy && sl <= entry)) {
+      console.log(`❌ Discarding ${pair.symbol} ${aiAnalysis.recommendation}: invalid stop loss direction (entry ${entry}, SL ${sl})`);
+      return null;
+    }
+
+    // Keep only TPs on the correct side of entry and sort properly
+    const filteredTPs = tps
+      .filter((tp: number) => (isBuy ? tp > entry : tp < entry))
+      .sort((a: number, b: number) => (isBuy ? a - b : b - a));
+
+    if (filteredTPs.length === 0) {
+      console.log(`❌ Discarding ${pair.symbol} ${aiAnalysis.recommendation}: no valid take profits on correct side of entry`);
+      return null;
+    }
+
+    const signal: SignalData = {
+      symbol: pair.symbol,
+      type: aiAnalysis.recommendation,
+      price: entry,
+      pips: 0, // New signals start with 0 pips
+      stopLoss: sl,
+      takeProfits: filteredTPs,
+      confidence: aiAnalysis.confidence,
+      analysisText: `ENHANCED AI-powered ${aiAnalysis.recommendation} signal for ${pair.symbol}. ${aiAnalysis.reasoning} Technical factors: ${aiAnalysis.technicalFactors.join(', ')}. Risk assessment: ${aiAnalysis.riskAssessment} Market regime: ${aiAnalysis.marketRegime}. Session analysis: ${aiAnalysis.sessionAnalysis}. Quality Score: ${aiAnalysis.qualityScore}/100`,
+      technicalIndicators: {
+        enhancedAI: true,
+        recommendation: aiAnalysis.recommendation,
+        confidence: aiAnalysis.confidence,
+        qualityScore: aiAnalysis.qualityScore,
+        technicalFactors: aiAnalysis.technicalFactors,
+        riskAssessment: aiAnalysis.riskAssessment,
+        marketRegime: aiAnalysis.marketRegime,
+        sessionAnalysis: aiAnalysis.sessionAnalysis
+      },
+      chartData: historicalData.slice(-100).map(point => ({
+        time: point.timestamp,
+        price: point.price
+      }))
+    };
+
+    return signal;
+  } catch (error) {
+    console.error(`Error converting ENHANCED AI analysis to signal for ${pair.symbol}:`, error);
+    return null;
+  }
 }
