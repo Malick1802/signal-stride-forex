@@ -52,6 +52,7 @@ const SignalThresholdControl = () => {
 
   const fetchCurrentThreshold = async () => {
     try {
+      // Use type assertion for RPC function that's not yet in types
       const { data, error } = await (supabase as any).rpc('get_app_setting', { 
         setting_name: 'signal_threshold_level' 
       });
@@ -76,6 +77,7 @@ const SignalThresholdControl = () => {
     
     setIsUpdating(true);
     try {
+      // Use type assertion for RPC function that's not yet in types
       const { error } = await (supabase as any).rpc('update_app_setting', { 
         setting_name: 'signal_threshold_level',
         setting_value: newLevel
