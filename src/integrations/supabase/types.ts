@@ -2193,17 +2193,9 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
-      get_app_setting: {
-        Args: { setting_name: string }
-        Returns: string
-      }
       has_role: {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
-      }
-      update_app_setting: {
-        Args: { setting_name: string; setting_value: string }
-        Returns: undefined
       }
     }
     Enums: {
