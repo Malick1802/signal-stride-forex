@@ -96,10 +96,19 @@ serve(async (req) => {
       force = false,
       debug = false,
       maxSignals = 8,
-      fullAnalysis = true
+      fullAnalysis = true,
+      trigger = 'manual',
+      maxAnalyzedPairs = 8,
+      fullCoverage = false,
+      batchIndex = 0,
+      batchSize = undefined
     } = requestBody;
 
-    console.log(`🎯 Professional Mode - Force: ${force}, Debug: ${debug}, Max Signals: ${maxSignals}`);
+    const effectiveBatchSize = Number.isFinite(Number(batchSize)) && Number(batchSize) > 0 
+      ? Number(batchSize) 
+      : Number(maxAnalyzedPairs) || 8;
+
+    console.log(`🎯 Professional Mode - Force: ${force}, Debug: ${debug}, Trigger: ${trigger}, Max Signals: ${maxSignals}, MaxAnalyzedPairs: ${maxAnalyzedPairs}, BatchIdx: ${batchIndex}, BatchSize: ${effectiveBatchSize}`);
 
     // Get current signal threshold level from app settings
     console.log('📊 Fetching threshold configuration...');
@@ -237,11 +246,19 @@ serve(async (req) => {
     const prioritizedPairs = pairsWithScores
       .sort((a, b) => b.analysisScore - a.analysisScore);
 
-    console.log(`🔥 PROFESSIONAL MODE: Analyzing ${prioritizedPairs.length} pairs with 3-tier system`);
+    // Determine work set (batching) and honor request limits
+    const startIdx = Math.max(0, Number(batchIndex) * Number(effectiveBatchSize));
+    const endIdx = Math.min(prioritizedPairs.length, startIdx + Number(effectiveBatchSize));
+    let workPairs = prioritizedPairs.slice(startIdx, endIdx);
+    if (fullCoverage === true) {
+      workPairs = prioritizedPairs;
+    }
+
+    console.log(`🔥 PROFESSIONAL MODE: Analyzing ${workPairs.length}/${prioritizedPairs.length} pairs with 3-tier system${fullCoverage ? ' (fullCoverage)' : ''}`);
 
     // 3-Tier Professional Analysis Pipeline
-    for (let i = 0; i < prioritizedPairs.length && generatedSignals.length < maxNewSignalsThisRun; i++) {
-      const pair = prioritizedPairs[i];
+    for (let i = 0; i < workPairs.length && generatedSignals.length < maxNewSignalsThisRun; i++) {
+      const pair = workPairs[i];
       
       try {
         console.log(`🎯 [${i + 1}/${prioritizedPairs.length}] Professional analysis: ${pair.symbol} (Score: ${Math.round(pair.analysisScore)})`);
@@ -366,11 +383,19 @@ serve(async (req) => {
         }
       }
       
-      // Professional pacing between analyses
-      if (i + 1 < prioritizedPairs.length && generatedSignals.length < maxNewSignalsThisRun) {
-        const delayMs = 8000 + (i * 1000); // Progressive delays
-        console.log(`⏱️ Professional pacing: ${delayMs/1000}s...`);
-        await new Promise(resolve => setTimeout(resolve, delayMs));
+      // Time budget guard for GitHub to avoid 60s function timeout
+      if (trigger === 'github_actions' && (Date.now() - startTime) > 45000) {
+        console.log('⏱️ Time budget reached (~45s) for GitHub run - finishing early.');
+        break;
+      }
+
+      // Professional pacing between analyses (skip for GitHub Actions)
+      if (i + 1 < workPairs.length && generatedSignals.length < maxNewSignalsThisRun) {
+        if (trigger !== 'github_actions') {
+          const delayMs = 8000 + (i * 1000); // Progressive delays
+          console.log(`⏱️ Professional pacing: ${delayMs/1000}s...`);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
       }
     }
 

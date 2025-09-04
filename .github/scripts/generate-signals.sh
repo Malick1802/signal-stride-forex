@@ -38,9 +38,9 @@ while [ $retry_count -lt $max_retries ] && [ "$success" = false ]; do
   
   # Adaptive workload per attempt to stay under function time limits
   if [ $((retry_count + 1)) -eq 1 ]; then
-    max_pairs=18
+    max_pairs=8
   else
-    max_pairs=10
+    max_pairs=6
   fi
   [ "${DEBUG_MODE:-false}" = "true" ] && echo "🧮 maxAnalyzedPairs: $max_pairs"
 
@@ -51,7 +51,7 @@ while [ $retry_count -lt $max_retries ] && [ "$success" = false ]; do
     -H "apikey: $SUPABASE_ANON_KEY" \
     -H "X-GitHub-Run-ID: ${GITHUB_RUN_ID:-local}" \
     -H "X-Enhanced-Generation: true" \
-    -d "{\"trigger\": \"github_actions\", \"run_id\": \"${GITHUB_RUN_ID:-local}\", \"attempt\": $((retry_count + 1)), \"optimized\": true, \"maxAnalyzedPairs\": $max_pairs, \"fullCoverage\": true}" ) || curl_exit=$?
+    -d "{\"trigger\": \"github_actions\", \"run_id\": \"${GITHUB_RUN_ID:-local}\", \"attempt\": $((retry_count + 1)), \"optimized\": true, \"maxAnalyzedPairs\": $max_pairs, \"fullCoverage\": false}" ) || curl_exit=$?
   
   # Extract HTTP status code and response
   http_code=$(echo "$response" | tail -n1)
