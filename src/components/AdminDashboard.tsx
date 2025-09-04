@@ -5,7 +5,6 @@ import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { useAuth } from '@/contexts/AuthContext';
 import UserManagement from './admin/UserManagement';
 import SignalManagement from './admin/SignalManagement';
-import SignalThresholdControl from './admin/SignalThresholdControl';
 
 interface AdminDashboardProps {
   onNavigate: (view: string) => void;
@@ -111,7 +110,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
         {activeTab === 'signals' && <SignalManagement />}
         {activeTab === 'financial' && <div className="text-white">Financial Management - Coming Soon</div>}
         {activeTab === 'system' && <div className="text-white">System Administration - Coming Soon</div>}
-        {activeTab === 'settings' && <SignalThresholdControl />}
+        {activeTab === 'settings' && <div className="text-white">Settings - Coming Soon</div>}
       </div>
     </div>
   );

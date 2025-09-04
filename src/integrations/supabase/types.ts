@@ -317,27 +317,6 @@ export type Database = {
         }
         Relationships: []
       }
-      app_settings: {
-        Row: {
-          signal_threshold_level: string
-          singleton: boolean
-          updated_at: string
-          updated_by: string | null
-        }
-        Insert: {
-          signal_threshold_level?: string
-          singleton?: boolean
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Update: {
-          signal_threshold_level?: string
-          singleton?: boolean
-          updated_at?: string
-          updated_by?: string | null
-        }
-        Relationships: []
-      }
       cached_signals: {
         Row: {
           cached_at: string
@@ -2193,17 +2172,9 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
-      get_app_setting: {
-        Args: { setting_name: string }
-        Returns: string
-      }
       has_role: {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
-      }
-      update_app_setting: {
-        Args: { setting_name: string; setting_value: string }
-        Returns: undefined
       }
     }
     Enums: {
