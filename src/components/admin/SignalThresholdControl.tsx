@@ -52,7 +52,7 @@ const SignalThresholdControl = () => {
 
   const fetchCurrentThreshold = async () => {
     try {
-      const { data, error } = await supabase.rpc('get_app_setting', { 
+      const { data, error } = await (supabase as any).rpc('get_app_setting', { 
         setting_name: 'signal_threshold_level' 
       });
 
@@ -76,7 +76,7 @@ const SignalThresholdControl = () => {
     
     setIsUpdating(true);
     try {
-      const { error } = await supabase.rpc('update_app_setting', { 
+      const { error } = await (supabase as any).rpc('update_app_setting', { 
         setting_name: 'signal_threshold_level',
         setting_value: newLevel
       });
