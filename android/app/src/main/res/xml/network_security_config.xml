@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <!-- Allow HTTPS connections to Supabase -->
+        <domain includeSubdomains="true">ugtaodrvbpfeyhdgmisn.supabase.co</domain>
+        <domain includeSubdomains="true">ugtaodrvbpfeyhdgmisn.functions.supabase.co</domain>
+        
+        <!-- Allow FastForex API -->
+        <domain includeSubdomains="true">api.fastforex.io</domain>
+        
+        <!-- Allow development connections -->
+        <domain includeSubdomains="true">localhost</domain>
+        <domain includeSubdomains="true">10.0.2.2</domain>
+        <domain includeSubdomains="true">192.168.1.0/24</domain>
+        
+        <!-- Allow other necessary domains -->
+        <domain includeSubdomains="true">googleapis.com</domain>
+        <domain includeSubdomains="true">firebaseapp.com</domain>
+        <domain includeSubdomains="true">fcm.googleapis.com</domain>
+        <domain includeSubdomains="true">android.googleapis.com</domain>
+    </domain-config>
+    
+    <!-- Default security for other domains -->
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system"/>
+        </trust-anchors>
+    </base-config>
+</network-security-config>

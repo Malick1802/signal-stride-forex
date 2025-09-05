@@ -60,11 +60,13 @@ export const useRealTimeConnection = () => {
       .on('presence', { event: 'sync' }, () => {
         updateHeartbeat();
       })
-      .subscribe((status) => {
+      .subscribe(async (status) => {
         if (!mountedRef.current) return;
         
         if (status === 'SUBSCRIBED') {
           console.log('✅ Real-time heartbeat connected');
+          // Track presence to establish proper connection
+          await heartbeatChannel.track({ online_at: new Date().toISOString() });
           updateHeartbeat();
           setStatus(prev => ({
             ...prev,

@@ -1,6 +1,6 @@
 import React, { useState, memo, useCallback } from 'react';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
-import { useEnhancedSignalMonitoring } from '@/hooks/useEnhancedSignalMonitoring';
+import { useMonitorOnlySignals } from '@/hooks/useMonitorOnlySignals';
 import { useSystemHealthMonitor } from '@/hooks/useSystemHealthMonitor';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -18,7 +18,9 @@ const TradingSignals = memo(() => {
   const { toast } = useToast();
   
   // Enhanced monitoring systems
-  useEnhancedSignalMonitoring();
+  
+  // Server-side signal monitoring (notifications only)
+  useMonitorOnlySignals();
   const { systemHealth, verifySystemHealth } = useSystemHealthMonitor();
 
   // AI Analysis state for SignalCard

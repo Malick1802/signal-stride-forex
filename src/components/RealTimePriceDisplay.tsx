@@ -2,6 +2,7 @@
 import React from 'react';
 import { TrendingUp, TrendingDown, Wifi, WifiOff, Loader2 } from 'lucide-react';
 import { calculateSignalPerformance } from '@/utils/pipCalculator';
+import { getInstrumentSpec } from '@/utils/instrumentSpecs';
 
 interface RealTimePriceDisplayProps {
   currentPrice: number | null;
@@ -28,8 +29,9 @@ const RealTimePriceDisplay = ({
   signalType,
   pair = 'EURUSD'
 }: RealTimePriceDisplayProps) => {
+  const spec = getInstrumentSpec(pair);
   const formatPrice = (price: number) => {
-    return price.toFixed(5);
+    return price.toFixed(spec.displayDecimals);
   };
 
   // Calculate signal performance if we have entry data
@@ -40,7 +42,7 @@ const RealTimePriceDisplay = ({
   const showSignalPerformance = entryPrice && currentPrice && signalType;
 
   // Use signal performance if available, otherwise use market change
-  const displayChange = showSignalPerformance ? signalPerformance.pips / (pair.includes('JPY') ? 100 : 10000) : change;
+  const displayChange = showSignalPerformance ? signalPerformance.pips * spec.pipSize : change;
   const displayPercentage = showSignalPerformance ? signalPerformance.percentage : percentage;
   const isPositive = showSignalPerformance ? signalPerformance.isProfit : change >= 0;
 
@@ -80,7 +82,7 @@ const RealTimePriceDisplay = ({
               ) : (
                 <>
                   <span className="text-sm font-mono">
-                    {isPositive ? '+' : ''}{displayChange.toFixed(5)}
+                    {isPositive ? '+' : ''}{displayChange.toFixed(spec.displayDecimals)}
                   </span>
                   <span className="text-xs">
                     ({isPositive ? '+' : ''}{displayPercentage.toFixed(2)}%)

@@ -1,16 +1,68 @@
 
-// Chart pattern detection for professional forex analysis
+// Enhanced chart pattern detection for professional forex analysis
 import { OHLCVData } from './technicalAnalysis';
+import { detectCandlestickPatterns, CandlestickPattern, OHLC } from './candlestickPatternDetection';
+import { findKeyLevels, determineTrend, calculatePatternStrength } from './enhancedPatternHelpers';
 
 export interface ChartPattern {
   pattern: string;
+  type: 'bullish' | 'bearish' | 'neutral';
   confidence: number;
   description: string;
   target?: number;
   timeframe: string;
+  reliability: 'high' | 'medium' | 'low';
 }
 
-// Detect basic chart patterns
+export interface EnhancedPatternAnalysis {
+  chartPatterns: ChartPattern[];
+  candlestickPatterns: CandlestickPattern[];
+  supportLevels: number[];
+  resistanceLevels: number[];
+  trendDirection: 'uptrend' | 'downtrend' | 'sideways';
+  patternStrength: number;
+}
+
+// Enhanced pattern detection with candlestick analysis
+export const detectEnhancedPatterns = (ohlcvData: OHLCVData[], currentPrice: number): EnhancedPatternAnalysis => {
+  if (ohlcvData.length < 10) {
+    return {
+      chartPatterns: [],
+      candlestickPatterns: [],
+      supportLevels: [],
+      resistanceLevels: [],
+      trendDirection: 'sideways',
+      patternStrength: 0
+    };
+  }
+
+  // Convert OHLCV to OHLC for candlestick analysis
+  const ohlcCandles: OHLC[] = ohlcvData.map(d => ({
+    open: d.open,
+    high: d.high,
+    low: d.low,
+    close: d.close,
+    timestamp: d.timestamp
+  }));
+
+  // Detect all pattern types
+  const chartPatterns = detectChartPatterns(ohlcvData, currentPrice);
+  const candlestickPatterns = detectCandlestickPatterns(ohlcCandles);
+  const { supportLevels, resistanceLevels } = findKeyLevels(ohlcvData);
+  const trendDirection = determineTrend(ohlcvData);
+  const patternStrength = calculatePatternStrength(chartPatterns, candlestickPatterns);
+
+  return {
+    chartPatterns,
+    candlestickPatterns,
+    supportLevels,
+    resistanceLevels,
+    trendDirection,
+    patternStrength
+  };
+};
+
+// Original chart pattern detection
 export const detectChartPatterns = (ohlcvData: OHLCVData[], currentPrice: number): ChartPattern[] => {
   if (ohlcvData.length < 10) return [];
   
@@ -55,10 +107,12 @@ const detectDoubleBottom = (lows: number[], closes: number[], currentPrice: numb
     const confidence = currentPrice > minPrice * 1.01 ? 75 : 60;
     return {
       pattern: 'Double Bottom',
+      type: 'bullish',
       confidence,
       description: `Double bottom pattern detected at ${minPrice.toFixed(5)} level`,
       target: minPrice * 1.02,
-      timeframe: '1H'
+      timeframe: '1H',
+      reliability: 'high'
     };
   }
   
@@ -78,10 +132,12 @@ const detectDoubleTop = (highs: number[], closes: number[], currentPrice: number
     const confidence = currentPrice < maxPrice * 0.99 ? 75 : 60;
     return {
       pattern: 'Double Top',
+      type: 'bearish',
       confidence,
       description: `Double top pattern detected at ${maxPrice.toFixed(5)} level`,
       target: maxPrice * 0.98,
-      timeframe: '1H'
+      timeframe: '1H',
+      reliability: 'high'
     };
   }
   
@@ -110,10 +166,12 @@ const detectHeadAndShoulders = (highs: number[], closes: number[], currentPrice:
     if (head && shoulders.length >= 2) {
       return {
         pattern: 'Head and Shoulders',
+        type: 'bearish',
         confidence: 70,
         description: `Head and shoulders pattern with head at ${head.price.toFixed(5)}`,
         target: head.price * 0.97,
-        timeframe: '1H'
+        timeframe: '1H',
+        reliability: 'high'
       };
     }
   }
@@ -140,10 +198,12 @@ const detectAscendingTriangle = (highs: number[], lows: number[], currentPrice: 
   if (highsFlat && lowsAscending) {
     return {
       pattern: 'Ascending Triangle',
+      type: 'bullish',
       confidence: 65,
       description: `Ascending triangle with resistance at ${maxHigh.toFixed(5)}`,
       target: maxHigh * 1.01,
-      timeframe: '1H'
+      timeframe: '1H',
+      reliability: 'medium'
     };
   }
   
@@ -163,18 +223,22 @@ const detectSupportResistance = (highs: number[], lows: number[], currentPrice: 
   if (distanceToResistance < 0.01) {
     return {
       pattern: 'Near Resistance',
+      type: 'bearish',
       confidence: 80,
       description: `Price near key resistance level at ${resistance.toFixed(5)}`,
-      timeframe: '1H'
+      timeframe: '1H',
+      reliability: 'medium'
     };
   }
   
   if (distanceToSupport < 0.01) {
     return {
       pattern: 'Near Support',
+      type: 'bullish',
       confidence: 80,
       description: `Price near key support level at ${support.toFixed(5)}`,
-      timeframe: '1H'
+      timeframe: '1H',
+      reliability: 'medium'
     };
   }
   

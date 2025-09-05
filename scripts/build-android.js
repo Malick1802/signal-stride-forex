@@ -4,63 +4,101 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
-console.log('🚀 Building ForexAlert Pro for Android...\n');
+console.log('🔧 Android Build Process Starting...');
 
-try {
-  // Step 1: Clean previous builds
-  console.log('1️⃣ Cleaning previous builds...');
-  if (fs.existsSync('dist')) {
-    fs.rmSync('dist', { recursive: true, force: true });
-  }
-  console.log('✅ Clean complete\n');
-
-  // Step 2: Build the web app with Android config
-  console.log('2️⃣ Building web application for Android...');
-  execSync('npm run build -- --config vite.config.android.ts --mode production --force', { stdio: 'inherit' });
-  console.log('✅ Android web build complete\n');
-
-  // Step 3: Copy Android-specific files
-  console.log('3️⃣ Setting up Android files...');
-  
-  // Copy android.html to dist as index.html for Android
-  if (fs.existsSync('android.html')) {
-    const androidHtml = fs.readFileSync('android.html', 'utf8');
-    // Update the script path for production
-    const updatedHtml = androidHtml.replace(
-      '/src/main-android.tsx',
-      '/assets/main-android.js'
-    );
-    fs.writeFileSync('dist/index.html', updatedHtml);
-    console.log('✅ Android HTML configured');
-  }
-
-  // Ensure main-android.tsx is built
-  if (fs.existsSync('src/main-android.tsx')) {
-    console.log('✅ Android entry point ready');
-  }
-
-  console.log('✅ Android setup complete\n');
-
-  // Step 4: Sync with Capacitor
-  console.log('4️⃣ Syncing with Capacitor...');
+function run(cmd, options = {}) {
+  console.log(`Running: ${cmd}`);
   try {
-    execSync('npx cap sync android', { stdio: 'inherit' });
-    console.log('✅ Capacitor sync complete\n');
-  } catch (syncError) {
-    console.warn('⚠️ Capacitor sync failed - you may need to add Android platform first');
-    console.warn('Run: npx cap add android\n');
+    execSync(cmd, { stdio: 'inherit', ...options });
+    return true;
+  } catch (error) {
+    console.error(`Failed to run: ${cmd}`);
+    console.error(error.message);
+    return false;
   }
-
-  console.log('🎉 Android build complete!');
-  console.log('\n📱 Next steps for APK build:');
-  console.log('1. Run: npx cap sync android');
-  console.log('2. Run: npx cap open android'); 
-  console.log('3. Build APK from Android Studio');
-  console.log('\n🔧 For live development:');
-  console.log('1. Comment out server config in capacitor.config.ts');
-  console.log('2. Run: npx cap run android --livereload');
-
-} catch (error) {
-  console.error('❌ Build failed:', error.message);
-  process.exit(1);
 }
+
+function main() {
+  try {
+    console.log('1. Cleaning dist directory...');
+    if (fs.existsSync('dist')) {
+      fs.rmSync('dist', { recursive: true, force: true });
+    }
+    
+    console.log('2. Building web app for Android...');
+    
+    // Try multiple build approaches without --force flag
+    const buildCommands = [
+      'npm run build:android',
+      'npm run build -- --config vite.config.android.ts',
+      'npx vite build --config vite.config.android.ts --mode production'
+    ];
+    
+    let buildSuccess = false;
+    for (const cmd of buildCommands) {
+      console.log(`Trying: ${cmd}`);
+      if (run(cmd)) {
+        buildSuccess = true;
+        break;
+      }
+    }
+    
+    if (!buildSuccess) {
+      console.error('❌ All build commands failed');
+      return false;
+    }
+    
+    console.log('3. Setting up Android HTML...');
+    
+    // Copy android.html to dist/index.html if it exists
+    const androidHtml = path.join(process.cwd(), 'android.html');
+    const distIndex = path.join(process.cwd(), 'dist', 'index.html');
+    
+    if (fs.existsSync(androidHtml)) {
+      fs.copyFileSync(androidHtml, distIndex);
+      console.log('✅ Android HTML configured');
+    } else {
+      console.log('⚠️ android.html not found, using build output');
+    }
+    
+    // Ensure assets directory exists
+    const assetsDir = path.join(process.cwd(), 'dist', 'assets');
+    if (!fs.existsSync(assetsDir)) {
+      fs.mkdirSync(assetsDir, { recursive: true });
+    }
+    
+    // Sanity check for Android entry point
+    const androidEntry = path.join(process.cwd(), 'src', 'main-android.tsx');
+    if (fs.existsSync(androidEntry)) {
+      console.log('✅ Android entry point found');
+    } else {
+      console.log('⚠️ Android entry point not found at src/main-android.tsx');
+    }
+    
+    console.log('4. Syncing with Capacitor...');
+    if (run('npx cap sync android')) {
+      console.log('✅ Android build completed successfully!');
+      console.log('\nNext steps:');
+      console.log('- Run: npx cap run android');
+      console.log('- Or: npx cap open android');
+      return true;
+    } else {
+      console.log('❌ Capacitor sync failed');
+      console.log('\nTry:');
+      console.log('- npx cap add android (if Android platform missing)');
+      console.log('- npx cap update android');
+      return false;
+    }
+    
+  } catch (error) {
+    console.error('❌ Build process failed:', error.message);
+    return false;
+  }
+}
+
+if (require.main === module) {
+  const success = main();
+  process.exit(success ? 0 : 1);
+}
+
+module.exports = { main };

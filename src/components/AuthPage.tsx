@@ -1,17 +1,14 @@
 
 import React, { useState } from 'react';
 import { TrendingUp, ArrowLeft, Eye, EyeOff, CheckCircle, Mail, Wifi, WifiOff } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
 import { useMobileAuth } from '@/hooks/useMobileAuth';
 import { Capacitor } from '@capacitor/core';
-import { LanguageSelector } from './LanguageSelector';
 
 interface AuthPageProps {
   onNavigate: (view: string) => void;
 }
 
 const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
-  const { t } = useTranslation(['auth', 'common']);
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -66,11 +63,11 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
         <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 w-full max-w-md border border-white/20">
           <div className="text-center">
             <CheckCircle className="h-16 w-16 text-emerald-400 mx-auto mb-6" />
-            <h2 className="text-2xl font-bold text-white mb-4">{t('auth:signup.success.title', 'Account Created!')}</h2>
+            <h2 className="text-2xl font-bold text-white mb-4">Account Created!</h2>
             <div className="space-y-4 text-gray-300">
               <div className="flex items-center justify-center space-x-2 bg-blue-500/20 p-3 rounded-lg">
                 <Mail className="h-5 w-5 text-blue-400" />
-                <span className="text-sm">{t('auth:signup.success.emailSent', 'Check your email for a confirmation link')}</span>
+                <span className="text-sm">Check your email for a confirmation link</span>
               </div>
               <p className="text-sm">
                 We've sent a confirmation email to <strong className="text-white">{email}</strong>
@@ -118,12 +115,8 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
           <div className="flex items-center space-x-2">
             <TrendingUp className="h-8 w-8 text-emerald-400" />
             <span className="text-2xl font-bold text-white">
-              {isLogin ? t('auth:signin.title', 'Sign In') : t('auth:signup.title', 'Sign Up')}
+              {isLogin ? 'Sign In' : 'Sign Up'}
             </span>
-            {/* Language Selector */}
-            <div className="ml-auto">
-              <LanguageSelector variant="minimal" />
-            </div>
           </div>
         </div>
 
@@ -143,7 +136,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
               <span className={`text-sm font-medium ${
                 isConnected ? 'text-emerald-400' : 'text-red-400'
               }`}>
-                {isConnected ? t('auth:connection.connected', 'Connected to ForexAlert Pro') : t('auth:connection.required', 'Connection Required')}
+                {isConnected ? 'Connected to ForexAlert Pro' : 'Connection Required'}
               </span>
             </div>
             
@@ -178,21 +171,21 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              {t('auth:form.email', 'Email Address')}
+              Email Address
             </label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-emerald-500 transition-colors"
-              placeholder={t('auth:form.emailPlaceholder', 'Enter your email')}
+              placeholder="Enter your email"
               required
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              {t('auth:form.password', 'Password')}
+              Password
             </label>
             <div className="relative">
               <input
@@ -200,7 +193,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-emerald-500 transition-colors pr-12"
-                placeholder={isLogin ? t('auth:form.passwordPlaceholder', 'Enter your password') : t('auth:form.passwordCreatePlaceholder', 'Create a password (min 6 characters)')}
+                placeholder={isLogin ? 'Enter your password' : 'Create a password (min 6 characters)'}
                 minLength={isLogin ? undefined : 6}
                 required
               />
@@ -236,7 +229,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
             disabled={loading || (!isConnected && Capacitor.isNativePlatform())}
             className="w-full py-3 bg-gradient-to-r from-emerald-500 to-blue-500 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-emerald-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? t('actions.loading') : (isLogin ? t('auth:signin.button', 'Sign In') : t('auth:signup.button', 'Create Account'))}
+            {loading ? 'Loading...' : (isLogin ? 'Sign In' : 'Create Account')}
           </button>
 
           <div className="text-center">

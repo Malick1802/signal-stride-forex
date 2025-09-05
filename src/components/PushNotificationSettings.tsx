@@ -11,7 +11,6 @@ import { useMobileNotificationManager } from '@/hooks/useMobileNotificationManag
 import { MobileNotificationManager } from '@/utils/mobileNotifications';
 import { Capacitor } from '@capacitor/core';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
-import { MobileNotificationDebugger } from '@/components/MobileNotificationDebugger';
 
 interface NotificationState {
   isSupported: boolean;
@@ -329,8 +328,25 @@ export const PushNotificationSettings = () => {
 
   return (
     <div className="space-y-6">
-      {/* Debug Component - For Android troubleshooting */}
-      <MobileNotificationDebugger />
+      {/* Debug Info - Always show for troubleshooting */}
+      <Card className="border-blue-200 bg-blue-50">
+        <CardHeader>
+          <CardTitle className="text-blue-700 text-sm">Debug Information</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="text-blue-600 text-xs space-y-1">
+            <div><strong>Loading:</strong> {notificationState.isLoading ? 'Yes' : 'No'}</div>
+            <div><strong>Supported:</strong> {notificationState.isSupported ? '✅ Yes' : '❌ No'}</div>
+            <div><strong>Platform:</strong> {notificationState.platform}</div>
+            <div><strong>Native:</strong> {notificationState.isNative ? '✅ Yes' : '❌ No'}</div>
+            <div><strong>Permission:</strong> {notificationState.permission}</div>
+            <div><strong>Local Notifications:</strong> {notificationState.detectedAPIs.hasLocalNotifications ? '✅' : '❌'}</div>
+            <div><strong>Web Notifications:</strong> {notificationState.detectedAPIs.hasWebNotifications ? '✅' : '❌'}</div>
+            <div><strong>Push Notifications:</strong> {notificationState.detectedAPIs.hasPushNotifications ? '✅' : '❌'}</div>
+            {notificationState.error && <div className="text-red-600"><strong>Error:</strong> {notificationState.error}</div>}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Platform & Permission Status */}
       <Card>

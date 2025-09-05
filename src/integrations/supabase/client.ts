@@ -15,22 +15,28 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
+    // Android-specific auth settings
+    flowType: 'pkce',
   },
   realtime: {
     params: {
-      eventsPerSecond: 10,
-      timeout: 60000
+      eventsPerSecond: 10
     }
   },
   global: {
     headers: {
       'x-client-info': 'forex-signal-pro-mobile'
     },
+    // Android networking configuration
     fetch: (url, options = {}) => {
+      // Add timeout and better error handling for Android
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      
       return fetch(url, {
         ...options,
-        signal: AbortSignal.timeout(30000), // 30 second timeout
-      });
+        signal: controller.signal,
+      }).finally(() => clearTimeout(timeoutId));
     }
   }
 });

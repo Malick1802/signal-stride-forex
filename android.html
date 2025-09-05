@@ -9,7 +9,7 @@
     <title>ForexAlert Pro</title>
     
     <!-- Capacitor Android specific meta tags -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: gap: https://ssl.gstatic.com 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; media-src *; img-src 'self' data: content:;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: gap: https://ssl.gstatic.com https://ugtaodrvbpfeyhdgmisn.supabase.co https://api.fastforex.io https://fcm.googleapis.com 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; media-src *; img-src 'self' data: content:; connect-src 'self' https://ugtaodrvbpfeyhdgmisn.supabase.co https://api.fastforex.io https://fcm.googleapis.com wss://ugtaodrvbpfeyhdgmisn.supabase.co;">
     <meta name="format-detection" content="telephone=no">
     <meta name="msapplication-tap-highlight" content="no">
 
@@ -34,8 +34,10 @@
       
       #root {
         width: 100%;
-        height: 100vh;
-        overflow: hidden;
+        min-height: 100vh;
+        overflow-x: hidden;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
       }
       
       /* Prevent zoom on Android */
@@ -46,6 +48,6 @@
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main-android.tsx"></script>
+    <script type="module" src="/main.js"></script>
   </body>
 </html>

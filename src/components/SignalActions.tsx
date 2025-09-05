@@ -1,8 +1,10 @@
 
-import React from 'react';
-import { Clock, ExternalLink } from 'lucide-react';
+import React, { useState } from 'react';
+import { Clock, ExternalLink, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { useNativeFeatures } from '@/hooks/useNativeFeatures';
+import { handleMetaTraderRedirect } from '@/utils/metaTraderDetection';
 
 interface SignalActionsProps {
   pair: string;
@@ -12,15 +14,38 @@ interface SignalActionsProps {
 
 const SignalActions = ({ pair, type, timestamp }: SignalActionsProps) => {
   const { toast } = useToast();
+  const { triggerHaptic, triggerSuccessHaptic, triggerErrorHaptic } = useNativeFeatures();
+  const [isLoading, setIsLoading] = useState(false);
 
-  const openMetaTrader = () => {
-    const metaTraderUrl = `mt4://trade?symbol=${pair}&action=${type === 'BUY' ? 'buy' : 'sell'}`;
-    window.open(metaTraderUrl, '_blank');
+  const openMetaTrader = async () => {
+    setIsLoading(true);
+    await triggerHaptic('Light');
     
-    toast({
-      title: "Opening MetaTrader",
-      description: `Opening ${pair} ${type} in MetaTrader`,
-    });
+    try {
+      await handleMetaTraderRedirect(
+        pair,
+        type,
+        (status) => {
+          // Show status updates to user
+          if (status.includes('Opening')) {
+            triggerSuccessHaptic();
+            toast({
+              title: "Opening MetaTrader",
+              description: `${status} for ${pair} ${type}`,
+            });
+          }
+        }
+      );
+    } catch (error) {
+      await triggerErrorHaptic();
+      toast({
+        title: "Error",
+        description: "Failed to open MetaTrader. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setTimeout(() => setIsLoading(false), 1000);
+    }
   };
 
   return (
@@ -34,10 +59,15 @@ const SignalActions = ({ pair, type, timestamp }: SignalActionsProps) => {
       
       <Button
         onClick={openMetaTrader}
-        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white"
+        disabled={isLoading}
+        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white disabled:opacity-50"
       >
-        <ExternalLink className="h-4 w-4 mr-2" />
-        Trade Now in MetaTrader
+        {isLoading ? (
+          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+        ) : (
+          <ExternalLink className="h-4 w-4 mr-2" />
+        )}
+        {isLoading ? 'Opening MetaTrader...' : 'Trade Now in MetaTrader'}
       </Button>
     </div>
   );

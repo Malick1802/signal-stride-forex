@@ -219,10 +219,28 @@ export const usePushNotifications = () => {
 
       PushNotifications.addListener('pushNotificationReceived', (notification) => {
         console.log('📱 Push notification received in foreground:', notification);
+        
+        // Trigger haptic feedback for important notifications
+        if (notification.data?.notificationType === 'new_signal' || notification.data?.notificationType === 'target_hit') {
+          try {
+            import('@capacitor/haptics').then(({ Haptics, ImpactStyle }) => {
+              Haptics.impact({ style: ImpactStyle.Heavy });
+            });
+          } catch (e) {
+            console.log('Haptics not available');
+          }
+        }
       });
 
       PushNotifications.addListener('pushNotificationActionPerformed', (notification) => {
-        console.log('📱 Push notification action performed:', notification);
+        console.log('📱 Push notification action performed (background/closed app):', notification);
+        
+        // This is called when user taps notification while app is closed or in background
+        const data = notification.notification.data;
+        if (data?.route) {
+          console.log('🔄 Should navigate to route:', data.route);
+          // Navigation will be handled by the app when it becomes active
+        }
       });
       
       // Register with platform (Apple/Google)
