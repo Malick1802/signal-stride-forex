@@ -96,45 +96,10 @@ serve(async (req) => {
       force = false,
       debug = false,
       maxSignals = 8,
-      fullAnalysis = true,
-      trigger = 'manual',
-      maxAnalyzedPairs = 8,
-      fullCoverage = false,
-      batchIndex = 0,
-      batchSize = undefined
+      fullAnalysis = true
     } = requestBody;
 
-    const effectiveBatchSize = Number.isFinite(Number(batchSize)) && Number(batchSize) > 0 
-      ? Number(batchSize) 
-      : Number(maxAnalyzedPairs) || 8;
-
-    console.log(`🎯 Professional Mode - Force: ${force}, Debug: ${debug}, Trigger: ${trigger}, Max Signals: ${maxSignals}, MaxAnalyzedPairs: ${maxAnalyzedPairs}, BatchIdx: ${batchIndex}, BatchSize: ${effectiveBatchSize}`);
-
-    // Get current signal threshold level from app settings
-    console.log('📊 Fetching threshold configuration...');
-    const { data: thresholdData, error: thresholdError } = await supabase
-      .rpc('get_app_setting', { setting_name: 'signal_threshold_level' });
-    
-    const thresholdLevel = thresholdData || 'HIGH';
-    console.log(`🎯 Signal Threshold Level: ${thresholdLevel}`);
-    
-    // Define tier thresholds based on selected level
-    const TIER_CONFIGS = {
-      'LOW': {
-        tier1Pass: 30, tier2Pass: 40, tier3Pass: 50,
-        maxNewSignals: 12, description: 'More signals, broader opportunities'
-      },
-      'MEDIUM': {
-        tier1Pass: 50, tier2Pass: 60, tier3Pass: 70,
-        maxNewSignals: 6, description: 'Balanced signal quality and quantity'  
-      },
-      'HIGH': {
-        tier1Pass: 70, tier2Pass: 75, tier3Pass: 80,
-        maxNewSignals: 3, description: 'Premium quality, fewer signals'
-      }
-    };
-    
-    const config = TIER_CONFIGS[thresholdLevel as keyof typeof TIER_CONFIGS] || TIER_CONFIGS.HIGH;
+    console.log(`🎯 Professional Mode - Force: ${force}, Debug: ${debug}, Max Signals: ${maxSignals}`);
 
     // Get current market data
     console.log('📊 Fetching centralized market data...');
@@ -166,13 +131,11 @@ serve(async (req) => {
 
     const currentSignalCount = existingSignals?.length || 0;
     const maxTotalSignals = 15;
-    const maxNewSignalsThisRun = Math.min(config.maxNewSignals, maxTotalSignals - currentSignalCount);
+    const maxNewSignals = Math.min(maxSignals, maxTotalSignals - currentSignalCount);
 
-    console.log(`📋 Signal Status - Current: ${currentSignalCount}/${maxTotalSignals}, Can generate: ${maxNewSignalsThisRun}`);
-    console.log(`🎯 Threshold Config: Tier1=${config.tier1Pass}+, Tier2=${config.tier2Pass}+, Tier3=${config.tier3Pass}+`);
-    console.log(`🔥 PROFESSIONAL MODE: Analyzing ${marketData.length} pairs with 3-tier system (${thresholdLevel})`);
+    console.log(`📋 Signal Status - Current: ${currentSignalCount}/${maxTotalSignals}, Can generate: ${maxNewSignals}`);
 
-    if (maxNewSignalsThisRun <= 0 && !force) {
+    if (maxNewSignals <= 0 && !force) {
       return new Response(JSON.stringify({
         status: 'skipped',
         reason: 'signal_limit_reached',
@@ -246,19 +209,11 @@ serve(async (req) => {
     const prioritizedPairs = pairsWithScores
       .sort((a, b) => b.analysisScore - a.analysisScore);
 
-    // Determine work set (batching) and honor request limits
-    const startIdx = Math.max(0, Number(batchIndex) * Number(effectiveBatchSize));
-    const endIdx = Math.min(prioritizedPairs.length, startIdx + Number(effectiveBatchSize));
-    let workPairs = prioritizedPairs.slice(startIdx, endIdx);
-    if (fullCoverage === true) {
-      workPairs = prioritizedPairs;
-    }
-
-    console.log(`🔥 PROFESSIONAL MODE: Analyzing ${workPairs.length}/${prioritizedPairs.length} pairs with 3-tier system${fullCoverage ? ' (fullCoverage)' : ''}`);
+    console.log(`🔥 PROFESSIONAL MODE: Analyzing ${prioritizedPairs.length} pairs with 3-tier system`);
 
     // 3-Tier Professional Analysis Pipeline
-    for (let i = 0; i < workPairs.length && generatedSignals.length < maxNewSignalsThisRun; i++) {
-      const pair = workPairs[i];
+    for (let i = 0; i < prioritizedPairs.length && generatedSignals.length < maxNewSignals; i++) {
+      const pair = prioritizedPairs[i];
       
       try {
         console.log(`🎯 [${i + 1}/${prioritizedPairs.length}] Professional analysis: ${pair.symbol} (Score: ${Math.round(pair.analysisScore)})`);
@@ -276,7 +231,7 @@ serve(async (req) => {
         
         console.log(`🔍 TIER 1: ${pair.symbol} - Score: ${tier1Analysis.score}/100 (Pass: ${tier1Analysis.score}+)`);
         
-        if (tier1Analysis.score < config.tier1Pass) {
+        if (tier1Analysis.score < CONFIG.tier1PassThreshold) {
           console.log(`❌ TIER 1: ${pair.symbol} failed pre-screening (${tier1Analysis.score}/100)`);
           continue;
         }
@@ -295,7 +250,7 @@ serve(async (req) => {
           analysisStats.totalTokens += t2Analysis.tokensUsed;
           analysisStats.totalCost += t2Analysis.cost;
 
-          if ((t2Analysis.qualityScore ?? 0) >= config.tier2Pass && (t2Analysis.confidence ?? 0) >= config.tier2Pass) {
+          if ((t2Analysis.qualityScore ?? 0) >= CONFIG.tier2EscalationQuality && (t2Analysis.confidence ?? 0) >= CONFIG.tier2EscalationConfidence) {
             analysisStats.tier2Passed++;
             escalateToTier3 = true;
           }
@@ -305,7 +260,7 @@ serve(async (req) => {
           console.log(`💎 ESCALATE: ${pair.symbol} → TIER 3 (from Tier 2 thresholds)`);
           const t3 = await performTier3Analysis(openAIApiKey, pair, historicalData, tier1Analysis);
           analysisStats.tier3Analyzed++;
-          if (t3 && t3.qualityScore >= config.tier3Pass) {
+          if (t3 && t3.qualityScore >= 65) {
             analysisStats.tier3Passed++;
           }
           if (t3) {
@@ -324,8 +279,8 @@ serve(async (req) => {
         // Costs are accounted per-tier (T2/T3) above to avoid double-counting
 
         // Enforce Tier 3 + strict gates before publishing
-        const finalQualityThreshold = config.tier3Pass;
-        const finalConfidenceThreshold = config.tier3Pass;
+        const finalQualityThreshold = CONFIG.finalQualityThreshold;
+        const finalConfidenceThreshold = CONFIG.finalConfidenceThreshold;
         const prices = historicalData.map(p => p.price);
 
         if (finalAnalysis && finalAnalysis.tier === 3 && finalAnalysis.recommendation !== 'HOLD' &&
@@ -343,11 +298,9 @@ serve(async (req) => {
 
           if (gates.passed) {
             const signal = await convertProfessionalAnalysisToSignal(pair, finalAnalysis, historicalData);
-            // Apply ATR-based normalization for realistic targets
-            const normalizedSignal = await normalizeSignalTargets(signal, supabase);
-            if (normalizedSignal) {
+            if (signal) {
               // Attach audit for DB insert
-              (normalizedSignal as any)._audit = {
+              (signal as any)._audit = {
                 t1_score: tier1Analysis.score,
                 t1_confirmations: tier1Analysis.confirmations,
                 t2_quality: (finalAnalysis as any)?._t2?.qualityScore ?? null,
@@ -360,9 +313,8 @@ serve(async (req) => {
                 final_quality: finalAnalysis.qualityScore,
                 final_confidence: finalAnalysis.confidence
               };
-              generatedSignals.push(normalizedSignal);
-              console.log(`✅ PROFESSIONAL SIGNAL (Tier 3, gates passed): ${normalizedSignal.type} ${pair.symbol} (Q:${finalAnalysis.qualityScore}, C:${finalAnalysis.confidence}%)`);
-              console.log(`   📊 Normalized: SL=${normalizedSignal.stopLoss}, TPs=${normalizedSignal.takeProfits?.join(', ')}`);
+              generatedSignals.push(signal);
+              console.log(`✅ PROFESSIONAL SIGNAL (Tier 3, gates passed): ${signal.type} ${pair.symbol} (Q:${finalAnalysis.qualityScore}, C:${finalAnalysis.confidence}%)`);
             }
           } else {
             console.log(`🛑 Gates failed for ${pair.symbol}: ${gates.reasons.join('; ')}`);
@@ -383,19 +335,11 @@ serve(async (req) => {
         }
       }
       
-      // Time budget guard for GitHub to avoid 60s function timeout
-      if (trigger === 'github_actions' && (Date.now() - startTime) > 45000) {
-        console.log('⏱️ Time budget reached (~45s) for GitHub run - finishing early.');
-        break;
-      }
-
-      // Professional pacing between analyses (skip for GitHub Actions)
-      if (i + 1 < workPairs.length && generatedSignals.length < maxNewSignalsThisRun) {
-        if (trigger !== 'github_actions') {
-          const delayMs = 8000 + (i * 1000); // Progressive delays
-          console.log(`⏱️ Professional pacing: ${delayMs/1000}s...`);
-          await new Promise(resolve => setTimeout(resolve, delayMs));
-        }
+      // Professional pacing between analyses
+      if (i + 1 < prioritizedPairs.length && generatedSignals.length < maxNewSignals) {
+        const delayMs = 8000 + (i * 1000); // Progressive delays
+        console.log(`⏱️ Professional pacing: ${delayMs/1000}s...`);
+        await new Promise(resolve => setTimeout(resolve, delayMs));
       }
     }
 
@@ -449,14 +393,13 @@ serve(async (req) => {
 
     const executionTime = Date.now() - startTime;
     
-    console.log(`✅ PROFESSIONAL GENERATION COMPLETE (${thresholdLevel}):`);
+    console.log(`✅ PROFESSIONAL GENERATION COMPLETE:`);
     console.log(`   📊 Signals Generated: ${savedCount}/${generatedSignals.length}`);
-    console.log(`   🎯 Tier 1: ${analysisStats.tier1Passed}/${analysisStats.tier1Analyzed} passed (${config.tier1Pass}+ threshold)`);
-    console.log(`   💰 Tier 2: ${analysisStats.tier2Passed}/${analysisStats.tier2Analyzed} passed (${config.tier2Pass}+ threshold)`);
-    console.log(`   💎 Tier 3: ${analysisStats.tier3Passed}/${analysisStats.tier3Analyzed} passed (${config.tier3Pass}+ threshold)`);
+    console.log(`   🎯 Tier 1: ${analysisStats.tier1Passed}/${analysisStats.tier1Analyzed} passed`);
+    console.log(`   💰 Tier 2: ${analysisStats.tier2Passed}/${analysisStats.tier2Analyzed} passed`);
+    console.log(`   💎 Tier 3: ${analysisStats.tier3Passed}/${analysisStats.tier3Analyzed} passed`);
     console.log(`   💵 Total Cost: $${analysisStats.totalCost.toFixed(4)}`);
     console.log(`   ⏱️ Execution Time: ${executionTime}ms`);
-    console.log(`   📈 Threshold: ${config.description}`);
 
     return new Response(JSON.stringify({
       status: 'success',
@@ -465,14 +408,7 @@ serve(async (req) => {
         totalAnalyzed: prioritizedPairs.length,
         executionTime: `${executionTime}ms`,
         tierStats: analysisStats,
-        professionalGrade: true,
-        thresholdLevel,
-        thresholdConfig: config,
-        tier1Passed: analysisStats.tier1Passed,
-        tier2Passed: analysisStats.tier2Passed,
-        tier3Passed: analysisStats.tier3Passed,
-        concurrentLimit: 3,
-        maxNewSignalsPerRun: maxNewSignalsThisRun
+        professionalGrade: true
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -1113,89 +1049,5 @@ function analyzeCurrentSession(): { currentSession: string; recommendedPairs: st
       recommendedPairs: ['EURUSD', 'GBPUSD', 'USDCAD'],
       avoidPairs: ['AUDJPY', 'NZDJPY']
     };
-  }
-}
-
-// ATR-based signal normalization for realistic targets
-async function normalizeSignalTargets(signal: any, supabase: any) {
-  if (!signal) return signal;
-  
-  try {
-    // Get ATR data for the symbol
-    const { data: atrData } = await supabase
-      .from('multi_timeframe_data')
-      .select('atr')
-      .eq('symbol', signal.symbol)
-      .eq('timeframe', '1H')
-      .order('timestamp', { ascending: false })
-      .limit(14);
-
-    if (!atrData || atrData.length === 0) {
-      console.log(`⚠️ No ATR data for ${signal.symbol}, using original targets`);
-      return signal;
-    }
-
-    // Calculate average ATR
-    const validATRs = atrData.filter(d => d.atr && d.atr > 0).map(d => d.atr);
-    if (validATRs.length === 0) {
-      return signal;
-    }
-
-    const avgATR = validATRs.reduce((sum, atr) => sum + atr, 0) / validATRs.length;
-    const entryPrice = parseFloat(signal.price);
-    const isJPY = signal.symbol.includes('JPY');
-    const pipSize = isJPY ? 0.01 : 0.0001;
-    
-    // Convert ATR to pips
-    const atrPips = Math.round(avgATR / pipSize);
-    
-    console.log(`📊 ATR Analysis for ${signal.symbol}: ${atrPips} pips`);
-    
-    // Normalize Stop Loss (1.5-2.5 x ATR, minimum 15 pips)
-    const minStopPips = Math.max(15, Math.round(atrPips * 1.8));
-    const currentStopPips = Math.abs((entryPrice - signal.stopLoss) / pipSize);
-    
-    let normalizedStopLoss = signal.stopLoss;
-    if (currentStopPips < 10 || currentStopPips > atrPips * 4) {
-      // Stop loss too tight or too wide, normalize it
-      if (signal.type === 'BUY') {
-        normalizedStopLoss = entryPrice - (minStopPips * pipSize);
-      } else {
-        normalizedStopLoss = entryPrice + (minStopPips * pipSize);
-      }
-      console.log(`🔧 Normalized Stop Loss: ${signal.stopLoss} → ${normalizedStopLoss} (${minStopPips} pips)`);
-    }
-    
-    // Generate 3 realistic Take Profit levels based on ATR
-    const tp1Pips = Math.round(atrPips * 0.8); // Conservative
-    const tp2Pips = Math.round(atrPips * 1.5); // Moderate  
-    const tp3Pips = Math.round(atrPips * 2.2); // Aggressive
-    
-    let normalizedTPs = [];
-    if (signal.type === 'BUY') {
-      normalizedTPs = [
-        entryPrice + (tp1Pips * pipSize),
-        entryPrice + (tp2Pips * pipSize), 
-        entryPrice + (tp3Pips * pipSize)
-      ];
-    } else {
-      normalizedTPs = [
-        entryPrice - (tp1Pips * pipSize),
-        entryPrice - (tp2Pips * pipSize),
-        entryPrice - (tp3Pips * pipSize)
-      ];
-    }
-    
-    console.log(`🎯 Generated ATR-based TPs: TP1=${tp1Pips}p, TP2=${tp2Pips}p, TP3=${tp3Pips}p`);
-    
-    return {
-      ...signal,
-      stopLoss: parseFloat(normalizedStopLoss.toFixed(isJPY ? 3 : 5)),
-      takeProfits: normalizedTPs.map(tp => parseFloat(tp.toFixed(isJPY ? 3 : 5)))
-    };
-    
-  } catch (error) {
-    console.error(`❌ Error normalizing targets for ${signal.symbol}:`, error);
-    return signal; // Return original signal if normalization fails
   }
 }
