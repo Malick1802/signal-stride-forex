@@ -862,60 +862,6 @@ export type Database = {
         }
         Relationships: []
       }
-      function_invocations: {
-        Row: {
-          created_at: string | null
-          error_message: string | null
-          execution_time_ms: number | null
-          function_name: string
-          id: string
-          pairs_analyzed: number | null
-          run_id: string | null
-          source: string | null
-          success: boolean | null
-          tier2_count: number | null
-          tier3_count: number | null
-          tokens_used: number | null
-          total_cost: number | null
-          trigger_type: string | null
-          user_id: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          error_message?: string | null
-          execution_time_ms?: number | null
-          function_name: string
-          id?: string
-          pairs_analyzed?: number | null
-          run_id?: string | null
-          source?: string | null
-          success?: boolean | null
-          tier2_count?: number | null
-          tier3_count?: number | null
-          tokens_used?: number | null
-          total_cost?: number | null
-          trigger_type?: string | null
-          user_id?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          error_message?: string | null
-          execution_time_ms?: number | null
-          function_name?: string
-          id?: string
-          pairs_analyzed?: number | null
-          run_id?: string | null
-          source?: string | null
-          success?: boolean | null
-          tier2_count?: number | null
-          tier3_count?: number | null
-          tokens_used?: number | null
-          total_cost?: number | null
-          trigger_type?: string | null
-          user_id?: string | null
-        }
-        Relationships: []
-      }
       live_market_data: {
         Row: {
           ask: number | null
