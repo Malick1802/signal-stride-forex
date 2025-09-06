@@ -393,20 +393,20 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
             <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4' : 'grid-cols-2'} bg-background/10 border border-border/20 h-12 p-1 gap-1`}>
               <TabsTrigger 
                 value="signals" 
-                className="text-xs text-muted-foreground data-[state=active]:text-background data-[state=active]:bg-chart-2 h-full w-full rounded-md transition-all duration-200"
+                className="text-xs text-muted-foreground data-[state=active]:text-white data-[state=active]:bg-emerald-500 data-[state=active]:shadow-sm h-full w-full rounded-md transition-all duration-200"
               >
                 Signals
               </TabsTrigger>
               <TabsTrigger 
                 value="expired"
-                className="text-xs text-muted-foreground data-[state=active]:text-background data-[state=active]:bg-chart-2 h-full w-full rounded-md transition-all duration-200"
+                className="text-xs text-muted-foreground data-[state=active]:text-white data-[state=active]:bg-emerald-500 data-[state=active]:shadow-sm h-full w-full rounded-md transition-all duration-200"
               >
                 Expired
               </TabsTrigger>
               {isAdmin && (
                 <TabsTrigger 
                   value="diagnostics"
-                  className="text-xs text-muted-foreground data-[state=active]:text-background data-[state=active]:bg-chart-2 h-full w-full rounded-md transition-all duration-200"
+                  className="text-xs text-muted-foreground data-[state=active]:text-white data-[state=active]:bg-emerald-500 data-[state=active]:shadow-sm h-full w-full rounded-md transition-all duration-200"
                 >
                   Tools
                 </TabsTrigger>
@@ -414,7 +414,7 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
               {isAdmin && (
                 <TabsTrigger 
                   value="testing"
-                  className="text-xs text-muted-foreground data-[state=active]:text-background data-[state=active]:bg-chart-2 h-full w-full rounded-md transition-all duration-200"
+                  className="text-xs text-muted-foreground data-[state=active]:text-white data-[state=active]:bg-emerald-500 data-[state=active]:shadow-sm h-full w-full rounded-md transition-all duration-200"
                 >
                   Test
                 </TabsTrigger>
