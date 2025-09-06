@@ -30,21 +30,21 @@ export const MobileNavigationBar: React.FC<MobileNavigationBarProps> = ({
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t border-border">
-      <div className="flex items-center justify-around py-3 px-4 safe-area-pb">
+      <div className="flex items-center justify-evenly py-2 px-2 safe-area-pb">
         {tabs.map(({ id, icon: Icon, label }) => (
           <Button
             key={id}
             variant="ghost"
             size="sm"
-            className={`flex flex-col items-center gap-1 h-auto py-3 px-4 ${
+            className={`flex-1 flex flex-col items-center gap-1 h-auto py-2 px-1 min-w-0 ${
               activeTab === id 
                 ? 'text-primary' 
                 : 'text-muted-foreground'
             }`}
             onClick={() => handleTabPress(id)}
           >
-            <Icon className={`h-6 w-6 ${activeTab === id ? 'text-primary' : ''}`} />
-            <span className="text-xs font-medium">{label}</span>
+            <Icon className={`h-5 w-5 ${activeTab === id ? 'text-primary' : ''}`} />
+            <span className="text-xs font-medium truncate">{label}</span>
           </Button>
         ))}
       </div>
