@@ -390,23 +390,23 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
       <div className="md:hidden bg-black/10 backdrop-blur-sm border-b border-white/10">
         <div className="px-3 py-2">
           <Tabs value={activeTab} onValueChange={onTabChange || setInternalActiveTab} className="w-full">
-            <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4' : 'grid-cols-2'} bg-background/10 border border-border/20 h-12`}>
+            <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4' : 'grid-cols-2'} bg-background/10 border border-border/20 h-12 p-1 gap-1`}>
               <TabsTrigger 
                 value="signals" 
-                className="text-xs text-muted-foreground data-[state=active]:text-chart-2 data-[state=active]:bg-chart-2/20 h-10 rounded-md"
+                className="text-xs text-muted-foreground data-[state=active]:text-background data-[state=active]:bg-chart-2 h-full w-full rounded-md transition-all duration-200"
               >
                 Signals
               </TabsTrigger>
               <TabsTrigger 
                 value="expired"
-                className="text-xs text-muted-foreground data-[state=active]:text-chart-2 data-[state=active]:bg-chart-2/20 h-10 rounded-md"
+                className="text-xs text-muted-foreground data-[state=active]:text-background data-[state=active]:bg-chart-2 h-full w-full rounded-md transition-all duration-200"
               >
                 Expired
               </TabsTrigger>
               {isAdmin && (
                 <TabsTrigger 
                   value="diagnostics"
-                  className="text-xs text-muted-foreground data-[state=active]:text-chart-2 data-[state=active]:bg-chart-2/20 h-10 rounded-md"
+                  className="text-xs text-muted-foreground data-[state=active]:text-background data-[state=active]:bg-chart-2 h-full w-full rounded-md transition-all duration-200"
                 >
                   Tools
                 </TabsTrigger>
@@ -414,7 +414,7 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
               {isAdmin && (
                 <TabsTrigger 
                   value="testing"
-                  className="text-xs text-muted-foreground data-[state=active]:text-chart-2 data-[state=active]:bg-chart-2/20 h-10 rounded-md"
+                  className="text-xs text-muted-foreground data-[state=active]:text-background data-[state=active]:bg-chart-2 h-full w-full rounded-md transition-all duration-200"
                 >
                   Test
                 </TabsTrigger>
