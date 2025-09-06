@@ -41,9 +41,9 @@ export const MobileSignalCard: React.FC<MobileSignalCardProps> = ({
   };
 
   const getSignalColor = () => {
-    if (signal.outcome === 'profit') return 'text-chart-2';
-    if (signal.outcome === 'loss') return 'text-destructive';
-    return signal.signal_type === 'buy' ? 'text-chart-2' : 'text-destructive';
+    if (signal.outcome === 'profit') return 'text-green-500';
+    if (signal.outcome === 'loss') return 'text-red-500';
+    return signal.signal_type === 'buy' ? 'text-green-400' : 'text-red-400';
   };
 
   const getStatusBadgeVariant = () => {
@@ -117,10 +117,10 @@ export const MobileSignalCard: React.FC<MobileSignalCardProps> = ({
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <Target className="h-4 w-4 text-chart-2" />
+              <Target className="h-4 w-4 text-green-500" />
               <div>
                 <div className="text-xs text-muted-foreground">Target</div>
-                <div className="font-mono text-chart-2">
+                <div className="font-mono text-green-500">
                   {formatPrice(signal.target_price)}
                 </div>
               </div>
@@ -129,10 +129,10 @@ export const MobileSignalCard: React.FC<MobileSignalCardProps> = ({
           
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <Shield className="h-4 w-4 text-destructive" />
+              <Shield className="h-4 w-4 text-red-500" />
               <div>
                 <div className="text-xs text-muted-foreground">Stop Loss</div>
-                <div className="font-mono text-destructive">
+                <div className="font-mono text-red-500">
                   {formatPrice(signal.stop_loss_price)}
                 </div>
               </div>
@@ -146,7 +146,7 @@ export const MobileSignalCard: React.FC<MobileSignalCardProps> = ({
             <div className="flex items-center justify-between">
               <span className="text-sm text-muted-foreground">Result:</span>
               <div className={`text-sm font-medium ${
-                signal.outcome === 'profit' ? 'text-chart-2' : 'text-destructive'
+                signal.outcome === 'profit' ? 'text-green-500' : 'text-red-500'
               }`}>
                 {signal.outcome === 'profit' ? '✅' : '❌'} {formatPips(signal.pips_result)}
               </div>

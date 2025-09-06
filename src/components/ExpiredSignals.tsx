@@ -10,9 +10,9 @@ const ExpiredSignals = () => {
 
   const getResultColor = (result: string) => {
     switch (result) {
-      case 'WIN': return 'text-chart-2 bg-chart-2/20';
-      case 'LOSS': return 'text-destructive bg-destructive/20';
-      default: return 'text-muted-foreground bg-muted/20';
+      case 'WIN': return 'text-emerald-400 bg-emerald-400/20';
+      case 'LOSS': return 'text-red-400 bg-red-400/20';
+      default: return 'text-gray-400 bg-gray-400/20';
     }
   };
 
@@ -71,8 +71,8 @@ const ExpiredSignals = () => {
                       <span className="text-white font-bold text-lg">{signal.pair}</span>
                       <span className={`px-2 py-1 rounded text-xs font-medium ${
                         signal.type === 'BUY' 
-                          ? 'bg-chart-2/20 text-chart-2' 
-                          : 'bg-destructive/20 text-destructive'
+                          ? 'bg-emerald-500/20 text-emerald-400' 
+                          : 'bg-red-500/20 text-red-400'
                       }`}>
                         {signal.type}
                       </span>
@@ -85,7 +85,7 @@ const ExpiredSignals = () => {
 
                   <div className="text-right">
                     <div className={`text-lg font-bold ${
-                      signal.pips.includes('+') ? 'text-chart-2' : 'text-destructive'
+                      signal.pips.includes('+') ? 'text-emerald-400' : 'text-red-400'
                     }`}>
                       {signal.pips}
                     </div>
@@ -95,24 +95,24 @@ const ExpiredSignals = () => {
 
                 <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
                   <div>
-                    <div className="text-muted-foreground mb-1">Entry Price</div>
-                    <div className="text-foreground font-mono">{signal.entryPrice}</div>
+                    <div className="text-gray-400 mb-1">Entry Price</div>
+                    <div className="text-white font-mono">{signal.entryPrice}</div>
                   </div>
                   <div>
-                    <div className="text-muted-foreground mb-1">Exit Price</div>
-                    <div className="text-foreground font-mono">{signal.exitPrice}</div>
+                    <div className="text-gray-400 mb-1">Exit Price</div>
+                    <div className="text-white font-mono">{signal.exitPrice}</div>
                   </div>
                   <div>
-                    <div className="text-muted-foreground mb-1">Stop Loss</div>
-                    <div className="text-destructive font-mono">{signal.stopLoss}</div>
+                    <div className="text-gray-400 mb-1">Stop Loss</div>
+                    <div className="text-red-400 font-mono">{signal.stopLoss}</div>
                   </div>
                   <div>
-                    <div className="text-muted-foreground mb-1">Take Profit</div>
-                    <div className="text-chart-2 font-mono">{signal.takeProfit}</div>
+                    <div className="text-gray-400 mb-1">Take Profit</div>
+                    <div className="text-emerald-400 font-mono">{signal.takeProfit}</div>
                   </div>
                   <div>
-                    <div className="text-muted-foreground mb-1">Confidence</div>
-                    <div className="text-chart-1 font-medium">{signal.confidence}%</div>
+                    <div className="text-gray-400 mb-1">Confidence</div>
+                    <div className="text-blue-400 font-medium">{signal.confidence}%</div>
                   </div>
                 </div>
 
