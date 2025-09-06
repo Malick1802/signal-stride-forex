@@ -205,8 +205,8 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
                 variant={activeTab === tab.id ? "default" : "ghost"}
                 className={`w-full justify-start text-left ${
                   activeTab === tab.id
-                    ? 'bg-emerald-500 text-white'
-                    : 'text-gray-300 hover:text-white hover:bg-white/10'
+                    ? 'bg-chart-2 text-background'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-background/10'
                 }`}
                 onClick={() => handleTabClick(tab.id)}
               >
@@ -228,8 +228,8 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
           onClick={() => handleTabClick(tab.id)}
           className={`py-4 px-2 border-b-2 font-medium transition-colors flex items-center space-x-2 ${
             activeTab === tab.id
-              ? 'border-emerald-400 text-emerald-400'
-              : 'border-transparent text-gray-400 hover:text-white'
+              ? 'border-chart-2 text-chart-2'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
           {tab.icon && <tab.icon className="h-4 w-4" />}
@@ -390,23 +390,23 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
       <div className="md:hidden bg-black/10 backdrop-blur-sm border-b border-white/10">
         <div className="px-3 py-2">
           <Tabs value={activeTab} onValueChange={onTabChange || setInternalActiveTab} className="w-full">
-            <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4' : 'grid-cols-2'} bg-white/10 border border-white/20`}>
+            <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4' : 'grid-cols-2'} bg-background/10 border border-border/20 h-12`}>
               <TabsTrigger 
                 value="signals" 
-                className="text-xs text-gray-300 data-[state=active]:text-emerald-400 data-[state=active]:bg-emerald-500/20"
+                className="text-xs text-muted-foreground data-[state=active]:text-chart-2 data-[state=active]:bg-chart-2/20 h-10 rounded-md"
               >
                 Signals
               </TabsTrigger>
               <TabsTrigger 
                 value="expired"
-                className="text-xs text-gray-300 data-[state=active]:text-emerald-400 data-[state=active]:bg-emerald-500/20"
+                className="text-xs text-muted-foreground data-[state=active]:text-chart-2 data-[state=active]:bg-chart-2/20 h-10 rounded-md"
               >
                 Expired
               </TabsTrigger>
               {isAdmin && (
                 <TabsTrigger 
                   value="diagnostics"
-                  className="text-xs text-gray-300 data-[state=active]:text-emerald-400 data-[state=active]:bg-emerald-500/20"
+                  className="text-xs text-muted-foreground data-[state=active]:text-chart-2 data-[state=active]:bg-chart-2/20 h-10 rounded-md"
                 >
                   Tools
                 </TabsTrigger>
@@ -414,7 +414,7 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
               {isAdmin && (
                 <TabsTrigger 
                   value="testing"
-                  className="text-xs text-gray-300 data-[state=active]:text-emerald-400 data-[state=active]:bg-emerald-500/20"
+                  className="text-xs text-muted-foreground data-[state=active]:text-chart-2 data-[state=active]:bg-chart-2/20 h-10 rounded-md"
                 >
                   Test
                 </TabsTrigger>
