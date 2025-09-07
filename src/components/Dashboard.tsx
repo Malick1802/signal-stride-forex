@@ -390,23 +390,23 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
       <div className="md:hidden bg-black/10 backdrop-blur-sm border-b border-white/10">
         <div className="px-3 py-2">
           <Tabs value={activeTab} onValueChange={onTabChange || setInternalActiveTab} className="w-full">
-            <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4' : 'grid-cols-2'} bg-white/10 border border-white/20`}>
+            <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4' : 'grid-cols-2'} bg-white/10 border border-white/20 p-1`}>
               <TabsTrigger 
                 value="signals" 
-                className="text-xs text-gray-300 data-[state=active]:text-emerald-400 data-[state=active]:bg-emerald-500/20 rounded-md transition-all"
+                className="text-xs text-gray-300 data-[state=active]:text-emerald-400 data-[state=active]:bg-emerald-500/20 rounded px-2 py-1.5 mx-0.5"
               >
                 Signals
               </TabsTrigger>
               <TabsTrigger 
                 value="expired"
-                className="text-xs text-gray-300 data-[state=active]:text-emerald-400 data-[state=active]:bg-emerald-500/20 rounded-md transition-all"
+                className="text-xs text-gray-300 data-[state=active]:text-emerald-400 data-[state=active]:bg-emerald-500/20 rounded px-2 py-1.5 mx-0.5"
               >
                 Expired
               </TabsTrigger>
               {isAdmin && (
                 <TabsTrigger 
                   value="diagnostics"
-                  className="text-xs text-gray-300 data-[state=active]:text-emerald-400 data-[state=active]:bg-emerald-500/20 rounded-md transition-all"
+                  className="text-xs text-gray-300 data-[state=active]:text-emerald-400 data-[state=active]:bg-emerald-500/20 rounded px-2 py-1.5 mx-0.5"
                 >
                   Tools
                 </TabsTrigger>
@@ -414,7 +414,7 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
               {isAdmin && (
                 <TabsTrigger 
                   value="testing"
-                  className="text-xs text-gray-300 data-[state=active]:text-emerald-400 data-[state=active]:bg-emerald-500/20 rounded-md transition-all"
+                  className="text-xs text-gray-300 data-[state=active]:text-emerald-400 data-[state=active]:bg-emerald-500/20 rounded px-2 py-1.5 mx-0.5"
                 >
                   Test
                 </TabsTrigger>
