@@ -58,7 +58,7 @@ interface PricePoint {
 const CONFIG = {
   sequentialTiers: true,
   allowTier3Cap: false,
-  tier1PassThreshold: 75,        // Increased from 50 → 75 (50% higher)
+  tier1PassThreshold: 60,        // Lowered to restore Tier 1 flow
   tier2EscalationQuality: 80,    // Increased from 60 → 80 (33% higher)
   tier2EscalationConfidence: 75, // Increased from 55 → 75 (36% higher) 
   finalQualityThreshold: 85,     // Increased from 70 → 85 (21% higher)
@@ -96,7 +96,8 @@ serve(async (req) => {
       force = false,
       debug = false,
       maxSignals = 8,
-      fullAnalysis = true
+      fullAnalysis = true,
+      lowThreshold = false
     } = requestBody;
 
     console.log(`🎯 Professional Mode - Force: ${force}, Debug: ${debug}, Max Signals: ${maxSignals}`);
@@ -170,6 +171,8 @@ serve(async (req) => {
       totalTokens: 0
     };
 
+    const tier1Threshold = lowThreshold ? 55 : CONFIG.tier1PassThreshold;
+    if (debug) console.log(`⚙️ Tier 1 pass threshold: ${tier1Threshold}`);
     // Major pairs get priority for Tier 3 analysis
     const majorPairs = ['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD'];
     const availablePairs = marketData
@@ -229,9 +232,9 @@ serve(async (req) => {
         const tier1Analysis = await performTier1Analysis(pair, historicalData);
         analysisStats.tier1Analyzed++;
         
-        console.log(`🔍 TIER 1: ${pair.symbol} - Score: ${tier1Analysis.score}/100 (Pass: ${tier1Analysis.score}+)`);
+        console.log(`🔍 TIER 1: ${pair.symbol} - Score: ${tier1Analysis.score}/100 (Pass: ${tier1Threshold}+)`);
         
-        if (tier1Analysis.score < CONFIG.tier1PassThreshold) {
+        if (tier1Analysis.score < tier1Threshold) {
           console.log(`❌ TIER 1: ${pair.symbol} failed pre-screening (${tier1Analysis.score}/100)`);
           continue;
         }
@@ -434,7 +437,7 @@ async function getEnhancedHistoricalData(supabase: any, symbol: string): Promise
     // First try to get from multi-timeframe data (preferred)
     const { data: mtData, error: mtError } = await supabase
       .from('multi_timeframe_data')
-      .select('timestamp, close_price as price')
+      .select('timestamp, price:close_price')
       .eq('symbol', symbol)
       .eq('timeframe', '1H')
       .order('timestamp', { ascending: true })
