@@ -101,6 +101,15 @@ serve(async (req) => {
     } = requestBody;
 
     console.log(`🎯 Professional Mode - Force: ${force}, Debug: ${debug}, Max Signals: ${maxSignals}`);
+    // Mode flags for CI/fast runs
+    const enhancedHeader = req.headers.get('x-enhanced-generation')?.toLowerCase() === 'true';
+    const optimized = (requestBody?.optimized ?? enhancedHeader) === true;
+    const fastMode = (requestBody?.fastMode ?? optimized) === true;
+    const maxAnalyzedPairs = Number(requestBody?.maxAnalyzedPairs ?? (optimized ? 12 : '')) || undefined;
+    const timeBudgetMs = Number(requestBody?.timeBudgetMs ?? (optimized ? 50000 : '')) || undefined;
+    if (debug) {
+      console.log(`⚙️ Mode: optimized=${optimized}, fastMode=${fastMode}, maxAnalyzedPairs=${maxAnalyzedPairs ?? 'all'}, timeBudgetMs=${timeBudgetMs ?? 'none'}`);
+    }
 
     // Get current market data
     console.log('📊 Fetching centralized market data...');
@@ -211,15 +220,22 @@ serve(async (req) => {
     // Sort by professional score - analyze all pairs but prioritize quality
     const prioritizedPairs = pairsWithScores
       .sort((a, b) => b.analysisScore - a.analysisScore);
-
-    console.log(`🔥 PROFESSIONAL MODE: Analyzing ${prioritizedPairs.length} pairs with 3-tier system`);
+    const selectedPairs = maxAnalyzedPairs ? prioritizedPairs.slice(0, maxAnalyzedPairs) : prioritizedPairs;
+    console.log(`🔥 PROFESSIONAL MODE: Analyzing ${selectedPairs.length} pairs with 3-tier system`);
 
     // 3-Tier Professional Analysis Pipeline
-    for (let i = 0; i < prioritizedPairs.length && generatedSignals.length < maxNewSignals; i++) {
-      const pair = prioritizedPairs[i];
+    let pairsAnalyzed = 0;
+    let timedOut = false;
+    for (let i = 0; i < selectedPairs.length && generatedSignals.length < maxNewSignals; i++) {
+      const pair = selectedPairs[i];
       
+      if (timeBudgetMs && (Date.now() - startTime) > timeBudgetMs) {
+        console.log('⏹️ Time budget reached, stopping early');
+        timedOut = true;
+        break;
+      }
       try {
-        console.log(`🎯 [${i + 1}/${prioritizedPairs.length}] Professional analysis: ${pair.symbol} (Score: ${Math.round(pair.analysisScore)})`);
+        console.log(`🎯 [${i + 1}/${selectedPairs.length}] Professional analysis: ${pair.symbol} (Score: ${Math.round(pair.analysisScore)})`);
         
         // Get historical data for comprehensive analysis
         const historicalData = await getEnhancedHistoricalData(supabase, pair.symbol);
@@ -333,16 +349,32 @@ serve(async (req) => {
         
         // Rate limit handling
         if (error.message?.includes('rate limit')) {
-          console.log(`⏱️ Rate limit detected - 20s backoff...`);
-          await new Promise(resolve => setTimeout(resolve, 20000));
+          const backoff = fastMode ? 3000 : 20000;
+          console.log(`⏱️ Rate limit detected - ${backoff/1000}s backoff...`);
+          await new Promise(resolve => setTimeout(resolve, backoff));
         }
       }
       
       // Professional pacing between analyses
-      if (i + 1 < prioritizedPairs.length && generatedSignals.length < maxNewSignals) {
-        const delayMs = 8000 + (i * 1000); // Progressive delays
-        console.log(`⏱️ Professional pacing: ${delayMs/1000}s...`);
-        await new Promise(resolve => setTimeout(resolve, delayMs));
+      pairsAnalyzed++;
+      if (i + 1 < selectedPairs.length && generatedSignals.length < maxNewSignals) {
+        let delayMs = fastMode ? 0 : (8000 + (i * 1000));
+        if (timeBudgetMs) {
+          const elapsed = Date.now() - startTime;
+          const remaining = timeBudgetMs - elapsed;
+          if (remaining <= 0) {
+            console.log('⏹️ Time budget reached before pacing');
+            timedOut = true;
+            break;
+          }
+          if (delayMs > remaining - 1000) {
+            delayMs = Math.max(0, remaining - 1000);
+          }
+        }
+        if (delayMs > 0) {
+          console.log(`⏱️ Professional pacing: ${Math.round(delayMs/1000)}s...`);
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+        }
       }
     }
 
@@ -408,7 +440,9 @@ serve(async (req) => {
       status: 'success',
       stats: {
         signalsGenerated: savedCount,
-        totalAnalyzed: prioritizedPairs.length,
+        totalAnalyzed: (typeof selectedPairs !== 'undefined' ? selectedPairs.length : prioritizedPairs.length),
+        pairsAnalyzed,
+        timedOut,
         executionTime: `${executionTime}ms`,
         tierStats: analysisStats,
         professionalGrade: true
