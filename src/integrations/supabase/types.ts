@@ -317,6 +317,90 @@ export type Database = {
         }
         Relationships: []
       }
+      app_settings: {
+        Row: {
+          signal_threshold_level: string
+          singleton: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          signal_threshold_level?: string
+          singleton?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          signal_threshold_level?: string
+          singleton?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      backtesting_configurations: {
+        Row: {
+          average_loss_pips: number | null
+          average_win_pips: number | null
+          config_name: string
+          created_at: string
+          id: string
+          losing_trades: number | null
+          max_drawdown_percent: number | null
+          parameters: Json
+          profit_factor: number | null
+          sharpe_ratio: number | null
+          test_period_end: string
+          test_period_start: string
+          testing_status: string | null
+          timeframe: string
+          total_trades: number | null
+          updated_at: string
+          win_rate: number | null
+          winning_trades: number | null
+        }
+        Insert: {
+          average_loss_pips?: number | null
+          average_win_pips?: number | null
+          config_name: string
+          created_at?: string
+          id?: string
+          losing_trades?: number | null
+          max_drawdown_percent?: number | null
+          parameters: Json
+          profit_factor?: number | null
+          sharpe_ratio?: number | null
+          test_period_end: string
+          test_period_start: string
+          testing_status?: string | null
+          timeframe: string
+          total_trades?: number | null
+          updated_at?: string
+          win_rate?: number | null
+          winning_trades?: number | null
+        }
+        Update: {
+          average_loss_pips?: number | null
+          average_win_pips?: number | null
+          config_name?: string
+          created_at?: string
+          id?: string
+          losing_trades?: number | null
+          max_drawdown_percent?: number | null
+          parameters?: Json
+          profit_factor?: number | null
+          sharpe_ratio?: number | null
+          test_period_end?: string
+          test_period_start?: string
+          testing_status?: string | null
+          timeframe?: string
+          total_trades?: number | null
+          updated_at?: string
+          win_rate?: number | null
+          winning_trades?: number | null
+        }
+        Relationships: []
+      }
       cached_signals: {
         Row: {
           cached_at: string
@@ -559,6 +643,54 @@ export type Database = {
           pair_1?: string
           pair_2?: string
           timeframe?: string
+        }
+        Relationships: []
+      }
+      economic_calendar_events: {
+        Row: {
+          actual_value: string | null
+          affected_pairs: string[] | null
+          avoid_after_minutes: number | null
+          avoid_before_minutes: number | null
+          created_at: string
+          currency: string
+          event_name: string
+          event_time: string
+          forecast_value: string | null
+          id: string
+          impact_level: string
+          previous_value: string | null
+          volatility_increase_expected: number | null
+        }
+        Insert: {
+          actual_value?: string | null
+          affected_pairs?: string[] | null
+          avoid_after_minutes?: number | null
+          avoid_before_minutes?: number | null
+          created_at?: string
+          currency: string
+          event_name: string
+          event_time: string
+          forecast_value?: string | null
+          id?: string
+          impact_level: string
+          previous_value?: string | null
+          volatility_increase_expected?: number | null
+        }
+        Update: {
+          actual_value?: string | null
+          affected_pairs?: string[] | null
+          avoid_after_minutes?: number | null
+          avoid_before_minutes?: number | null
+          created_at?: string
+          currency?: string
+          event_name?: string
+          event_time?: string
+          forecast_value?: string | null
+          id?: string
+          impact_level?: string
+          previous_value?: string | null
+          volatility_increase_expected?: number | null
         }
         Relationships: []
       }
@@ -841,6 +973,105 @@ export type Database = {
         }
         Relationships: []
       }
+      function_invocations: {
+        Row: {
+          created_at: string | null
+          error_message: string | null
+          execution_time_ms: number | null
+          function_name: string
+          id: string
+          pairs_analyzed: number | null
+          run_id: string | null
+          source: string | null
+          success: boolean | null
+          tier2_count: number | null
+          tier3_count: number | null
+          tokens_used: number | null
+          total_cost: number | null
+          trigger_type: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          error_message?: string | null
+          execution_time_ms?: number | null
+          function_name: string
+          id?: string
+          pairs_analyzed?: number | null
+          run_id?: string | null
+          source?: string | null
+          success?: boolean | null
+          tier2_count?: number | null
+          tier3_count?: number | null
+          tokens_used?: number | null
+          total_cost?: number | null
+          trigger_type?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          error_message?: string | null
+          execution_time_ms?: number | null
+          function_name?: string
+          id?: string
+          pairs_analyzed?: number | null
+          run_id?: string | null
+          source?: string | null
+          success?: boolean | null
+          tier2_count?: number | null
+          tier3_count?: number | null
+          tokens_used?: number | null
+          total_cost?: number | null
+          trigger_type?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      historical_market_data: {
+        Row: {
+          close_price: number
+          created_at: string
+          high_price: number
+          id: string
+          low_price: number
+          market_session: string | null
+          open_price: number
+          source: string | null
+          symbol: string
+          timeframe: string
+          timestamp: string
+          volume: number | null
+        }
+        Insert: {
+          close_price: number
+          created_at?: string
+          high_price: number
+          id?: string
+          low_price: number
+          market_session?: string | null
+          open_price: number
+          source?: string | null
+          symbol: string
+          timeframe?: string
+          timestamp: string
+          volume?: number | null
+        }
+        Update: {
+          close_price?: number
+          created_at?: string
+          high_price?: number
+          id?: string
+          low_price?: number
+          market_session?: string | null
+          open_price?: number
+          source?: string | null
+          symbol?: string
+          timeframe?: string
+          timestamp?: string
+          volume?: number | null
+        }
+        Relationships: []
+      }
       live_market_data: {
         Row: {
           ask: number | null
@@ -1035,6 +1266,57 @@ export type Database = {
           volume_profile?: Json | null
         }
         Relationships: []
+      }
+      monthly_recalibrations: {
+        Row: {
+          created_at: string
+          id: string
+          market_regime_analysis: Json | null
+          new_config_id: string | null
+          parameter_changes: Json | null
+          performance_improvement: number | null
+          previous_config_id: string | null
+          recalibration_date: string
+          recalibration_reason: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          market_regime_analysis?: Json | null
+          new_config_id?: string | null
+          parameter_changes?: Json | null
+          performance_improvement?: number | null
+          previous_config_id?: string | null
+          recalibration_date: string
+          recalibration_reason?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          market_regime_analysis?: Json | null
+          new_config_id?: string | null
+          parameter_changes?: Json | null
+          performance_improvement?: number | null
+          previous_config_id?: string | null
+          recalibration_date?: string
+          recalibration_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_recalibrations_new_config_id_fkey"
+            columns: ["new_config_id"]
+            isOneToOne: false
+            referencedRelation: "backtesting_configurations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monthly_recalibrations_previous_config_id_fkey"
+            columns: ["previous_config_id"]
+            isOneToOne: false
+            referencedRelation: "backtesting_configurations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       multi_timeframe_data: {
         Row: {
@@ -1486,6 +1768,84 @@ export type Database = {
             foreignKeyName: "signal_outcomes_signal_id_fkey"
             columns: ["signal_id"]
             isOneToOne: true
+            referencedRelation: "trading_signals"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      signal_performance_tracking: {
+        Row: {
+          confidence_score: number
+          config_id: string | null
+          created_at: string
+          entry_price: number
+          entry_time: string
+          exit_price: number | null
+          exit_time: string | null
+          id: string
+          market_regime: string | null
+          outcome: string | null
+          pips_result: number | null
+          risk_reward_achieved: number | null
+          session: string | null
+          signal_id: string | null
+          stop_loss: number
+          symbol: string
+          take_profits: number[]
+          tier_level: number
+        }
+        Insert: {
+          confidence_score: number
+          config_id?: string | null
+          created_at?: string
+          entry_price: number
+          entry_time: string
+          exit_price?: number | null
+          exit_time?: string | null
+          id?: string
+          market_regime?: string | null
+          outcome?: string | null
+          pips_result?: number | null
+          risk_reward_achieved?: number | null
+          session?: string | null
+          signal_id?: string | null
+          stop_loss: number
+          symbol: string
+          take_profits: number[]
+          tier_level: number
+        }
+        Update: {
+          confidence_score?: number
+          config_id?: string | null
+          created_at?: string
+          entry_price?: number
+          entry_time?: string
+          exit_price?: number | null
+          exit_time?: string | null
+          id?: string
+          market_regime?: string | null
+          outcome?: string | null
+          pips_result?: number | null
+          risk_reward_achieved?: number | null
+          session?: string | null
+          signal_id?: string | null
+          stop_loss?: number
+          symbol?: string
+          take_profits?: number[]
+          tier_level?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "signal_performance_tracking_config_id_fkey"
+            columns: ["config_id"]
+            isOneToOne: false
+            referencedRelation: "backtesting_configurations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "signal_performance_tracking_signal_id_fkey"
+            columns: ["signal_id"]
+            isOneToOne: false
             referencedRelation: "trading_signals"
             referencedColumns: ["id"]
           },
@@ -2172,9 +2532,17 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: string
       }
+      get_app_setting: {
+        Args: { setting_name: string }
+        Returns: string
+      }
       has_role: {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
+      }
+      update_app_setting: {
+        Args: { setting_name: string; setting_value: string }
+        Returns: undefined
       }
     }
     Enums: {

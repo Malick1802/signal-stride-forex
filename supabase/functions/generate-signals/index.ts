@@ -58,11 +58,11 @@ interface PricePoint {
 const CONFIG = {
   sequentialTiers: true,
   allowTier3Cap: false,
-  tier1PassThreshold: 60,        // Lowered to restore Tier 1 flow
-  tier2EscalationQuality: 80,    // Increased from 60 → 80 (33% higher)
-  tier2EscalationConfidence: 75, // Increased from 55 → 75 (36% higher) 
-  finalQualityThreshold: 85,     // Increased from 70 → 85 (21% higher)
-  finalConfidenceThreshold: 80,  // Increased from 60 → 80 (33% higher)
+  tier1PassThreshold: 50,        // Relaxed Tier 1 to allow more candidates (no 5–10% cap)
+  tier2EscalationQuality: 80,    // Requires strong quality before escalation
+  tier2EscalationConfidence: 75, // Confidence bar aligned with >70% target
+  finalQualityThreshold: 85,     // Strict final gate for publication
+  finalConfidenceThreshold: 80,  // Strict final gate for publication
 } as const;
 
 serve(async (req) => {
@@ -275,25 +275,26 @@ serve(async (req) => {
           }
         }
 
-        if (escalateToTier3) {
-          console.log(`💎 ESCALATE: ${pair.symbol} → TIER 3 (from Tier 2 thresholds)`);
-          const t3 = await performTier3Analysis(openAIApiKey, pair, historicalData, tier1Analysis);
-          analysisStats.tier3Analyzed++;
-          if (t3 && t3.qualityScore >= 65) {
-            analysisStats.tier3Passed++;
-          }
-          if (t3) {
-            // Track costs for Tier 3
-            analysisStats.totalTokens += t3.tokensUsed;
-            analysisStats.totalCost += t3.cost;
-            // attach Tier 2 audit for later
-            (t3 as any)._t2 = t2Analysis || null;
-          }
-          finalAnalysis = t3;
-        } else {
-          console.log(`💰 Tier 2 did not meet escalation thresholds for ${pair.symbol}`);
-          finalAnalysis = t2Analysis; // Not published; used for logging only
-        }
+if (escalateToTier3) {
+  console.log(`💎 ESCALATE: ${pair.symbol} → TIER 3 (from Tier 2 thresholds)`);
+  const t3 = await performTier3Analysis(openAIApiKey, pair, historicalData, tier1Analysis);
+  analysisStats.tier3Analyzed++;
+  if (t3 && t3.qualityScore >= 65) {
+    analysisStats.tier3Passed++;
+  }
+  if (t3) {
+    // Track costs for Tier 3
+    analysisStats.totalTokens += t3.tokensUsed;
+    analysisStats.totalCost += t3.cost;
+    // attach Tier 2 audit for later
+    (t3 as any)._t2 = t2Analysis || null;
+  }
+  // Enforce risk model (1–2% SL, TPs at 1.5x/2x/3x) before gates
+  finalAnalysis = t3 ? enforceRiskAndTargets(t3, pair.symbol, historicalData.map(p => p.price)) : t3;
+} else {
+  console.log(`💰 Tier 2 did not meet escalation thresholds for ${pair.symbol}`);
+  finalAnalysis = t2Analysis; // Not published; used for logging only
+}
 
         // Costs are accounted per-tier (T2/T3) above to avoid double-counting
 
@@ -663,32 +664,18 @@ async function performTier2Analysis(
   const prices = historicalData.map(p => p.price);
   const technicalSummary = prepareTechnicalSummary(prices, pair.current_price);
   
-  const prompt = `Professional Forex Analysis - TIER 2 (Cost-Effective)
-  
-Pair: ${pair.symbol}
-Current Price: ${pair.current_price}
-Tier 1 Score: ${tier1Data.score}/100
-Tier 1 Factors: ${tier1Data.technicalFactors.join(', ')}
-
-Technical Summary:
-${technicalSummary}
-
-INSTRUCTIONS:
-- Provide BUY/SELL/HOLD recommendation
-- Confidence: 40-85% range
-- Quality Score: 0-100 (aim for 55+)
-- Keep analysis concise (max 150 tokens)
-- Focus on most critical factors only
-
-Required JSON format:
+const prompt = `Act as a 20-year forex expert. Analyze this setup for ${pair.symbol} on the active timeframe.
+Price: ${pair.current_price}
+Context: ${technicalSummary}
+Use any available news context (optional). Be ultra-selective: reject if any doubt (news volatility, weak confluence).
+Output JSON ONLY with:
 {
-  "recommendation": "BUY|SELL|HOLD",
-  "confidence": 65,
-  "qualityScore": 70,
-  "reasoning": "Brief technical reasoning",
-  "entryPrice": ${pair.current_price},
-  "stopLoss": [calculate based on ATR],
-  "takeProfits": [array of 3 levels]
+  "direction": "buy|sell|reject",
+  "confidence": 0-100,
+  "reasoning": "max 50 words",
+  "adjustedEntry": ${pair.current_price},
+  "stopLossPercent": 1.5,
+  "riskRewardTargets": [1.5, 2, 3]
 }`;
 
   try {
@@ -723,29 +710,41 @@ Required JSON format:
       return null;
     }
     
-    const analysis = JSON.parse(jsonMatch[0]);
-    
-    const tokensUsed = data.usage?.total_tokens || 200;
-    const cost = tokensUsed * 0.00000015; // gpt-4o-mini pricing
-    
-    console.log(`💰 TIER 2 cost for ${pair.symbol}: ${tokensUsed} tokens, ~$${cost.toFixed(4)}`);
-    
-    return {
-      recommendation: analysis.recommendation,
-      confidence: analysis.confidence,
-      entryPrice: analysis.entryPrice,
-      stopLoss: analysis.stopLoss,
-      takeProfits: analysis.takeProfits || [],
-      reasoning: analysis.reasoning || '',
-      technicalFactors: tier1Data.technicalFactors,
-      riskAssessment: 'Standard risk assessment applied',
-      marketRegime: 'Normal market conditions',
-      sessionAnalysis: getCurrentSessionText(),
-      qualityScore: analysis.qualityScore || 50,
-      tier: 2,
-      tokensUsed,
-      cost
-    };
+const analysis = JSON.parse(jsonMatch[0]);
+
+const tokensUsed = data.usage?.total_tokens || 200;
+const cost = tokensUsed * 0.00000015; // gpt-4o-mini pricing
+
+console.log(`💰 TIER 2 cost for ${pair.symbol}: ${tokensUsed} tokens, ~$${cost.toFixed(4)}`);
+
+// Map Tier 2 output to internal format
+const dir = (analysis.direction || '').toString().toUpperCase();
+const recommendation: 'BUY' | 'SELL' | 'HOLD' = dir === 'REJECT' ? 'HOLD' : (dir === 'BUY' || dir === 'SELL' ? dir : (analysis.recommendation || 'HOLD'));
+const entryPrice = analysis.adjustedEntry ?? analysis.entryPrice ?? pair.current_price;
+const computedStop = (dir === 'BUY' || dir === 'SELL') && typeof analysis.stopLossPercent === 'number'
+  ? (dir === 'BUY' ? entryPrice * (1 - (analysis.stopLossPercent / 100)) : entryPrice * (1 + (analysis.stopLossPercent / 100)))
+  : analysis.stopLoss;
+const stopLoss = computedStop;
+const takeProfits = Array.isArray(analysis.riskRewardTargets) && stopLoss
+  ? analysis.riskRewardTargets.map((rr: number) => dir === 'BUY' ? entryPrice + rr * Math.abs(entryPrice - stopLoss) : entryPrice - rr * Math.abs(entryPrice - stopLoss))
+  : (analysis.takeProfits || []);
+
+return {
+  recommendation,
+  confidence: analysis.confidence,
+  entryPrice,
+  stopLoss,
+  takeProfits,
+  reasoning: analysis.reasoning || '',
+  technicalFactors: tier1Data.technicalFactors,
+  riskAssessment: 'Standard risk assessment applied',
+  marketRegime: 'Normal market conditions',
+  sessionAnalysis: getCurrentSessionText(),
+  qualityScore: analysis.qualityScore || 50,
+  tier: 2,
+  tokensUsed,
+  cost
+};
     
   } catch (error) {
     console.error(`❌ TIER 2 analysis error for ${pair.symbol}:`, error);
@@ -965,6 +964,22 @@ function detectRSIDivergence(prices: number[], period: number = 14) {
   const bullish = window[minIdx2] < window[minIdx1] && rsiMin2 > rsiMin1; // lower low, higher RSI low
   const bearish = window[maxIdx2] > window[maxIdx1] && rsiMax2 < rsiMax1; // higher high, lower RSI high
   return { bullish, bearish };
+}
+
+function enforceRiskAndTargets(analysis: ProfessionalSignalAnalysis, symbol: string, prices: number[]): ProfessionalSignalAnalysis {
+  try {
+    const atr = computeATRApprox(prices, 14);
+    const entry = analysis.entryPrice;
+    const dir = analysis.recommendation;
+    const riskPct = 0.015; // target 1.5% distance (clamped 1–2%)
+    const pctDist = entry * riskPct;
+    const riskDistance = Math.min(Math.max(pctDist, 0.5 * atr), 3 * atr);
+    const stopLoss = dir === 'BUY' ? entry - riskDistance : entry + riskDistance;
+    const tps = [1.5, 2, 3].map(m => dir === 'BUY' ? entry + m * riskDistance : entry - m * riskDistance);
+    return { ...analysis, stopLoss, takeProfits: tps };
+  } catch {
+    return analysis;
+  }
 }
 
 function evaluatePublishGates(params: {
