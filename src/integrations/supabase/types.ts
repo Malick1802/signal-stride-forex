@@ -975,51 +975,78 @@ export type Database = {
       }
       function_invocations: {
         Row: {
+          aec_dynamic_threshold: number | null
+          aec_escalate_count: number | null
+          aec_guardrails_applied: Json | null
+          aec_market_quality: number | null
+          concurrency_failures: number | null
           created_at: string | null
           error_message: string | null
           execution_time_ms: number | null
           function_name: string
           id: string
+          openai_capacity_limit: number | null
           pairs_analyzed: number | null
           run_id: string | null
           source: string | null
           success: boolean | null
+          tier1_distribution: Json | null
           tier2_count: number | null
+          tier2_escalated: number | null
           tier3_count: number | null
+          tier3_reached: number | null
           tokens_used: number | null
           total_cost: number | null
           trigger_type: string | null
           user_id: string | null
         }
         Insert: {
+          aec_dynamic_threshold?: number | null
+          aec_escalate_count?: number | null
+          aec_guardrails_applied?: Json | null
+          aec_market_quality?: number | null
+          concurrency_failures?: number | null
           created_at?: string | null
           error_message?: string | null
           execution_time_ms?: number | null
           function_name: string
           id?: string
+          openai_capacity_limit?: number | null
           pairs_analyzed?: number | null
           run_id?: string | null
           source?: string | null
           success?: boolean | null
+          tier1_distribution?: Json | null
           tier2_count?: number | null
+          tier2_escalated?: number | null
           tier3_count?: number | null
+          tier3_reached?: number | null
           tokens_used?: number | null
           total_cost?: number | null
           trigger_type?: string | null
           user_id?: string | null
         }
         Update: {
+          aec_dynamic_threshold?: number | null
+          aec_escalate_count?: number | null
+          aec_guardrails_applied?: Json | null
+          aec_market_quality?: number | null
+          concurrency_failures?: number | null
           created_at?: string | null
           error_message?: string | null
           execution_time_ms?: number | null
           function_name?: string
           id?: string
+          openai_capacity_limit?: number | null
           pairs_analyzed?: number | null
           run_id?: string | null
           source?: string | null
           success?: boolean | null
+          tier1_distribution?: Json | null
           tier2_count?: number | null
+          tier2_escalated?: number | null
           tier3_count?: number | null
+          tier3_reached?: number | null
           tokens_used?: number | null
           total_cost?: number | null
           trigger_type?: string | null

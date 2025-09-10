@@ -54,16 +54,120 @@ interface PricePoint {
   price: number;
 }
 
-// Configuration: ENHANCED tier flow and significantly higher thresholds for premium signal quality
-const CONFIG = {
-  sequentialTiers: true,
-  allowTier3Cap: false,
-  tier1PassThreshold: 50,        // Relaxed Tier 1 to allow more candidates (no 5–10% cap)
-  tier2EscalationQuality: 80,    // Requires strong quality before escalation
-  tier2EscalationConfidence: 75, // Confidence bar aligned with >70% target
-  finalQualityThreshold: 85,     // Strict final gate for publication
-  finalConfidenceThreshold: 80,  // Strict final gate for publication
+// Adaptive Escalation Controller (AEC) Configuration
+const AEC_CONFIG = {
+  // Base constraints
+  minEscalateCount: 2,           // Minimum signals to escalate regardless of market quality
+  maxEscalateCount: 12,          // Maximum signals to escalate to prevent cost overrun
+  baseQualityThreshold: 0.65,    // Base market quality threshold (0.0-1.0)
+  
+  // Dynamic thresholds
+  tier1BaseThreshold: 60,        // Base Tier 1 threshold (will be adjusted dynamically)
+  tier2EscalationQuality: 80,    // Quality threshold for Tier 2→3 escalation
+  tier2EscalationConfidence: 75, // Confidence threshold for Tier 2→3 escalation
+  
+  // OpenAI capacity management
+  maxConcurrentOpenAI: 3,        // Maximum concurrent OpenAI calls
+  openAICapacityLimit: 8,        // Total OpenAI calls per run
+  
+  // Guardrails
+  maxCorrelatedPairs: 2,         // Max signals from highly correlated pairs
+  newsImpactPenalty: 0.2,        // Quality penalty during high-impact news
+  lowLiquidityPenalty: 0.15,     // Quality penalty during low liquidity hours
+  
+  // Monthly recalibration targets
+  targetWinRate: 0.70,           // Target 70% win rate
+  targetProfitFactor: 1.5,       // Target 1.5+ profit factor
+  maxDrawdown: 0.20              // Maximum 20% drawdown
 } as const;
+
+// AEC Decision Engine
+function calculateAECEscalation(tier1Results: any[], analysisStats: any) {
+  console.log(`🎛️ AEC: Analyzing ${tier1Results.length} Tier 1 results...`);
+  
+  // Calculate market quality score (0.0 - 1.0)
+  const scores = tier1Results.map(r => r.qualityScore);
+  const averageScore = scores.reduce((sum, score) => sum + score, 0) / scores.length;
+  const scoreVariance = scores.reduce((sum, score) => sum + Math.pow(score - averageScore, 2), 0) / scores.length;
+  const scoreStdDev = Math.sqrt(scoreVariance);
+  
+  // Market quality factors
+  const scoreQuality = Math.min(averageScore / 100, 1.0); // Normalize to 0-1
+  const consistencyQuality = Math.max(0, 1 - (scoreStdDev / 50)); // Lower variance = higher quality
+  
+  // Check market conditions
+  const sessionAnalysis = analyzeCurrentSession();
+  const isOptimalSession = sessionAnalysis.recommendedPairs.length > 0;
+  const sessionQuality = isOptimalSession ? 1.0 : 0.7;
+  
+  // Combined market quality
+  const marketQuality = (scoreQuality * 0.5 + consistencyQuality * 0.3 + sessionQuality * 0.2);
+  
+  // Dynamic threshold calculation
+  const baseThreshold = AEC_CONFIG.tier1BaseThreshold;
+  const qualityAdjustment = (marketQuality - AEC_CONFIG.baseQualityThreshold) * 20; // ±20 points max
+  const dynamicThreshold = Math.max(50, Math.min(80, baseThreshold + qualityAdjustment));
+  
+  // Escalation count calculation
+  const baseEscalateCount = Math.round(tier1Results.length * 0.4); // 40% base escalation rate
+  const qualityMultiplier = marketQuality > 0.8 ? 1.2 : marketQuality < 0.5 ? 0.8 : 1.0;
+  const targetEscalateCount = Math.round(baseEscalateCount * qualityMultiplier);
+  
+  // Apply guardrails
+  const guardrailsApplied = [];
+  let finalEscalateCount = Math.max(AEC_CONFIG.minEscalateCount, Math.min(AEC_CONFIG.maxEscalateCount, targetEscalateCount));
+  
+  // OpenAI capacity constraint
+  if (finalEscalateCount > AEC_CONFIG.openAICapacityLimit) {
+    finalEscalateCount = AEC_CONFIG.openAICapacityLimit;
+    guardrailsApplied.push('openai_capacity_limit');
+  }
+  
+  // News impact check (simplified - would check economic calendar in production)
+  const currentHour = new Date().getUTCHours();
+  const isHighNewsTime = currentHour >= 12 && currentHour <= 16; // Major news hours
+  if (isHighNewsTime) {
+    finalEscalateCount = Math.round(finalEscalateCount * 0.8);
+    guardrailsApplied.push('news_impact_reduction');
+  }
+  
+  // Low liquidity check
+  const isWeekend = [0, 6].includes(new Date().getUTCDay());
+  if (isWeekend) {
+    finalEscalateCount = Math.round(finalEscalateCount * 0.6);
+    guardrailsApplied.push('weekend_liquidity_reduction');
+  }
+  
+  // Build tier 1 distribution for analysis
+  const tier1Distribution = {
+    total: tier1Results.length,
+    averageScore: averageScore.toFixed(1),
+    stdDev: scoreStdDev.toFixed(1),
+    topQuartile: scores.filter(s => s >= 75).length,
+    aboveThreshold: scores.filter(s => s >= dynamicThreshold).length
+  };
+  
+  console.log(`📊 AEC Quality Analysis:`);
+  console.log(`   Average Score: ${averageScore.toFixed(1)}/100`);
+  console.log(`   Score Consistency: ${(consistencyQuality * 100).toFixed(1)}%`);
+  console.log(`   Session Quality: ${(sessionQuality * 100).toFixed(1)}%`);
+  console.log(`   Final Market Quality: ${(marketQuality * 100).toFixed(1)}%`);
+  
+  return {
+    marketQuality,
+    dynamicThreshold,
+    escalateCount: finalEscalateCount,
+    guardrailsApplied,
+    metrics: {
+      marketQuality,
+      dynamicThreshold,
+      escalateCount: finalEscalateCount,
+      guardrailsApplied,
+      tier1Distribution,
+      concurrencyFailures: 0
+    }
+  };
+}
 
 serve(async (req) => {
   console.log(`🚀 PROFESSIONAL 3-Tier Signal Generation Started - ${new Date().toISOString()}`);
@@ -166,7 +270,7 @@ serve(async (req) => {
         .is('user_id', null);
     }
 
-    // Professional 3-Tier Analysis Pipeline
+    // Professional 3-Tier Analysis Pipeline with AEC
     const startTime = Date.now();
     const generatedSignals: SignalData[] = [];
     const analysisStats = {
@@ -177,53 +281,187 @@ serve(async (req) => {
       tier3Analyzed: 0,
       tier3Passed: 0,
       totalCost: 0,
-      totalTokens: 0
+      totalTokens: 0,
+      aecMetrics: {
+        marketQuality: 0,
+        dynamicThreshold: 0,
+        escalateCount: 0,
+        guardrailsApplied: [],
+        tier1Distribution: {},
+        concurrencyFailures: 0
+      }
     };
 
-    const tier1Threshold = lowThreshold ? 55 : CONFIG.tier1PassThreshold;
-    if (debug) console.log(`⚙️ Tier 1 pass threshold: ${tier1Threshold}`);
-    // Major pairs get priority for Tier 3 analysis
+    // ===== ADAPTIVE ESCALATION CONTROLLER (AEC) =====
+    console.log('🎛️ Initializing Adaptive Escalation Controller...');
+    
+    // Major pairs get priority for analysis
     const majorPairs = ['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD'];
     const availablePairs = marketData
       .filter(d => d.symbol && d.current_price > 0)
       .filter(d => !existingSignals?.some(s => s.symbol === d.symbol));
 
-    // Professional pair prioritization algorithm
-    const pairsWithScores = availablePairs.map(pair => {
-      const isMajor = majorPairs.includes(pair.symbol);
-      const sessionAnalysis = analyzeCurrentSession();
-      const isSessionOptimal = sessionAnalysis.recommendedPairs.includes(pair.symbol);
-      const shouldAvoid = sessionAnalysis.avoidPairs.includes(pair.symbol);
-      
-      let score = 0;
-      
-      // Major pair bonus (40 points)
-      if (isMajor) score += 40;
-      
-      // Session optimization (30 points)
-      if (isSessionOptimal) score += 30;
-      if (shouldAvoid) score -= 20;
-      
-      // Price action scoring (30 points maximum)
+    // Step 1: Analyze ALL pairs with Tier 1 to build quality distribution
+    console.log(`📊 STEP 1: Analyzing ALL ${availablePairs.length} pairs with Tier 1`);
+    const tier1Results = [];
+    
+    for (const pair of availablePairs) {
       try {
-        const priceHistory = [pair.current_price]; // Would get actual history in production
-        const volatility = Math.abs(pair.current_price - (pair.current_price * 0.999)) / pair.current_price;
-        score += Math.min(volatility * 10000, 30);
-      } catch (e) {
-        // Use default scoring if price history unavailable
-        score += 15;
+        const historicalData = await getEnhancedHistoricalData(supabase, pair.symbol);
+        if (!historicalData || historicalData.length < 50) {
+          console.log(`⚠️ Insufficient data for ${pair.symbol}`);
+          continue;
+        }
+
+        const tier1Analysis = await performTier1Analysis(pair, historicalData);
+        analysisStats.tier1Analyzed++;
+        
+        tier1Results.push({
+          pair,
+          historicalData,
+          tier1Analysis,
+          qualityScore: tier1Analysis.score
+        });
+        
+      } catch (error) {
+        console.error(`❌ Tier 1 error for ${pair.symbol}:`, error);
+      }
+    }
+
+    // Step 2: AEC calculates market quality and determines escalation strategy
+    const aecDecision = calculateAECEscalation(tier1Results, analysisStats);
+    analysisStats.aecMetrics = aecDecision.metrics;
+    
+    console.log(`🎛️ AEC DECISION:`);
+    console.log(`   📊 Market Quality: ${(aecDecision.marketQuality * 100).toFixed(1)}%`);
+    console.log(`   🎯 Dynamic Tier 1 Threshold: ${aecDecision.dynamicThreshold}`);
+    console.log(`   🚀 Signals to Escalate: ${aecDecision.escalateCount}/${tier1Results.length}`);
+    console.log(`   🛡️ Guardrails Applied: ${aecDecision.guardrailsApplied.join(', ') || 'None'}`);
+
+    // Step 3: Execute escalation with concurrency control
+    const escalationCandidates = tier1Results
+      .filter(r => r.tier1Analysis.score >= aecDecision.dynamicThreshold)
+      .sort((a, b) => b.qualityScore - a.qualityScore)
+      .slice(0, aecDecision.escalateCount);
+
+    console.log(`🔥 PROFESSIONAL AEC MODE: ${escalationCandidates.length} candidates selected for escalation`);
+
+    // Concurrency manager for OpenAI calls
+    const concurrentCalls = new Set();
+    const tier2Queue = [...escalationCandidates];
+    
+    async function processWithConcurrency(candidate: any) {
+      if (concurrentCalls.size >= AEC_CONFIG.maxConcurrentOpenAI) {
+        analysisStats.aecMetrics.concurrencyFailures++;
+        return null;
       }
       
-      return { ...pair, analysisScore: Math.max(score, 0) };
-    });
+      const callId = `${candidate.pair.symbol}-${Date.now()}`;
+      concurrentCalls.add(callId);
+      
+      try {
+        const result = await performTier2Analysis(openAIApiKey, candidate.pair, candidate.historicalData, candidate.tier1Analysis);
+        return result;
+      } finally {
+        concurrentCalls.delete(callId);
+      }
+    }
 
-    // Sort by professional score - analyze ALL 27 pairs but prioritize quality
-    const prioritizedPairs = pairsWithScores
-      .sort((a, b) => b.analysisScore - a.analysisScore);
-    const selectedPairs = prioritizedPairs; // Always analyze all available pairs
-    console.log(`🔥 PROFESSIONAL MODE: Analyzing ${selectedPairs.length} pairs with 3-tier system`);
-
-    // 3-Tier Professional Analysis Pipeline
+    // Step 4: Execute Tier 2 & 3 analysis with AEC control
+    for (const candidate of escalationCandidates) {
+      if (generatedSignals.length >= maxNewSignals) break;
+      
+      try {
+        console.log(`🎯 Processing: ${candidate.pair.symbol} (Tier 1: ${candidate.tier1Analysis.score})`);
+        
+        // Tier 2 Analysis with concurrency control
+        const tier2Result = await processWithConcurrency(candidate);
+        analysisStats.tier2Analyzed++;
+        
+        if (tier2Result) {
+          analysisStats.totalTokens += tier2Result.tokensUsed;
+          analysisStats.totalCost += tier2Result.cost;
+          
+          // Check Tier 2 → 3 escalation
+          const shouldEscalateToTier3 = (
+            tier2Result.qualityScore >= AEC_CONFIG.tier2EscalationQuality &&
+            tier2Result.confidence >= AEC_CONFIG.tier2EscalationConfidence
+          );
+          
+          if (shouldEscalateToTier3) {
+            analysisStats.tier2Passed++;
+            console.log(`💎 ESCALATE: ${candidate.pair.symbol} → TIER 3`);
+            
+            // Tier 3 Analysis
+            const tier3Result = await performTier3Analysis(openAIApiKey, candidate.pair, candidate.historicalData, candidate.tier1Analysis);
+            analysisStats.tier3Analyzed++;
+            
+            if (tier3Result) {
+              analysisStats.totalTokens += tier3Result.tokensUsed;
+              analysisStats.totalCost += tier3Result.cost;
+              
+              if (tier3Result.qualityScore >= 65) {
+                analysisStats.tier3Passed++;
+                
+                // Apply final risk management and gates
+                const finalAnalysis = enforceRiskAndTargets(tier3Result, candidate.pair.symbol, candidate.historicalData.map(p => p.price));
+                
+                if (finalAnalysis && finalAnalysis.recommendation !== 'HOLD') {
+                  const gates = evaluatePublishGates({
+                    prices: candidate.historicalData.map(p => p.price),
+                    symbol: candidate.pair.symbol,
+                    direction: finalAnalysis.recommendation,
+                    entryPrice: finalAnalysis.entryPrice,
+                    stopLoss: finalAnalysis.stopLoss,
+                    tier1Confirmations: candidate.tier1Analysis.confirmations
+                  });
+                  
+                  if (gates.passed) {
+                    const signal = await convertProfessionalAnalysisToSignal(candidate.pair, finalAnalysis, candidate.historicalData);
+                    if (signal) {
+                      // Attach comprehensive audit trail
+                      (signal as any)._audit = {
+                        aec_decision: aecDecision,
+                        t1_score: candidate.tier1Analysis.score,
+                        t1_confirmations: candidate.tier1Analysis.confirmations,
+                        t2_quality: tier2Result.qualityScore,
+                        t2_confidence: tier2Result.confidence,
+                        t3_quality: finalAnalysis.qualityScore,
+                        t3_confidence: finalAnalysis.confidence,
+                        gates_passed: true,
+                        market_quality: aecDecision.marketQuality,
+                        dynamic_threshold: aecDecision.dynamicThreshold
+                      };
+                      generatedSignals.push(signal);
+                      console.log(`✅ AEC SIGNAL: ${signal.type} ${candidate.pair.symbol} (Q:${finalAnalysis.qualityScore}, C:${finalAnalysis.confidence}%)`);
+                    }
+                  } else {
+                    console.log(`🛑 Gates failed for ${candidate.pair.symbol}: ${gates.reasons.join('; ')}`);
+                  }
+                }
+              }
+            }
+          } else {
+            console.log(`💰 Tier 2 quality insufficient for ${candidate.pair.symbol} (Q:${tier2Result.qualityScore}/${AEC_CONFIG.tier2EscalationQuality}, C:${tier2Result.confidence}/${AEC_CONFIG.tier2EscalationConfidence})`);
+          }
+        }
+        
+        // Professional pacing with AEC optimization
+        if (fastMode) {
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Fast mode: 1s delay
+        } else {
+          await new Promise(resolve => setTimeout(resolve, 3000)); // Standard: 3s delay
+        }
+        
+      } catch (error) {
+        console.error(`❌ AEC processing error for ${candidate.pair.symbol}:`, error);
+        
+        if (error.message?.includes('429')) {
+          console.log(`⏱️ Rate limit detected - backing off...`);
+          await new Promise(resolve => setTimeout(resolve, 10000));
+        }
+      }
+    }
     let pairsAnalyzed = 0;
     let timedOut = false;
     for (let i = 0; i < selectedPairs.length && generatedSignals.length < maxNewSignals; i++) {
@@ -437,16 +675,44 @@ if (escalateToTier3) {
     console.log(`   💵 Total Cost: $${analysisStats.totalCost.toFixed(4)}`);
     console.log(`   ⏱️ Execution Time: ${executionTime}ms`);
 
+    // Log function invocation with AEC metrics
+    try {
+      await supabase.from('function_invocations').insert({
+        function_name: 'generate-signals',
+        source: 'aec_pipeline',
+        success: true,
+        execution_time_ms: executionTime,
+        pairs_analyzed: analysisStats.tier1Analyzed,
+        tier2_count: analysisStats.tier2Analyzed,
+        tier3_count: analysisStats.tier3Analyzed,
+        tokens_used: analysisStats.totalTokens,
+        total_cost: analysisStats.totalCost,
+        aec_market_quality: analysisStats.aecMetrics.marketQuality,
+        aec_dynamic_threshold: analysisStats.aecMetrics.dynamicThreshold,
+        aec_escalate_count: analysisStats.aecMetrics.escalateCount,
+        aec_guardrails_applied: analysisStats.aecMetrics.guardrailsApplied,
+        tier1_distribution: analysisStats.aecMetrics.tier1Distribution,
+        tier2_escalated: analysisStats.tier2Passed,
+        tier3_reached: analysisStats.tier3Analyzed,
+        openai_capacity_limit: AEC_CONFIG.openAICapacityLimit,
+        concurrency_failures: analysisStats.aecMetrics.concurrencyFailures
+      });
+    } catch (logError) {
+      console.error('Failed to log function invocation:', logError);
+    }
+
     return new Response(JSON.stringify({
       status: 'success',
       stats: {
         signalsGenerated: savedCount,
-        totalAnalyzed: (typeof selectedPairs !== 'undefined' ? selectedPairs.length : prioritizedPairs.length),
-        pairsAnalyzed,
-        timedOut,
+        totalAnalyzed: analysisStats.tier1Analyzed,
+        escalatedToTier2: analysisStats.tier2Analyzed,
+        reachedTier3: analysisStats.tier3Analyzed,
         executionTime: `${executionTime}ms`,
+        aecMetrics: analysisStats.aecMetrics,
         tierStats: analysisStats,
-        professionalGrade: true
+        professionalGrade: true,
+        aecEnabled: true
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
