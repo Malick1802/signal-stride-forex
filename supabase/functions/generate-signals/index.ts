@@ -105,7 +105,7 @@ serve(async (req) => {
     const enhancedHeader = req.headers.get('x-enhanced-generation')?.toLowerCase() === 'true';
     const optimized = (requestBody?.optimized ?? enhancedHeader) === true;
     const fastMode = (requestBody?.fastMode ?? optimized) === true;
-    const maxAnalyzedPairs = Number(requestBody?.maxAnalyzedPairs ?? (optimized ? 12 : '')) || undefined;
+    const maxAnalyzedPairs = Number(requestBody?.maxAnalyzedPairs ?? '') || undefined; // Always analyze all pairs unless explicitly limited
     const timeBudgetMs = Number(requestBody?.timeBudgetMs ?? (optimized ? 50000 : '')) || undefined;
     if (debug) {
       console.log(`⚙️ Mode: optimized=${optimized}, fastMode=${fastMode}, maxAnalyzedPairs=${maxAnalyzedPairs ?? 'all'}, timeBudgetMs=${timeBudgetMs ?? 'none'}`);
@@ -217,10 +217,10 @@ serve(async (req) => {
       return { ...pair, analysisScore: Math.max(score, 0) };
     });
 
-    // Sort by professional score - analyze all pairs but prioritize quality
+    // Sort by professional score - analyze ALL 27 pairs but prioritize quality
     const prioritizedPairs = pairsWithScores
       .sort((a, b) => b.analysisScore - a.analysisScore);
-    const selectedPairs = maxAnalyzedPairs ? prioritizedPairs.slice(0, maxAnalyzedPairs) : prioritizedPairs;
+    const selectedPairs = prioritizedPairs; // Always analyze all available pairs
     console.log(`🔥 PROFESSIONAL MODE: Analyzing ${selectedPairs.length} pairs with 3-tier system`);
 
     // 3-Tier Professional Analysis Pipeline
