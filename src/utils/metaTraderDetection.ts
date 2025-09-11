@@ -14,51 +14,82 @@ export const generateMetaTraderUrls = (pair: string, type: string): MetaTraderUr
   };
 };
 
-export const tryOpenApp = (url: string, timeout = 1000): Promise<boolean> => {
+export const tryOpenApp = (url: string, timeout = 2500): Promise<boolean> => {
   return new Promise((resolve) => {
     let opened = false;
+    let checkTimer: NodeJS.Timeout;
+    let cleanupTimer: NodeJS.Timeout;
     
-    // Mobile-optimized approach: direct window.location or window.open
+    const cleanup = () => {
+      if (checkTimer) clearTimeout(checkTimer);
+      if (cleanupTimer) clearTimeout(cleanupTimer);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('pagehide', handlePageHide);
+      document.removeEventListener('blur', handleBlur);
+    };
+    
+    const handleSuccess = () => {
+      if (!opened) {
+        opened = true;
+        cleanup();
+        resolve(true);
+      }
+    };
+    
+    const handleFailure = () => {
+      if (!opened) {
+        opened = true;
+        cleanup();
+        resolve(false);
+      }
+    };
+    
+    // Multiple detection methods for better reliability
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        handleSuccess();
+      }
+    };
+    
+    const handlePageHide = () => {
+      handleSuccess();
+    };
+    
+    const handleBlur = () => {
+      // Small delay to avoid false positives
+      setTimeout(() => {
+        if (document.hidden || !document.hasFocus()) {
+          handleSuccess();
+        }
+      }, 100);
+    };
+    
     try {
-      // Try direct navigation first (works better on mobile)
       const start = Date.now();
       
-      // Use window.open with immediate focus check
-      const newWindow = window.open(url, '_self');
+      // Try to open the app
+      window.location.href = url;
       
-      // Check if the navigation happened successfully
-      const checkTimer = setTimeout(() => {
-        if (document.hidden || Date.now() - start > 500) {
-          opened = true;
-          resolve(true);
-        } else {
-          resolve(false);
-        }
-      }, timeout);
-      
-      // Backup: listen for visibility change (app switch)
-      const handleVisibilityChange = () => {
-        if (document.hidden) {
-          opened = true;
-          clearTimeout(checkTimer);
-          document.removeEventListener('visibilitychange', handleVisibilityChange);
-          resolve(true);
-        }
-      };
-      
+      // Set up event listeners for app switch detection
       document.addEventListener('visibilitychange', handleVisibilityChange);
+      document.addEventListener('pagehide', handlePageHide);
+      window.addEventListener('blur', handleBlur);
       
-      // Cleanup after timeout
-      setTimeout(() => {
-        document.removeEventListener('visibilitychange', handleVisibilityChange);
-        if (!opened) {
-          resolve(false);
+      // Quick check for immediate response
+      checkTimer = setTimeout(() => {
+        if (document.hidden || !document.hasFocus() || Date.now() - start > 1000) {
+          handleSuccess();
         }
+      }, 500);
+      
+      // Final timeout
+      cleanupTimer = setTimeout(() => {
+        handleFailure();
       }, timeout);
       
     } catch (error) {
       console.log('Protocol not supported or app not installed');
-      resolve(false);
+      handleFailure();
     }
   });
 };
@@ -72,19 +103,20 @@ export const handleMetaTraderRedirect = async (
   const urls = generateMetaTraderUrls(pair, type);
   const stores = getStoreUrls();
   
-  onStatus?.('Checking for MetaTrader apps...');
+  onStatus?.('Checking for MetaTrader 4...');
   
-  // Try MT5 first
-  const mt5Available = await tryOpenApp(urls.mt5, 1500);
-  if (mt5Available) {
-    onStatus?.('Opening MetaTrader 5...');
+  // Try MT4 first (user preference)
+  const mt4Available = await tryOpenApp(urls.mt4, 2500);
+  if (mt4Available) {
+    onStatus?.('Opening MetaTrader 4...');
     return;
   }
   
-  // Try MT4 next
-  const mt4Available = await tryOpenApp(urls.mt4, 1500);
-  if (mt4Available) {
-    onStatus?.('Opening MetaTrader 4...');
+  // Try MT5 as backup
+  onStatus?.('Trying MetaTrader 5...');
+  const mt5Available = await tryOpenApp(urls.mt5, 2500);
+  if (mt5Available) {
+    onStatus?.('Opening MetaTrader 5...');
     return;
   }
   
