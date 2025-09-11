@@ -737,10 +737,9 @@ JSON ONLY:
   "adjustedEntry": ${pair.current_price},
   "stopLossPercent": 1.8,
   "riskRewardTargets": [1.5, 2.5, 4.0]
-}`;
+}
 
 Remember: Your reputation depends on 70%+ win rate. When in doubt, REJECT.`;
-
 
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
