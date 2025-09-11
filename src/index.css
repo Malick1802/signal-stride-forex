@@ -89,29 +89,3 @@
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(0, 0, 0, 0.5);
 }
-
-/* Hide scrollbars on mobile while preserving scroll */
-@layer utilities {
-  @media (max-width: 768px) {
-    .no-scrollbar {
-      -ms-overflow-style: none; /* IE and Edge */
-      scrollbar-width: none; /* Firefox */
-    }
-    .no-scrollbar::-webkit-scrollbar {
-      display: none; /* Chrome, Safari */
-    }
-
-    /* Apply globally on mobile */
-    body, html, #root, main {
-      -ms-overflow-style: none;
-      scrollbar-width: none;
-    }
-    body::-webkit-scrollbar,
-    html::-webkit-scrollbar,
-    #root::-webkit-scrollbar,
-    main::-webkit-scrollbar {
-      display: none;
-    }
-  }
-}
-
