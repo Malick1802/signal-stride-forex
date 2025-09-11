@@ -18,3 +18,55 @@ main, .mobile-app main {
   overflow-y: auto !important;
   -webkit-overflow-scrolling: touch !important;
 }
+
+/* Force-hide all scrollbars in Android WebView while preserving scrollability */
+.android-app, .mobile-app, html, body, #root, main, .mobile-app-wrapper, .landing-page,
+.dashboard, .trading-signals, .signal-card, .overflow-auto, .overflow-y-auto, .overflow-x-auto, * {
+  scrollbar-width: none !important;            /* Firefox */
+  -ms-overflow-style: none !important;         /* IE/Edge legacy */
+}
+
+.android-app::-webkit-scrollbar,
+.mobile-app::-webkit-scrollbar,
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+#root::-webkit-scrollbar,
+main::-webkit-scrollbar,
+.mobile-app-wrapper::-webkit-scrollbar,
+.landing-page::-webkit-scrollbar,
+.dashboard::-webkit-scrollbar,
+.trading-signals::-webkit-scrollbar,
+.signal-card::-webkit-scrollbar,
+.overflow-auto::-webkit-scrollbar,
+.overflow-y-auto::-webkit-scrollbar,
+.overflow-x-auto::-webkit-scrollbar,
+*::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+/* Ensure thumbs and tracks are fully invisible */
+.android-app::-webkit-scrollbar-thumb,
+.mobile-app::-webkit-scrollbar-thumb,
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb,
+#root::-webkit-scrollbar-thumb,
+main::-webkit-scrollbar-thumb,
+.mobile-app-wrapper::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-thumb {
+  background: transparent !important;
+  border: none !important;
+}
+
+.android-app::-webkit-scrollbar-track,
+.mobile-app::-webkit-scrollbar-track,
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track,
+#root::-webkit-scrollbar-track,
+main::-webkit-scrollbar-track,
+.mobile-app-wrapper::-webkit-scrollbar-track,
+*::-webkit-scrollbar-track {
+  background: transparent !important;
+  border: none !important;
+}
