@@ -390,23 +390,23 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
       <div className="md:hidden">
         <div className="px-6 py-4">
           <Tabs value={activeTab} onValueChange={onTabChange || setInternalActiveTab} className="w-full">
-            <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4' : 'grid-cols-2'} bg-slate-800/80 backdrop-blur-sm rounded-2xl p-1 gap-0 h-16`}>
+            <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4' : 'grid-cols-2'} bg-slate-700/90 backdrop-blur-sm rounded-2xl p-1 gap-0 h-16 border border-slate-600/50`}>
               <TabsTrigger 
                 value="signals" 
-                className="text-base font-medium text-slate-400 data-[state=active]:text-white data-[state=active]:bg-teal-500 rounded-xl px-4 py-3 h-12 transition-all duration-300"
+                className="text-base font-medium text-slate-300 data-[state=active]:text-white data-[state=active]:bg-emerald-600 rounded-xl px-4 py-3 h-12 transition-all duration-200"
               >
                 Signals
               </TabsTrigger>
               <TabsTrigger 
                 value="expired"
-                className="text-base font-medium text-slate-400 data-[state=active]:text-white data-[state=active]:bg-teal-500 rounded-xl px-4 py-3 h-12 transition-all duration-300"
+                className="text-base font-medium text-slate-300 data-[state=active]:text-white data-[state=active]:bg-emerald-600 rounded-xl px-4 py-3 h-12 transition-all duration-200"
               >
                 Expired
               </TabsTrigger>
               {isAdmin && (
                 <TabsTrigger 
                   value="diagnostics"
-                  className="text-base font-medium text-slate-400 data-[state=active]:text-white data-[state=active]:bg-teal-500 rounded-xl px-4 py-3 h-12 transition-all duration-300"
+                  className="text-base font-medium text-slate-300 data-[state=active]:text-white data-[state=active]:bg-emerald-600 rounded-xl px-4 py-3 h-12 transition-all duration-200"
                 >
                   Tools
                 </TabsTrigger>
@@ -414,7 +414,7 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
               {isAdmin && (
                 <TabsTrigger 
                   value="testing"
-                  className="text-base font-medium text-slate-400 data-[state=active]:text-white data-[state=active]:bg-teal-500 rounded-xl px-4 py-3 h-12 transition-all duration-300"
+                  className="text-base font-medium text-slate-300 data-[state=active]:text-white data-[state=active]:bg-emerald-600 rounded-xl px-4 py-3 h-12 transition-all duration-200"
                 >
                   Test
                 </TabsTrigger>
