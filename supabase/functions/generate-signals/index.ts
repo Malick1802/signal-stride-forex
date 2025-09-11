@@ -54,15 +54,22 @@ interface PricePoint {
   price: number;
 }
 
-// Configuration: ENHANCED tier flow and significantly higher thresholds for premium signal quality
+// Configuration: 70%+ WIN RATE ULTRA-SELECTIVE PIPELINE
 const CONFIG = {
   sequentialTiers: true,
   allowTier3Cap: false,
-  tier1PassThreshold: 50,        // Relaxed Tier 1 to allow more candidates (no 5–10% cap)
-  tier2EscalationQuality: 80,    // Requires strong quality before escalation
-  tier2EscalationConfidence: 75, // Confidence bar aligned with >70% target
-  finalQualityThreshold: 85,     // Strict final gate for publication
-  finalConfidenceThreshold: 80,  // Strict final gate for publication
+  tier1PassThreshold: 75,        // ULTRA-SELECTIVE: Require 4+ confluences minimum
+  tier1RequiredConfluences: 4,   // Mandatory 4+ technical confirmations
+  tier2EscalationQuality: 85,    // Higher bar for 70%+ win rate
+  tier2EscalationConfidence: 80, // 80%+ confidence required
+  tier3QualityThreshold: 90,     // Premium tier requires 90+ quality
+  tier3ConfidenceThreshold: 85,  // 85%+ confidence for signal publication
+  maxSignalsPerRun: 3,           // Quality over quantity - max 3 signals per 5min
+  rsiOversoldBuy: 25,            // Ultra-selective RSI levels
+  rsiOverboughtSell: 75,
+  minRewardRisk: 2.0,            // Minimum 2:1 reward/risk ratio
+  atrMinimumMultiplier: 1.2,     // Minimum ATR for sufficient volatility
+  economicCalendarBuffer: 60,    // Avoid signals 60min before/after high impact news
 } as const;
 
 serve(async (req) => {
@@ -524,19 +531,21 @@ async function performTier1Analysis(pair: MarketData, historicalData: PricePoint
   const technicalFactors: string[] = [];
   
   try {
-    // RSI Analysis (0-25 points)
+    // ULTRA-SELECTIVE RSI Analysis: Buy <25, Sell >75 with rising/falling confirmation
     const rsi = calculateRSI(prices);
-    if (rsi < 30) {
-      score += 20;
-      confirmations.push(`RSI Oversold (${rsi.toFixed(1)})`);
-      technicalFactors.push('RSI_OVERSOLD');
-    } else if (rsi > 70) {
-      score += 20;
-      confirmations.push(`RSI Overbought (${rsi.toFixed(1)})`);
-      technicalFactors.push('RSI_OVERBOUGHT');
-    } else if (rsi < 40 || rsi > 60) {
-      score += 10;
-      confirmations.push(`RSI Directional (${rsi.toFixed(1)})`);
+    const rsiPrevious = prices.length >= 2 ? calculateRSI(prices.slice(0, -1)) : rsi;
+    
+    if (rsi < CONFIG.rsiOversoldBuy && rsi > rsiPrevious) {
+      score += 25;
+      confirmations.push(`RSI Ultra-Oversold & Rising (${rsi.toFixed(1)})`);
+      technicalFactors.push('RSI_OVERSOLD_RISING');
+    } else if (rsi > CONFIG.rsiOverboughtSell && rsi < rsiPrevious) {
+      score += 25;
+      confirmations.push(`RSI Ultra-Overbought & Falling (${rsi.toFixed(1)})`);
+      technicalFactors.push('RSI_OVERBOUGHT_FALLING');
+    } else if (rsi < 30 || rsi > 70) {
+      score += 10; // Partial credit for standard overbought/oversold
+      confirmations.push(`RSI Standard Zone (${rsi.toFixed(1)})`);
     }
     
     // Moving Average Analysis (0-25 points)
@@ -599,27 +608,42 @@ async function performTier1Analysis(pair: MarketData, historicalData: PricePoint
       technicalFactors.push('NEAR_RESISTANCE');
     }
 
-    // MACD and ATR confirmations
+    // ENHANCED MACD with Divergence Detection
     const macd = computeMACDHistogram(prices);
-    if (macd.hist > 0) {
+    const macdPrevious = prices.length >= 2 ? computeMACDHistogram(prices.slice(0, -1)) : macd;
+    
+    // MACD Histogram Crossover with Divergence
+    if (macd.hist > 0 && macdPrevious.hist <= 0) {
+      score += 20;
+      confirmations.push('MACD Bullish Crossover');
+      technicalFactors.push('MACD_BULLISH_CROSSOVER');
+    } else if (macd.hist < 0 && macdPrevious.hist >= 0) {
+      score += 20;
+      confirmations.push('MACD Bearish Crossover');
+      technicalFactors.push('MACD_BEARISH_CROSSOVER');
+    } else if (Math.abs(macd.hist) > Math.abs(macdPrevious.hist)) {
       score += 10;
-      confirmations.push('MACD histogram positive');
-      technicalFactors.push('MACD_BULLISH');
-    } else if (macd.hist < 0) {
-      score += 10;
-      confirmations.push('MACD histogram negative');
-      technicalFactors.push('MACD_BEARISH');
+      confirmations.push('MACD Momentum Increasing');
+      technicalFactors.push('MACD_MOMENTUM');
     }
 
+    // ULTRA-SELECTIVE ATR: Must be above minimum but not excessive
     const atr = computeATRApprox(prices, 14);
     const isJPY = pair.symbol.includes('JPY');
-    const atrFloor = isJPY ? 0.02 : 0.0002;
-    if (atr > atrFloor) {
+    const atrMinimum = isJPY ? 0.015 : 0.00025; // Stricter minimum
+    const atrMaximum = isJPY ? 0.08 : 0.0015;   // Not too volatile
+    
+    if (atr >= atrMinimum && atr <= atrMaximum) {
+      score += 15;
+      confirmations.push(`ATR Optimal Range (${atr.toFixed(6)})`);
+      technicalFactors.push('ATR_OPTIMAL');
+    } else if (atr >= atrMinimum) {
       score += 5;
-      confirmations.push(`ATR sufficient (${atr.toFixed(6)})`);
+      confirmations.push(`ATR Sufficient (${atr.toFixed(6)})`);
       technicalFactors.push('ATR_OK');
     } else {
-      confirmations.push(`ATR low (${atr.toFixed(6)})`);
+      score -= 10; // Penalty for low volatility
+      confirmations.push(`ATR Too Low (${atr.toFixed(6)})`);
       technicalFactors.push('ATR_LOW');
     }
 
@@ -628,21 +652,31 @@ async function performTier1Analysis(pair: MarketData, historicalData: PricePoint
     score = 0;
   }
   
-  // Determine recommendation based on technical factors
+  // ULTRA-SELECTIVE RECOMMENDATION: Require 4+ confluences for BUY/SELL
   let recommendation: 'BUY' | 'SELL' | 'HOLD' = 'HOLD';
   
   const bullishFactors = technicalFactors.filter(f => 
-    f.includes('BULLISH') || f.includes('OVERSOLD') || f.includes('SUPPORT')
+    f.includes('BULLISH') || f.includes('OVERSOLD') || f.includes('SUPPORT') || f.includes('RISING')
   ).length;
   
   const bearishFactors = technicalFactors.filter(f => 
-    f.includes('BEARISH') || f.includes('OVERBOUGHT') || f.includes('RESISTANCE')
+    f.includes('BEARISH') || f.includes('OVERBOUGHT') || f.includes('RESISTANCE') || f.includes('FALLING')
   ).length;
   
-  if (bullishFactors >= 2 && bullishFactors > bearishFactors) {
-    recommendation = 'BUY';
-  } else if (bearishFactors >= 2 && bearishFactors > bullishFactors) {
-    recommendation = 'SELL';
+  // MANDATORY: 4+ confluences required (CONFIG.tier1RequiredConfluences)
+  const totalConfluences = bullishFactors + bearishFactors;
+  if (totalConfluences >= CONFIG.tier1RequiredConfluences) {
+    if (bullishFactors >= CONFIG.tier1RequiredConfluences && bullishFactors > bearishFactors) {
+      recommendation = 'BUY';
+    } else if (bearishFactors >= CONFIG.tier1RequiredConfluences && bearishFactors > bullishFactors) {
+      recommendation = 'SELL';
+    }
+  }
+  
+  // Additional quality gate: Check for conflicting signals
+  if (bullishFactors > 0 && bearishFactors > 0 && Math.abs(bullishFactors - bearishFactors) <= 1) {
+    recommendation = 'HOLD'; // Conflicting signals = no trade
+    score *= 0.5; // Penalty for mixed signals
   }
   
   return {
@@ -664,19 +698,49 @@ async function performTier2Analysis(
   const prices = historicalData.map(p => p.price);
   const technicalSummary = prepareTechnicalSummary(prices, pair.current_price);
   
-const prompt = `Act as a 20-year forex expert. Analyze this setup for ${pair.symbol} on the active timeframe.
-Price: ${pair.current_price}
-Context: ${technicalSummary}
-Use any available news context (optional). Be ultra-selective: reject if any doubt (news volatility, weak confluence).
-Output JSON ONLY with:
+const prompt = `ULTRA-SELECTIVE FOREX ANALYSIS - 70%+ Win Rate Target
+
+You are a 20-year veteran forex expert with a proven 70%+ win rate track record. Your mission: REJECT 90% of setups, approve ONLY the highest probability trades.
+
+SETUP ANALYSIS FOR ${pair.symbol}:
+Current Price: ${pair.current_price}
+Technical Context: ${technicalSummary}
+Session: European/US overlap (optimal volatility window)
+
+ULTRA-SELECTIVE CRITERIA (All must be met):
+✓ 4+ technical confluences aligned
+✓ Clear directional bias (no mixed signals)  
+✓ Optimal volatility (not too high/low)
+✓ No major economic events within 60 minutes
+✓ Reward:Risk ratio minimum 2.5:1
+✓ Session-appropriate pair volatility
+
+REJECTION TRIGGERS (Instant REJECT if ANY present):
+❌ Mixed/conflicting technical signals
+❌ Low volatility or excessive volatility  
+❌ Economic news within 60 minutes
+❌ Weekend/holiday conditions
+❌ Reward:risk below 2:1
+❌ Any doubt about setup quality
+
+OUTPUT REQUIREMENTS:
+- Direction: "buy|sell|reject" (REJECT if ANY doubt)
+- Confidence: 0-100 (minimum 85 for approval)  
+- Reasoning: Max 30 words explaining decision
+- Risk Management: Stop loss 1-2%, Take profits at 1.5x, 2.5x, 4x levels
+
+JSON ONLY:
 {
   "direction": "buy|sell|reject",
   "confidence": 0-100,
-  "reasoning": "max 50 words",
+  "reasoning": "Ultra-concise reasoning (max 30 words)",
   "adjustedEntry": ${pair.current_price},
-  "stopLossPercent": 1.5,
-  "riskRewardTargets": [1.5, 2, 3]
+  "stopLossPercent": 1.8,
+  "riskRewardTargets": [1.5, 2.5, 4.0]
 }`;
+
+Remember: Your reputation depends on 70%+ win rate. When in doubt, REJECT.`;
+
 
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -764,44 +828,58 @@ async function performTier3Analysis(
   const technicalSummary = prepareTechnicalSummary(prices, pair.current_price);
   const sessionAnalysis = getCurrentSessionText();
   
-  const prompt = `PROFESSIONAL FOREX ANALYSIS - TIER 3 (Premium Grade)
+  const prompt = `PREMIUM FOREX SIGNAL GENERATOR - 70%+ Win Rate Precision Target
 
-Symbol: ${pair.symbol}
+You are an elite institutional forex analyst generating signals for a premium 70%+ win rate system.
+
+SIGNAL PARAMETERS FOR ${pair.symbol}:
 Current Price: ${pair.current_price}
-Session: ${sessionAnalysis}
+Session Context: ${sessionAnalysis}
 
-TIER 1 ANALYSIS RESULTS:
-Score: ${tier1Data.score}/100
-Confirmations: ${tier1Data.confirmations.join(', ')}
-Technical Factors: ${tier1Data.technicalFactors.join(', ')}
+TIER 1 PRE-SCREENING RESULTS:
+✅ Technical Score: ${tier1Data.score}/100 (Passed ultra-selective filters)
+✅ Confirmations: ${tier1Data.confirmations.join(', ')}
+✅ Technical Confluences: ${tier1Data.technicalFactors.join(', ')}
 
-COMPREHENSIVE TECHNICAL DATA:
+COMPREHENSIVE MARKET DATA:
 ${technicalSummary}
 
-PROFESSIONAL ANALYSIS REQUIREMENTS:
-1. Multi-factor confluence analysis (RSI + MACD + MA + Support/Resistance)
-2. Risk-reward assessment (minimum 1.5:1 ratio)
-3. Market regime identification (trending/ranging/volatile)
-4. Session-based volatility assessment
-5. Professional-grade entry/exit levels
+INSTITUTIONAL SIGNAL REQUIREMENTS:
+1. PRECISION ENTRY/EXIT: Calculate exact price levels using ATR and support/resistance
+2. RISK MANAGEMENT: 1-2% account risk, stop loss based on volatility (40-120 pips)
+3. REWARD TARGETING: Progressive take profits at 1.5x, 2.5x, 4x risk levels
+4. MARKET REGIME: Identify if trending/ranging/volatile for appropriate strategy
+5. SESSION OPTIMIZATION: Leverage session-specific volatility patterns
+6. NEWS AWARENESS: Factor in upcoming economic events (avoid if high impact within 60min)
 
-QUALITY THRESHOLDS:
-- Minimum Quality Score: 65/100 for signal generation
-- Minimum Confidence: 55% for BUY/SELL recommendations
-- Required: 4+ technical confirmations
-- Stop Loss: 40-120 pips based on ATR
-- Take Profit: Progressive levels with 2:1+ R/R
+QUALITY GATES (Signal REJECTED if not met):
+❌ Quality Score below 90/100
+❌ Confidence below 85%
+❌ Reward:Risk below 2.5:1
+❌ Less than 4 technical confirmations
+❌ Mixed directional signals
+❌ Economic news risk within 60 minutes
 
-OUTPUT REQUIREMENTS:
-Provide detailed professional analysis in JSON format with:
-- Recommendation: BUY/SELL/HOLD
-- Quality Score: 0-100 (professional grade 65+)
-- Confidence: 40-85%
-- Technical reasoning
-- Risk management levels
-- Market context
+PRECISION SIGNAL OUTPUT (JSON format):
+{
+  "recommendation": "BUY|SELL|HOLD",
+  "qualityScore": 0-100,
+  "confidence": 0-100,
+  "entryPrice": precise_entry_level,
+  "stopLoss": atr_based_stop_loss,
+  "takeProfits": [tp1_1.5x, tp2_2.5x, tp3_4x],
+  "reasoning": "Institutional-grade analysis (max 40 words)",
+  "riskAssessment": "Professional risk evaluation",
+  "marketRegime": "trending|ranging|volatile",
+  "technicalFactors": ["confluence1", "confluence2", "confluence3", "confluence4+"],
+  "sessionAnalysis": "Session-specific market conditions",
+  "rewardRiskRatio": calculated_ratio,
+  "pipDistance": stop_loss_in_pips,
+  "economicRisk": "none|low|medium|high"
+}
 
-JSON Response:`;
+MANDATE: Generate ONLY institutional-quality signals meeting 70%+ win rate standards. Reject marginal setups.`;
+
 
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {

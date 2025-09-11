@@ -3,8 +3,8 @@ name: Cost-Optimized Trading Signal Generation
 
 on:
   schedule:
-    # Optimized schedule: every 1 minute during market hours for real-time FastForex updates
-    - cron: '*/1 * * * 0,1-5'
+    # 70%+ Win Rate Schedule: every 5 minutes for optimal analysis depth and quality
+    - cron: '*/5 * * * 0,1-5'
   workflow_dispatch:
     inputs:
       force_generation:

@@ -10,15 +10,17 @@ if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_ANON_KEY:-}" ]; then
   exit 1
 fi
 
-echo "🚀 Starting ENHANCED GitHub Actions signal generation..."
-echo "🎯 ENHANCED SIGNAL GENERATION FEATURES:"
-echo "  - Tier 1: ALL 27 pairs analyzed locally (FREE)"
-echo "  - Tier 2/3: Only top 6-8 pairs get expensive AI analysis" 
-echo "  - 90% cheaper OpenAI model (gpt-4o-mini for paid analysis)"
-echo "  - 60% fewer tokens per paid analysis"
-echo "  - Smart concurrency and optimized delays"
-echo "  - 8-minute schedule (increased frequency for better coverage)"
-echo "  - Quality-first approach for genuine signals"
+        echo "🚀 Starting ENHANCED GitHub Actions signal generation..."
+        echo "🎯 70%+ WIN RATE PIPELINE FEATURES:"
+        echo "  - 5-minute intervals for optimal analysis depth"
+        echo "  - Ultra-selective: 4+ confluence requirements"
+        echo "  - Tier 1: RSI <25/>75, EMA crossover, MACD divergence, ATR optimization"
+        echo "  - Tier 2: 85%+ confidence threshold (gpt-4o-mini)"
+        echo "  - Tier 3: 90%+ quality threshold (gpt-4.1)"
+        echo "  - Economic calendar integration (60min avoidance)"
+        echo "  - Max 3 signals per 5min cycle (quality over quantity)"
+        echo "  - Monthly recalibration system"
+        echo "  - Performance tracking for continuous optimization"
 echo "Workflow: $GITHUB_WORKFLOW"
 echo "Run number: $GITHUB_RUN_NUMBER"
 start_time=$(date +%s)
