@@ -387,26 +387,26 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
       </div>
 
       {/* Mobile Tab Navigation using Tabs component */}
-      <div className="md:hidden">
-        <div className="px-6 py-4">
+      <div className="md:hidden bg-black/10 backdrop-blur-sm border-b border-white/10">
+        <div className="px-3 py-2">
           <Tabs value={activeTab} onValueChange={onTabChange || setInternalActiveTab} className="w-full">
-            <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4' : 'grid-cols-2'} bg-slate-700/90 backdrop-blur-sm rounded-2xl p-1 gap-0 h-16 border border-slate-600/50`}>
+            <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4' : 'grid-cols-2'} bg-white/10 border border-white/20 p-1.5 gap-1 h-12`}>
               <TabsTrigger 
                 value="signals" 
-                className="text-base font-medium text-slate-300 data-[state=active]:text-white data-[state=active]:bg-emerald-600 rounded-xl px-4 py-3 h-12 transition-all duration-200"
+                className="text-xs text-gray-300 data-[state=active]:text-emerald-400 data-[state=active]:bg-emerald-500/20 data-[state=active]:shadow-none rounded-sm px-2 py-1 h-8 overflow-hidden"
               >
                 Signals
               </TabsTrigger>
               <TabsTrigger 
                 value="expired"
-                className="text-base font-medium text-slate-300 data-[state=active]:text-white data-[state=active]:bg-emerald-600 rounded-xl px-4 py-3 h-12 transition-all duration-200"
+                className="text-xs text-gray-300 data-[state=active]:text-emerald-400 data-[state=active]:bg-emerald-500/20 data-[state=active]:shadow-none rounded-sm px-2 py-1 h-8 overflow-hidden"
               >
                 Expired
               </TabsTrigger>
               {isAdmin && (
                 <TabsTrigger 
                   value="diagnostics"
-                  className="text-base font-medium text-slate-300 data-[state=active]:text-white data-[state=active]:bg-emerald-600 rounded-xl px-4 py-3 h-12 transition-all duration-200"
+                  className="text-xs text-gray-300 data-[state=active]:text-emerald-400 data-[state=active]:bg-emerald-500/20 data-[state=active]:shadow-none rounded-sm px-2 py-1 h-8 overflow-hidden"
                 >
                   Tools
                 </TabsTrigger>
@@ -414,7 +414,7 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
               {isAdmin && (
                 <TabsTrigger 
                   value="testing"
-                  className="text-base font-medium text-slate-300 data-[state=active]:text-white data-[state=active]:bg-emerald-600 rounded-xl px-4 py-3 h-12 transition-all duration-200"
+                  className="text-xs text-gray-300 data-[state=active]:text-emerald-400 data-[state=active]:bg-emerald-500/20 data-[state=active]:shadow-none rounded-sm px-2 py-1 h-8 overflow-hidden"
                 >
                   Test
                 </TabsTrigger>
