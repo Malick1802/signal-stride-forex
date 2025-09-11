@@ -424,16 +424,18 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
         </div>
       </div>
 
-      {/* Dashboard Stats Slider - Mobile Only with Real Data - Only for Active Signals */}
+      {/* Dashboard Stats Slider - Hidden on Mobile */}
       {activeTab === 'signals' && (
-        <DashboardStats 
-          activeSignalsCount={stats.activeSignalsCount}
-          totalSignalsCount={stats.totalSignalsCount}
-          avgConfidence={stats.avgConfidence}
-          lastUpdateTime={stats.lastUpdateTime}
-          isAutomated={stats.isAutomated}
-          loading={loading}
-        />
+        <div className="hidden md:block">
+          <DashboardStats 
+            activeSignalsCount={stats.activeSignalsCount}
+            totalSignalsCount={stats.totalSignalsCount}
+            avgConfidence={stats.avgConfidence}
+            lastUpdateTime={stats.lastUpdateTime}
+            isAutomated={stats.isAutomated}
+            loading={loading}
+          />
+        </div>
       )}
 
       {/* Content Area - With Pull to Refresh for Mobile */}
