@@ -54,7 +54,13 @@ button:focus, input:focus, select:focus, textarea:focus {
   /* Optimize for forex trading performance */
   transform: translateZ(0);
   -webkit-backface-visibility: hidden;
-  /* Add safe area padding for status bar */
+}
+
+/* Mobile header with safe area support */
+.mobile-header {
+  position: sticky;
+  top: 0;
+  z-index: 50;
   padding-top: env(safe-area-inset-top);
 }
 
