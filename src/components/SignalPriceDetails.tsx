@@ -37,10 +37,17 @@ const SignalPriceDetails = ({
     try {
       const tpPrice = parseFloat(takeProfitPrice);
       
+      // Debug logging
+      console.log(`🎯 TP Check: ${pair} ${signalType} - Current: ${currentPrice}, TP: ${tpPrice}`);
+      
       if (signalType === 'BUY') {
-        return currentPrice >= tpPrice;
+        const isHit = currentPrice >= tpPrice;
+        console.log(`🎯 BUY TP Hit: ${isHit}`);
+        return isHit;
       } else {
-        return currentPrice <= tpPrice;
+        const isHit = currentPrice <= tpPrice;
+        console.log(`🎯 SELL TP Hit: ${isHit}`);
+        return isHit;
       }
     } catch {
       return false;
