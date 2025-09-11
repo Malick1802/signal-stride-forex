@@ -388,9 +388,9 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
 
       {/* Mobile Tab Navigation using Tabs component */}
       <div className="md:hidden bg-black/10 backdrop-blur-sm border-b border-white/10">
-        <div className="px-3 py-2">
+        <div className="px-3 sm:px-6 py-2">
           <Tabs value={activeTab} onValueChange={onTabChange || setInternalActiveTab} className="w-full">
-            <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4' : 'grid-cols-2'} bg-white/10 border border-white/20 p-1.5 gap-1 h-12`}>
+            <TabsList className={`grid w-full ${isAdmin ? 'grid-cols-4' : 'grid-cols-2'} bg-white/10 border border-white/20 p-1.5 gap-0 h-12 rounded-md overflow-hidden`}>
               <TabsTrigger 
                 value="signals" 
                 className="text-xs text-gray-300 data-[state=active]:text-emerald-400 data-[state=active]:bg-emerald-500/20 data-[state=active]:shadow-none rounded-sm px-2 py-1 h-8 overflow-hidden"
