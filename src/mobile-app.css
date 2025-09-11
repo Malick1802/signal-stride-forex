@@ -54,6 +54,8 @@ button:focus, input:focus, select:focus, textarea:focus {
   /* Optimize for forex trading performance */
   transform: translateZ(0);
   -webkit-backface-visibility: hidden;
+  /* Add safe area padding for status bar */
+  padding-top: env(safe-area-inset-top);
 }
 
 .mobile-app body {

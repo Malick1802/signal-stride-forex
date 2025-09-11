@@ -106,7 +106,7 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
       {/* Mobile-First Header */}
-      <header className="sticky top-0 z-50 bg-black/20 backdrop-blur-lg border-b border-white/10 px-4 py-3">
+      <header className="sticky z-50 bg-black/20 backdrop-blur-lg border-b border-white/10 px-4 py-3" style={{ top: 'env(safe-area-inset-top, 0px)' }}>
         <div className="flex items-center justify-between max-w-7xl mx-auto">
           <div className="flex items-center space-x-2">
             <div className="p-2 bg-emerald-500/20 rounded-lg">
