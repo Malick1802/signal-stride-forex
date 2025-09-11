@@ -87,8 +87,8 @@ const DashboardStats = ({
   return (
     <>
       {/* Desktop Grid Layout */}
-      <div className="hidden md:block px-4 py-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="hidden md:block px-4 py-4 overflow-hidden">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 overflow-hidden">
           {stats.map((stat) => {
             const IconComponent = stat.icon;
             return (
@@ -113,20 +113,20 @@ const DashboardStats = ({
       </div>
 
       {/* Mobile Carousel Layout */}
-      <div className="md:hidden px-4 py-4">
+      <div className="md:hidden px-4 py-4 overflow-hidden">
         <Carousel
           setApi={setApi}
           opts={{
             align: "start",
             loop: true,
           }}
-          className="w-full"
+          className="w-full overflow-hidden"
           onMouseEnter={handleMouseEnter}
           onMouseLeave={handleMouseLeave}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
         >
-          <CarouselContent className="-ml-4">
+          <CarouselContent className="-ml-4 overflow-hidden">
             {stats.map((stat) => {
               const IconComponent = stat.icon;
               return (
