@@ -14,39 +14,52 @@ export const generateMetaTraderUrls = (pair: string, type: string): MetaTraderUr
   };
 };
 
-export const tryOpenApp = (url: string, timeout = 2000): Promise<boolean> => {
+export const tryOpenApp = (url: string, timeout = 1000): Promise<boolean> => {
   return new Promise((resolve) => {
-    const start = Date.now();
     let opened = false;
     
-    // Create a hidden iframe to attempt the protocol
-    const iframe = document.createElement('iframe');
-    iframe.style.display = 'none';
-    iframe.src = url;
-    document.body.appendChild(iframe);
-    
-    // Set up blur listener (app opened)
-    const handleBlur = () => {
-      opened = true;
-      resolve(true);
-      cleanup();
-    };
-    
-    // Set up timeout (app not available)
-    const timer = setTimeout(() => {
-      if (!opened) {
-        resolve(false);
-        cleanup();
-      }
-    }, timeout);
-    
-    const cleanup = () => {
-      window.removeEventListener('blur', handleBlur);
-      clearTimeout(timer);
-      document.body.removeChild(iframe);
-    };
-    
-    window.addEventListener('blur', handleBlur);
+    // Mobile-optimized approach: direct window.location or window.open
+    try {
+      // Try direct navigation first (works better on mobile)
+      const start = Date.now();
+      
+      // Use window.open with immediate focus check
+      const newWindow = window.open(url, '_self');
+      
+      // Check if the navigation happened successfully
+      const checkTimer = setTimeout(() => {
+        if (document.hidden || Date.now() - start > 500) {
+          opened = true;
+          resolve(true);
+        } else {
+          resolve(false);
+        }
+      }, timeout);
+      
+      // Backup: listen for visibility change (app switch)
+      const handleVisibilityChange = () => {
+        if (document.hidden) {
+          opened = true;
+          clearTimeout(checkTimer);
+          document.removeEventListener('visibilitychange', handleVisibilityChange);
+          resolve(true);
+        }
+      };
+      
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+      
+      // Cleanup after timeout
+      setTimeout(() => {
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+        if (!opened) {
+          resolve(false);
+        }
+      }, timeout);
+      
+    } catch (error) {
+      console.log('Protocol not supported or app not installed');
+      resolve(false);
+    }
   });
 };
 
