@@ -9,11 +9,8 @@ import { MobileInitializer } from './MobileInitializer';
 import { supabase } from '@/integrations/supabase/client';
 import { Capacitor } from '@capacitor/core';
 
-// Lazy load heavy components with error boundaries
-const LazyDashboard = lazy(() => import('./LazyDashboard').catch(error => {
-  console.error('🚨 Failed to load Dashboard:', error);
-  return { default: () => <LazyLoadFallback error={error} componentName="Dashboard" /> };
-}));
+// Direct import to avoid lazy loading issues
+import Dashboard from './Dashboard';
 
 const LazySubscriptionPage = lazy(() => import('./SubscriptionPage').catch(error => {
   console.error('🚨 Failed to load SubscriptionPage:', error);
@@ -169,9 +166,9 @@ const AppContent = ({ activeTab = 'signals', onTabChange }: AppContentProps = {}
       )}
       
       {user && (
-        <Suspense fallback={<MobileLoadingScreen message={`Loading ${currentView}...`} />}>
+        <>
           {currentView === 'dashboard' && (
-            <LazyDashboard
+            <Dashboard
               user={user}
               onLogout={handleLogout}
               onNavigateToAffiliate={navigateToAffiliate}
@@ -181,16 +178,18 @@ const AppContent = ({ activeTab = 'signals', onTabChange }: AppContentProps = {}
               onTabChange={onTabChange || handleTabChange}
             />
           )}
-          {currentView === 'subscription' && (
-            <LazySubscriptionPage onNavigate={handleAuthNavigation} />
-          )}
-          {currentView === 'affiliate' && (
-            <LazyAffiliatePage onNavigate={handleAuthNavigation} />
-          )}
-          {currentView === 'admin' && isAdmin && (
-            <LazyAdminDashboard onNavigate={handleAuthNavigation} />
-          )}
-        </Suspense>
+          <Suspense fallback={<MobileLoadingScreen message={`Loading ${currentView}...`} />}>
+            {currentView === 'subscription' && (
+              <LazySubscriptionPage onNavigate={handleAuthNavigation} />
+            )}
+            {currentView === 'affiliate' && (
+              <LazyAffiliatePage onNavigate={handleAuthNavigation} />
+            )}
+            {currentView === 'admin' && isAdmin && (
+              <LazyAdminDashboard onNavigate={handleAuthNavigation} />
+            )}
+          </Suspense>
+        </>
       )}
     </div>
   );
