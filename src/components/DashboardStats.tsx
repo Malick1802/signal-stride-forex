@@ -112,8 +112,8 @@ const DashboardStats = ({
         </div>
       </div>
 
-      {/* Mobile Carousel Layout */}
-      <div className="md:hidden px-4 py-4">
+      {/* Mobile Carousel Layout - Hidden */}
+      <div className="hidden">
         <Carousel
           setApi={setApi}
           opts={{
