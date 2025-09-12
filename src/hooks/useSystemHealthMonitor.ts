@@ -38,11 +38,7 @@ export const useSystemHealthMonitor = () => {
 
       if (veryOldSignals.length > 0) {
         console.log(`✅ HEALTH CHECK: ${veryOldSignals.length} signals running >24h - PURE OUTCOME SYSTEM WORKING`);
-        toast({
-          title: "Pure Outcome System Active",
-          description: `${veryOldSignals.length} signals running beyond old time limits - market-based expiration only`,
-          duration: 4000,
-        });
+        // Toast notification disabled - health monitoring continues in background
       }
 
       // Check for recent expired signals to verify they have outcomes
