@@ -58,6 +58,11 @@ serve(async (req) => {
         title,
         body,
         sound: "default",
+        android_channel_id: (data?.type === "market_update")
+          ? "market_updates"
+          : (data?.type === "signal_complete")
+            ? "trade_alerts"
+            : "forex_signals",
       },
       data: {
         ...(data || {}),

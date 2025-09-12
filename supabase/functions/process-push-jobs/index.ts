@@ -118,6 +118,12 @@ async function sendFCM(tokens: string[], title: string, body: string, data: Reco
       click_action: "https://da46b985-2e68-44b3-90bc-922d481bf104.lovableproject.com",
       sound: "default",
       badge: "1",
+      android_channel_id:
+        data?.type === "market_update"
+          ? "market_updates"
+          : data?.type === "signal_complete"
+            ? "trade_alerts"
+            : "forex_signals",
     },
     data: {
       ...data,
