@@ -107,12 +107,17 @@ export const useMobileConnectivity = () => {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // Native network listener
+    // Enhanced native listeners with app state handling
     let networkListener: any = null;
+    let appStateListener: any = null;
+    
     if (Capacitor.isNativePlatform()) {
-      const setupNetworkListener = async () => {
+      const setupNativeListeners = async () => {
         try {
           const { Network } = await import('@capacitor/network');
+          const { App } = await import('@capacitor/app');
+
+          // Enhanced network status listener
           networkListener = await Network.addListener('networkStatusChange', (status: any) => {
             console.log('📱 Network status changed:', status);
             setConnectivity(prev => ({
@@ -123,16 +128,32 @@ export const useMobileConnectivity = () => {
               lastConnected: status.connected ? new Date() : prev.lastConnected
             }));
           });
+
+          // App state listener for resume handling
+          appStateListener = await App.addListener('appStateChange', ({ isActive }: any) => {
+            if (isActive) {
+              console.log('📱 App resumed - checking connectivity');
+              // Delay connectivity check to allow network to stabilize
+              setTimeout(checkConnectivity, 1000);
+            }
+          });
+
         } catch (error) {
-          console.warn('❌ Network listener setup failed:', error);
+          console.warn('❌ Native listener setup failed:', error);
         }
       };
       
-      setupNetworkListener();
+      setupNativeListeners();
     }
 
-    // Periodic connectivity check
-    const interval = setInterval(checkConnectivity, 30000);
+    // Enhanced periodic check with dynamic intervals
+    const interval = setInterval(() => {
+      checkConnectivity();
+      // More frequent checks when disconnected
+      if (!connectivity.isConnected && connectivity.retryCount < 5) {
+        setTimeout(checkConnectivity, 5000);
+      }
+    }, connectivity.isConnected ? 30000 : 15000);
 
     return () => {
       window.removeEventListener('online', handleOnline);
@@ -140,9 +161,12 @@ export const useMobileConnectivity = () => {
       if (networkListener) {
         networkListener.remove();
       }
+      if (appStateListener) {
+        appStateListener.remove();
+      }
       clearInterval(interval);
     };
-  }, [checkConnectivity]);
+  }, [checkConnectivity, connectivity.isConnected, connectivity.retryCount]);
 
   return {
     ...connectivity,

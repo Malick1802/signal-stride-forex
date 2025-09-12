@@ -23,8 +23,8 @@ const config: CapacitorConfig = {
     LocalNotifications: {
       smallIcon: "ic_stat_your_custom_icon",
       iconColor: "#488AFF",
-      sound: "beep.wav"
-    }
+      sound: "notification.wav"
+    },
   },
   android: {
     allowMixedContent: true,
