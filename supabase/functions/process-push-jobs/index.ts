@@ -218,14 +218,14 @@ async function sendFCM(tokens: string[], title: string, body: string, data: Reco
                 : data?.type === "signal_complete"
                   ? "trade_alerts"
                   : "forex_signals",
-              sound: "default",
+              sound: "coin-notification.wav",
             },
             priority: "high",
           },
           apns: {
             payload: {
               aps: {
-                sound: "default",
+                sound: "coin-notification.wav",
                 "content-available": 1,
               },
             },

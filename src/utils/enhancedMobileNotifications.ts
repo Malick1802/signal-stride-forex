@@ -17,7 +17,7 @@ export class EnhancedMobileNotificationManager {
         description: 'Critical forex trading signals - bypasses battery optimization',
         importance: 5, // IMPORTANCE_HIGH
         visibility: 1, // VISIBILITY_PUBLIC 
-        sound: 'notification.wav',
+        sound: 'coin-notification.wav',
         vibration: true,
         lights: true,
         lightColor: '#FF5722' // Orange for urgent signals
@@ -29,7 +29,7 @@ export class EnhancedMobileNotificationManager {
         description: 'Urgent trade alerts, targets, and stop losses',
         importance: 5, // IMPORTANCE_HIGH
         visibility: 1, // VISIBILITY_PUBLIC
-        sound: 'notification.wav',
+        sound: 'coin-notification.wav',
         vibration: true,
         lights: true,
         lightColor: '#4CAF50' // Green for trade updates
@@ -213,7 +213,7 @@ export class EnhancedMobileNotificationManager {
           title,
           body,
           channelId: 'forex_signals',
-          sound: 'notification.wav',
+          sound: 'coin-notification.wav',
           extra: {
             ...data,
             priority: 'high',
@@ -240,7 +240,7 @@ export class EnhancedMobileNotificationManager {
           title,
           body,
           channelId: 'trade_alerts',
-          sound: 'notification.wav',
+          sound: 'coin-notification.wav',
           extra: {
             ...data,
             priority: 'high',
