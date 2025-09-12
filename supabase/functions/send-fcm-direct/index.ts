@@ -7,7 +7,78 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS"
 };
 
-const fcmServerKey = Deno.env.get("FCM_SERVER_KEY");
+const fcmServiceAccountJson = Deno.env.get("FCM_SERVICE_ACCOUNT");
+
+// Helper function to get OAuth2 access token for FCM HTTP v1
+async function getFcmAccessToken(): Promise<string> {
+  if (!fcmServiceAccountJson) {
+    throw new Error("FCM_SERVICE_ACCOUNT not configured");
+  }
+
+  const serviceAccount = JSON.parse(fcmServiceAccountJson);
+  
+  // Create JWT for Google OAuth2
+  const now = Math.floor(Date.now() / 1000);
+  const jwtHeader = { alg: "RS256", typ: "JWT" };
+  const jwtPayload = {
+    iss: serviceAccount.client_email,
+    scope: "https://www.googleapis.com/auth/firebase.messaging",
+    aud: "https://oauth2.googleapis.com/token",
+    iat: now,
+    exp: now + 3600
+  };
+
+  // Base64url encode function
+  const base64urlEncode = (obj: any) => {
+    return btoa(JSON.stringify(obj))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '');
+  };
+
+  const encodedHeader = base64urlEncode(jwtHeader);
+  const encodedPayload = base64urlEncode(jwtPayload);
+  const unsignedToken = `${encodedHeader}.${encodedPayload}`;
+
+  // Import private key for signing
+  const privateKey = await crypto.subtle.importKey(
+    "pkcs8",
+    new TextEncoder().encode(serviceAccount.private_key),
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+
+  const signature = await crypto.subtle.sign(
+    "RSASSA-PKCS1-v1_5",
+    privateKey,
+    new TextEncoder().encode(unsignedToken)
+  );
+
+  const encodedSignature = btoa(String.fromCharCode(...new Uint8Array(signature)))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
+
+  const jwt = `${unsignedToken}.${encodedSignature}`;
+
+  // Exchange JWT for access token
+  const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion: jwt
+    })
+  });
+
+  const tokenData = await tokenResponse.json();
+  if (!tokenResponse.ok) {
+    throw new Error(`Failed to get access token: ${JSON.stringify(tokenData)}`);
+  }
+
+  return tokenData.access_token;
+}
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -18,11 +89,11 @@ serve(async (req) => {
   try {
     console.log('🚀 FCM Direct: Processing request');
     
-    if (!fcmServerKey) {
-      console.error("❌ FCM Direct: FCM_SERVER_KEY is not configured");
+    if (!fcmServiceAccountJson) {
+      console.error("❌ FCM Direct: FCM_SERVICE_ACCOUNT is not configured");
       return new Response(JSON.stringify({ 
-        error: "FCM server key not configured",
-        message: "Please configure FCM_SERVER_KEY in Supabase Edge Function secrets"
+        error: "FCM service account not configured",
+        message: "Please configure FCM_SERVICE_ACCOUNT in Supabase Edge Function secrets"
       }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -51,37 +122,56 @@ serve(async (req) => {
       });
     }
 
+    // Get access token for FCM HTTP v1
+    const accessToken = await getFcmAccessToken();
+    const serviceAccount = JSON.parse(fcmServiceAccountJson);
+    const projectId = serviceAccount.project_id;
+
     const payload = {
-      to: token,
-      priority: "high",
-      notification: {
-        title,
-        body,
-        sound: "default",
-        android_channel_id: (data?.type === "market_update")
-          ? "market_updates"
-          : (data?.type === "signal_complete")
-            ? "trade_alerts"
-            : "forex_signals",
-      },
-      data: {
-        ...(data || {}),
-        _source: "send-fcm-direct",
-        timestamp: Date.now().toString()
-      },
-      content_available: true
+      message: {
+        token: token,
+        notification: {
+          title,
+          body,
+        },
+        data: {
+          ...(data || {}),
+          _source: "send-fcm-direct",
+          timestamp: Date.now().toString()
+        },
+        android: {
+          notification: {
+            channel_id: (data?.type === "market_update")
+              ? "market_updates"
+              : (data?.type === "signal_complete")
+                ? "trade_alerts"
+                : "forex_signals",
+            sound: "default"
+          },
+          priority: "high"
+        },
+        apns: {
+          payload: {
+            aps: {
+              sound: "default",
+              "content-available": 1
+            }
+          }
+        }
+      }
     };
 
-    console.log('📤 FCM Direct: Sending message', { 
-      title: payload.notification.title,
-      hasData: !!data 
+    console.log('📤 FCM Direct: Sending message via HTTP v1', { 
+      title: payload.message.notification.title,
+      hasData: !!data,
+      projectId
     });
 
-    const fcmRes = await fetch("https://fcm.googleapis.com/fcm/send", {
+    const fcmRes = await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `key=${fcmServerKey}`,
+        Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify(payload),
     });
@@ -107,21 +197,11 @@ serve(async (req) => {
       });
     }
 
-    // Detect invalid token errors and hint to clean up on the client/DB flow
-    const invalid = Array.isArray(result?.results)
-      ? result.results.find((r: any) => r?.error)
-      : undefined;
-
-    if (invalid) {
-      console.warn('⚠️ FCM Direct: Invalid token detected', invalid);
-    }
-
     console.log('✅ FCM Direct: Message sent successfully');
     return new Response(
       JSON.stringify({ 
         ok: true, 
-        result, 
-        invalidTokenError: invalid?.error,
+        result,
         message: "FCM message sent successfully"
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }

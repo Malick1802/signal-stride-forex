@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
@@ -10,7 +9,78 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const FCM_SERVER_KEY = Deno.env.get("FCM_SERVER_KEY")!;
+const fcmServiceAccountJson = Deno.env.get("FCM_SERVICE_ACCOUNT");
+
+// Helper function to get OAuth2 access token for FCM HTTP v1
+async function getFcmAccessToken(): Promise<string> {
+  if (!fcmServiceAccountJson) {
+    throw new Error("FCM_SERVICE_ACCOUNT not configured");
+  }
+
+  const serviceAccount = JSON.parse(fcmServiceAccountJson);
+  
+  // Create JWT for Google OAuth2
+  const now = Math.floor(Date.now() / 1000);
+  const jwtHeader = { alg: "RS256", typ: "JWT" };
+  const jwtPayload = {
+    iss: serviceAccount.client_email,
+    scope: "https://www.googleapis.com/auth/firebase.messaging",
+    aud: "https://oauth2.googleapis.com/token",
+    iat: now,
+    exp: now + 3600
+  };
+
+  // Base64url encode function
+  const base64urlEncode = (obj: any) => {
+    return btoa(JSON.stringify(obj))
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=/g, '');
+  };
+
+  const encodedHeader = base64urlEncode(jwtHeader);
+  const encodedPayload = base64urlEncode(jwtPayload);
+  const unsignedToken = `${encodedHeader}.${encodedPayload}`;
+
+  // Import private key for signing
+  const privateKey = await crypto.subtle.importKey(
+    "pkcs8",
+    new TextEncoder().encode(serviceAccount.private_key),
+    { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+
+  const signature = await crypto.subtle.sign(
+    "RSASSA-PKCS1-v1_5",
+    privateKey,
+    new TextEncoder().encode(unsignedToken)
+  );
+
+  const encodedSignature = btoa(String.fromCharCode(...new Uint8Array(signature)))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=/g, '');
+
+  const jwt = `${unsignedToken}.${encodedSignature}`;
+
+  // Exchange JWT for access token
+  const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      grant_type: "urn:ietf:params:oauth:grant-type:jwt-bearer",
+      assertion: jwt
+    })
+  });
+
+  const tokenData = await tokenResponse.json();
+  if (!tokenResponse.ok) {
+    throw new Error(`Failed to get access token: ${JSON.stringify(tokenData)}`);
+  }
+
+  return tokenData.access_token;
+}
 
 type JobType = "new_signal" | "target_hit" | "stop_loss" | "signal_complete" | "market_update";
 
@@ -104,75 +174,87 @@ function filterByPreference(type: JobType, profile: ProfileRow): boolean {
 }
 
 async function sendFCM(tokens: string[], title: string, body: string, data: Record<string, any>) {
-  if (!FCM_SERVER_KEY) throw new Error("FCM_SERVER_KEY not configured");
+  if (!fcmServiceAccountJson) throw new Error("FCM_SERVICE_ACCOUNT not configured");
   if (tokens.length === 0) return { sent: 0, results: [] };
 
-  const payload = {
-    registration_ids: tokens,
-    priority: "high",
-    content_available: true,
-    notification: {
-      title,
-      body,
-      icon: "/android-chrome-192x192.png",
-      click_action: "https://da46b985-2e68-44b3-90bc-922d481bf104.lovableproject.com",
-      sound: "default",
-      badge: "1",
-      android_channel_id:
-        data?.type === "market_update"
-          ? "market_updates"
-          : data?.type === "signal_complete"
-            ? "trade_alerts"
-            : "forex_signals",
-    },
-    data: {
-      ...data,
-      timestamp: new Date().toISOString(),
-      title,
-      body,
-    },
-    android: {
-      priority: "high",
-      notification: {
-        channel_id: data.type === "market_update" ? "market_updates" : data.type === "signal_complete" ? "trade_alerts" : "forex_signals",
-        priority: "high",
-        sound: "default",
-        default_sound: true,
-        default_vibrate_timings: true,
-        default_light_settings: true,
-        visibility: 1,
-        importance: "high",
-        notification_priority: 2,
-      },
-      data,
-    },
-    apns: {
-      payload: {
-        aps: {
-          alert: { title, body },
-          sound: "default",
-          badge: 1,
-          "content-available": 1,
+  try {
+    const accessToken = await getFcmAccessToken();
+    const serviceAccount = JSON.parse(fcmServiceAccountJson);
+    const projectId = serviceAccount.project_id;
+
+    const results = [];
+    
+    // Send individual messages for each token (FCM HTTP v1 doesn't support bulk sending)
+    for (const token of tokens) {
+      const payload = {
+        message: {
+          token: token,
+          notification: {
+            title,
+            body,
+          },
+          data: {
+            ...data,
+            timestamp: new Date().toISOString(),
+          },
+          android: {
+            notification: {
+              channel_id: data?.type === "market_update"
+                ? "market_updates"
+                : data?.type === "signal_complete"
+                  ? "trade_alerts"
+                  : "forex_signals",
+              sound: "default",
+            },
+            priority: "high",
+          },
+          apns: {
+            payload: {
+              aps: {
+                sound: "default",
+                "content-available": 1,
+              },
+            },
+          },
         },
-      },
-      headers: {
-        "apns-priority": "10",
-        "apns-push-type": "alert",
-      },
-    },
-  };
+      };
 
-  const res = await fetch("https://fcm.googleapis.com/fcm/send", {
-    method: "POST",
-    headers: {
-      Authorization: `key=${FCM_SERVER_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
+      const response = await fetch(`https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
 
-  const json = await res.json();
-  return json;
+      const result = await response.json();
+      results.push({ 
+        token, 
+        success: response.ok, 
+        result,
+        error: response.ok ? null : result.error?.code || 'UNKNOWN_ERROR'
+      });
+    }
+
+    const successCount = results.filter(r => r.success).length;
+    const failureCount = results.filter(r => !r.success).length;
+
+    console.log(`📥 FCM Response: ${successCount} sent, ${failureCount} failed`);
+
+    return { 
+      success: successCount, 
+      failure: failureCount,
+      results: results
+    };
+  } catch (error) {
+    console.error('❌ FCM Error:', error);
+    return { 
+      success: 0, 
+      failure: tokens.length,
+      results: tokens.map(token => ({ token, success: false, error: String(error) }))
+    };
+  }
 }
 
 async function processJob(supabase: ReturnType<typeof createClient>, job: PushJob) {
@@ -231,9 +313,9 @@ async function processJob(supabase: ReturnType<typeof createClient>, job: PushJo
   // Clean invalid tokens
   if (Array.isArray(fcmResult.results)) {
     const invalidTokens: string[] = [];
-    fcmResult.results.forEach((r: any, idx: number) => {
-      if (r.error === "InvalidRegistration" || r.error === "NotRegistered") {
-        invalidTokens.push(tokens[idx]);
+    fcmResult.results.forEach((r: any) => {
+      if (r.error === "UNREGISTERED" || r.error === "INVALID_ARGUMENT") {
+        invalidTokens.push(r.token);
       }
     });
     if (invalidTokens.length > 0) {
