@@ -17,6 +17,20 @@ async function getFcmAccessToken(): Promise<string> {
     throw new Error("FCM_SERVICE_ACCOUNT not configured");
   }
 
+  try {
+    const serviceAccount = JSON.parse(fcmServiceAccountJson);
+    
+    // Validate service account structure
+    if (!serviceAccount.client_email || !serviceAccount.private_key || !serviceAccount.project_id) {
+      throw new Error("Invalid FCM service account format. Required fields: client_email, private_key, project_id");
+    }
+    
+    console.log(`🔑 FCM Auth: Using project ${serviceAccount.project_id} with client ${serviceAccount.client_email}`);
+  } catch (parseError) {
+    console.error("❌ FCM Service Account Parse Error:", parseError);
+    throw new Error(`Invalid FCM_SERVICE_ACCOUNT JSON: ${parseError.message}`);
+  }
+
   const serviceAccount = JSON.parse(fcmServiceAccountJson);
   
   // Create JWT for Google OAuth2

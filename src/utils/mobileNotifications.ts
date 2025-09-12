@@ -69,7 +69,7 @@ export class MobileNotificationManager {
         id: 'forex_signals',
         name: 'Forex Trading Signals',
         description: 'Critical trading signals and market updates',
-        sound: 'beep.wav',
+        sound: 'default', // Use default sound - custom sounds need proper setup
         importance: 5,
         visibility: 1,
         lights: true,
@@ -82,7 +82,7 @@ export class MobileNotificationManager {
         id: 'trade_alerts', 
         name: 'Trade Alerts',
         description: 'Target hits, stop losses, and trade outcomes',
-        sound: 'notification.wav',
+        sound: 'default', // Use default sound - custom sounds need proper setup
         importance: 5,
         visibility: 1,
         lights: true,
