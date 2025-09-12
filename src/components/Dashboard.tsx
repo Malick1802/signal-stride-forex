@@ -17,6 +17,8 @@ import { NotificationCenter } from './NotificationCenter';
 import { SettingsDialog } from './SettingsDialog';
 import { StorageDiagnostics } from './StorageDiagnostics';
 import { TestSignalGenerator } from './TestSignalGenerator';
+import BatteryOptimizationGuide from './BatteryOptimizationGuide';
+import PushNotificationTester from './PushNotificationTester';
 
 // Lazy load heavy components
 const LazyTradingSignals = lazy(() => import('./LazyTradingSignals'));
@@ -457,8 +459,12 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
               </div>
             )}
             {activeTab === 'testing' && (
-              <div className="flex justify-center">
-                <TestSignalGenerator />
+              <div className="space-y-4">
+                <BatteryOptimizationGuide />
+                <PushNotificationTester />
+                <div className="flex justify-center">
+                  <TestSignalGenerator />
+                </div>
               </div>
             )}
           </Suspense>

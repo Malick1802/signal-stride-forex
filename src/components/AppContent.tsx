@@ -6,6 +6,7 @@ import MobileLoadingScreen from './MobileLoadingScreen';
 import LazyLoadFallback from './LazyLoadFallback';
 import ProgressiveAuthProvider from './ProgressiveAuthProvider';
 import { MobileInitializer } from './MobileInitializer';
+import { EnhancedMobileInitializer } from './EnhancedMobileInitializer';
 import { supabase } from '@/integrations/supabase/client';
 import { Capacitor } from '@capacitor/core';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
@@ -174,6 +175,10 @@ const AppContent = ({ activeTab = 'signals', onTabChange }: AppContentProps = {}
   return (
     <div className="w-full">
       <MobileInitializer />
+      <EnhancedMobileInitializer 
+        onInitializationComplete={() => console.log('✅ Enhanced mobile initialization complete')}
+        onStatusUpdate={(status) => console.log('📱 Mobile init status:', status)}
+      />
       {currentView === 'landing' && (
         <LandingPage onNavigate={handleLandingNavigation} />
       )}
