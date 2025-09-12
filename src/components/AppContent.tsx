@@ -8,6 +8,7 @@ import ProgressiveAuthProvider from './ProgressiveAuthProvider';
 import { MobileInitializer } from './MobileInitializer';
 import { supabase } from '@/integrations/supabase/client';
 import { Capacitor } from '@capacitor/core';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 
 // Direct import to avoid lazy loading issues
 import Dashboard from './Dashboard';
@@ -38,6 +39,7 @@ const AppContent = ({ activeTab = 'signals', onTabChange }: AppContentProps = {}
   const { user, loading, subscription, session } = useAuth();
   const [currentView, setCurrentView] = useState<ViewType>('landing');
   const [isAdmin, setIsAdmin] = useState(false);
+  const { isRegistered, initializePushNotifications } = usePushNotifications();
 
   useEffect(() => {
     const checkAdminStatus = async () => {
@@ -73,6 +75,16 @@ const AppContent = ({ activeTab = 'signals', onTabChange }: AppContentProps = {}
 
     checkAdminStatus();
   }, [user, session]);
+
+  // Auto-register push notifications when user logs in on native platforms
+  useEffect(() => {
+    if (user && Capacitor.isNativePlatform() && !isRegistered) {
+      console.log('AppContent: Auto-registering push notifications for logged-in user');
+      initializePushNotifications().catch(error => {
+        console.warn('AppContent: Push notification auto-registration failed:', error);
+      });
+    }
+  }, [user, isRegistered, initializePushNotifications]);
 
   useEffect(() => {
     console.log('AppContent: Auth state changed', {

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "PLACEHOLDER",
+    "project_id": "PLACEHOLDER-PROJECT-ID",
+    "storage_bucket": "PLACEHOLDER-PROJECT-ID.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:PLACEHOLDER:android:PLACEHOLDER",
+        "android_client_info": {
+          "package_name": "app.lovable.da46b9852e6844b390bc922d481bf104"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "PLACEHOLDER-API-KEY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
