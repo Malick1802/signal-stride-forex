@@ -170,8 +170,7 @@ serve(async (req) => {
       force = false,
       debug = false,
       maxSignals = CONFIG.maxSignalsPerRun,
-      fullAnalysis = true,
-      lowThreshold = false
+      fullAnalysis = true
     } = requestBody;
 
     console.log(`🎯 Professional Mode - Force: ${force}, Debug: ${debug}, Max Signals: ${maxSignals}`);
@@ -254,8 +253,8 @@ serve(async (req) => {
       totalTokens: 0
     };
 
-    const tier1Threshold = lowThreshold ? 55 : CONFIG.tier1PassThreshold;
-    if (debug) console.log(`⚙️ Tier 1 pass threshold: ${tier1Threshold}`);
+    const tier1Threshold = CONFIG.tier1PassThreshold;
+    console.log(`⚙️ Tier 1 pass threshold: ${tier1Threshold} (Level: ${CONFIG.level || 'LOW'})`);
     // Major pairs get priority for Tier 3 analysis
     const majorPairs = ['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD'];
     const availablePairs = marketData
