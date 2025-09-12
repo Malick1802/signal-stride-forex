@@ -39,7 +39,7 @@ const MobileConnectionStatus = () => {
           
           <p className="text-gray-300 text-xs mb-3">
             {Capacitor.isNativePlatform() 
-              ? 'Unable to connect to ForexAlert Pro servers. Check your mobile data or WiFi connection.'
+              ? 'Unable to connect to ForexAlert Pro servers. Check your mobile data or WiFi. Push notifications may still work via FCM when connectivity returns.'
               : 'Unable to connect to the internet. Please check your connection.'
             }
           </p>

@@ -10,10 +10,10 @@ export class EnhancedMobileNotificationManager {
     if (!Capacitor.isNativePlatform()) return;
 
     try {
-      // Configure notification channels with high importance for Android
+      // Configure unified notification channels with high importance for Android
       await LocalNotifications.createChannel({
-        id: 'critical_forex_signals',
-        name: 'Critical Forex Signals',
+        id: 'forex_signals',
+        name: 'Forex Trading Signals',
         description: 'High priority forex trading signals that bypass battery optimization',
         importance: 5, // IMPORTANCE_HIGH
         visibility: 1, // VISIBILITY_PUBLIC
@@ -22,8 +22,8 @@ export class EnhancedMobileNotificationManager {
       });
 
       await LocalNotifications.createChannel({
-        id: 'urgent_trade_alerts',
-        name: 'Urgent Trade Alerts',
+        id: 'trade_alerts',
+        name: 'Trade Alerts',
         description: 'Urgent trade alerts and target notifications',
         importance: 5, // IMPORTANCE_HIGH
         visibility: 1, // VISIBILITY_PUBLIC
@@ -119,18 +119,18 @@ export class EnhancedMobileNotificationManager {
       // Process the notification data
       const notificationData = notification.data;
       
-      if (notificationData?.type === 'signal') {
+      if (notificationData?.type === 'signal' || notificationData?.type === 'new_signal') {
         // Handle signal notifications with high priority
         await this.showCriticalSignalNotification(
           notification.title || 'New Trading Signal',
           notification.body || 'A new forex signal is available',
           notificationData
         );
-      } else if (notificationData?.type === 'target_hit') {
-        // Handle target hit notifications
+      } else if (notificationData?.type === 'target_hit' || notificationData?.type === 'stop_loss' || notificationData?.type === 'signal_complete') {
+        // Handle trade alert notifications
         await this.showUrgentTradeAlert(
-          notification.title || 'Target Hit',
-          notification.body || 'Your trade target has been reached',
+          notification.title || 'Trade Alert',
+          notification.body || 'Your trade has been updated',
           notificationData
         );
       }
@@ -182,7 +182,7 @@ export class EnhancedMobileNotificationManager {
           id: notificationId,
           title,
           body,
-          channelId: 'critical_forex_signals',
+          channelId: 'forex_signals',
           sound: 'notification.wav',
           extra: {
             ...data,
@@ -209,7 +209,7 @@ export class EnhancedMobileNotificationManager {
           id: notificationId,
           title,
           body,
-          channelId: 'urgent_trade_alerts',
+          channelId: 'trade_alerts',
           sound: 'notification.wav',
           extra: {
             ...data,
