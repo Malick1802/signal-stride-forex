@@ -6,18 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Capacitor } from '@capacitor/core';
 
 const MobileConnectionStatus = () => {
-  const { isConnected, connectionType, lastConnected, retryCount, retryConnection, isRestoring } = useMobileConnectivity();
-
-  if (isRestoring) {
-    return (
-      <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-3 mb-4">
-        <div className="flex items-center space-x-2">
-          <RefreshCw className="h-4 w-4 text-blue-400 animate-spin" />
-          <span className="text-blue-400 text-sm font-medium">Restoring connection...</span>
-        </div>
-      </div>
-    );
-  }
+  const { isConnected, connectionType, lastConnected, retryCount, retryConnection } = useMobileConnectivity();
 
   if (isConnected) {
     return (

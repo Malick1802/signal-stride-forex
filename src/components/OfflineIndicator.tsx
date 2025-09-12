@@ -7,17 +7,8 @@ import { useMobileConnectivity } from '@/hooks/useMobileConnectivity';
 import { useOfflineSignals } from '@/hooks/useOfflineSignals';
 
 export const OfflineIndicator = () => {
-  const { isConnected, retryConnection, isRestoring } = useMobileConnectivity();
+  const { isConnected, retryConnection } = useMobileConnectivity();
   const { isUsingCache, cacheStats, clearCache } = useOfflineSignals();
-
-  if (isRestoring) {
-    return (
-      <div className="flex items-center space-x-2 text-blue-400 text-sm">
-        <RefreshCw className="w-4 h-4 animate-spin" />
-        <span>Restoring connection...</span>
-      </div>
-    );
-  }
 
   if (isConnected && !isUsingCache) {
     return (

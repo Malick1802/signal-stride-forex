@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 
 interface ConnectivityState {
@@ -8,7 +8,6 @@ interface ConnectivityState {
   isConnected: boolean;
   lastConnected: Date | null;
   retryCount: number;
-  isRestoring: boolean;
 }
 
 export const useMobileConnectivity = () => {
@@ -17,48 +16,35 @@ export const useMobileConnectivity = () => {
     connectionType: 'unknown',
     isConnected: navigator.onLine,
     lastConnected: navigator.onLine ? new Date() : null,
-    retryCount: 0,
-    isRestoring: false
+    retryCount: 0
   });
-  
-  const debounceTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const checkConnectivity = useCallback(async (isRestoringConnection = false) => {
+  const checkConnectivity = useCallback(async () => {
     try {
-      if (isRestoringConnection) {
-        setConnectivity(prev => ({ ...prev, isRestoring: true }));
-      }
-
       if (Capacitor.isNativePlatform()) {
         try {
           const { Network } = await import('@capacitor/network');
           const status = await Network.getStatus();
-          
-          const updateState = {
+          setConnectivity(prev => ({
+            ...prev,
             isOnline: status.connected,
             connectionType: status.connectionType,
             isConnected: status.connected,
-            lastConnected: status.connected ? new Date() : connectivity.lastConnected,
-            isRestoring: false
-          };
-          
-          setConnectivity(prev => ({ ...prev, ...updateState }));
-          
+            lastConnected: status.connected ? new Date() : prev.lastConnected
+          }));
         } catch (error) {
           console.warn('❌ Network plugin not available:', error);
           // Fall back to web connectivity check
-          const updateState = {
+          setConnectivity(prev => ({
+            ...prev,
             isOnline: navigator.onLine,
             connectionType: 'wifi',
             isConnected: navigator.onLine,
-            lastConnected: navigator.onLine ? new Date() : connectivity.lastConnected,
-            isRestoring: false
-          };
-          
-          setConnectivity(prev => ({ ...prev, ...updateState }));
+            lastConnected: navigator.onLine ? new Date() : prev.lastConnected
+          }));
         }
       } else {
-        // Web connectivity check with debouncing
+        // Web connectivity check
         try {
           const response = await fetch('/favicon.ico', { 
             method: 'HEAD',
@@ -66,22 +52,18 @@ export const useMobileConnectivity = () => {
           });
           const isReallyOnline = response.ok;
           
-          const updateState = {
+          setConnectivity(prev => ({
+            ...prev,
             isOnline: navigator.onLine && isReallyOnline,
             connectionType: 'wifi',
             isConnected: navigator.onLine && isReallyOnline,
-            lastConnected: (navigator.onLine && isReallyOnline) ? new Date() : connectivity.lastConnected,
-            isRestoring: false
-          };
-          
-          setConnectivity(prev => ({ ...prev, ...updateState }));
-          
+            lastConnected: (navigator.onLine && isReallyOnline) ? new Date() : prev.lastConnected
+          }));
         } catch (error) {
           setConnectivity(prev => ({
             ...prev,
             isOnline: false,
-            isConnected: false,
-            isRestoring: false
+            isConnected: false
           }));
         }
       }
@@ -90,53 +72,35 @@ export const useMobileConnectivity = () => {
       setConnectivity(prev => ({
         ...prev,
         isOnline: false,
-        isConnected: false,
-        isRestoring: false
+        isConnected: false
       }));
     }
-  }, [connectivity.lastConnected]);
+  }, []);
 
   const retryConnection = useCallback(async () => {
-    console.log('🔄 Manually retrying connection...');
     setConnectivity(prev => ({
       ...prev,
       retryCount: prev.retryCount + 1
     }));
     
-    await checkConnectivity(true);
+    await checkConnectivity();
   }, [checkConnectivity]);
 
   useEffect(() => {
-    // Initial check with a slight delay to let everything stabilize
-    setTimeout(() => checkConnectivity(), 500);
+    checkConnectivity();
 
     const handleOnline = () => {
       console.log('📶 Network came online');
-      // Clear any pending debounce
-      if (debounceTimeoutRef.current) {
-        clearTimeout(debounceTimeoutRef.current);
-      }
-      setConnectivity(prev => ({ ...prev, isRestoring: true }));
-      debounceTimeoutRef.current = setTimeout(() => {
-        checkConnectivity(true);
-      }, 1000); // 1 second debounce for online
+      checkConnectivity();
     };
 
     const handleOffline = () => {
       console.log('📵 Network went offline');
-      // Clear any pending debounce
-      if (debounceTimeoutRef.current) {
-        clearTimeout(debounceTimeoutRef.current);
-      }
-      // Debounce offline transitions to prevent flashing
-      debounceTimeoutRef.current = setTimeout(() => {
-        setConnectivity(prev => ({
-          ...prev,
-          isOnline: false,
-          isConnected: false,
-          isRestoring: false
-        }));
-      }, 2000); // 2 second debounce for offline
+      setConnectivity(prev => ({
+        ...prev,
+        isOnline: false,
+        isConnected: false
+      }));
     };
 
     // Web event listeners
@@ -153,37 +117,16 @@ export const useMobileConnectivity = () => {
           const { Network } = await import('@capacitor/network');
           const { App } = await import('@capacitor/app');
 
-          // Enhanced network status listener with debouncing
+          // Enhanced network status listener
           networkListener = await Network.addListener('networkStatusChange', (status: any) => {
             console.log('📱 Network status changed:', status);
-            
-            // Clear any pending debounce
-            if (debounceTimeoutRef.current) {
-              clearTimeout(debounceTimeoutRef.current);
-            }
-            
-            if (status.connected) {
-              setConnectivity(prev => ({ ...prev, isRestoring: true }));
-              debounceTimeoutRef.current = setTimeout(() => {
-                setConnectivity(prev => ({
-                  ...prev,
-                  isOnline: status.connected,
-                  connectionType: status.connectionType,
-                  isConnected: status.connected,
-                  lastConnected: new Date(),
-                  isRestoring: false
-                }));
-              }, 1000);
-            } else {
-              debounceTimeoutRef.current = setTimeout(() => {
-                setConnectivity(prev => ({
-                  ...prev,
-                  isOnline: false,
-                  isConnected: false,
-                  isRestoring: false
-                }));
-              }, 2000);
-            }
+            setConnectivity(prev => ({
+              ...prev,
+              isOnline: status.connected,
+              connectionType: status.connectionType,
+              isConnected: status.connected,
+              lastConnected: status.connected ? new Date() : prev.lastConnected
+            }));
           });
 
           // App state listener for resume handling
@@ -220,9 +163,6 @@ export const useMobileConnectivity = () => {
       }
       if (appStateListener) {
         appStateListener.remove();
-      }
-      if (debounceTimeoutRef.current) {
-        clearTimeout(debounceTimeoutRef.current);
       }
       clearInterval(interval);
     };

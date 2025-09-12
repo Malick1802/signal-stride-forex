@@ -12,122 +12,39 @@ interface MobileAppWrapperProps {
 export default function MobileAppWrapper({ children, activeTab, onTabChange }: MobileAppWrapperProps) {
   const [isReady, setIsReady] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
-  const [isStabilizing, setIsStabilizing] = useState(true);
 
   useEffect(() => {
-    console.log('🚀 MobileAppWrapper: Starting stabilized initialization');
+    console.log('🚀 MobileAppWrapper: Streamlined initialization');
     
-    let stabilizationTimer: NodeJS.Timeout;
-    let networkListeners: any[] = [];
-
-    const initializeConnection = async () => {
-      try {
-        if (Capacitor.isNativePlatform()) {
-          // Use Capacitor Network plugin for accurate connectivity
-          const { Network } = await import('@capacitor/network');
-          const { App } = await import('@capacitor/app');
-          
-          // Get initial network status
-          const status = await Network.getStatus();
-          console.log('📱 Initial network status:', status);
-          setIsOnline(status.connected);
-          
-          // Listen for network changes
-          const networkListener = await Network.addListener('networkStatusChange', (status) => {
-            console.log('📶 Network status changed:', status);
-            setIsOnline(status.connected);
-          });
-          networkListeners.push(networkListener);
-          
-          // Listen for app resume to re-check connectivity
-          const appListener = await App.addListener('appStateChange', ({ isActive }) => {
-            if (isActive) {
-              console.log('📱 App resumed - checking connectivity');
-              Network.getStatus().then(status => {
-                setIsOnline(status.connected);
-              });
-            }
-          });
-          networkListeners.push(appListener);
-          
-        } else {
-          // Web platform - use navigator.onLine
-          setIsOnline(navigator.onLine);
-          
-          const handleOnline = () => {
-            console.log('🌐 Web went online');
-            setIsOnline(true);
-          };
-          const handleOffline = () => {
-            console.log('🌐 Web went offline');
-            setIsOnline(false);
-          };
-          
-          window.addEventListener('online', handleOnline);
-          window.addEventListener('offline', handleOffline);
-          
-          networkListeners.push(() => {
-            window.removeEventListener('online', handleOnline);
-            window.removeEventListener('offline', handleOffline);
-          });
-        }
-        
-        // Stabilization window to prevent flashing
-        stabilizationTimer = setTimeout(() => {
-          console.log('✅ Connection stabilization complete');
-          setIsStabilizing(false);
-          setIsReady(true);
-        }, 1500); // 1.5 second stabilization window
-        
-      } catch (error) {
-        console.warn('⚠️ Network initialization failed:', error);
-        // Fallback to basic connectivity
-        setIsOnline(navigator.onLine);
-        setIsStabilizing(false);
-        setIsReady(true);
-      }
-    };
-
-    initializeConnection();
+    // Online check and immediate ready state
+    setIsOnline(navigator.onLine);
+    setIsReady(true);
+    
+    // Listen for online/offline changes
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
     
     return () => {
-      if (stabilizationTimer) {
-        clearTimeout(stabilizationTimer);
-      }
-      networkListeners.forEach(cleanup => {
-        if (typeof cleanup === 'function') {
-          cleanup();
-        } else if (cleanup && cleanup.remove) {
-          cleanup.remove();
-        }
-      });
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
   }, []);
 
-  // Only show offline during stabilization if we're definitely offline
-  if (!isOnline && !isStabilizing) {
+  // Simple offline check
+  if (!isOnline) {
     return (
       <div className="flex flex-col items-center justify-center h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 text-white p-4">
         <h1 className="text-2xl font-bold mb-4">No Internet Connection</h1>
         <p className="text-gray-400 mb-6 text-center">
           ForexAlert Pro requires an internet connection to work properly.
-          {Capacitor.isNativePlatform() && (
-            <><br /><br />Push notifications may still work via FCM when connectivity returns.</>
-          )}
         </p>
         <button
-          onClick={async () => {
-            if (Capacitor.isNativePlatform()) {
-              try {
-                const { Network } = await import('@capacitor/network');
-                const status = await Network.getStatus();
-                setIsOnline(status.connected);
-              } catch (error) {
-                setIsOnline(navigator.onLine);
-              }
-            } else {
-              setIsOnline(navigator.onLine);
-            }
+          onClick={() => {
+            setIsOnline(navigator.onLine);
+            window.location.reload();
           }}
           className="bg-emerald-500 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-lg transition-colors"
         >
