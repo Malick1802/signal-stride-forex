@@ -96,7 +96,7 @@ const THRESHOLD_CONFIGS = {
   LOW: {
     sequentialTiers: true,
     allowTier3Cap: false,
-    tier1PassThreshold: 55,        // STANDARD: Require 2+ confluences
+    tier1PassThreshold: 40,        // CALIBRATED: More realistic threshold for typical scores
     tier1RequiredConfluences: 2,   // 2+ technical confirmations
     tier2EscalationQuality: 65,    // Lower quality bar
     tier2EscalationConfidence: 60, // 60%+ confidence required
@@ -114,25 +114,33 @@ const THRESHOLD_CONFIGS = {
 } as const;
 
 // Get dynamic configuration based on admin settings
-async function getSignalConfig(supabase: any) {
+async function getSignalConfig(supabase: any, requestOverride?: string) {
   try {
-    const { data: settings, error } = await supabase
-      .from('app_settings')
-      .select('signal_threshold_level')
-      .eq('singleton', true)
-      .single();
+    // Allow request parameter to override admin settings
+    let level = requestOverride;
     
-    if (error) {
-      console.warn('⚠️ Could not fetch signal threshold settings, using HIGH default:', error);
-      return THRESHOLD_CONFIGS.HIGH;
+    if (!level) {
+      const { data: settings, error } = await supabase
+        .from('app_settings')
+        .select('signal_threshold_level')
+        .eq('singleton', true)
+        .single();
+      
+      if (error) {
+        console.warn('⚠️ Could not fetch signal threshold settings, using HIGH default:', error);
+        level = 'HIGH';
+      } else {
+        level = settings?.signal_threshold_level || 'HIGH';
+      }
     }
     
-    const level = settings?.signal_threshold_level || 'HIGH';
-    console.log(`🎯 Using ${level} threshold configuration`);
-    return THRESHOLD_CONFIGS[level as keyof typeof THRESHOLD_CONFIGS] || THRESHOLD_CONFIGS.HIGH;
+    console.log(`🎯 Using ${level} threshold configuration${requestOverride ? ' (request override)' : ' (from admin settings)'}`);
+    const config = THRESHOLD_CONFIGS[level as keyof typeof THRESHOLD_CONFIGS] || THRESHOLD_CONFIGS.HIGH;
+    return { ...config, level }; // Add level to config for logging
   } catch (error) {
     console.warn('⚠️ Error fetching signal threshold settings, using HIGH default:', error);
-    return THRESHOLD_CONFIGS.HIGH;
+    const config = THRESHOLD_CONFIGS.HIGH;
+    return { ...config, level: 'HIGH' };
   }
 }
 
@@ -154,10 +162,7 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
     
-    // Get dynamic configuration from admin settings
-    const CONFIG = await getSignalConfig(supabase);
-
-    // Parse request parameters
+    // Parse request parameters first to check for threshold override
     let requestBody: any = {};
     try {
       const bodyText = await req.text();
@@ -166,12 +171,20 @@ serve(async (req) => {
       console.log('📝 Using default parameters');
     }
 
+    // Get dynamic configuration from admin settings (with optional override)
+    const CONFIG = await getSignalConfig(supabase, requestBody.thresholdLevel);
+
     const { 
       force = false,
       debug = false,
       maxSignals = CONFIG.maxSignalsPerRun,
-      fullAnalysis = true
+      fullAnalysis = true,
+      thresholdLevel
     } = requestBody;
+
+    if (thresholdLevel) {
+      console.log(`🔧 Threshold level override: ${thresholdLevel}`);
+    }
 
     console.log(`🎯 Professional Mode - Force: ${force}, Debug: ${debug}, Max Signals: ${maxSignals}`);
     // Mode flags for CI/fast runs
@@ -253,8 +266,20 @@ serve(async (req) => {
       totalTokens: 0
     };
 
-    const tier1Threshold = CONFIG.tier1PassThreshold;
-    console.log(`⚙️ Tier 1 pass threshold: ${tier1Threshold} (Level: ${CONFIG.level || 'LOW'})`);
+    let tier1Threshold = CONFIG.tier1PassThreshold;
+    console.log(`⚙️ Tier 1 pass threshold: ${tier1Threshold} (Level: ${CONFIG.level})`);
+    
+    // Track Tier 1 statistics for adaptive threshold
+    let tier1Scores: number[] = [];
+    let adaptiveThresholdUsed = false;
+
+    let tier1Threshold = CONFIG.tier1PassThreshold;
+    console.log(`⚙️ Tier 1 pass threshold: ${tier1Threshold} (Level: ${CONFIG.level})`);
+    
+    // Track Tier 1 statistics for adaptive threshold
+    let tier1Scores: number[] = [];
+    let adaptiveThresholdUsed = false;
+    
     // Major pairs get priority for Tier 3 analysis
     const majorPairs = ['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD'];
     const availablePairs = marketData
@@ -302,6 +327,14 @@ serve(async (req) => {
     for (let i = 0; i < selectedPairs.length && generatedSignals.length < maxNewSignals; i++) {
       const pair = selectedPairs[i];
       
+      // Check if we need adaptive threshold after analyzing 12 pairs without passes
+      if (i === 12 && analysisStats.tier1Passed === 0 && !adaptiveThresholdUsed) {
+        const oldThreshold = tier1Threshold;
+        tier1Threshold = Math.max(30, tier1Threshold - 5); // Drop by 5, minimum 30
+        adaptiveThresholdUsed = true;
+        console.log(`🎯 ADAPTIVE: No Tier 1 passes after 12 analyses, lowering threshold: ${oldThreshold} → ${tier1Threshold}`);
+      }
+      
       if (timeBudgetMs && (Date.now() - startTime) > timeBudgetMs) {
         console.log('⏹️ Time budget reached, stopping early');
         timedOut = true;
@@ -320,6 +353,7 @@ serve(async (req) => {
         // TIER 1: FREE Professional Local Pre-screening
         const tier1Analysis = await performTier1Analysis(pair, historicalData, CONFIG);
         analysisStats.tier1Analyzed++;
+        tier1Scores.push(tier1Analysis.score); // Track all scores
         
         console.log(`🔍 TIER 1: ${pair.symbol} - Score: ${tier1Analysis.score}/100 (Pass: ${tier1Threshold}+)`);
         
@@ -502,9 +536,20 @@ if (escalateToTier3) {
 
     const executionTime = Date.now() - startTime;
     
+    // Enhanced summary with Tier 1 analysis
+    const tier1Stats = tier1Scores.length > 0 ? {
+      avgScore: Math.round(tier1Scores.reduce((a, b) => a + b, 0) / tier1Scores.length),
+      maxScore: Math.max(...tier1Scores),
+      above40: tier1Scores.filter(s => s >= 40).length,
+      above50: tier1Scores.filter(s => s >= 50).length
+    } : null;
+    
     console.log(`✅ PROFESSIONAL GENERATION COMPLETE:`);
     console.log(`   📊 Signals Generated: ${savedCount}/${generatedSignals.length}`);
-    console.log(`   🎯 Tier 1: ${analysisStats.tier1Passed}/${analysisStats.tier1Analyzed} passed`);
+    console.log(`   🎯 Tier 1: ${analysisStats.tier1Passed}/${analysisStats.tier1Analyzed} passed (threshold: ${tier1Threshold}${adaptiveThresholdUsed ? ', adaptive' : ''})`);
+    if (tier1Stats) {
+      console.log(`   📈 Tier 1 Stats: Avg=${tier1Stats.avgScore}, Max=${tier1Stats.maxScore}, ≥40: ${tier1Stats.above40}, ≥50: ${tier1Stats.above50}`);
+    }
     console.log(`   💰 Tier 2: ${analysisStats.tier2Passed}/${analysisStats.tier2Analyzed} passed`);
     console.log(`   💎 Tier 3: ${analysisStats.tier3Passed}/${analysisStats.tier3Analyzed} passed`);
     console.log(`   💵 Total Cost: $${analysisStats.totalCost.toFixed(4)}`);
