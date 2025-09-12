@@ -66,6 +66,8 @@ const THRESHOLD_CONFIGS = {
     tier2EscalationConfidence: 80, // 80%+ confidence required
     tier3QualityThreshold: 90,     // Premium tier requires 90+ quality
     tier3ConfidenceThreshold: 85,  // 85%+ confidence for signal publication
+    finalQualityThreshold: 90,     // Final gate quality threshold
+    finalConfidenceThreshold: 85,  // Final gate confidence threshold
     maxSignalsPerRun: 3,           // Quality over quantity - max 3 signals per 5min
     rsiOversoldBuy: 25,            // Ultra-selective RSI levels
     rsiOverboughtSell: 75,
@@ -82,6 +84,8 @@ const THRESHOLD_CONFIGS = {
     tier2EscalationConfidence: 70, // 70%+ confidence required
     tier3QualityThreshold: 80,     // Good quality threshold
     tier3ConfidenceThreshold: 75,  // 75%+ confidence for signal publication
+    finalQualityThreshold: 80,     // Final gate quality threshold
+    finalConfidenceThreshold: 75,  // Final gate confidence threshold
     maxSignalsPerRun: 5,           // Balanced approach - max 5 signals per 5min
     rsiOversoldBuy: 30,            // Moderate RSI levels
     rsiOverboughtSell: 70,
@@ -98,6 +102,8 @@ const THRESHOLD_CONFIGS = {
     tier2EscalationConfidence: 60, // 60%+ confidence required
     tier3QualityThreshold: 70,     // Standard quality threshold
     tier3ConfidenceThreshold: 65,  // 65%+ confidence for signal publication
+    finalQualityThreshold: 70,     // Final gate quality threshold
+    finalConfidenceThreshold: 65,  // Final gate confidence threshold
     maxSignalsPerRun: 8,           // Higher volume - max 8 signals per 5min
     rsiOversoldBuy: 35,            // Standard RSI levels
     rsiOverboughtSell: 65,
@@ -313,7 +319,7 @@ serve(async (req) => {
         }
 
         // TIER 1: FREE Professional Local Pre-screening
-        const tier1Analysis = await performTier1Analysis(pair, historicalData);
+        const tier1Analysis = await performTier1Analysis(pair, historicalData, CONFIG);
         analysisStats.tier1Analyzed++;
         
         console.log(`🔍 TIER 1: ${pair.symbol} - Score: ${tier1Analysis.score}/100 (Pass: ${tier1Threshold}+)`);
@@ -579,7 +585,7 @@ async function getEnhancedHistoricalData(supabase: any, symbol: string): Promise
 }
 
 // TIER 1: FREE Professional Local Analysis
-async function performTier1Analysis(pair: MarketData, historicalData: PricePoint[]): Promise<{
+async function performTier1Analysis(pair: MarketData, historicalData: PricePoint[], config: any): Promise<{
   score: number;
   confirmations: string[];
   recommendation: 'BUY' | 'SELL' | 'HOLD';
@@ -596,11 +602,11 @@ async function performTier1Analysis(pair: MarketData, historicalData: PricePoint
     const rsi = calculateRSI(prices);
     const rsiPrevious = prices.length >= 2 ? calculateRSI(prices.slice(0, -1)) : rsi;
     
-    if (rsi < CONFIG.rsiOversoldBuy && rsi > rsiPrevious) {
+    if (rsi < config.rsiOversoldBuy && rsi > rsiPrevious) {
       score += 25;
       confirmations.push(`RSI Ultra-Oversold & Rising (${rsi.toFixed(1)})`);
       technicalFactors.push('RSI_OVERSOLD_RISING');
-    } else if (rsi > CONFIG.rsiOverboughtSell && rsi < rsiPrevious) {
+    } else if (rsi > config.rsiOverboughtSell && rsi < rsiPrevious) {
       score += 25;
       confirmations.push(`RSI Ultra-Overbought & Falling (${rsi.toFixed(1)})`);
       technicalFactors.push('RSI_OVERBOUGHT_FALLING');
@@ -724,12 +730,12 @@ async function performTier1Analysis(pair: MarketData, historicalData: PricePoint
     f.includes('BEARISH') || f.includes('OVERBOUGHT') || f.includes('RESISTANCE') || f.includes('FALLING')
   ).length;
   
-  // MANDATORY: 4+ confluences required (CONFIG.tier1RequiredConfluences)
+  // MANDATORY: 4+ confluences required (config.tier1RequiredConfluences)
   const totalConfluences = bullishFactors + bearishFactors;
-  if (totalConfluences >= CONFIG.tier1RequiredConfluences) {
-    if (bullishFactors >= CONFIG.tier1RequiredConfluences && bullishFactors > bearishFactors) {
+  if (totalConfluences >= config.tier1RequiredConfluences) {
+    if (bullishFactors >= config.tier1RequiredConfluences && bullishFactors > bearishFactors) {
       recommendation = 'BUY';
-    } else if (bearishFactors >= CONFIG.tier1RequiredConfluences && bearishFactors > bullishFactors) {
+    } else if (bearishFactors >= config.tier1RequiredConfluences && bearishFactors > bullishFactors) {
       recommendation = 'SELL';
     }
   }
