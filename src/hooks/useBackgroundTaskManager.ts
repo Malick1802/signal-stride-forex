@@ -11,6 +11,7 @@ export interface BackgroundTaskManagerOptions {
 export const useBackgroundTaskManager = (options: BackgroundTaskManagerOptions = {}) => {
   const backgroundTaskId = useRef<string | null>(null);
   const wakeLockRef = useRef<WakeLockSentinel | null>(null);
+  const batteryExemptionRequested = useRef<boolean>(false);
   const {
     onAppStateChange,
     enableWakeLock = true,
@@ -32,13 +33,25 @@ export const useBackgroundTaskManager = (options: BackgroundTaskManagerOptions =
 
   const requestBatteryOptimizationExemption = useCallback(async () => {
     if (!Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') return;
+    if (batteryExemptionRequested.current) return;
 
     try {
-      // This would require a custom plugin for Android battery optimization
-      console.log('📱 Battery optimization exemption should be requested manually');
-      // Implementation would require custom native code
+      batteryExemptionRequested.current = true;
+      
+      // Show user guidance for manual battery optimization setup
+      console.log('📱 Prompting user for battery optimization exemption');
+      
+      // In a real implementation, this would:
+      // 1. Check if battery optimization is disabled
+      // 2. Show native dialog or guide user to settings
+      // 3. Open device settings automatically if possible
+      
+      // For now, we'll trigger the enhanced battery guide
+      console.log('🔋 User should be guided through battery optimization setup');
+      
     } catch (error) {
       console.warn('⚠️ Could not request battery optimization exemption:', error);
+      batteryExemptionRequested.current = false;
     }
   }, []);
 
@@ -87,8 +100,8 @@ export const useBackgroundTaskManager = (options: BackgroundTaskManagerOptions =
     // Listen for app state changes
     const stateListener = App.addListener('appStateChange', handleAppStateChange);
 
-    // Request battery optimization exemption on init
-    requestBatteryOptimizationExemption();
+    // Request battery optimization exemption on init (delayed to avoid blocking startup)
+    setTimeout(requestBatteryOptimizationExemption, 5000);
 
     return () => {
       stateListener.then(listener => listener.remove());

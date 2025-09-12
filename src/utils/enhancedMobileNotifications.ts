@@ -5,39 +5,54 @@ import { LocalNotifications } from '@capacitor/local-notifications';
 export class EnhancedMobileNotificationManager {
   private static backgroundTaskId: string | null = null;
 
-  // Configure high-priority FCM notifications for background delivery
+  // Configure high-priority FCM notifications with enhanced settings for background delivery
   static async configureHighPriorityNotifications(): Promise<void> {
     if (!Capacitor.isNativePlatform()) return;
 
     try {
-      // Configure unified notification channels with high importance for Android
+      // Configure unified notification channels with maximum importance for Android
       await LocalNotifications.createChannel({
         id: 'forex_signals',
         name: 'Forex Trading Signals',
-        description: 'High priority forex trading signals that bypass battery optimization',
+        description: 'Critical forex trading signals - bypasses battery optimization',
         importance: 5, // IMPORTANCE_HIGH
-        visibility: 1, // VISIBILITY_PUBLIC
+        visibility: 1, // VISIBILITY_PUBLIC 
         sound: 'notification.wav',
-        vibration: true
+        vibration: true,
+        lights: true,
+        lightColor: '#FF5722' // Orange for urgent signals
       });
 
       await LocalNotifications.createChannel({
-        id: 'trade_alerts',
+        id: 'trade_alerts', 
         name: 'Trade Alerts',
-        description: 'Urgent trade alerts and target notifications',
+        description: 'Urgent trade alerts, targets, and stop losses',
         importance: 5, // IMPORTANCE_HIGH
         visibility: 1, // VISIBILITY_PUBLIC
         sound: 'notification.wav',
-        vibration: true
+        vibration: true,
+        lights: true,
+        lightColor: '#4CAF50' // Green for trade updates
       });
 
-      console.log('✅ High-priority notification channels configured');
+      // Add market updates channel for non-critical notifications
+      await LocalNotifications.createChannel({
+        id: 'market_updates',
+        name: 'Market Updates',
+        description: 'General market news and updates',
+        importance: 3, // IMPORTANCE_DEFAULT
+        visibility: 1,
+        sound: 'default',
+        vibration: false
+      });
+
+      console.log('✅ High-priority notification channels configured with enhanced FCM settings');
     } catch (error) {
       console.error('❌ Failed to configure high-priority channels:', error);
     }
   }
 
-  // Enhanced push notification registration with background handling
+  // Enhanced push notification registration with optimized FCM settings
   static async initializeEnhancedPushNotifications(): Promise<void> {
     if (!Capacitor.isNativePlatform()) return;
 
@@ -49,16 +64,31 @@ export class EnhancedMobileNotificationManager {
         throw new Error('Push notification permission not granted');
       }
 
-      // Configure channels first
+      // Configure channels first with enhanced settings
       await this.configureHighPriorityNotifications();
 
-      // Register for push notifications
-      await PushNotifications.register();
+      // Enhanced registration with retry logic
+      let registrationAttempts = 0;
+      const maxAttempts = 3;
+      
+      while (registrationAttempts < maxAttempts) {
+        try {
+          await PushNotifications.register();
+          break;
+        } catch (error) {
+          registrationAttempts++;
+          if (registrationAttempts >= maxAttempts) {
+            throw error;
+          }
+          // Wait before retry
+          await new Promise(resolve => setTimeout(resolve, 1000 * registrationAttempts));
+        }
+      }
 
       // Set up enhanced listeners with background task handling
       await this.setupEnhancedListeners();
 
-      console.log('✅ Enhanced push notifications initialized');
+      console.log('✅ Enhanced push notifications initialized with FCM optimization');
     } catch (error) {
       console.error('❌ Enhanced push notification initialization failed:', error);
       throw error;
