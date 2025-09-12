@@ -45,7 +45,7 @@ async function getFcmAccessToken(): Promise<string> {
   // Import private key for signing
   const privateKey = await crypto.subtle.importKey(
     "pkcs8",
-    new TextEncoder().encode(serviceAccount.private_key),
+    new TextEncoder().encode(serviceAccount.private_key.replace(/\\n/g, '\n')),
     { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
     false,
     ["sign"]
