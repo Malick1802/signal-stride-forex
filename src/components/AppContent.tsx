@@ -9,6 +9,7 @@ import { MobileInitializer } from './MobileInitializer';
 import { supabase } from '@/integrations/supabase/client';
 import { Capacitor } from '@capacitor/core';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
+import { useSignalNotifications } from '@/hooks/useSignalNotifications';
 
 // Direct import to avoid lazy loading issues
 import Dashboard from './Dashboard';
@@ -40,6 +41,9 @@ const AppContent = ({ activeTab = 'signals', onTabChange }: AppContentProps = {}
   const [currentView, setCurrentView] = useState<ViewType>('landing');
   const [isAdmin, setIsAdmin] = useState(false);
   const { isRegistered, initializePushNotifications } = usePushNotifications();
+  
+  // Activate real-time signal notifications
+  useSignalNotifications();
 
   useEffect(() => {
     const checkAdminStatus = async () => {
