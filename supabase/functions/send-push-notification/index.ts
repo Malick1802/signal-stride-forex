@@ -190,10 +190,10 @@ serve(async (req) => {
           android: {
             notification: {
               channel_id: notificationType === 'market_update'
-                ? 'market_updates'
+                ? 'market_updates_v2'
                 : notificationType === 'signal_complete'
-                  ? 'trade_alerts'
-                  : 'forex_signals',
+                  ? 'trade_alerts_v2'
+                  : 'forex_signals_v2',
               sound: 'coin-notification.wav',
             },
             priority: 'high',

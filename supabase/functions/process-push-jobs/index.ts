@@ -214,10 +214,10 @@ async function sendFCM(tokens: string[], title: string, body: string, data: Reco
           android: {
             notification: {
               channel_id: data?.type === "market_update"
-                ? "market_updates"
+                ? "market_updates_v2"
                 : data?.type === "signal_complete"
-                  ? "trade_alerts"
-                  : "forex_signals",
+                  ? "trade_alerts_v2"
+                  : "forex_signals_v2",
               sound: "coin-notification.wav",
             },
             priority: "high",

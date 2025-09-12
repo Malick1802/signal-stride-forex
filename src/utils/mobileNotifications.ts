@@ -66,10 +66,10 @@ export class MobileNotificationManager {
       
       // High priority signal channel with custom sound
       await LocalNotifications.createChannel({
-        id: 'forex_signals',
+        id: 'forex_signals_v2',
         name: 'Forex Trading Signals',
         description: 'Critical trading signals and market updates',
-        sound: 'default', // Use default sound - custom sounds need proper setup
+        sound: 'coin_notification', // Custom sound for Android
         importance: 5,
         visibility: 1,
         lights: true,
@@ -79,10 +79,10 @@ export class MobileNotificationManager {
 
       // Trade alerts with different sound
       await LocalNotifications.createChannel({
-        id: 'trade_alerts', 
+        id: 'trade_alerts_v2', 
         name: 'Trade Alerts',
         description: 'Target hits, stop losses, and trade outcomes',
-        sound: 'default', // Use default sound - custom sounds need proper setup
+        sound: 'coin_notification', // Custom sound for Android
         importance: 5,
         visibility: 1,
         lights: true,
@@ -92,10 +92,10 @@ export class MobileNotificationManager {
 
       // Market updates channel
       await LocalNotifications.createChannel({
-        id: 'market_updates',
+        id: 'market_updates_v2',
         name: 'Market Updates', 
         description: 'General market news and updates',
-        sound: 'default',
+        sound: 'coin_notification',
         importance: 4,
         visibility: 1,
         lights: true,
@@ -280,7 +280,7 @@ export class MobileNotificationManager {
             smallIcon: 'ic_stat_your_custom_icon',
             attachments: undefined,
             actionTypeId: '',
-            channelId: 'forex_signals',
+            channelId: 'forex_signals_v2',
             extra: {
               ...data,
               source: 'signal',
@@ -319,7 +319,7 @@ export class MobileNotificationManager {
             smallIcon: 'ic_stat_your_custom_icon',
             attachments: undefined,
             actionTypeId: '',
-            channelId: 'trade_alerts',
+            channelId: 'trade_alerts_v2',
             extra: {
               ...data,
               source: 'signal',

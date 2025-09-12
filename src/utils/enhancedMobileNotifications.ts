@@ -12,24 +12,24 @@ export class EnhancedMobileNotificationManager {
     try {
       // Configure unified notification channels with maximum importance for Android
       await LocalNotifications.createChannel({
-        id: 'forex_signals',
+        id: 'forex_signals_v2',
         name: 'Forex Trading Signals',
         description: 'Critical forex trading signals - bypasses battery optimization',
         importance: 5, // IMPORTANCE_HIGH
         visibility: 1, // VISIBILITY_PUBLIC 
-        sound: 'coin-notification.wav',
+        sound: 'coin_notification',
         vibration: true,
         lights: true,
         lightColor: '#FF5722' // Orange for urgent signals
       });
 
       await LocalNotifications.createChannel({
-        id: 'trade_alerts', 
+        id: 'trade_alerts_v2', 
         name: 'Trade Alerts',
         description: 'Urgent trade alerts, targets, and stop losses',
         importance: 5, // IMPORTANCE_HIGH
         visibility: 1, // VISIBILITY_PUBLIC
-        sound: 'coin-notification.wav',
+        sound: 'coin_notification',
         vibration: true,
         lights: true,
         lightColor: '#4CAF50' // Green for trade updates
@@ -37,12 +37,12 @@ export class EnhancedMobileNotificationManager {
 
       // Add market updates channel for non-critical notifications
       await LocalNotifications.createChannel({
-        id: 'market_updates',
+        id: 'market_updates_v2',
         name: 'Market Updates',
         description: 'General market news and updates',
         importance: 3, // IMPORTANCE_DEFAULT
         visibility: 1,
-        sound: 'default',
+        sound: 'coin_notification',
         vibration: false
       });
 
@@ -212,7 +212,7 @@ export class EnhancedMobileNotificationManager {
           id: notificationId,
           title,
           body,
-          channelId: 'forex_signals',
+          channelId: 'forex_signals_v2',
           sound: 'coin-notification.wav',
           extra: {
             ...data,
@@ -239,7 +239,7 @@ export class EnhancedMobileNotificationManager {
           id: notificationId,
           title,
           body,
-          channelId: 'trade_alerts',
+          channelId: 'trade_alerts_v2',
           sound: 'coin-notification.wav',
           extra: {
             ...data,
