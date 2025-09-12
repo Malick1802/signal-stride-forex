@@ -55,22 +55,80 @@ interface PricePoint {
 }
 
 // Configuration: 70%+ WIN RATE ULTRA-SELECTIVE PIPELINE
-const CONFIG = {
-  sequentialTiers: true,
-  allowTier3Cap: false,
-  tier1PassThreshold: 75,        // ULTRA-SELECTIVE: Require 4+ confluences minimum
-  tier1RequiredConfluences: 4,   // Mandatory 4+ technical confirmations
-  tier2EscalationQuality: 85,    // Higher bar for 70%+ win rate
-  tier2EscalationConfidence: 80, // 80%+ confidence required
-  tier3QualityThreshold: 90,     // Premium tier requires 90+ quality
-  tier3ConfidenceThreshold: 85,  // 85%+ confidence for signal publication
-  maxSignalsPerRun: 3,           // Quality over quantity - max 3 signals per 5min
-  rsiOversoldBuy: 25,            // Ultra-selective RSI levels
-  rsiOverboughtSell: 75,
-  minRewardRisk: 2.0,            // Minimum 2:1 reward/risk ratio
-  atrMinimumMultiplier: 1.2,     // Minimum ATR for sufficient volatility
-  economicCalendarBuffer: 60,    // Avoid signals 60min before/after high impact news
+// Dynamic threshold configurations based on admin settings
+const THRESHOLD_CONFIGS = {
+  HIGH: {
+    sequentialTiers: true,
+    allowTier3Cap: false,
+    tier1PassThreshold: 75,        // ULTRA-SELECTIVE: Require 4+ confluences minimum
+    tier1RequiredConfluences: 4,   // Mandatory 4+ technical confirmations
+    tier2EscalationQuality: 85,    // Higher bar for 70%+ win rate
+    tier2EscalationConfidence: 80, // 80%+ confidence required
+    tier3QualityThreshold: 90,     // Premium tier requires 90+ quality
+    tier3ConfidenceThreshold: 85,  // 85%+ confidence for signal publication
+    maxSignalsPerRun: 3,           // Quality over quantity - max 3 signals per 5min
+    rsiOversoldBuy: 25,            // Ultra-selective RSI levels
+    rsiOverboughtSell: 75,
+    minRewardRisk: 2.0,            // Minimum 2:1 reward/risk ratio
+    atrMinimumMultiplier: 1.2,     // Minimum ATR for sufficient volatility
+    economicCalendarBuffer: 60,    // Avoid signals 60min before/after high impact news
+  },
+  MEDIUM: {
+    sequentialTiers: true,
+    allowTier3Cap: false,
+    tier1PassThreshold: 65,        // SELECTIVE: Require 3+ confluences
+    tier1RequiredConfluences: 3,   // 3+ technical confirmations
+    tier2EscalationQuality: 75,    // Moderate quality bar
+    tier2EscalationConfidence: 70, // 70%+ confidence required
+    tier3QualityThreshold: 80,     // Good quality threshold
+    tier3ConfidenceThreshold: 75,  // 75%+ confidence for signal publication
+    maxSignalsPerRun: 5,           // Balanced approach - max 5 signals per 5min
+    rsiOversoldBuy: 30,            // Moderate RSI levels
+    rsiOverboughtSell: 70,
+    minRewardRisk: 1.8,            // Minimum 1.8:1 reward/risk ratio
+    atrMinimumMultiplier: 1.0,     // Lower ATR requirement
+    economicCalendarBuffer: 45,    // Avoid signals 45min before/after high impact news
+  },
+  LOW: {
+    sequentialTiers: true,
+    allowTier3Cap: false,
+    tier1PassThreshold: 55,        // STANDARD: Require 2+ confluences
+    tier1RequiredConfluences: 2,   // 2+ technical confirmations
+    tier2EscalationQuality: 65,    // Lower quality bar
+    tier2EscalationConfidence: 60, // 60%+ confidence required
+    tier3QualityThreshold: 70,     // Standard quality threshold
+    tier3ConfidenceThreshold: 65,  // 65%+ confidence for signal publication
+    maxSignalsPerRun: 8,           // Higher volume - max 8 signals per 5min
+    rsiOversoldBuy: 35,            // Standard RSI levels
+    rsiOverboughtSell: 65,
+    minRewardRisk: 1.5,            // Minimum 1.5:1 reward/risk ratio
+    atrMinimumMultiplier: 0.8,     // Lower ATR requirement
+    economicCalendarBuffer: 30,    // Avoid signals 30min before/after high impact news
+  }
 } as const;
+
+// Get dynamic configuration based on admin settings
+async function getSignalConfig(supabase: any) {
+  try {
+    const { data: settings, error } = await supabase
+      .from('app_settings')
+      .select('signal_threshold_level')
+      .eq('singleton', true)
+      .single();
+    
+    if (error) {
+      console.warn('⚠️ Could not fetch signal threshold settings, using HIGH default:', error);
+      return THRESHOLD_CONFIGS.HIGH;
+    }
+    
+    const level = settings?.signal_threshold_level || 'HIGH';
+    console.log(`🎯 Using ${level} threshold configuration`);
+    return THRESHOLD_CONFIGS[level as keyof typeof THRESHOLD_CONFIGS] || THRESHOLD_CONFIGS.HIGH;
+  } catch (error) {
+    console.warn('⚠️ Error fetching signal threshold settings, using HIGH default:', error);
+    return THRESHOLD_CONFIGS.HIGH;
+  }
+}
 
 serve(async (req) => {
   console.log(`🚀 PROFESSIONAL 3-Tier Signal Generation Started - ${new Date().toISOString()}`);
@@ -89,6 +147,9 @@ serve(async (req) => {
     }
 
     const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    // Get dynamic configuration from admin settings
+    const CONFIG = await getSignalConfig(supabase);
 
     // Parse request parameters
     let requestBody: any = {};
@@ -102,7 +163,7 @@ serve(async (req) => {
     const { 
       force = false,
       debug = false,
-      maxSignals = 8,
+      maxSignals = CONFIG.maxSignalsPerRun,
       fullAnalysis = true,
       lowThreshold = false
     } = requestBody;
