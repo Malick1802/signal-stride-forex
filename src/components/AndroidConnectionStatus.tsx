@@ -17,6 +17,18 @@ const AndroidConnectionStatus = () => {
   const supabaseConnected = (connection as any).isSupabaseConnected as boolean | undefined;
   const isConnected = isNative ? !!nativeConnected : !!(isOnline && (supabaseConnected ?? true));
   const isRetrying = (connection as any).retryCount > 0;
+  const isRestoring = (connection as any).isRestoring as boolean | undefined;
+
+  if (isRestoring) {
+    return (
+      <div className="flex items-center gap-2 p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+        <RefreshCw className="h-4 w-4 text-blue-400 animate-spin" />
+        <span className="text-sm text-blue-300">
+          Restoring connection...
+        </span>
+      </div>
+    );
+  }
 
   if (isConnected) {
     return (
