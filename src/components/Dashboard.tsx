@@ -311,22 +311,6 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
               </SettingsDialog>
             </div>
 
-            {/* Mobile Action Menu - Simplified */}
-            <div className="sm:hidden flex items-center space-x-2">
-              <NotificationCenter>
-                <button className="p-2.5 text-gray-400 hover:text-white transition-colors" aria-label="Notifications">
-                  <Bell className="h-6 w-6" />
-                </button>
-              </NotificationCenter>
-              
-              {/* Settings Button */}
-              <SettingsDialog>
-                <button className="p-2.5 text-gray-400 hover:text-white transition-colors" aria-label="Settings">
-                  <Settings className="h-6 w-6" />
-                </button>
-              </SettingsDialog>
-            </div>
-
             {/* User profile with clickable menu */}
             <div className="flex items-center space-x-2">
               <UserMenu
@@ -338,8 +322,8 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
                 loggingOut={loggingOut}
               />
               
-              {/* Mobile menu trigger */}
-              <div className="flex items-center">
+              {/* Mobile menu trigger - only on mobile */}
+              <div className="sm:hidden">
                 <MobileNavigation />
               </div>
             </div>
