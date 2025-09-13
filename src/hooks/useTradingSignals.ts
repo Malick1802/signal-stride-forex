@@ -65,7 +65,6 @@ export const useTradingSignals = () => {
         .eq('status', 'active')
         .eq('is_centralized', true)
         .is('user_id', null)
-        .order('confidence', { ascending: false })
         .order('created_at', { ascending: false })
         .limit(MAX_ACTIVE_SIGNALS);
 
