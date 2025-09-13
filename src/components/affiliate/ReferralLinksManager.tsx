@@ -36,7 +36,9 @@ export const ReferralLinksManager = () => {
   };
 
   const getReferralUrl = (linkCode: string) => {
-    return `${window.location.origin}?ref=${linkCode}`;
+    // Use your production website URL here
+    const productionUrl = 'https://your-production-website.com';
+    return `${productionUrl}?ref=${linkCode}`;
   };
 
   return (
@@ -91,12 +93,12 @@ export const ReferralLinksManager = () => {
           <CardContent>
             <div className="flex items-center space-x-2">
               <div className="flex-1 p-3 bg-gray-800 rounded border text-white font-mono text-sm">
-                {`${window.location.origin}?ref=${affiliateData.affiliate_code}`}
+                {getReferralUrl(affiliateData.affiliate_code)}
               </div>
               <Button 
                 variant="outline" 
                 size="sm"
-                onClick={() => copyToClipboard(`${window.location.origin}?ref=${affiliateData.affiliate_code}`)}
+                onClick={() => copyToClipboard(getReferralUrl(affiliateData.affiliate_code))}
                 className="border-white/20 text-gray-400 hover:text-white"
               >
                 <Copy className="h-4 w-4" />
@@ -104,7 +106,7 @@ export const ReferralLinksManager = () => {
               <Button 
                 variant="outline" 
                 size="sm"
-                onClick={() => window.open(`${window.location.origin}?ref=${affiliateData.affiliate_code}`, '_blank')}
+                onClick={() => window.open(getReferralUrl(affiliateData.affiliate_code), '_blank')}
                 className="border-white/20 text-gray-400 hover:text-white"
               >
                 <ExternalLink className="h-4 w-4" />
