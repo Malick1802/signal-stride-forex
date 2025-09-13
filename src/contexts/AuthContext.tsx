@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { useReferralTracking } from '@/hooks/useReferralTracking';
 
 interface SubscriptionData {
   subscribed: boolean;
@@ -89,6 +90,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [subscription, setSubscription] = useState<SubscriptionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [isCheckingSubscription, setIsCheckingSubscription] = useState(false);
+  const { trackSignup, trackSubscription } = useReferralTracking();
 
   const checkSubscription = async (forceRefresh: boolean = false) => {
     // Get the current session directly instead of relying on state
@@ -202,6 +204,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Clear cache after checkout to force refresh
       clearSubscriptionCache(currentSession.user.id);
       
+      // Track referral subscription conversion
+      console.log('AuthContext: Tracking referral subscription for:', currentSession.user.id);
+      await trackSubscription(currentSession.user.id, 99); // Assuming $99 subscription
+      
       return { url: data.url };
     } catch (error) {
       return { error: 'Failed to create checkout session' };
@@ -290,7 +296,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const redirectUrl = `${window.location.origin}/`;
     
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -312,6 +318,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } else {
         console.log('AuthContext: Signup successful');
+        
+        // Track referral signup if user is created
+        if (data.user) {
+          console.log('AuthContext: Tracking referral signup for:', data.user.id);
+          await trackSignup(data.user.id);
+        }
       }
       
       return { error };
