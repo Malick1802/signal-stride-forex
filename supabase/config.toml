@@ -14,3 +14,7 @@ verify_jwt = false
 
 [functions.run-backtests]
 verify_jwt = false
+
+# Allow public tracking from landing pages and unauthenticated clients
+[functions.track-referral]
+verify_jwt = false

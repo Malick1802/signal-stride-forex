@@ -38,82 +38,42 @@ serve(async (req) => {
       });
     }
 
-    // Find the affiliate by referral code or link code
-    let affiliateId = null;
-    let referralLinkId = null;
+    // Use secure RPC to handle affiliate lookup, event insert, and counters atomically
+    // Also try to capture the caller IP from proxy headers when available
+    const headerIp = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      || req.headers.get('cf-connecting-ip')
+      || null;
 
-    // First try to find by affiliate code
-    const { data: affiliate } = await supabase
-      .from('affiliates')
-      .select('id')
-      .eq('affiliate_code', referralCode)
-      .eq('status', 'active')
-      .single();
+    const { data: result, error: rpcError } = await supabase.rpc('track_referral_event', {
+      referral_code: referralCode,
+      event_type: eventType,
+      user_id_param: userId || null,
+      ip_address_param: headerIp || ipAddress || null,
+      user_agent_param: userAgent || req.headers.get('user-agent') || null,
+      referrer_param: referrer || null,
+      utm_source_param: utmSource || null,
+      utm_medium_param: utmMedium || null,
+      utm_campaign_param: utmCampaign || null,
+    });
 
-    if (affiliate) {
-      affiliateId = affiliate.id;
-    } else {
-      // Try to find by referral link code
-      const { data: referralLink } = await supabase
-        .from('referral_links')
-        .select('id, affiliate_id')
-        .eq('link_code', referralCode)
-        .eq('is_active', true)
-        .single();
-
-      if (referralLink) {
-        affiliateId = referralLink.affiliate_id;
-        referralLinkId = referralLink.id;
-      }
-    }
-
-    if (!affiliateId) {
-      return new Response(JSON.stringify({ error: 'Invalid referral code' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
-    // Track the event
-    const { error: trackingError } = await supabase
-      .from('conversion_tracking')
-      .insert({
-        affiliate_id: affiliateId,
-        referral_link_id: referralLinkId,
-        user_id: userId || null,
-        event_type: eventType,
-        ip_address: ipAddress,
-        user_agent: userAgent,
-        referrer: referrer,
-        utm_source: utmSource,
-        utm_medium: utmMedium,
-        utm_campaign: utmCampaign
-      });
-
-    if (trackingError) {
-      console.error('Error tracking event:', trackingError);
+    if (rpcError) {
+      console.error('Error tracking referral via RPC:', rpcError);
       return new Response(JSON.stringify({ error: 'Failed to track event' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Update click/conversion counts for referral links
-    if (referralLinkId) {
-      if (eventType === 'click') {
-        await supabase
-          .from('referral_links')
-          .update({ clicks: supabase.raw('clicks + 1') })
-          .eq('id', referralLinkId);
-      } else if (eventType === 'conversion' || eventType === 'subscription') {
-        await supabase
-          .from('referral_links')
-          .update({ conversions: supabase.raw('conversions + 1') })
-          .eq('id', referralLinkId);
-      }
+    // Handle invalid code returned by the RPC
+    if (result && (result as any).error) {
+      return new Response(JSON.stringify({ error: (result as any).error }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
-    console.log(`✅ Tracked ${eventType} for affiliate: ${affiliateId}`);
+    const affiliateId = (result as any)?.affiliate_id ?? null;
+    console.log(`✅ Tracked ${eventType}${affiliateId ? ` for affiliate: ${affiliateId}` : ''}`);
 
     return new Response(JSON.stringify({ 
       success: true,
