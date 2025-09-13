@@ -324,17 +324,8 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
               </SettingsDialog>
             </div>
 
-            {/* Desktop logout button and User profile */}
+            {/* User profile and Desktop logout button */}
             <div className="flex items-center space-x-2">
-              <button
-                onClick={handleLogout}
-                disabled={loggingOut}
-                className="hidden md:flex items-center gap-2 px-3 py-2 text-gray-400 hover:text-red-400 transition-colors rounded-lg hover:bg-gray-800/50"
-                aria-label="Sign Out"
-              >
-                <LogOut className="h-5 w-5" />
-                <span className="text-sm">{loggingOut ? 'Signing out...' : 'Sign Out'}</span>
-              </button>
               <UserMenu
                 profile={profile}
                 user={user}
@@ -347,6 +338,15 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
                   setTimeout(() => window.location.reload(), 1000);
                 }}
               />
+              <button
+                onClick={handleLogout}
+                disabled={loggingOut}
+                className="hidden md:flex items-center gap-2 px-3 py-2 text-gray-400 hover:text-red-400 transition-colors rounded-lg hover:bg-gray-800/50"
+                aria-label="Sign Out"
+              >
+                <LogOut className="h-5 w-5" />
+                <span className="text-sm">{loggingOut ? 'Signing out...' : 'Sign Out'}</span>
+              </button>
               
               {/* Mobile menu trigger - only on mobile */}
               <div className="sm:hidden">
