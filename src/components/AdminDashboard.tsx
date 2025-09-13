@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import UserManagement from './admin/UserManagement';
 import SignalManagement from './admin/SignalManagement';
 import SignalGenerationSettings from './admin/SignalGenerationSettings';
+import AdminSoundTester from './admin/AdminSoundTester';
 
 interface AdminDashboardProps {
   onNavigate: (view: string) => void;
@@ -110,7 +111,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
         {activeTab === 'users' && <UserManagement />}
         {activeTab === 'signals' && <SignalManagement />}
         {activeTab === 'financial' && <div className="text-white">Financial Management - Coming Soon</div>}
-        {activeTab === 'system' && <div className="text-white">System Administration - Coming Soon</div>}
+        {activeTab === 'system' && <AdminSoundTester />}
         {activeTab === 'settings' && <SignalGenerationSettings />}
       </div>
     </div>

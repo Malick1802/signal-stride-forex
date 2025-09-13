@@ -12,7 +12,7 @@ export class EnhancedMobileNotificationManager {
     try {
       // Configure unified notification channels with maximum importance for Android
       await LocalNotifications.createChannel({
-        id: 'forex_signals_v2',
+        id: 'forex_signals_v3',
         name: 'Forex Trading Signals',
         description: 'Critical forex trading signals - bypasses battery optimization',
         importance: 5, // IMPORTANCE_HIGH
@@ -24,7 +24,7 @@ export class EnhancedMobileNotificationManager {
       });
 
       await LocalNotifications.createChannel({
-        id: 'trade_alerts_v2', 
+        id: 'trade_alerts_v3', 
         name: 'Trade Alerts',
         description: 'Urgent trade alerts, targets, and stop losses',
         importance: 5, // IMPORTANCE_HIGH
@@ -37,7 +37,7 @@ export class EnhancedMobileNotificationManager {
 
       // Add market updates channel for non-critical notifications
       await LocalNotifications.createChannel({
-        id: 'market_updates_v2',
+        id: 'market_updates_v3',
         name: 'Market Updates',
         description: 'General market news and updates',
         importance: 3, // IMPORTANCE_DEFAULT
@@ -212,7 +212,7 @@ export class EnhancedMobileNotificationManager {
           id: notificationId,
           title,
           body,
-          channelId: 'forex_signals_v2',
+          channelId: 'forex_signals_v3',
           sound: 'coin-notification.wav',
           extra: {
             ...data,
@@ -239,7 +239,7 @@ export class EnhancedMobileNotificationManager {
           id: notificationId,
           title,
           body,
-          channelId: 'trade_alerts_v2',
+          channelId: 'trade_alerts_v3',
           sound: 'coin-notification.wav',
           extra: {
             ...data,

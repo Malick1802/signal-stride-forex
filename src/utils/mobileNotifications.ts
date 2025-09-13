@@ -66,10 +66,10 @@ export class MobileNotificationManager {
       
       // High priority signal channel with custom sound
       await LocalNotifications.createChannel({
-        id: 'forex_signals_v2',
+        id: 'forex_signals_v3',
         name: 'Forex Trading Signals',
         description: 'Critical trading signals and market updates',
-        sound: 'coin_notification.wav', // Custom sound for Android
+        sound: 'coin_notification', // Custom sound for Android (no extension)
         importance: 5,
         visibility: 1,
         lights: true,
@@ -79,10 +79,10 @@ export class MobileNotificationManager {
 
       // Trade alerts with different sound
       await LocalNotifications.createChannel({
-        id: 'trade_alerts_v2', 
+        id: 'trade_alerts_v3', 
         name: 'Trade Alerts',
         description: 'Target hits, stop losses, and trade outcomes',
-        sound: 'coin_notification.wav', // Custom sound for Android
+        sound: 'coin_notification', // Custom sound for Android (no extension)
         importance: 5,
         visibility: 1,
         lights: true,
@@ -92,10 +92,10 @@ export class MobileNotificationManager {
 
       // Market updates channel
       await LocalNotifications.createChannel({
-        id: 'market_updates_v2',
+        id: 'market_updates_v3',
         name: 'Market Updates', 
         description: 'General market news and updates',
-        sound: 'coin_notification.wav',
+        sound: 'coin_notification', // Custom sound for Android (no extension)
         importance: 4,
         visibility: 1,
         lights: true,
@@ -276,11 +276,11 @@ export class MobileNotificationManager {
             body,
             id: this.generateSafeId(),
             schedule: { at: new Date(Date.now() + 100) },
-            sound: 'coin-notification.wav',
+            sound: 'coin_notification',
             smallIcon: 'ic_stat_your_custom_icon',
             attachments: undefined,
             actionTypeId: '',
-            channelId: 'forex_signals_v2',
+            channelId: 'forex_signals_v3',
             extra: {
               ...data,
               source: 'signal',
@@ -315,11 +315,11 @@ export class MobileNotificationManager {
             body,
             id: this.generateSafeId(),
             schedule: { at: new Date(Date.now() + 100) },
-            sound: 'coin-notification.wav',
+            sound: 'coin_notification',
             smallIcon: 'ic_stat_your_custom_icon',
             attachments: undefined,
             actionTypeId: '',
-            channelId: 'trade_alerts_v2',
+            channelId: 'trade_alerts_v3',
             extra: {
               ...data,
               source: 'signal',
