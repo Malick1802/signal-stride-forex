@@ -45,12 +45,18 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { profile } = useProfile();
+  const { profile, fetchProfile } = useProfile();
   const { subscription, createCheckout, openCustomerPortal, signOut } = useAuth();
   const { isAdmin } = useAdminAccess();
   const { signals, loading, lastUpdate, signalDistribution } = useTradingSignals();
 
   console.log('Dashboard: User is admin:', isAdmin);
+
+  React.useEffect(() => {
+    const onUpdated = () => fetchProfile();
+    window.addEventListener('profile:updated', onUpdated as EventListener);
+    return () => window.removeEventListener('profile:updated', onUpdated as EventListener);
+  }, [fetchProfile]);
 
   // Calculate real statistics from signals data
   const calculateStats = () => {

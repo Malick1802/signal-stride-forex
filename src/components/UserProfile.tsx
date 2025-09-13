@@ -42,6 +42,7 @@ export default function UserProfile({ open, onOpenChange }: { open: boolean; onO
     if (!error) {
       toast({ title: "Profile updated", description: "Your profile has been updated successfully." });
       setEditing(false);
+      window.dispatchEvent(new CustomEvent('profile:updated'));
     } else {
       const errorMessage = typeof error === 'string' ? error : error.message || 'An error occurred';
       toast({ title: "Error updating profile", description: errorMessage, variant: "destructive" });
@@ -54,8 +55,14 @@ export default function UserProfile({ open, onOpenChange }: { open: boolean; onO
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files?.[0]) return;
-    await uploadAvatar(e.target.files[0]);
-    toast({ title: "Avatar updated", description: "Your profile image has been updated." });
+    const result = await uploadAvatar(e.target.files[0]);
+    if (result?.error) {
+      const errorMessage = typeof result.error === 'string' ? result.error : result.error.message || 'Failed to upload avatar';
+      toast({ title: 'Avatar upload failed', description: errorMessage, variant: 'destructive' });
+    } else {
+      window.dispatchEvent(new CustomEvent('profile:updated'));
+      toast({ title: 'Avatar updated', description: 'Your profile image has been updated.' });
+    }
   };
 
   return (
