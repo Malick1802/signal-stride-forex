@@ -158,14 +158,14 @@ export default function MobileAppWrapper({ children, activeTab, onTabChange }: M
             {children}
           </main>
           
-          {/* Mobile navigation bar for native platforms */}
-          {Capacitor.isNativePlatform() && (
+          {/* Mobile navigation bar on small screens */}
+          <div className="md:hidden">
             <MobileNavigationBar 
               activeTab={activeTab || 'signals'}
               onTabChange={onTabChange || (() => {})}
               onLogout={async () => { await signOut(); }}
             />
-          )}
+          </div>
         </div>
       </div>
     </MobileErrorBoundary>
