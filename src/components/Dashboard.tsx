@@ -164,6 +164,7 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
   const tabItems = [
     { id: 'signals', label: 'Trading Signals', shortLabel: 'Signals' },
     { id: 'expired', label: 'Expired', shortLabel: 'Expired' },
+    { id: 'settings', label: 'Settings', shortLabel: 'Settings', icon: Settings },
     ...(isAdmin ? [{ id: 'diagnostics', label: 'Tools', shortLabel: 'Tools', icon: Settings }] : []),
     ...(isAdmin ? [{ id: 'testing', label: 'Test', shortLabel: 'Test', icon: TrendingUp }] : []),
     { id: 'subscription', label: 'Subscription', shortLabel: 'Sub', icon: CreditCard },
@@ -178,6 +179,12 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
       onNavigateToAffiliate?.();
     } else if (tabId === 'admin') {
       onNavigateToAdmin?.();
+    } else if (tabId === 'settings') {
+      // Trigger the hidden settings dialog
+      const settingsTrigger = document.getElementById('settings-trigger');
+      if (settingsTrigger) {
+        settingsTrigger.click();
+      }
     } else {
       if (onTabChange) {
         onTabChange(tabId);
@@ -352,6 +359,15 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
 
       {/*UserProfile Modal */}
       <UserProfile open={profileOpen} onOpenChange={setProfileOpen} />
+      
+      {/* Hidden Settings Trigger */}
+      <SettingsDialog>
+        <button
+          id="settings-trigger"
+          style={{ display: 'none' }}
+          aria-hidden="true"
+        />
+      </SettingsDialog>
 
       {/* Desktop Tab Navigation */}
       <div className="bg-black/10 backdrop-blur-sm border-b border-white/10 hidden md:block">
