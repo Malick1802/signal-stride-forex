@@ -21,6 +21,7 @@ import BatteryOptimizationGuide from './BatteryOptimizationGuide';
 import PushNotificationTester from './PushNotificationTester';
 import FCMSetupGuide from './FCMSetupGuide';
 import { BackgroundPushTester } from './BackgroundPushTester';
+import { UserMenu } from './UserMenu';
 
 // Lazy load heavy components
 const LazyTradingSignals = lazy(() => import('./LazyTradingSignals'));
@@ -326,45 +327,20 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
               </SettingsDialog>
             </div>
 
-            {/* User profile - Mobile optimized */}
+            {/* User profile with clickable menu */}
             <div className="flex items-center space-x-2">
-              <div className="flex items-center">
-                <div className="mr-1 sm:mr-2">
-                  {profile?.avatar_url ? (
-                    <img
-                      src={profile.avatar_url}
-                      alt="Avatar"
-                      className="h-6 w-6 sm:h-8 sm:w-8 rounded-full object-cover border"
-                    />
-                  ) : (
-                    <div className="h-6 w-6 sm:h-8 sm:w-8 rounded-full bg-emerald-500 flex items-center justify-center text-white font-bold text-xs sm:text-sm">
-                      {profile?.full_name
-                        ? profile.full_name
-                            .split(" ")
-                            .map((n) => n[0])
-                            .join("")
-                            .slice(0, 2)
-                        : 'U'}
-                    </div>
-                  )}
-                </div>
-                <div className="text-right hidden sm:block">
-                  <div className="text-white font-medium truncate max-w-[120px]">{profile?.full_name || user?.email}</div>
-                  <div className="text-emerald-400 text-xs truncate">{user?.email}</div>
-                </div>
-              </div>
+              <UserMenu
+                profile={profile}
+                user={user}
+                onLogout={handleLogout}
+                onUpgrade={handleUpgrade}
+                onManageSubscription={handleManageSubscription}
+                loggingOut={loggingOut}
+              />
               
-              {/* Mobile menu trigger and logout */}
-              <div className="flex items-center space-x-1">
+              {/* Mobile menu trigger */}
+              <div className="flex items-center">
                 <MobileNavigation />
-                <button
-                  onClick={handleLogout}
-                  disabled={loggingOut}
-                  className="p-2.5 text-gray-400 hover:text-red-400 transition-colors disabled:opacity-50"
-                  aria-label="Logout"
-                >
-                  <LogOut className={`h-6 w-6 md:h-5 md:w-5 ${loggingOut ? 'animate-spin' : ''}`} />
-                </button>
               </div>
             </div>
           </div>
