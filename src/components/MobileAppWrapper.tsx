@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MobileNavigationBar } from './MobileNavigationBar';
+
 import MobileErrorBoundary from './MobileErrorBoundary';
 import { Capacitor } from '@capacitor/core';
 import { useAuth } from '@/contexts/AuthContext';
@@ -159,14 +159,6 @@ export default function MobileAppWrapper({ children, activeTab, onTabChange }: M
           </main>
         </MobileErrorBoundary>
         
-        {/* Mobile navigation bar on small screens */}
-        <div className="md:hidden">
-          <MobileNavigationBar 
-            activeTab={activeTab || 'signals'}
-            onTabChange={onTabChange || (() => {})}
-            onLogout={async () => { await signOut(); }}
-          />
-        </div>
       </div>
     </div>
   );

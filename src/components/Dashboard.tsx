@@ -232,6 +232,18 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
                 <span>{tab.label}</span>
               </Button>
             ))}
+
+            <div className="pt-2 border-t border-white/10">
+              <Button
+                variant="destructive"
+                className="w-full justify-start"
+                onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
+                disabled={loggingOut}
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                <span>{loggingOut ? 'Signing out...' : 'Sign Out'}</span>
+              </Button>
+            </div>
           </div>
         </SheetContent>
       </Sheet>
