@@ -401,6 +401,69 @@ export type Database = {
         }
         Relationships: []
       }
+      backtesting_results: {
+        Row: {
+          avg_loss_pips: number
+          avg_win_pips: number
+          created_at: string
+          id: string
+          losing_trades: number
+          market_session: string | null
+          max_drawdown: number
+          parameters: Json
+          profit_factor: number
+          sharpe_ratio: number | null
+          symbol: string
+          test_period_end: string
+          test_period_start: string
+          timeframe: string
+          total_trades: number
+          volatility_regime: string | null
+          win_rate: number
+          winning_trades: number
+        }
+        Insert: {
+          avg_loss_pips: number
+          avg_win_pips: number
+          created_at?: string
+          id?: string
+          losing_trades: number
+          market_session?: string | null
+          max_drawdown: number
+          parameters: Json
+          profit_factor: number
+          sharpe_ratio?: number | null
+          symbol: string
+          test_period_end: string
+          test_period_start: string
+          timeframe: string
+          total_trades: number
+          volatility_regime?: string | null
+          win_rate: number
+          winning_trades: number
+        }
+        Update: {
+          avg_loss_pips?: number
+          avg_win_pips?: number
+          created_at?: string
+          id?: string
+          losing_trades?: number
+          market_session?: string | null
+          max_drawdown?: number
+          parameters?: Json
+          profit_factor?: number
+          sharpe_ratio?: number | null
+          symbol?: string
+          test_period_end?: string
+          test_period_start?: string
+          timeframe?: string
+          total_trades?: number
+          volatility_regime?: string | null
+          win_rate?: number
+          winning_trades?: number
+        }
+        Relationships: []
+      }
       cached_signals: {
         Row: {
           cached_at: string
@@ -1384,6 +1447,87 @@ export type Database = {
           timeframe?: string
           timestamp?: string
           volume?: number | null
+        }
+        Relationships: []
+      }
+      optimal_trading_parameters: {
+        Row: {
+          atr_period: number
+          avg_loss_pips: number
+          avg_win_pips: number
+          backtested_from: string
+          backtested_to: string
+          confluence_required: number
+          created_at: string
+          ema_fast_period: number
+          ema_slow_period: number
+          id: string
+          last_optimized_at: string
+          market_session: string | null
+          max_drawdown: number
+          min_confluence_score: number
+          profit_factor: number
+          rsi_overbought: number
+          rsi_oversold: number
+          sharpe_ratio: number | null
+          symbol: string
+          timeframe: string
+          total_trades: number
+          updated_at: string
+          volatility_regime: string | null
+          win_rate: number
+        }
+        Insert: {
+          atr_period?: number
+          avg_loss_pips?: number
+          avg_win_pips?: number
+          backtested_from: string
+          backtested_to: string
+          confluence_required?: number
+          created_at?: string
+          ema_fast_period?: number
+          ema_slow_period?: number
+          id?: string
+          last_optimized_at?: string
+          market_session?: string | null
+          max_drawdown?: number
+          min_confluence_score?: number
+          profit_factor?: number
+          rsi_overbought?: number
+          rsi_oversold?: number
+          sharpe_ratio?: number | null
+          symbol: string
+          timeframe?: string
+          total_trades?: number
+          updated_at?: string
+          volatility_regime?: string | null
+          win_rate?: number
+        }
+        Update: {
+          atr_period?: number
+          avg_loss_pips?: number
+          avg_win_pips?: number
+          backtested_from?: string
+          backtested_to?: string
+          confluence_required?: number
+          created_at?: string
+          ema_fast_period?: number
+          ema_slow_period?: number
+          id?: string
+          last_optimized_at?: string
+          market_session?: string | null
+          max_drawdown?: number
+          min_confluence_score?: number
+          profit_factor?: number
+          rsi_overbought?: number
+          rsi_oversold?: number
+          sharpe_ratio?: number | null
+          symbol?: string
+          timeframe?: string
+          total_trades?: number
+          updated_at?: string
+          volatility_regime?: string | null
+          win_rate?: number
         }
         Relationships: []
       }
@@ -2562,6 +2706,24 @@ export type Database = {
       get_app_setting: {
         Args: { setting_name: string }
         Returns: string
+      }
+      get_optimal_parameters: {
+        Args: {
+          session_name?: string
+          symbol_name: string
+          volatility_name?: string
+        }
+        Returns: {
+          atr_period: number
+          confluence_required: number
+          ema_fast_period: number
+          ema_slow_period: number
+          min_confluence_score: number
+          profit_factor: number
+          rsi_overbought: number
+          rsi_oversold: number
+          win_rate: number
+        }[]
       }
       has_role: {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
