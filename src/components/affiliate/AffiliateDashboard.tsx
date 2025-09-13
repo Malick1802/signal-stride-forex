@@ -175,13 +175,15 @@ export const AffiliateDashboard = ({ onNavigate }: AffiliateDashboardProps) => {
 
           {/* Mobile-Optimized Tabs */}
           <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-            <TabsList className="bg-black/20 border-white/10 grid grid-cols-2 sm:grid-cols-5 w-full">
-              <TabsTrigger value="overview" className="data-[state=active]:bg-emerald-500 text-xs sm:text-sm">Overview</TabsTrigger>
-              <TabsTrigger value="referrals" className="data-[state=active]:bg-emerald-500 text-xs sm:text-sm">Links</TabsTrigger>
-              <TabsTrigger value="commissions" className="data-[state=active]:bg-emerald-500 text-xs sm:text-sm">Earnings</TabsTrigger>
-              <TabsTrigger value="network" className="data-[state=active]:bg-emerald-500 text-xs sm:text-sm">Network</TabsTrigger>
-              <TabsTrigger value="payouts" className="data-[state=active]:bg-emerald-500 text-xs sm:text-sm">Payouts</TabsTrigger>
-            </TabsList>
+            <div className="w-full overflow-x-auto">
+              <TabsList className="bg-black/20 border-white/10 flex w-full min-w-max sm:min-w-0 sm:grid sm:grid-cols-5 p-1">
+                <TabsTrigger value="overview" className="data-[state=active]:bg-emerald-500 text-xs sm:text-sm whitespace-nowrap px-3 py-2 flex-1 sm:flex-initial">Overview</TabsTrigger>
+                <TabsTrigger value="referrals" className="data-[state=active]:bg-emerald-500 text-xs sm:text-sm whitespace-nowrap px-3 py-2 flex-1 sm:flex-initial">Links</TabsTrigger>
+                <TabsTrigger value="commissions" className="data-[state=active]:bg-emerald-500 text-xs sm:text-sm whitespace-nowrap px-3 py-2 flex-1 sm:flex-initial">Earnings</TabsTrigger>
+                <TabsTrigger value="network" className="data-[state=active]:bg-emerald-500 text-xs sm:text-sm whitespace-nowrap px-3 py-2 flex-1 sm:flex-initial">Network</TabsTrigger>
+                <TabsTrigger value="payouts" className="data-[state=active]:bg-emerald-500 text-xs sm:text-sm whitespace-nowrap px-3 py-2 flex-1 sm:flex-initial">Payouts</TabsTrigger>
+              </TabsList>
+            </div>
 
             <TabsContent value="overview" className="space-y-4">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
