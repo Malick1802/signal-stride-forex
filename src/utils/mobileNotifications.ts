@@ -69,7 +69,7 @@ export class MobileNotificationManager {
         id: 'forex_signals_v2',
         name: 'Forex Trading Signals',
         description: 'Critical trading signals and market updates',
-        sound: 'coin_notification', // Custom sound for Android
+        sound: 'coin_notification.wav', // Custom sound for Android
         importance: 5,
         visibility: 1,
         lights: true,
@@ -82,7 +82,7 @@ export class MobileNotificationManager {
         id: 'trade_alerts_v2', 
         name: 'Trade Alerts',
         description: 'Target hits, stop losses, and trade outcomes',
-        sound: 'coin_notification', // Custom sound for Android
+        sound: 'coin_notification.wav', // Custom sound for Android
         importance: 5,
         visibility: 1,
         lights: true,
@@ -95,7 +95,7 @@ export class MobileNotificationManager {
         id: 'market_updates_v2',
         name: 'Market Updates', 
         description: 'General market news and updates',
-        sound: 'coin_notification',
+        sound: 'coin_notification.wav',
         importance: 4,
         visibility: 1,
         lights: true,

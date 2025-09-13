@@ -23,7 +23,7 @@ const config: CapacitorConfig = {
     LocalNotifications: {
       smallIcon: "ic_stat_your_custom_icon",
       iconColor: "#488AFF",
-      sound: "notification.wav"
+      sound: "coin_notification.wav"
     },
   },
   android: {
