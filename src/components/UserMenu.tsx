@@ -111,7 +111,10 @@ export const UserMenu: React.FC<UserMenuProps> = ({
                   {getUserInitials()}
                 </AvatarFallback>
               </Avatar>
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-full flex items-center justify-center">
+              <div 
+                className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-full flex items-center justify-center"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); triggerFileUpload(); }}
+              >
                 <Camera className="h-5 w-5 text-white" />
               </div>
             </div>

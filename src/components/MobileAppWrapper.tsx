@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { MobileNavigationBar } from './MobileNavigationBar';
 import MobileErrorBoundary from './MobileErrorBoundary';
 import { Capacitor } from '@capacitor/core';
-
+import { useAuth } from '@/contexts/AuthContext';
 interface MobileAppWrapperProps {
   children: React.ReactNode;
   activeTab?: string;
@@ -10,10 +10,10 @@ interface MobileAppWrapperProps {
 }
 
 export default function MobileAppWrapper({ children, activeTab, onTabChange }: MobileAppWrapperProps) {
+  const { signOut } = useAuth();
   const [isReady, setIsReady] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [isStabilizing, setIsStabilizing] = useState(true);
-
   useEffect(() => {
     console.log('🚀 MobileAppWrapper: Starting stabilized initialization');
     
@@ -163,6 +163,7 @@ export default function MobileAppWrapper({ children, activeTab, onTabChange }: M
             <MobileNavigationBar 
               activeTab={activeTab || 'signals'}
               onTabChange={onTabChange || (() => {})}
+              onLogout={async () => { await signOut(); }}
             />
           )}
         </div>
