@@ -199,7 +199,7 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
       <Sheet>
         <SheetTrigger asChild>
           <Button variant="ghost" size="sm" className="text-white">
-            <Menu className="h-5 w-5" />
+            <Menu className="h-6 w-6" />
           </Button>
         </SheetTrigger>
         <SheetContent side="bottom" className="h-[80svh] bg-slate-900/95 backdrop-blur-sm border-white/10">
