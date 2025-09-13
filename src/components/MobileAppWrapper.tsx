@@ -150,24 +150,24 @@ export default function MobileAppWrapper({ children, activeTab, onTabChange }: M
   }
 
   return (
-    <MobileErrorBoundary>
-      <div className={`min-h-screen bg-background overflow-y-auto ${Capacitor.isNativePlatform() ? 'android-app mobile-app' : ''}`}>
-        {/* Main content area with proper scrolling */}
-        <div className="flex flex-col min-h-screen">
+    <div className={`min-h-screen bg-background overflow-y-auto ${Capacitor.isNativePlatform() ? 'android-app mobile-app' : ''}`}>
+      {/* Main content area with proper scrolling */}
+      <div className="flex flex-col min-h-screen">
+        <MobileErrorBoundary>
           <main className="flex-1 overflow-y-auto -webkit-overflow-scrolling-touch">
             {children}
           </main>
-          
-          {/* Mobile navigation bar on small screens */}
-          <div className="md:hidden">
-            <MobileNavigationBar 
-              activeTab={activeTab || 'signals'}
-              onTabChange={onTabChange || (() => {})}
-              onLogout={async () => { await signOut(); }}
-            />
-          </div>
+        </MobileErrorBoundary>
+        
+        {/* Mobile navigation bar on small screens */}
+        <div className="md:hidden">
+          <MobileNavigationBar 
+            activeTab={activeTab || 'signals'}
+            onTabChange={onTabChange || (() => {})}
+            onLogout={async () => { await signOut(); }}
+          />
         </div>
       </div>
-    </MobileErrorBoundary>
+    </div>
   );
 }
