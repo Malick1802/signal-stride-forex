@@ -36,9 +36,7 @@ export const ReferralLinksManager = () => {
   };
 
   const getReferralUrl = (linkCode: string) => {
-    // Use your production website URL here
-    const productionUrl = 'https://your-production-website.com';
-    return `${productionUrl}?ref=${linkCode}`;
+    return `https://forexalert.app/?ref=${linkCode}`;
   };
 
   return (
