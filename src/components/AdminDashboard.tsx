@@ -7,6 +7,7 @@ import UserManagement from './admin/UserManagement';
 import SignalManagement from './admin/SignalManagement';
 import SignalGenerationSettings from './admin/SignalGenerationSettings';
 import AdminSoundTester from './admin/AdminSoundTester';
+import { AdminOverview } from './admin/AdminOverview';
 
 interface AdminDashboardProps {
   onNavigate: (view: string) => void;
@@ -118,93 +119,5 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
   );
 };
 
-const AdminOverview = () => {
-  return (
-    <div className="space-y-6">
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-400 text-sm">Total Users</p>
-              <p className="text-2xl font-bold text-white">Loading...</p>
-            </div>
-            <Users className="h-8 w-8 text-blue-400" />
-          </div>
-        </div>
-
-        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-400 text-sm">Active Signals</p>
-              <p className="text-2xl font-bold text-white">Loading...</p>
-            </div>
-            <Activity className="h-8 w-8 text-emerald-400" />
-          </div>
-        </div>
-
-        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-400 text-sm">Revenue</p>
-              <p className="text-2xl font-bold text-white">Loading...</p>
-            </div>
-            <DollarSign className="h-8 w-8 text-green-400" />
-          </div>
-        </div>
-
-        <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-gray-400 text-sm">System Health</p>
-              <p className="text-2xl font-bold text-emerald-400">Good</p>
-            </div>
-            <Database className="h-8 w-8 text-emerald-400" />
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
-        <h3 className="text-xl font-bold text-white mb-4">Quick Actions</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button className="p-4 bg-blue-500/20 border border-blue-500/30 rounded-lg text-blue-300 hover:bg-blue-500/30 transition-all">
-            <Users className="h-6 w-6 mb-2" />
-            <div className="font-medium">Manage Users</div>
-          </button>
-          <button className="p-4 bg-emerald-500/20 border border-emerald-500/30 rounded-lg text-emerald-300 hover:bg-emerald-500/30 transition-all">
-            <Activity className="h-6 w-6 mb-2" />
-            <div className="font-medium">Monitor Signals</div>
-          </button>
-          <button className="p-4 bg-purple-500/20 border border-purple-500/30 rounded-lg text-purple-300 hover:bg-purple-500/30 transition-all">
-            <BarChart3 className="h-6 w-6 mb-2" />
-            <div className="font-medium">View Analytics</div>
-          </button>
-        </div>
-      </div>
-
-      {/* System Status */}
-      <div className="bg-white/10 backdrop-blur-lg rounded-xl p-6 border border-white/20">
-        <h3 className="text-xl font-bold text-white mb-4">System Status</h3>
-        <div className="space-y-3">
-          {[
-            { service: 'Signal Generation', status: 'operational', color: 'emerald' },
-            { service: 'Market Data Feed', status: 'operational', color: 'emerald' },
-            { service: 'Payment Processing', status: 'operational', color: 'emerald' },
-            { service: 'API Services', status: 'operational', color: 'emerald' }
-          ].map((item, index) => (
-            <div key={index} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-              <span className="text-white font-medium">{item.service}</span>
-              <div className="flex items-center space-x-2">
-                <div className={`w-2 h-2 bg-${item.color}-400 rounded-full animate-pulse`}></div>
-                <span className={`text-${item.color}-400 text-sm capitalize`}>{item.status}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-};
 
 export default AdminDashboard;
