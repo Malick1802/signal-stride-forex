@@ -52,14 +52,14 @@ export const MobileNavigationBar: React.FC<MobileNavigationBarProps> = ({
             key={tab.id}
             variant="ghost"
             size="sm"
-            className={`flex flex-col items-center gap-1 h-auto py-3 px-4 ${
+            className={`flex flex-col items-center gap-1 h-auto py-4 px-3 min-h-[72px] ${
               activeTab === tab.id 
                 ? 'text-primary' 
                 : 'text-muted-foreground'
             } ${tab.id === 'logout' ? 'text-red-400' : ''}`}
             onClick={() => handleTabPress(tab)}
           >
-            <tab.icon className={`h-8 w-8 ${activeTab === tab.id ? 'text-primary' : tab.id === 'logout' ? 'text-red-400' : ''}`} />
+            <tab.icon className={`h-10 w-10 ${activeTab === tab.id ? 'text-primary' : tab.id === 'logout' ? 'text-red-400' : ''}`} />
             <span className="text-xs font-medium">{tab.label}</span>
           </Button>
         ))}
