@@ -59,7 +59,7 @@ export const MobileNavigationBar: React.FC<MobileNavigationBarProps> = ({
             } ${tab.id === 'logout' ? 'text-red-400' : ''}`}
             onClick={() => handleTabPress(tab)}
           >
-            <tab.icon className={`h-12 w-12 ${activeTab === tab.id ? 'text-primary' : tab.id === 'logout' ? 'text-red-400' : ''}`} />
+            <tab.icon className={`h-14 w-14 ${activeTab === tab.id ? 'text-primary' : tab.id === 'logout' ? 'text-red-400' : ''}`} />
             <span className="text-xs font-medium">{tab.label}</span>
           </Button>
         ))}
