@@ -9,7 +9,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '../contexts/AuthContext';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { PullToRefresh } from './PullToRefresh';
@@ -44,7 +44,7 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
   const [profileOpen, setProfileOpen] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
   const { profile, fetchProfile } = useProfile();
   const { subscription, createCheckout, openCustomerPortal, signOut } = useAuth();
   const { isAdmin } = useAdminAccess();
@@ -192,57 +192,56 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
         setInternalActiveTab(tabId);
       }
     }
-    setMobileMenuOpen(false);
   };
 
   const MobileNavigation = () => (
     <div className="md:hidden">
-      <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+      <Sheet>
         <SheetTrigger asChild>
           <Button variant="ghost" size="sm" className="text-white">
             <Menu className="h-5 w-5" />
           </Button>
         </SheetTrigger>
-        <SheetContent side="bottom" className="max-h-[80vh] bg-slate-900/95 backdrop-blur-sm border-white/10">
-          <div className="flex flex-col h-full max-h-[75vh]">
+        <SheetContent side="bottom" className="h-[80svh] bg-slate-900/95 backdrop-blur-sm border-white/10">
+          <div className="flex flex-col h-full">
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-white/10 flex-shrink-0">
               <h3 className="text-lg font-semibold text-white">Navigation</h3>
-              <Button variant="ghost" size="sm" onClick={() => setMobileMenuOpen(false)}>
-                <X className="h-4 w-4" />
-              </Button>
             </div>
             
             {/* Scrollable Navigation Items */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
               {tabItems.map(tab => (
-                <Button
-                  key={tab.id}
-                  variant={activeTab === tab.id ? "default" : "ghost"}
-                  className={`w-full justify-start text-left ${
-                    activeTab === tab.id
-                      ? 'bg-emerald-500 text-white'
-                      : 'text-gray-300 hover:text-white hover:bg-white/10'
-                  }`}
-                  onClick={() => handleTabClick(tab.id)}
-                >
-                  {tab.icon && <tab.icon className="h-4 w-4 mr-2" />}
-                  <span>{tab.label}</span>
-                </Button>
+                <SheetClose asChild key={tab.id}>
+                  <Button
+                    variant={activeTab === tab.id ? "default" : "ghost"}
+                    className={`w-full justify-start text-left ${
+                      activeTab === tab.id
+                        ? 'bg-emerald-500 text-white'
+                        : 'text-gray-300 hover:text-white hover:bg-white/10'
+                    }`}
+                    onClick={() => handleTabClick(tab.id)}
+                  >
+                    {tab.icon && <tab.icon className="h-4 w-4 mr-2" />}
+                    <span>{tab.label}</span>
+                  </Button>
+                </SheetClose>
               ))}
             </div>
 
             {/* Fixed Sign Out Button */}
             <div className="p-4 border-t border-white/10 flex-shrink-0">
-              <Button
-                variant="destructive"
-                className="w-full justify-start"
-                onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
-                disabled={loggingOut}
-              >
-                <LogOut className="h-4 w-4 mr-2" />
-                <span>{loggingOut ? 'Signing out...' : 'Sign Out'}</span>
-              </Button>
+              <SheetClose asChild>
+                <Button
+                  variant="destructive"
+                  className="w-full justify-start"
+                  onClick={handleLogout}
+                  disabled={loggingOut}
+                >
+                  <LogOut className="h-4 w-4 mr-2" />
+                  <span>{loggingOut ? 'Signing out...' : 'Sign Out'}</span>
+                </Button>
+              </SheetClose>
             </div>
           </div>
         </SheetContent>
