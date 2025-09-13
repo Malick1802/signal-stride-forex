@@ -105,14 +105,14 @@ export const UserMenu: React.FC<UserMenuProps> = ({
         <DropdownMenuTrigger asChild>
           <button className="flex items-center space-x-2 p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer group">
             <div className="relative">
-              <Avatar className="h-6 w-6 sm:h-8 sm:w-8 border-2 border-emerald-500">
+              <Avatar className="h-8 w-8 sm:h-10 sm:w-10 border-2 border-emerald-500">
                 <AvatarImage src={profile?.avatar_url} alt="Avatar" />
                 <AvatarFallback className="bg-emerald-500 text-white text-xs sm:text-sm font-bold">
                   {getUserInitials()}
                 </AvatarFallback>
               </Avatar>
               <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-full flex items-center justify-center">
-                <Camera className="h-3 w-3 text-white" />
+                <Camera className="h-4 w-4 text-white" />
               </div>
             </div>
             <div className="text-right hidden sm:block">
