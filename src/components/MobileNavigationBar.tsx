@@ -1,5 +1,5 @@
 import React from 'react';
-import { TrendingUp, Settings, BarChart3, Bell } from 'lucide-react';
+import { TrendingUp, Settings, BarChart3, Bell, LogOut, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNativeFeatures } from '@/hooks/useNativeFeatures';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
@@ -7,44 +7,60 @@ import { useAdminAccess } from '@/hooks/useAdminAccess';
 interface MobileNavigationBarProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
+  onLogout?: () => void;
+  onUpgrade?: () => void;
+  onManageSubscription?: () => void;
+  onSettings?: () => void;
 }
 
 export const MobileNavigationBar: React.FC<MobileNavigationBarProps> = ({
   activeTab,
-  onTabChange
+  onTabChange,
+  onLogout,
+  onUpgrade,
+  onManageSubscription,
+  onSettings
 }) => {
   const { triggerHaptic } = useNativeFeatures();
   const { isAdmin } = useAdminAccess();
 
-  const handleTabPress = (tab: string) => {
+  const handleTabPress = (tab: { id: string; action?: () => void }) => {
     triggerHaptic('Light');
-    onTabChange(tab);
+    if (tab.action) {
+      tab.action();
+    } else {
+      onTabChange(tab.id);
+    }
   };
 
   const tabs = [
     { id: 'signals', icon: TrendingUp, label: 'Signals' },
     { id: 'expired', icon: BarChart3, label: 'Expired' },
+    { id: 'settings', icon: Settings, label: 'Settings', action: onSettings },
+    ...(onUpgrade ? [{ id: 'upgrade', icon: CreditCard, label: 'Upgrade', action: onUpgrade }] : []),
+    ...(onManageSubscription ? [{ id: 'subscription', icon: CreditCard, label: 'Billing', action: onManageSubscription }] : []),
     ...(isAdmin ? [{ id: 'diagnostics', icon: Settings, label: 'Tools' }] : []),
-    ...(isAdmin ? [{ id: 'testing', icon: Bell, label: 'Test' }] : [])
+    ...(isAdmin ? [{ id: 'testing', icon: Bell, label: 'Test' }] : []),
+    { id: 'logout', icon: LogOut, label: 'Sign Out', action: onLogout }
   ];
 
   return (
     <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t border-border">
       <div className="flex items-center justify-around py-3 px-4 safe-area-pb">
-        {tabs.map(({ id, icon: Icon, label }) => (
+        {tabs.map((tab) => (
           <Button
-            key={id}
+            key={tab.id}
             variant="ghost"
             size="sm"
             className={`flex flex-col items-center gap-1 h-auto py-3 px-4 ${
-              activeTab === id 
+              activeTab === tab.id 
                 ? 'text-primary' 
                 : 'text-muted-foreground'
-            }`}
-            onClick={() => handleTabPress(id)}
+            } ${tab.id === 'logout' ? 'text-red-400' : ''}`}
+            onClick={() => handleTabPress(tab)}
           >
-            <Icon className={`h-6 w-6 ${activeTab === id ? 'text-primary' : ''}`} />
-            <span className="text-xs font-medium">{label}</span>
+            <tab.icon className={`h-6 w-6 ${activeTab === tab.id ? 'text-primary' : tab.id === 'logout' ? 'text-red-400' : ''}`} />
+            <span className="text-xs font-medium">{tab.label}</span>
           </Button>
         ))}
       </div>

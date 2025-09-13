@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { User, Settings, LogOut, CreditCard, Camera, Upload } from 'lucide-react';
+import { User, Camera, Upload } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,7 +10,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import UserProfile from './UserProfile';
-import { SettingsDialog } from './SettingsDialog';
 import { useProfile } from '@/hooks/useProfile';
 import { useToast } from '@/hooks/use-toast';
 
@@ -160,51 +159,6 @@ export const UserMenu: React.FC<UserMenuProps> = ({
           >
             <User className="mr-2 h-4 w-4" />
             View Profile
-          </DropdownMenuItem>
-          
-          <SettingsDialog>
-            <DropdownMenuItem 
-              onSelect={(e) => e.preventDefault()}
-              className="text-white hover:bg-gray-800 cursor-pointer"
-            >
-              <Settings className="mr-2 h-4 w-4" />
-              Settings
-            </DropdownMenuItem>
-          </SettingsDialog>
-          
-          {(onUpgrade || onManageSubscription) && (
-            <>
-              <DropdownMenuSeparator className="bg-gray-700" />
-              {onUpgrade && (
-                <DropdownMenuItem 
-                  onClick={onUpgrade}
-                  className="text-white hover:bg-gray-800 cursor-pointer"
-                >
-                  <CreditCard className="mr-2 h-4 w-4" />
-                  Upgrade Plan
-                </DropdownMenuItem>
-              )}
-              {onManageSubscription && (
-                <DropdownMenuItem 
-                  onClick={onManageSubscription}
-                  className="text-white hover:bg-gray-800 cursor-pointer"
-                >
-                  <CreditCard className="mr-2 h-4 w-4" />
-                  Manage Subscription
-                </DropdownMenuItem>
-              )}
-            </>
-          )}
-          
-          <DropdownMenuSeparator className="bg-gray-700" />
-          
-          <DropdownMenuItem 
-            onClick={onLogout}
-            disabled={loggingOut}
-            className="text-red-400 hover:bg-red-900/20 cursor-pointer"
-          >
-            <LogOut className={`mr-2 h-4 w-4 ${loggingOut ? 'animate-spin' : ''}`} />
-            {loggingOut ? 'Signing out...' : 'Sign out'}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
