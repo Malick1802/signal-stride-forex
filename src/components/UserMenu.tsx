@@ -21,6 +21,7 @@ interface UserMenuProps {
   onUpgrade?: () => void;
   onManageSubscription?: () => void;
   loggingOut?: boolean;
+  onProfileUpdate?: () => void;
 }
 
 export const UserMenu: React.FC<UserMenuProps> = ({
@@ -29,10 +30,11 @@ export const UserMenu: React.FC<UserMenuProps> = ({
   onLogout,
   onUpgrade,
   onManageSubscription,
-  loggingOut = false
+  loggingOut = false,
+  onProfileUpdate
 }) => {
   const [showProfile, setShowProfile] = useState(false);
-  const { uploadAvatar, uploading } = useProfile();
+  const { uploadAvatar, uploading, fetchProfile } = useProfile();
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -62,20 +64,30 @@ export const UserMenu: React.FC<UserMenuProps> = ({
     }
 
     try {
+      console.log('UserMenu: Starting avatar upload for file:', file.name);
       const result = await uploadAvatar(file);
+      
       if (result?.error) {
+        console.error('UserMenu: Upload error:', result.error);
         toast({
           title: "Upload failed",
           description: typeof result.error === 'string' ? result.error : result.error.message || 'Upload failed',
           variant: "destructive",
         });
       } else {
+        console.log('UserMenu: Upload successful, refreshing profile');
         toast({
           title: "Avatar updated",
           description: "Your profile picture has been updated successfully.",
         });
+        // Force a refresh of the profile data
+        setTimeout(() => {
+          fetchProfile();
+          onProfileUpdate?.();
+        }, 500);
       }
     } catch (error) {
+      console.error('UserMenu: Unexpected upload error:', error);
       toast({
         title: "Upload failed",
         description: "Failed to upload avatar. Please try again.",

@@ -43,7 +43,8 @@ export default function UserProfile({ open, onOpenChange }: { open: boolean; onO
       toast({ title: "Profile updated", description: "Your profile has been updated successfully." });
       setEditing(false);
     } else {
-      toast({ title: "Error updating profile", description: error.message || "An error occurred", variant: "destructive" });
+      const errorMessage = typeof error === 'string' ? error : error.message || 'An error occurred';
+      toast({ title: "Error updating profile", description: errorMessage, variant: "destructive" });
     }
   };
 

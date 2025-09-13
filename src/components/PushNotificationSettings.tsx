@@ -209,7 +209,7 @@ export const PushNotificationSettings = () => {
     } else {
       toast({
         title: 'Error saving settings',
-        description: error.message || 'Failed to save notification settings',
+        description: typeof error === 'string' ? error : error.message || 'Failed to save notification settings',
         variant: 'destructive',
       });
     }

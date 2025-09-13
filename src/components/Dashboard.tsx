@@ -320,6 +320,10 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
                 onUpgrade={handleUpgrade}
                 onManageSubscription={handleManageSubscription}
                 loggingOut={loggingOut}
+                onProfileUpdate={() => {
+                  // Refresh profile data when updated
+                  setTimeout(() => window.location.reload(), 1000);
+                }}
               />
               
               {/* Mobile menu trigger - only on mobile */}
