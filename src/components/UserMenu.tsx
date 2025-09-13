@@ -105,7 +105,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({
         <DropdownMenuTrigger asChild>
           <button className="flex items-center space-x-2 p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer group">
             <div className="relative">
-              <Avatar className="h-10 w-10 sm:h-12 sm:w-12 border-2 border-emerald-500">
+              <Avatar className="h-12 w-12 sm:h-14 sm:w-14 border-2 border-emerald-500">
                 <AvatarImage src={profile?.avatar_url} alt="Avatar" />
                 <AvatarFallback className="bg-emerald-500 text-white text-xs sm:text-sm font-bold">
                   {getUserInitials()}
@@ -115,7 +115,7 @@ export const UserMenu: React.FC<UserMenuProps> = ({
                 className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity rounded-full flex items-center justify-center"
                 onClick={(e) => { e.preventDefault(); e.stopPropagation(); triggerFileUpload(); }}
               >
-                <Camera className="h-5 w-5 text-white" />
+                <Camera className="h-6 w-6 text-white" />
               </div>
             </div>
             <div className="text-right hidden sm:block">
