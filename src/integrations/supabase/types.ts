@@ -2695,6 +2695,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      distribute_subscription_commission: {
+        Args: { referral_user_id: string; subscription_amount: number }
+        Returns: Json
+      }
       enqueue_push_job: {
         Args: { job_type: string; payload: Json }
         Returns: undefined
@@ -2728,6 +2732,20 @@ export type Database = {
       has_role: {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
+      }
+      track_referral_event: {
+        Args: {
+          event_type: string
+          ip_address_param?: unknown
+          referral_code: string
+          referrer_param?: string
+          user_agent_param?: string
+          user_id_param?: string
+          utm_campaign_param?: string
+          utm_medium_param?: string
+          utm_source_param?: string
+        }
+        Returns: Json
       }
       update_app_setting: {
         Args: { setting_name: string; setting_value: string }
