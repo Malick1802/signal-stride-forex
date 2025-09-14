@@ -1,20 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, CheckCircle, XCircle, Mail } from 'lucide-react';
-import { toast } from 'sonner';
+import { CheckCircle, XCircle, Loader2, Mail } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 type ConfirmationState = 'loading' | 'success' | 'error' | 'already_confirmed';
 
-const AuthCallback = () => {
+const AuthCallback: React.FC = () => {
+  const [searchParams] = useSearchParams();
   const [state, setState] = useState<ConfirmationState>('loading');
   const [error, setError] = useState<string>('');
-  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { toast } = useToast();
 
   useEffect(() => {
     const handleAuthCallback = async () => {
@@ -23,90 +22,95 @@ const AuthCallback = () => {
         const type = searchParams.get('type');
         const redirect_to = searchParams.get('redirect_to');
 
-        console.log('Auth callback triggered:', { token_hash, type, redirect_to });
+        console.log('Auth callback params:', { token_hash, type, redirect_to });
 
         if (!token_hash || !type) {
-          setError('Invalid confirmation link. Please try again.');
           setState('error');
+          setError('Invalid confirmation link. Please try signing up again.');
           return;
         }
 
-        // Exchange the token for a session
-        const { data, error: verifyError } = await supabase.auth.verifyOtp({
+        const { data, error } = await supabase.auth.verifyOtp({
           token_hash,
           type: type as any,
         });
 
-        if (verifyError) {
-          console.error('Verification error:', verifyError);
-          
-          // Check if already confirmed
-          if (verifyError.message?.includes('already been confirmed') || 
-              verifyError.message?.includes('Email link is invalid or has expired')) {
+        console.log('Verification result:', { data, error });
+
+        if (error) {
+          if (error.message.toLowerCase().includes('expired')) {
+            setState('error');
+            setError('This confirmation link has expired. Please request a new one.');
+          } else if (error.message.toLowerCase().includes('already') || error.message.toLowerCase().includes('confirmed')) {
             setState('already_confirmed');
-            return;
+          } else {
+            setState('error');
+            setError(error.message);
           }
-          
-          setError(verifyError.message || 'Failed to confirm email. Please try again.');
-          setState('error');
           return;
         }
 
         if (data.user) {
-          console.log('Email confirmed successfully for user:', data.user.email);
           setState('success');
-          toast.success('Email confirmed successfully! Welcome to ForexAlert Pro.');
+          toast({
+            title: "Email Confirmed!",
+            description: "Your account has been successfully verified.",
+          });
           
-          // Redirect after a short delay to show success message
+          // Redirect after a short delay
           setTimeout(() => {
-            navigate('/');
+            navigate(redirect_to || '/');
           }, 2000);
-        } else {
-          setError('Confirmation failed. Please try again.');
-          setState('error');
         }
-
-      } catch (error: any) {
-        console.error('Auth callback error:', error);
-        setError(error.message || 'An unexpected error occurred.');
+      } catch (err) {
+        console.error('Auth callback error:', err);
         setState('error');
+        setError('An unexpected error occurred. Please try again.');
       }
     };
 
     handleAuthCallback();
-  }, [searchParams, navigate]);
-
-  // If user is already logged in, redirect to home
-  useEffect(() => {
-    if (user && state === 'loading') {
-      console.log('User already authenticated, redirecting...');
-      navigate('/');
-    }
-  }, [user, navigate, state]);
+  }, [searchParams, navigate, toast]);
 
   const handleResendConfirmation = async () => {
-    try {
-      const email = searchParams.get('email');
-      if (!email) {
-        toast.error('Email address not found. Please try signing up again.');
-        return;
-      }
+    const email = searchParams.get('email');
+    if (!email) {
+      toast({
+        title: "Error",
+        description: "Unable to resend confirmation. Please try signing up again.",
+        variant: "destructive",
+      });
+      return;
+    }
 
+    try {
       const { error } = await supabase.auth.resend({
         type: 'signup',
-        email,
+        email: email,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`
-        }
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
       });
 
       if (error) {
-        toast.error('Failed to resend confirmation email.');
+        toast({
+          title: "Error",
+          description: error.message,
+          variant: "destructive",
+        });
       } else {
-        toast.success('Confirmation email sent! Please check your inbox.');
+        toast({
+          title: "Email Sent",
+          description: "A new confirmation email has been sent to your address.",
+        });
       }
-    } catch (error) {
-      toast.error('Failed to resend confirmation email.');
+    } catch (err) {
+      console.error('Resend error:', err);
+      toast({
+        title: "Error",
+        description: "Failed to resend confirmation email.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -114,62 +118,54 @@ const AuthCallback = () => {
     switch (state) {
       case 'loading':
         return (
-          <div className="text-center space-y-4">
-            <Loader2 className="h-12 w-12 animate-spin mx-auto text-primary" />
-            <h1 className="text-2xl font-bold">Confirming Your Email</h1>
-            <p className="text-muted-foreground">Please wait while we verify your email address...</p>
+          <div className="text-center">
+            <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-primary" />
+            <h2 className="text-xl font-semibold mb-2">Confirming your email...</h2>
+            <p className="text-muted-foreground">Please wait while we verify your account.</p>
           </div>
         );
 
       case 'success':
         return (
-          <div className="text-center space-y-4">
-            <CheckCircle className="h-12 w-12 mx-auto text-green-500" />
-            <h1 className="text-2xl font-bold text-green-700">Email Confirmed!</h1>
-            <p className="text-muted-foreground">
-              Welcome to ForexAlert Pro! Your email has been successfully confirmed.
+          <div className="text-center">
+            <CheckCircle className="h-12 w-12 mx-auto mb-4 text-green-500" />
+            <h2 className="text-xl font-semibold mb-2">Email Confirmed!</h2>
+            <p className="text-muted-foreground mb-4">
+              Your account has been successfully verified. You'll be redirected shortly.
             </p>
-            <p className="text-sm text-muted-foreground">
-              Redirecting you to the dashboard...
-            </p>
+            <Button onClick={() => navigate('/')}>
+              Go to Dashboard
+            </Button>
           </div>
         );
 
       case 'already_confirmed':
         return (
-          <div className="text-center space-y-4">
-            <CheckCircle className="h-12 w-12 mx-auto text-blue-500" />
-            <h1 className="text-2xl font-bold">Email Already Confirmed</h1>
-            <p className="text-muted-foreground">
+          <div className="text-center">
+            <CheckCircle className="h-12 w-12 mx-auto mb-4 text-blue-500" />
+            <h2 className="text-xl font-semibold mb-2">Already Confirmed</h2>
+            <p className="text-muted-foreground mb-4">
               Your email has already been confirmed. You can now sign in to your account.
             </p>
-            <Button onClick={() => navigate('/')} className="mt-4">
-              Go to Sign In
+            <Button onClick={() => navigate('/')}>
+              Go to Home
             </Button>
           </div>
         );
 
       case 'error':
         return (
-          <div className="text-center space-y-4">
-            <XCircle className="h-12 w-12 mx-auto text-red-500" />
-            <h1 className="text-2xl font-bold text-red-700">Confirmation Failed</h1>
-            <p className="text-muted-foreground">{error}</p>
+          <div className="text-center">
+            <XCircle className="h-12 w-12 mx-auto mb-4 text-red-500" />
+            <h2 className="text-xl font-semibold mb-2">Confirmation Failed</h2>
+            <p className="text-muted-foreground mb-4">{error}</p>
             <div className="space-y-2">
-              <Button 
-                onClick={handleResendConfirmation}
-                variant="outline"
-                className="w-full"
-              >
+              <Button onClick={handleResendConfirmation} variant="outline" className="w-full">
                 <Mail className="h-4 w-4 mr-2" />
                 Resend Confirmation Email
               </Button>
-              <Button 
-                onClick={() => navigate('/')}
-                variant="secondary"
-                className="w-full"
-              >
-                Back to Home
+              <Button onClick={() => navigate('/')} variant="default" className="w-full">
+                Go Back Home
               </Button>
             </div>
           </div>
@@ -181,9 +177,9 @@ const AuthCallback = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
-        <CardContent className="p-8">
+        <CardContent className="p-6">
           {getStateContent()}
         </CardContent>
       </Card>

@@ -38,9 +38,12 @@ export const SignupConfirmationEmail = ({
         </Text>
         
         <Section style={buttonContainer}>
-          <Button href={confirmationUrl} style={button}>
-            Confirm Email Address
-          </Button>
+        <Button href={confirmationUrl} style={button}>
+          Confirm Email Address
+        </Button>
+        <Text style={text}>
+          Or copy and paste this link in your browser: {confirmationUrl}
+        </Text>
         </Section>
         
         <Text style={text}>
