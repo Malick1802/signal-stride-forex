@@ -115,18 +115,26 @@ export const useUserManagement = () => {
     },
   });
 
-  // Delete user mutation
+  // Delete user mutation - calls admin edge function to properly delete from auth.users
   const deleteUser = useMutation({
     mutationFn: async (userId: string) => {
       console.log('useUserManagement: Deleting user:', userId);
       
-      // Delete from profiles table (cascades to related tables)
-      const { error } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', userId);
-        
-      if (error) throw error;
+      const { data, error } = await supabase.functions.invoke('admin-delete-user', {
+        body: { userId }
+      });
+      
+      if (error) {
+        console.error('Error calling admin-delete-user function:', error);
+        throw error;
+      }
+      
+      if (data?.error) {
+        console.error('Admin delete user error:', data.error);
+        throw new Error(data.error);
+      }
+      
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['admin-users'] });

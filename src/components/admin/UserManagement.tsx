@@ -2,6 +2,7 @@
 import React, { useState } from 'react';
 import { Users, Shield, CreditCard, Search, UserPlus, MoreHorizontal, Eye, Trash2, UserCheck, UserX, AlertCircle } from 'lucide-react';
 import { useUserManagement } from '@/hooks/useUserManagement';
+import { useAuth } from '@/contexts/AuthContext';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,7 @@ const UserManagement = () => {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
   const { users, usersLoading, usersError, userStats, updateUserRole, deleteUser, updateSubscription } = useUserManagement();
+  const { user: currentUser } = useAuth();
   const { toast } = useToast();
 
   const filteredUsers = users?.filter(user => 
@@ -47,7 +49,17 @@ const UserManagement = () => {
   };
 
   const handleDeleteUser = async (userId: string, userEmail: string) => {
-    if (!confirm(`Are you sure you want to delete user ${userEmail}? This action cannot be undone.`)) {
+    // Prevent self-deletion
+    if (userId === currentUser?.id) {
+      toast({
+        title: "Error",
+        description: "Cannot delete your own account",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete user ${userEmail}? This action cannot be undone and will permanently remove them from the system.`)) {
       return;
     }
     
@@ -57,11 +69,11 @@ const UserManagement = () => {
         title: "Success",
         description: "User deleted successfully",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to delete user:', error);
       toast({
         title: "Error",
-        description: "Failed to delete user",
+        description: error?.message || "Failed to delete user",
         variant: "destructive",
       });
     }

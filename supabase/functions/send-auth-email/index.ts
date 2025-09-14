@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
       case 'signup':
         html = await renderAsync(
           React.createElement(SignupConfirmationEmail, {
-            confirmationUrl: `${redirect_to}?type=${email_action_type}&token_hash=${token_hash}`,
+            confirmationUrl: `${redirect_to}?type=${email_action_type}&token_hash=${token_hash}&email=${encodeURIComponent(user.email)}`,
             userEmail: user.email,
           })
         )
@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
       case 'recovery':
         html = await renderAsync(
           React.createElement(PasswordResetEmail, {
-            resetUrl: `${redirect_to}?type=${email_action_type}&token_hash=${token_hash}`,
+            resetUrl: `${redirect_to}?type=${email_action_type}&token_hash=${token_hash}&email=${encodeURIComponent(user.email)}`,
             userEmail: user.email,
           })
         )
@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
         // Fallback for other email types
         html = await renderAsync(
           React.createElement(SignupConfirmationEmail, {
-            confirmationUrl: `${redirect_to}?type=${email_action_type}&token_hash=${token_hash}`,
+            confirmationUrl: `${redirect_to}?type=${email_action_type}&token_hash=${token_hash}&email=${encodeURIComponent(user.email)}`,
             userEmail: user.email,
           })
         )
