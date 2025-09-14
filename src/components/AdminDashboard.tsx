@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { TrendingUp, Users, Activity, DollarSign, Shield, Database, BarChart3, Settings } from 'lucide-react';
+import { TrendingUp, Users, Activity, DollarSign, Shield, Database, BarChart3, Settings, ArrowLeft, Loader2 } from 'lucide-react';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { useAuth } from '@/contexts/AuthContext';
 import UserManagement from './admin/UserManagement';
@@ -8,6 +8,8 @@ import SignalManagement from './admin/SignalManagement';
 import SignalGenerationSettings from './admin/SignalGenerationSettings';
 import AdminSoundTester from './admin/AdminSoundTester';
 import { AdminOverview } from './admin/AdminOverview';
+import { AdminSetup } from './admin/AdminSetup';
+import { Button } from '@/components/ui/button';
 
 interface AdminDashboardProps {
   onNavigate: (view: string) => void;
@@ -22,25 +24,33 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p>Checking admin access...</p>
+        </div>
       </div>
     );
   }
 
   if (!isAdmin) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800 flex items-center justify-center">
-        <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 text-center border border-white/20">
-          <Shield className="h-16 w-16 text-red-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-white mb-2">Access Denied</h2>
-          <p className="text-gray-300 mb-6">You don't have permission to access the admin dashboard.</p>
-          <button
-            onClick={() => onNavigate('landing')}
-            className="px-6 py-3 bg-gradient-to-r from-emerald-500 to-blue-500 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-emerald-500/25 transition-all"
-          >
-            Back to Home
-          </button>
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center max-w-2xl mx-auto p-6">
+          <Shield className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
+          <h2 className="text-2xl font-bold mb-2">Admin Setup Required</h2>
+          <p className="text-muted-foreground mb-6">
+            You don't have administrator privileges yet. Use the form below to grant admin access.
+          </p>
+          
+          <div className="mb-6">
+            <AdminSetup />
+          </div>
+          
+          <Button onClick={() => onNavigate('main')} variant="outline">
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Dashboard
+          </Button>
         </div>
       </div>
     );

@@ -6,7 +6,7 @@ export const useUserManagement = () => {
   const queryClient = useQueryClient();
 
   // Fetch all users with profiles and roles
-  const { data: users, isLoading: usersLoading } = useQuery({
+  const { data: users, isLoading: usersLoading, error: usersError } = useQuery({
     queryKey: ['admin-users'],
     queryFn: async () => {
       console.log('useUserManagement: Fetching users...');
@@ -198,6 +198,7 @@ export const useUserManagement = () => {
   return {
     users,
     usersLoading,
+    usersError,
     userStats,
     updateUserRole,
     deleteUser,

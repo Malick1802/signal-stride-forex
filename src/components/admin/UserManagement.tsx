@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Users, Shield, CreditCard, Search, UserPlus, MoreHorizontal, Eye, Trash2, UserCheck, UserX } from 'lucide-react';
+import { Users, Shield, CreditCard, Search, UserPlus, MoreHorizontal, Eye, Trash2, UserCheck, UserX, AlertCircle } from 'lucide-react';
 import { useUserManagement } from '@/hooks/useUserManagement';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -13,7 +13,7 @@ const UserManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [isUserModalOpen, setIsUserModalOpen] = useState(false);
-  const { users, usersLoading, userStats, updateUserRole, deleteUser, updateSubscription } = useUserManagement();
+  const { users, usersLoading, usersError, userStats, updateUserRole, deleteUser, updateSubscription } = useUserManagement();
   const { toast } = useToast();
 
   const filteredUsers = users?.filter(user => 
@@ -102,6 +102,22 @@ const UserManagement = () => {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+      </div>
+    );
+  }
+
+  if (usersError) {
+    return (
+      <div className="rounded-md bg-destructive/15 p-4">
+        <div className="flex">
+          <AlertCircle className="h-5 w-5 text-destructive" />
+          <div className="ml-3">
+            <h3 className="text-sm font-medium text-destructive">Error loading users</h3>
+            <p className="mt-2 text-sm text-destructive/80">
+              {usersError.message || 'Failed to load user data. Please check your admin permissions.'}
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
