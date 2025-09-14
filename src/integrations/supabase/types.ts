@@ -2733,6 +2733,10 @@ export type Database = {
         Args: { _role: Database["public"]["Enums"]["app_role"] }
         Returns: boolean
       }
+      make_user_admin: {
+        Args: { user_email: string }
+        Returns: undefined
+      }
       track_referral_event: {
         Args: {
           event_type: string

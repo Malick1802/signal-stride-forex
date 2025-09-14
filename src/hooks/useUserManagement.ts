@@ -10,30 +10,58 @@ export const useUserManagement = () => {
     queryKey: ['admin-users'],
     queryFn: async () => {
       console.log('useUserManagement: Fetching users...');
-      
-      const { data, error } = await supabase
-        .from('profiles')
-        .select(`
-          id,
-          email,
-          full_name,
-          created_at,
-          phone_number,
-          sms_verified,
-           push_new_signals,
-           push_targets_hit,
-          user_roles(role),
-          subscribers(subscribed, subscription_tier, trial_end, subscription_end, is_trial_active)
-        `)
-        .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('useUserManagement: Error fetching users:', error);
-        throw error;
+      // Fetch in parallel to avoid PostgREST embed FK requirements
+      const [profilesRes, rolesRes, subsRes] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('id, email, full_name, created_at, phone_number, sms_verified, push_new_signals, push_targets_hit')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('user_roles')
+          .select('user_id, role'),
+        supabase
+          .from('subscribers')
+          .select('user_id, subscribed, subscription_tier, trial_end, subscription_end, is_trial_active')
+      ]);
+
+      if (profilesRes.error) {
+        console.error('useUserManagement: Error fetching profiles:', profilesRes.error);
+        throw profilesRes.error;
+      }
+      if (rolesRes.error) {
+        console.warn('useUserManagement: Error fetching user roles:', rolesRes.error);
+      }
+      if (subsRes.error) {
+        console.warn('useUserManagement: Error fetching subscribers:', subsRes.error);
       }
 
-      console.log('useUserManagement: Fetched users:', data?.length);
-      return data;
+      const rolesByUser = new Map<string, any[]>();
+      (rolesRes.data || []).forEach((r: any) => {
+        const list = rolesByUser.get(r.user_id) ?? [];
+        list.push({ role: r.role });
+        rolesByUser.set(r.user_id, list);
+      });
+
+      const subsByUser = new Map<string, any[]>();
+      (subsRes.data || []).forEach((s: any) => {
+        subsByUser.set(s.user_id, [{
+          subscribed: !!s.subscribed,
+          subscription_tier: s.subscription_tier ?? null,
+          trial_end: s.trial_end ?? null,
+          subscription_end: s.subscription_end ?? null,
+          is_trial_active: !!s.is_trial_active,
+        }]);
+      });
+
+      const combined = (profilesRes.data || []).map((p: any) => ({
+        ...p,
+        user_roles: rolesByUser.get(p.id) ?? [],
+        subscribers: subsByUser.get(p.id) ?? [],
+      }));
+
+      console.log('useUserManagement: Fetched users:', combined.length);
+      return combined;
     },
   });
 
