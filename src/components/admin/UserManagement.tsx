@@ -1,13 +1,20 @@
 
 import React, { useState } from 'react';
-import { Users, Shield, CreditCard, Search, UserPlus, MoreHorizontal } from 'lucide-react';
+import { Users, Shield, CreditCard, Search, UserPlus, MoreHorizontal, Eye, Trash2, UserCheck, UserX } from 'lucide-react';
 import { useUserManagement } from '@/hooks/useUserManagement';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { UserDetailsModal } from './UserDetailsModal';
+import { useToast } from '@/hooks/use-toast';
 
 const UserManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
-  const { users, usersLoading, userStats, updateUserRole } = useUserManagement();
+  const [selectedUser, setSelectedUser] = useState<any>(null);
+  const [isUserModalOpen, setIsUserModalOpen] = useState(false);
+  const { users, usersLoading, userStats, updateUserRole, deleteUser, updateSubscription } = useUserManagement();
+  const { toast } = useToast();
 
   const filteredUsers = users?.filter(user => 
     user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -20,8 +27,60 @@ const UserManagement = () => {
         userId,
         role: isCurrentlyAdmin ? 'user' : 'admin'
       });
+      toast({
+        title: "Success",
+        description: `User role updated to ${isCurrentlyAdmin ? 'user' : 'admin'}`,
+      });
     } catch (error) {
       console.error('Failed to update user role:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update user role",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleViewUser = (user: any) => {
+    setSelectedUser(user);
+    setIsUserModalOpen(true);
+  };
+
+  const handleDeleteUser = async (userId: string, userEmail: string) => {
+    if (!confirm(`Are you sure you want to delete user ${userEmail}? This action cannot be undone.`)) {
+      return;
+    }
+    
+    try {
+      await deleteUser.mutateAsync(userId);
+      toast({
+        title: "Success",
+        description: "User deleted successfully",
+      });
+    } catch (error) {
+      console.error('Failed to delete user:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete user",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleSubscriptionAction = async (userId: string, action: 'activate' | 'deactivate' | 'trial') => {
+    try {
+      await updateSubscription.mutateAsync({ userId, action });
+      toast({
+        title: "Success",
+        description: `Subscription ${action}d successfully`,
+      });
+    } catch (error) {
+      console.error('Failed to update subscription:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update subscription",
+        variant: "destructive",
+      });
     }
   };
 
@@ -34,8 +93,8 @@ const UserManagement = () => {
     if (!subscribers || !Array.isArray(subscribers)) return 'No subscription';
     const sub = subscribers[0];
     if (!sub) return 'No subscription';
-    if (sub.subscribed) return `Active (${sub.subscription_tier || 'Unknown'})`;
-    if (sub.trial_end && new Date(sub.trial_end) > new Date()) return 'Trial';
+    if (sub.subscribed) return `Active (${sub.subscription_tier || 'Premium'})`;
+    if (sub.is_trial_active && sub.trial_end && new Date(sub.trial_end) > new Date()) return 'Trial';
     return 'Expired';
   };
 
@@ -168,18 +227,77 @@ const UserManagement = () => {
                       {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'Unknown'}
                     </TableCell>
                     <TableCell>
-                      <button
-                        onClick={() => handleRoleToggle(user.id, isAdmin)}
-                        disabled={updateUserRole.isPending}
-                        className="p-2 text-gray-400 hover:text-white transition-colors disabled:opacity-50"
-                        title={isAdmin ? 'Remove admin role' : 'Grant admin role'}
-                      >
-                        {updateUserRole.isPending ? (
-                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-emerald-500"></div>
-                        ) : (
-                          <MoreHorizontal className="h-4 w-4" />
-                        )}
-                      </button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" className="h-8 w-8 p-0">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="bg-slate-800 border-slate-700">
+                          <DropdownMenuItem 
+                            onClick={() => handleViewUser(user)}
+                            className="text-white hover:bg-slate-700"
+                          >
+                            <Eye className="mr-2 h-4 w-4" />
+                            View Details
+                          </DropdownMenuItem>
+                          
+                          <DropdownMenuItem 
+                            onClick={() => handleRoleToggle(user.id, isAdmin)}
+                            disabled={updateUserRole.isPending}
+                            className="text-white hover:bg-slate-700"
+                          >
+                            <Shield className="mr-2 h-4 w-4" />
+                            {isAdmin ? 'Remove Admin' : 'Make Admin'}
+                          </DropdownMenuItem>
+                          
+                          <DropdownMenuSeparator className="bg-slate-700" />
+                          
+                          {!subscriptionStatus.includes('Active') && (
+                            <DropdownMenuItem 
+                              onClick={() => handleSubscriptionAction(user.id, 'activate')}
+                              disabled={updateSubscription.isPending}
+                              className="text-green-400 hover:bg-slate-700"
+                            >
+                              <UserCheck className="mr-2 h-4 w-4" />
+                              Activate Subscription
+                            </DropdownMenuItem>
+                          )}
+                          
+                          {!subscriptionStatus.includes('Trial') && !subscriptionStatus.includes('Active') && (
+                            <DropdownMenuItem 
+                              onClick={() => handleSubscriptionAction(user.id, 'trial')}
+                              disabled={updateSubscription.isPending}
+                              className="text-yellow-400 hover:bg-slate-700"
+                            >
+                              <UserPlus className="mr-2 h-4 w-4" />
+                              Start Trial
+                            </DropdownMenuItem>
+                          )}
+                          
+                          {subscriptionStatus.includes('Active') && (
+                            <DropdownMenuItem 
+                              onClick={() => handleSubscriptionAction(user.id, 'deactivate')}
+                              disabled={updateSubscription.isPending}
+                              className="text-orange-400 hover:bg-slate-700"
+                            >
+                              <UserX className="mr-2 h-4 w-4" />
+                              Deactivate Subscription
+                            </DropdownMenuItem>
+                          )}
+                          
+                          <DropdownMenuSeparator className="bg-slate-700" />
+                          
+                          <DropdownMenuItem 
+                            onClick={() => handleDeleteUser(user.id, user.email)}
+                            disabled={deleteUser.isPending}
+                            className="text-red-400 hover:bg-slate-700"
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete User
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 );
@@ -194,6 +312,15 @@ const UserManagement = () => {
           </div>
         )}
       </div>
+
+      {/* User Details Modal */}
+      <UserDetailsModal
+        user={selectedUser}
+        isOpen={isUserModalOpen}
+        onClose={() => setIsUserModalOpen(false)}
+        onRoleToggle={handleRoleToggle}
+        isUpdatingRole={updateUserRole.isPending}
+      />
     </div>
   );
 };

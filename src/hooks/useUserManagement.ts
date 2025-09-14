@@ -20,8 +20,10 @@ export const useUserManagement = () => {
           created_at,
           phone_number,
           sms_verified,
+           push_new_signals,
+           push_targets_hit,
           user_roles(role),
-          subscribers(subscribed, subscription_tier, trial_end, subscription_end)
+          subscribers(subscribed, subscription_tier, trial_end, subscription_end, is_trial_active)
         `)
         .order('created_at', { ascending: false });
 
@@ -85,10 +87,92 @@ export const useUserManagement = () => {
     },
   });
 
+  // Delete user mutation
+  const deleteUser = useMutation({
+    mutationFn: async (userId: string) => {
+      console.log('useUserManagement: Deleting user:', userId);
+      
+      // Delete from profiles table (cascades to related tables)
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId);
+        
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-user-stats'] });
+    },
+  });
+
+  // Update user subscription status
+  const updateSubscription = useMutation({
+    mutationFn: async ({ userId, action }: { userId: string; action: 'activate' | 'deactivate' | 'trial' }) => {
+      console.log('useUserManagement: Updating subscription:', userId, action);
+      
+      if (action === 'activate') {
+        // Get user email for subscribers table
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('id', userId)
+          .single();
+          
+        const { error } = await supabase
+          .from('subscribers')
+          .upsert({ 
+            user_id: userId,
+            email: profile?.email || '',
+            subscribed: true,
+            subscription_tier: 'premium',
+            is_trial_active: false
+          });
+        if (error) throw error;
+      } else if (action === 'deactivate') {
+        const { error } = await supabase
+          .from('subscribers')
+          .update({ 
+            subscribed: false,
+            is_trial_active: false
+          })
+          .eq('user_id', userId);
+        if (error) throw error;
+      } else if (action === 'trial') {
+        // Get user email for subscribers table
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('id', userId)
+          .single();
+          
+        const trialEnd = new Date();
+        trialEnd.setDate(trialEnd.getDate() + 7); // 7-day trial
+        
+        const { error } = await supabase
+          .from('subscribers')
+          .upsert({ 
+            user_id: userId,
+            email: profile?.email || '',
+            subscribed: false,
+            is_trial_active: true,
+            trial_end: trialEnd.toISOString()
+          });
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['admin-users'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-user-stats'] });
+    },
+  });
+
   return {
     users,
     usersLoading,
     userStats,
-    updateUserRole
+    updateUserRole,
+    deleteUser,
+    updateSubscription
   };
 };
