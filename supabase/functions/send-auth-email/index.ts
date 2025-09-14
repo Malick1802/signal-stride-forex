@@ -59,7 +59,7 @@ Deno.serve(async (req) => {
       case 'signup':
         html = await renderAsync(
           React.createElement(SignupConfirmationEmail, {
-            confirmationUrl: `${site_url}/auth/v1/verify?token=${token_hash}&type=${email_action_type}&redirect_to=${redirect_to}`,
+            confirmationUrl: `${redirect_to}?type=${email_action_type}&token_hash=${token_hash}`,
             userEmail: user.email,
           })
         )
@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
       case 'recovery':
         html = await renderAsync(
           React.createElement(PasswordResetEmail, {
-            resetUrl: `${site_url}/auth/v1/verify?token=${token_hash}&type=${email_action_type}&redirect_to=${redirect_to}`,
+            resetUrl: `${redirect_to}?type=${email_action_type}&token_hash=${token_hash}`,
             userEmail: user.email,
           })
         )
@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
         // Fallback for other email types
         html = await renderAsync(
           React.createElement(SignupConfirmationEmail, {
-            confirmationUrl: `${site_url}/auth/v1/verify?token=${token_hash}&type=${email_action_type}&redirect_to=${redirect_to}`,
+            confirmationUrl: `${redirect_to}?type=${email_action_type}&token_hash=${token_hash}`,
             userEmail: user.email,
           })
         )
@@ -89,7 +89,7 @@ Deno.serve(async (req) => {
     }
 
     const { data, error } = await resend.emails.send({
-      from: 'ForexAlert Pro <noreply@resend.dev>',
+      from: 'ForexAlert Pro <onboarding@resend.dev>',
       to: [user.email],
       subject,
       html,

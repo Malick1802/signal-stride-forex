@@ -88,7 +88,7 @@ const AuthCallback: React.FC = () => {
         type: 'signup',
         email: email,
         options: {
-          emailRedirectTo: `${window.location.origin}/auth/callback`,
+          emailRedirectTo: `${window.location.origin}/#/auth/callback`,
         },
       });
 
