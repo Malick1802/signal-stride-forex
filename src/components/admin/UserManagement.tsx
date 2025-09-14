@@ -67,13 +67,29 @@ const UserManagement = () => {
       await deleteUser.mutateAsync(userId);
       toast({
         title: "Success",
-        description: "User deleted successfully",
+        description: `User ${userEmail} has been permanently deleted from the system`,
       });
     } catch (error: any) {
       console.error('Failed to delete user:', error);
+      
+      let errorMessage = "Failed to delete user";
+      if (error?.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error?.message) {
+        if (error.message.includes('Cannot delete your own account')) {
+          errorMessage = "Cannot delete your own account";
+        } else if (error.message.includes('Admin access required')) {
+          errorMessage = "Insufficient permissions to delete users";
+        } else if (error.message.includes('User not found')) {
+          errorMessage = "User not found or already deleted";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       toast({
-        title: "Error",
-        description: error?.message || "Failed to delete user",
+        title: "Deletion Failed",
+        description: errorMessage,
         variant: "destructive",
       });
     }

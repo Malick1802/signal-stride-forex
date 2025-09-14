@@ -22,6 +22,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
     mobileSignIn, 
     mobileSignUp, 
     retryAuth,
+    resendConfirmation,
     authError,
     hasOfflineAuth,
     lastAuthSync 
@@ -64,38 +65,52 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
           <div className="text-center">
             <CheckCircle className="h-16 w-16 text-emerald-400 mx-auto mb-6" />
             <h2 className="text-2xl font-bold text-white mb-4">Account Created!</h2>
-            <div className="space-y-4 text-gray-300">
-              <div className="flex items-center justify-center space-x-2 bg-blue-500/20 p-3 rounded-lg">
-                <Mail className="h-5 w-5 text-blue-400" />
-                <span className="text-sm">Check your email for a confirmation link</span>
+              <div className="space-y-4 text-gray-300">
+                <div className="flex items-center justify-center space-x-2 bg-blue-500/20 p-3 rounded-lg">
+                  <Mail className="h-5 w-5 text-blue-400" />
+                  <span className="text-sm">Check your email for a confirmation link</span>
+                </div>
+                <p className="text-sm">
+                  We've sent a confirmation email to <strong className="text-white">{email}</strong>
+                </p>
+                <p className="text-sm">
+                  Click the link in the email to activate your account, then return here to sign in.
+                </p>
               </div>
-              <p className="text-sm">
-                We've sent a confirmation email to <strong className="text-white">{email}</strong>
-              </p>
-              <p className="text-sm">
-                Click the link in the email to activate your account, then return here to sign in.
-              </p>
-            </div>
-            <div className="mt-6 space-y-3">
-              <button
-                onClick={() => {
-                  setSignupSuccess(false);
-                  setIsLogin(true);
-                  setEmail('');
-                  setPassword('');
-                  setConfirmPassword('');
-                }}
-                className="w-full py-3 bg-gradient-to-r from-emerald-500 to-blue-500 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-emerald-500/25 transition-all"
-              >
-                Go to Sign In
-              </button>
-              <button
-                onClick={() => onNavigate('landing')}
-                className="w-full py-3 bg-white/5 border border-white/20 text-white font-semibold rounded-lg hover:bg-white/10 transition-all"
-              >
-                Back to Home
-              </button>
-            </div>
+              <div className="mt-6 space-y-3">
+                <button
+                  onClick={async () => {
+                    try {
+                      await resendConfirmation(email);
+                      // Show success feedback without changing the UI state
+                    } catch (error) {
+                      console.error('Failed to resend confirmation:', error);
+                    }
+                  }}
+                  disabled={loading}
+                  className="w-full py-3 bg-blue-500/20 border border-blue-500/30 text-blue-300 font-semibold rounded-lg hover:bg-blue-500/30 transition-all disabled:opacity-50"
+                >
+                  {loading ? 'Sending...' : 'Resend Confirmation Email'}
+                </button>
+                <button
+                  onClick={() => {
+                    setSignupSuccess(false);
+                    setIsLogin(true);
+                    setEmail('');
+                    setPassword('');
+                    setConfirmPassword('');
+                  }}
+                  className="w-full py-3 bg-gradient-to-r from-emerald-500 to-blue-500 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-emerald-500/25 transition-all"
+                >
+                  Go to Sign In
+                </button>
+                <button
+                  onClick={() => onNavigate('landing')}
+                  className="w-full py-3 bg-white/5 border border-white/20 text-white font-semibold rounded-lg hover:bg-white/10 transition-all"
+                >
+                  Back to Home
+                </button>
+              </div>
           </div>
         </div>
       </div>

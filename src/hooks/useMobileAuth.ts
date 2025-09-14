@@ -111,12 +111,27 @@ export const useMobileAuth = () => {
       if (result.error) {
         let friendlyError = result.error.message;
         
-        if (friendlyError.includes('User already registered')) {
-          friendlyError = 'An account with this email already exists. Please sign in instead.';
+        if (friendlyError.includes('User already registered') || friendlyError.includes('user_repeated_signup')) {
+          // Auto-resend confirmation email for existing users
+          try {
+            const { supabase } = await import('@/integrations/supabase/client');
+            await supabase.auth.resend({
+              type: 'signup',
+              email: email,
+              options: {
+                emailRedirectTo: `${window.location.origin}/`
+              }
+            });
+            friendlyError = 'Account already exists. We\'ve sent a new confirmation email to your inbox.';
+          } catch (resendError) {
+            friendlyError = 'An account with this email already exists. Please sign in or check your email for the confirmation link.';
+          }
         } else if (friendlyError.includes('Password')) {
           friendlyError = 'Password must be at least 6 characters long.';
         } else if (friendlyError.includes('Network')) {
           friendlyError = 'Network error. Please check your connection and try again.';
+        } else if (friendlyError.includes('hook')) {
+          friendlyError = 'Email service configuration issue. Please contact support or try again later.';
         }
         
         setMobileAuthState(prev => ({ ...prev, authError: friendlyError }));
@@ -133,6 +148,37 @@ export const useMobileAuth = () => {
       setMobileAuthState(prev => ({ ...prev, isAuthenticating: false }));
     }
   }, [signUp, isConnected]);
+
+  const resendConfirmation = useCallback(async (email: string) => {
+    setMobileAuthState(prev => ({ ...prev, isAuthenticating: true, authError: null }));
+
+    try {
+      if (!isConnected) {
+        throw new Error('No internet connection. Please check your network and try again.');
+      }
+
+      const { supabase } = await import('@/integrations/supabase/client');
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`
+        }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      return { error: null };
+    } catch (error: any) {
+      const errorMessage = error.message || 'Failed to resend confirmation email.';
+      setMobileAuthState(prev => ({ ...prev, authError: errorMessage }));
+      return { error: { message: errorMessage } };
+    } finally {
+      setMobileAuthState(prev => ({ ...prev, isAuthenticating: false }));
+    }
+  }, [isConnected]);
 
   const mobileSignOut = useCallback(async () => {
     setMobileAuthState(prev => ({ ...prev, isAuthenticating: true, authError: null }));
@@ -175,6 +221,7 @@ export const useMobileAuth = () => {
     mobileSignUp,
     mobileSignOut,
     retryAuth,
+    resendConfirmation,
     authError: mobileAuthState.authError,
     hasOfflineAuth: mobileAuthState.hasOfflineAuth,
     lastAuthSync: mobileAuthState.lastAuthSync
