@@ -27,9 +27,8 @@ Deno.serve(async (req) => {
     const payload = await req.text()
     const headers = Object.fromEntries(req.headers)
     
-    // Handle potential Base64 encoding issues with hook secret
-    let processedHookSecret = hookSecret
-    if (!processedHookSecret) {
+    // Validate hook secret exists
+    if (!hookSecret) {
       console.error('SEND_EMAIL_HOOK_SECRET is not configured')
       return new Response(
         JSON.stringify({ error: 'Email service configuration error' }),
@@ -37,14 +36,20 @@ Deno.serve(async (req) => {
       )
     }
     
-    // Try to decode if it looks like Base64, otherwise use as-is
-    try {
-      if (processedHookSecret.length % 4 === 0 && /^[A-Za-z0-9+/]*={0,2}$/.test(processedHookSecret)) {
-        processedHookSecret = atob(processedHookSecret)
-      }
-    } catch (e) {
-      console.warn('Hook secret Base64 decode failed, using as plain text:', e.message)
+    console.log('Hook secret length:', hookSecret.length)
+    console.log('Hook secret format check:', /^[A-Za-z0-9+/]*={0,2}$/.test(hookSecret))
+    
+    // The Standard Webhooks library expects the secret as-is (should be Base64)
+    // Don't decode it - pass it directly
+    let processedHookSecret = hookSecret
+    
+    // If the secret doesn't look like Base64, it might be plain text that needs encoding
+    if (!/^[A-Za-z0-9+/]*={0,2}$/.test(hookSecret) || hookSecret.length < 16) {
+      console.log('Secret appears to be plain text, encoding to Base64')
+      processedHookSecret = btoa(hookSecret)
     }
+    
+    console.log('Using processed secret length:', processedHookSecret.length)
     
     const wh = new Webhook(processedHookSecret)
     
