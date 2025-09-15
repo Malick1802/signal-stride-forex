@@ -4,18 +4,25 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
 const SignalGenerationSettings = () => {
-  const [currentLevel, setCurrentLevel] = useState<'HIGH' | 'MEDIUM' | 'LOW'>('HIGH');
+  const [currentLevel, setCurrentLevel] = useState<'ULTRA' | 'HIGH' | 'MEDIUM' | 'LOW'>('HIGH');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
 
   const thresholdLevels = {
+    ULTRA: {
+      name: 'ULTRA (Maximum Precision)',
+      description: 'Elite-grade signals with 5+ technical confluences. 85+ pass threshold, max 2 signals per run.',
+      color: 'text-purple-400',
+      bgColor: 'bg-purple-500/20 border-purple-500/30',
+      characteristics: ['5+ Technical Confluences', '85+ Pass Threshold', 'Max 2 Signals/5min', 'RSI: 20/80', '2.5:1 Risk/Reward']
+    },
     HIGH: {
       name: 'HIGH (Ultra-Selective)',
-      description: 'Maximum quality signals with 4+ technical confluences. 75+ pass threshold, max 3 signals per run.',
+      description: 'Maximum quality signals with 4+ technical confluences. 80+ pass threshold, max 3 signals per run.',
       color: 'text-red-400',
       bgColor: 'bg-red-500/20 border-red-500/30',
-      characteristics: ['4+ Technical Confluences', '75+ Pass Threshold', 'Max 3 Signals/5min', 'RSI: 25/75', '2.0:1 Risk/Reward']
+      characteristics: ['4+ Technical Confluences', '80+ Pass Threshold', 'Max 3 Signals/5min', 'RSI: 25/75', '2.0:1 Risk/Reward']
     },
     MEDIUM: {
       name: 'MEDIUM (Selective)',
@@ -51,7 +58,7 @@ const SignalGenerationSettings = () => {
         return;
       }
 
-      setCurrentLevel((data?.signal_threshold_level as 'HIGH' | 'MEDIUM' | 'LOW') || 'HIGH');
+      setCurrentLevel((data?.signal_threshold_level as 'ULTRA' | 'HIGH' | 'MEDIUM' | 'LOW') || 'HIGH');
     } catch (error) {
       console.error('Error fetching settings:', error);
       toast({

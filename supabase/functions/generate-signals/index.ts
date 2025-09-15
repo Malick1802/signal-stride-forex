@@ -74,6 +74,24 @@ interface PricePoint {
 
 // Configuration for different threshold levels
 const THRESHOLD_CONFIGS = {
+  ULTRA: {
+    sequentialTiers: true,
+    allowTier3Cap: false,
+    tier1PassThreshold: 85,        // MAXIMUM: Require 5+ confluences
+    tier1RequiredConfluences: 5,   // 5+ technical confirmations
+    tier2EscalationQuality: 90,    // Elite quality bar
+    tier2EscalationConfidence: 85, // 85%+ confidence required
+    tier3QualityThreshold: 95,     // Ultra-institutional quality
+    tier3ConfidenceThreshold: 90,  // 90%+ confidence for signal publication
+    finalQualityThreshold: 95,     // Final gate quality threshold
+    finalConfidenceThreshold: 90,  // Final gate confidence threshold
+    maxSignalsPerRun: 2,           // Elite precision - max 2 signals per 5min
+    rsiOversoldBuy: 20,            // Ultra-extreme RSI levels
+    rsiOverboughtSell: 80,
+    minRewardRisk: 2.5,            // Minimum 2.5:1 reward/risk ratio
+    atrMinimumMultiplier: 1.5,     // Higher ATR for maximum volatility
+    economicCalendarBuffer: 90,    // Avoid signals 90min before/after high impact news
+  },
   HIGH: {
     sequentialTiers: true,
     allowTier3Cap: false,
