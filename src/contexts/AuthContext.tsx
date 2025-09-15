@@ -94,7 +94,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isCheckingSubscription, setIsCheckingSubscription] = useState(false);
   const { trackSignup, trackSubscription } = useReferralTracking();
   const { sessionHealth, checkSessionHealth, refreshSession, handleNetworkReconnection } = useSessionMonitor();
-  const { saveAuthState } = useAuthPersistence();
+  const { saveAuthState } = useAuthPersistence(user, session, subscription);
 
   const checkSubscription = async (forceRefresh: boolean = false) => {
     // Get the current session directly instead of relying on state

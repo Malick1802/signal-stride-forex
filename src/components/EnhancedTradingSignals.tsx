@@ -2,6 +2,7 @@
 import React, { useState, memo, useCallback, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { safeGetArray } from '@/utils/supabaseHelpers';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
@@ -68,7 +69,7 @@ const EnhancedTradingSignals = memo(() => {
   const fetchProfessionalSignals = measurePerformance('fetch-professional-signals', async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const result = await supabase
         .from('trading_signals')
         .select(`
           id,
@@ -100,13 +101,13 @@ const EnhancedTradingSignals = memo(() => {
           created_at,
           analysis_text
         `)
-        .eq('status', 'active')
+        .eq('status', 'active' as any)
         .order('created_at', { ascending: false })
         .limit(50);
 
-      if (error) throw error;
-
-      const formattedSignals: ProfessionalSignalData[] = (data || []).map(signal => ({
+      const data = safeGetArray<any>(result);
+      
+      const formattedSignals: ProfessionalSignalData[] = data.map((signal: any) => ({
         id: signal.id,
         symbol: signal.symbol,
         type: signal.type as 'BUY' | 'SELL',

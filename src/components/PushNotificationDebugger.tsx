@@ -223,13 +223,12 @@ export const PushNotificationDebugger = () => {
         .from('profiles')
         .upsert(
           {
-            id: user.id,
             push_token: testToken,
             device_type: platform,
             push_enabled: true,
             push_notifications_enabled: true,
             updated_at: new Date().toISOString(),
-          },
+          } as any,
           { onConflict: 'id' }
         );
 
@@ -242,7 +241,7 @@ export const PushNotificationDebugger = () => {
         const { data, error: readError } = await supabase
           .from('profiles')
           .select('push_token, device_type, updated_at')
-          .eq('id', user.id)
+          .eq('id', user.id as any)
           .single();
           
         if (readError) {

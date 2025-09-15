@@ -56,8 +56,8 @@ const AppContent = ({ activeTab = 'signals', onTabChange }: AppContentProps = {}
           const { data, error } = await supabase
             .from('user_roles')
             .select('role')
-            .eq('user_id', user.id)
-            .eq('role', 'admin')
+            .eq('user_id', user.id as any)
+            .eq('role', 'admin' as any)
             .maybeSingle();
 
           if (error) {

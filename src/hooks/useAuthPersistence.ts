@@ -1,5 +1,4 @@
 import { useEffect, useRef } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
 import { Capacitor } from '@capacitor/core';
 
 interface BackgroundSync {
@@ -11,8 +10,7 @@ interface BackgroundSync {
 const BACKGROUND_SYNC_INTERVAL = 10 * 60 * 1000; // 10 minutes
 const AUTH_PERSISTENCE_KEY = 'auth_persistence_state';
 
-export const useAuthPersistence = () => {
-  const { user, session, subscription } = useAuth();
+export const useAuthPersistence = (user: any, session: any, subscription: any) => {
   const backgroundSyncRef = useRef<BackgroundSync>({
     isActive: false,
     lastSync: null,

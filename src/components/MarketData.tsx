@@ -32,11 +32,11 @@ const MarketData = () => {
         .select('symbol')
         .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
       
-      const uniquePairs = new Set(pairs?.map(p => p.symbol) || []).size;
+      const uniquePairs = new Set((pairs as any[])?.map((p: any) => p.symbol) || []).size;
       
       setDbStats({
         totalRecords: count || 0,
-        lastUpdate: latest?.[0]?.created_at || null,
+        lastUpdate: (latest as any)?.[0]?.created_at || null,
         pairs: uniquePairs
       });
     } catch (error) {

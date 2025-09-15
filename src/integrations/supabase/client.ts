@@ -11,14 +11,11 @@ const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiO
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
-    storage: typeof window !== 'undefined' ? window.localStorage : undefined,
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    // Enhanced session persistence settings
     flowType: 'pkce',
-    // Longer session timeout for mobile environments
-    sessionStorage: typeof window !== 'undefined' ? {
+    storage: typeof window !== 'undefined' ? {
       getItem: (key: string) => {
         try {
           return localStorage.getItem(key);
@@ -41,9 +38,6 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
         }
       }
     } : undefined,
-    // Enhanced token refresh settings
-    refreshThreshold: 5 * 60, // Start refreshing 5 minutes before expiry
-    refreshRetryInterval: 30, // Retry every 30 seconds if refresh fails
   },
   realtime: {
     params: {
@@ -76,7 +70,7 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
             signal: controller.signal,
             // Add retry-friendly headers
             headers: {
-              ...options.headers,
+              ...((options as any)?.headers || {}),
               'x-retry-attempt': attempt.toString(),
             }
           });
@@ -110,7 +104,7 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
           if (attempt === maxRetries) {
             // Enhanced error information
             const enhancedError = new Error(`Network request failed after ${maxRetries} attempts: ${error.message}`);
-            enhancedError.cause = error;
+            (enhancedError as any).originalError = error;
             throw enhancedError;
           }
           
