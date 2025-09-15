@@ -96,10 +96,15 @@ Deno.serve(async (req) => {
       site_url: string
     }
 
+    // Build proper callback URL that always includes hash route
+    const baseUrl = redirect_to.endsWith('/') ? redirect_to.slice(0, -1) : redirect_to
+    const callbackUrl = `${baseUrl}/#/auth/callback?type=${email_action_type}&token_hash=${token_hash}&email=${encodeURIComponent(user.email)}`
+
     console.log('Auth email webhook triggered:', { 
       email_action_type, 
       user_email: user.email,
       redirect_to,
+      callback_url: callbackUrl,
       from_address: resendFrom,
       from_domain: resendFrom.includes('<') ? resendFrom.split('<')[1].split('>')[0].split('@')[1] : resendFrom.split('@')[1]
     })
@@ -112,7 +117,7 @@ Deno.serve(async (req) => {
       case 'signup':
         html = await renderAsync(
           React.createElement(SignupConfirmationEmail, {
-            confirmationUrl: `${redirect_to}?type=${email_action_type}&token_hash=${token_hash}&email=${encodeURIComponent(user.email)}`,
+            confirmationUrl: callbackUrl,
             userEmail: user.email,
           })
         )
@@ -122,7 +127,7 @@ Deno.serve(async (req) => {
       case 'recovery':
         html = await renderAsync(
           React.createElement(PasswordResetEmail, {
-            resetUrl: `${redirect_to}?type=${email_action_type}&token_hash=${token_hash}&email=${encodeURIComponent(user.email)}`,
+            resetUrl: callbackUrl,
             userEmail: user.email,
           })
         )
@@ -133,7 +138,7 @@ Deno.serve(async (req) => {
         // Fallback for other email types
         html = await renderAsync(
           React.createElement(SignupConfirmationEmail, {
-            confirmationUrl: `${redirect_to}?type=${email_action_type}&token_hash=${token_hash}&email=${encodeURIComponent(user.email)}`,
+            confirmationUrl: callbackUrl,
             userEmail: user.email,
           })
         )
