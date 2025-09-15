@@ -315,16 +315,20 @@ serve(async (req) => {
         let tier2Analysis: ProfessionalSignalAnalysis | null = null;
         try {
           tier2Analysis = await performTier2Analysis(pair, historicalData, tier1Analysis, openAIApiKey, optimalParams);
-          analysisStats.tier2Analyzed++;
           
           if (!tier2Analysis.shouldSignal) {
-            console.log(`❌ TIER 2: ${pair.symbol} rejected by AI analysis`);
-            continue;
+            console.log(`❌ TIER 2: ${pair.symbol} rejected - confidence ${tier2Analysis.confidence}% < 60%`);
+          } else {
+            analysisStats.tier2Passed++;
           }
-          
-          analysisStats.tier2Passed++;
         } catch (error) {
           console.error(`❌ TIER 2: ${pair.symbol} analysis failed:`, error);
+          continue;
+        } finally {
+          analysisStats.tier2Analyzed++;
+        }
+
+        if (!tier2Analysis.shouldSignal) {
           continue;
         }
 
@@ -332,17 +336,19 @@ serve(async (req) => {
         let finalAnalysis: ProfessionalSignalAnalysis;
         try {
           finalAnalysis = await performTier3Analysis(pair, historicalData, tier2Analysis, openAIApiKey, optimalParams);
-          analysisStats.tier3Analyzed++;
           
           if (!finalAnalysis.shouldSignal) {
-            console.log(`❌ TIER 3: ${pair.symbol} rejected by premium analysis`);
+            console.log(`❌ TIER 3: ${pair.symbol} rejected - confidence ${finalAnalysis.confidence}% < 75%`);
             continue;
           }
           
           analysisStats.tier3Passed++;
         } catch (error) {
-          console.error(`❌ TIER 3: ${pair.symbol} analysis failed:`, error);
-          continue;
+          console.error(`❌ TIER 3: ${pair.symbol} analysis failed, using Tier 2 results:`, error);
+          // Gracefully fallback to Tier 2 results if Tier 3 fails
+          finalAnalysis = tier2Analysis;
+        } finally {
+          analysisStats.tier3Analyzed++;
         }
 
         // Convert to signal format and save
@@ -641,6 +647,80 @@ async function performTier1Analysis(
   };
 }
 
+// Extract valid JSON from OpenAI response
+function extractJsonObject(content: string): any {
+  let cleanContent = content.trim();
+  
+  // Remove markdown code block formatting
+  if (cleanContent.startsWith('```json')) {
+    cleanContent = cleanContent.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+  } else if (cleanContent.startsWith('```')) {
+    cleanContent = cleanContent.replace(/^```\n?/, '').replace(/\n?```$/, '');
+  }
+  
+  // Find the first valid JSON object by bracket matching
+  let braceCount = 0;
+  let startIndex = -1;
+  let endIndex = -1;
+  
+  for (let i = 0; i < cleanContent.length; i++) {
+    if (cleanContent[i] === '{') {
+      if (startIndex === -1) startIndex = i;
+      braceCount++;
+    } else if (cleanContent[i] === '}') {
+      braceCount--;
+      if (braceCount === 0 && startIndex !== -1) {
+        endIndex = i;
+        break;
+      }
+    }
+  }
+  
+  if (startIndex !== -1 && endIndex !== -1) {
+    const jsonStr = cleanContent.substring(startIndex, endIndex + 1);
+    return JSON.parse(jsonStr);
+  }
+  
+  // Fallback to direct parsing
+  return JSON.parse(cleanContent);
+}
+
+// Validate required fields for genuine signals
+function validateTier2Fields(analysis: any): { isValid: boolean; missingFields: string[] } {
+  const missingFields: string[] = [];
+  
+  if (!analysis.direction || !['BUY', 'SELL'].includes(analysis.direction)) {
+    missingFields.push('direction (must be BUY or SELL)');
+  }
+  
+  if (typeof analysis.confidence !== 'number' || analysis.confidence < 0 || analysis.confidence > 100) {
+    missingFields.push('confidence (must be number 0-100)');
+  }
+  
+  if (typeof analysis.entry_price !== 'number' || analysis.entry_price <= 0) {
+    missingFields.push('entry_price (must be positive number)');
+  }
+  
+  if (typeof analysis.stop_loss !== 'number' || analysis.stop_loss <= 0) {
+    missingFields.push('stop_loss (must be positive number)');
+  }
+  
+  if (!Array.isArray(analysis.take_profits) || analysis.take_profits.length === 0) {
+    missingFields.push('take_profits (must be non-empty array)');
+  } else if (!analysis.take_profits.every((tp: any) => typeof tp === 'number' && tp > 0)) {
+    missingFields.push('take_profits (all must be positive numbers)');
+  }
+  
+  if (!analysis.analysis || typeof analysis.analysis !== 'string' || analysis.analysis.trim().length === 0) {
+    missingFields.push('analysis (must be non-empty string)');
+  }
+  
+  return {
+    isValid: missingFields.length === 0,
+    missingFields
+  };
+}
+
 // Tier 2 Analysis with optimal parameters awareness
 async function performTier2Analysis(
   pair: MarketData,
@@ -667,17 +747,16 @@ Market Context:
 - Current Session: ${getCurrentSessionText()}
 - Current Price: ${pair.current_price}
 
-Generate a trading signal with:
+Generate a trading signal with ALL required fields:
 1. Signal direction (BUY/SELL)
 2. Confidence level (0-100)
 3. Entry price
 4. Stop loss
-5. Take profit levels
+5. Take profit levels (array of numbers)
 6. Brief analysis
 
-IMPORTANT: Respond with ONLY valid JSON, no markdown formatting or code blocks.
+CRITICAL: You must provide ALL fields. Missing fields will result in signal rejection.
 
-Example format:
 {
   "direction": "BUY",
   "confidence": 75,
@@ -688,6 +767,8 @@ Example format:
 }`;
 
   try {
+    console.log(`🎯 TIER 2 Request: ${pair.symbol}`);
+    
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -697,24 +778,33 @@ Example format:
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
+        response_format: { type: "json_object" },
         temperature: 0.3,
         max_tokens: 800
       })
     });
 
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+    }
+
     const result = await response.json();
     
-    // Extract JSON from OpenAI response, handling markdown code blocks
-    let content = result.choices[0].message.content.trim();
-    
-    // Remove markdown code block formatting if present
-    if (content.startsWith('```json')) {
-      content = content.replace(/^```json\n?/, '').replace(/\n?```$/, '');
-    } else if (content.startsWith('```')) {
-      content = content.replace(/^```\n?/, '').replace(/\n?```$/, '');
+    if (!result.choices?.[0]?.message?.content) {
+      throw new Error('Empty response from OpenAI');
     }
     
-    const analysis = JSON.parse(content);
+    const analysis = extractJsonObject(result.choices[0].message.content);
+    console.log(`📝 TIER 2 Raw Response: ${pair.symbol} - ${JSON.stringify(analysis)}`);
+    
+    // Validate all required fields
+    const validation = validateTier2Fields(analysis);
+    if (!validation.isValid) {
+      console.log(`❌ TIER 2 Validation Failed: ${pair.symbol} - Missing: ${validation.missingFields.join(', ')}`);
+      throw new Error(`Missing required fields: ${validation.missingFields.join(', ')}`);
+    }
+    
+    console.log(`✅ TIER 2 Valid: ${pair.symbol} - ${analysis.direction} @ ${analysis.entry_price}, confidence: ${analysis.confidence}%`);
     
     return {
       symbol: pair.symbol,
@@ -722,10 +812,10 @@ Example format:
       signalType: analysis.direction,
       confidence: analysis.confidence,
       quality: tier1Analysis.confluenceScore,
-      entryPrice: analysis.entry_price || pair.current_price,
+      entryPrice: analysis.entry_price,
       stopLoss: analysis.stop_loss,
-      takeProfits: analysis.take_profits || [],
-      analysis: analysis.analysis || '',
+      takeProfits: analysis.take_profits,
+      analysis: analysis.analysis,
       confluenceFactors: tier1Analysis.signals,
       riskLevel: analysis.confidence >= 80 ? 'LOW' : analysis.confidence >= 65 ? 'MEDIUM' : 'HIGH',
       sessionOptimal: getCurrentSessionText() !== 'Asian',
@@ -734,9 +824,31 @@ Example format:
     };
     
   } catch (error) {
-    console.error('Tier 2 analysis error:', error);
+    console.error(`❌ TIER 2 Error: ${pair.symbol} -`, error);
     throw error;
   }
+}
+
+// Validate required fields for Tier 3 refinement
+function validateTier3Fields(analysis: any): { isValid: boolean; missingFields: string[] } {
+  const missingFields: string[] = [];
+  
+  if (typeof analysis.confidence !== 'number' || analysis.confidence < 0 || analysis.confidence > 100) {
+    missingFields.push('confidence (must be number 0-100)');
+  }
+  
+  if (analysis.analysis && typeof analysis.analysis !== 'string') {
+    missingFields.push('analysis (must be string if provided)');
+  }
+  
+  if (analysis.quality && (typeof analysis.quality !== 'number' || analysis.quality < 0)) {
+    missingFields.push('quality (must be positive number if provided)');
+  }
+  
+  return {
+    isValid: missingFields.length === 0,
+    missingFields
+  };
 }
 
 // Tier 3 Analysis with optimal parameters awareness
@@ -754,6 +866,9 @@ Previous Analysis:
 - Tier 2 Confidence: ${tier2Analysis.confidence}%
 - Signal Type: ${tier2Analysis.signalType}
 - Quality Score: ${tier2Analysis.quality}
+- Entry Price: ${tier2Analysis.entryPrice}
+- Stop Loss: ${tier2Analysis.stopLoss}
+- Take Profits: ${tier2Analysis.takeProfits}
 
 Enhanced Context:
 - Optimal Parameters Available: ${!!optimalParams}
@@ -764,13 +879,21 @@ Perform final validation and refinement for institutional-grade signal quality.
 
 Requirements:
 - Minimum 75% confidence for signal approval
-- Risk-adjusted position sizing
+- Risk-adjusted validation
 - Multi-timeframe confirmation
 - Economic calendar awareness
 
-Respond with refined signal in JSON format.`;
+Provide only refined confidence and analysis. DO NOT change entry price, stop loss, or take profits.
+
+{
+  "confidence": 85,
+  "analysis": "Institutional-grade signal with multi-timeframe confirmation",
+  "quality": 90
+}`;
 
   try {
+    console.log(`🎯 TIER 3 Request: ${pair.symbol}`);
+    
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -780,25 +903,45 @@ Respond with refined signal in JSON format.`;
       body: JSON.stringify({
         model: 'gpt-4o',
         messages: [{ role: 'user', content: prompt }],
+        response_format: { type: "json_object" },
         temperature: 0.1,
         max_tokens: 1000
       })
     });
 
+    if (!response.ok) {
+      throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+    }
+
     const result = await response.json();
-    const refinedAnalysis = JSON.parse(result.choices[0].message.content);
+    
+    if (!result.choices?.[0]?.message?.content) {
+      throw new Error('Empty response from OpenAI');
+    }
+    
+    const refinedAnalysis = extractJsonObject(result.choices[0].message.content);
+    console.log(`📝 TIER 3 Raw Response: ${pair.symbol} - ${JSON.stringify(refinedAnalysis)}`);
+    
+    // Validate required fields
+    const validation = validateTier3Fields(refinedAnalysis);
+    if (!validation.isValid) {
+      console.log(`❌ TIER 3 Validation Failed: ${pair.symbol} - Missing: ${validation.missingFields.join(', ')}`);
+      throw new Error(`Missing required fields: ${validation.missingFields.join(', ')}`);
+    }
+    
+    console.log(`✅ TIER 3 Valid: ${pair.symbol} - confidence: ${refinedAnalysis.confidence}%`);
     
     return {
       ...tier2Analysis,
       shouldSignal: refinedAnalysis.confidence >= 75,
       confidence: refinedAnalysis.confidence,
-      quality: Math.max(tier2Analysis.quality, refinedAnalysis.quality || 0),
+      quality: Math.max(tier2Analysis.quality, refinedAnalysis.quality || tier2Analysis.quality),
       analysis: refinedAnalysis.analysis || tier2Analysis.analysis,
       optimalParametersUsed: optimalParams
     };
     
   } catch (error) {
-    console.error('Tier 3 analysis error:', error);
+    console.error(`❌ TIER 3 Error: ${pair.symbol} -`, error);
     throw error;
   }
 }
