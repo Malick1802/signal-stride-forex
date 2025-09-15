@@ -747,24 +747,14 @@ Market Context:
 - Current Session: ${getCurrentSessionText()}
 - Current Price: ${pair.current_price}
 
-Generate a trading signal with ALL required fields:
-1. Signal direction (BUY/SELL)
-2. Confidence level (0-100)
-3. Entry price
-4. Stop loss
-5. Take profit levels (array of numbers)
-6. Brief analysis
+Generate a trading signal with ALL required fields. RESPONSE MUST BE VALID JSON ONLY.
 
 CRITICAL: You must provide ALL fields. Missing fields will result in signal rejection.
 
-{
-  "direction": "BUY",
-  "confidence": 75,
-  "entry_price": 1.2345,
-  "stop_loss": 1.2300,
-  "take_profits": [1.2400, 1.2450],
-  "analysis": "Strong bullish momentum with RSI oversold recovery"
-}`;
+Required JSON format (minified, no extra text):
+{"direction": "BUY", "confidence": 75, "entry_price": 1.2345, "stop_loss": 1.2300, "take_profits": [1.2400, 1.2450], "analysis": "Strong bullish momentum with RSI oversold recovery"}
+
+RETURN ONLY THE JSON OBJECT. NO ADDITIONAL TEXT OR EXPLANATIONS.`;
 
   try {
     console.log(`🎯 TIER 2 Request: ${pair.symbol}`);
@@ -778,13 +768,14 @@ CRITICAL: You must provide ALL fields. Missing fields will result in signal reje
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [{ role: 'user', content: prompt }],
-        response_format: { type: "json_object" },
         temperature: 0.3,
         max_tokens: 800
       })
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ TIER 2 OpenAI Error: ${pair.symbol} - ${response.status} ${response.statusText} - ${errorText}`);
       throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
     }
 
@@ -901,15 +892,16 @@ Provide only refined confidence and analysis. DO NOT change entry price, stop lo
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o',
+        model: 'gpt-4.1',
         messages: [{ role: 'user', content: prompt }],
         response_format: { type: "json_object" },
-        temperature: 0.1,
-        max_tokens: 1000
+        max_completion_tokens: 1000
       })
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`❌ TIER 3 OpenAI Error: ${pair.symbol} - ${response.status} ${response.statusText} - ${errorText}`);
       throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
     }
 
