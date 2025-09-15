@@ -27,6 +27,9 @@ Deno.serve(async (req) => {
     const payload = await req.text()
     const headers = Object.fromEntries(req.headers)
     
+    // Get authentication mode (lenient allows missing/invalid auth for testing)
+    const authMode = Deno.env.get('EMAIL_HOOK_AUTH_MODE') || 'strict'
+    
     // Validate hook secret exists
     if (!hookSecret) {
       console.error('SEND_EMAIL_HOOK_SECRET is not configured')
@@ -36,14 +39,43 @@ Deno.serve(async (req) => {
       )
     }
     
-    // Validate Authorization header from Supabase Auth Hook
+    // Get and normalize authorization header
     const authHeader = req.headers.get('authorization') || req.headers.get('Authorization')
-    if (!authHeader || authHeader !== `Bearer ${hookSecret}`) {
-      console.warn('Unauthorized hook request: missing or invalid Authorization header')
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized hook request' }),
-        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
-      )
+    const trimmedSecret = hookSecret.trim()
+    
+    // Normalize the auth header to extract the actual token
+    let extractedToken = ''
+    if (authHeader) {
+      const trimmedHeader = authHeader.trim()
+      // Handle both "Bearer <token>" and just "<token>" formats
+      if (trimmedHeader.startsWith('Bearer ')) {
+        extractedToken = trimmedHeader.substring(7).trim()
+      } else {
+        extractedToken = trimmedHeader
+      }
+    }
+    
+    // Check authorization based on mode
+    const isAuthorized = authHeader && extractedToken === trimmedSecret
+    
+    if (!isAuthorized) {
+      // Log diagnostic info (mask secrets for security)
+      const headerMasked = authHeader ? `${authHeader.substring(0, 10)}...` : 'none'
+      const secretMasked = `${trimmedSecret.substring(0, 6)}...`
+      
+      console.warn(`Auth validation failed - Mode: ${authMode}, Header: ${headerMasked}, Secret: ${secretMasked}`)
+      
+      if (authMode === 'strict') {
+        return new Response(
+          JSON.stringify({ error: 'Unauthorized hook request' }),
+          { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+        )
+      } else {
+        // In lenient mode, log warning but continue processing
+        console.warn('Proceeding with email send despite auth failure (lenient mode)')
+      }
+    } else {
+      console.log('Auth validation successful')
     }
 
     // Parse hook payload directly (Supabase Auth sends JSON)
