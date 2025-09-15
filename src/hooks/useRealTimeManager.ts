@@ -109,10 +109,15 @@ class RealTimeManager {
         this.handleChannelStatus('signal-outcomes', status);
       });
 
-    // 3. Market Data Channels - one per major pair
-    const majorPairs = ['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD'];
-    
-    majorPairs.forEach(pair => {
+  // 3. Market Data Channels - all supported trading pairs for full synchronization
+  const allSupportedPairs = [
+    'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
+    'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY',
+    'GBPNZD', 'AUDNZD', 'CADCHF', 'EURAUD', 'EURNZD', 'GBPCAD', 'NZDCAD',
+    'NZDCHF', 'NZDJPY', 'AUDJPY', 'CHFJPY'
+  ];
+  
+  allSupportedPairs.forEach(pair => {
       const marketChannel = supabase
         .channel(`market-data-${pair}`)
         .on(
@@ -230,8 +235,8 @@ class RealTimeManager {
       const now = Date.now();
       const timeSinceHeartbeat = now - this.state.lastHeartbeat;
 
-      // If no heartbeat for 30 seconds, consider disconnected
-      if (timeSinceHeartbeat > 30000 && this.state.isConnected) {
+      // If no heartbeat for 60 seconds, consider disconnected (increased tolerance)
+      if (timeSinceHeartbeat > 60000 && this.state.isConnected) {
         console.warn('💔 Heartbeat timeout detected');
         this.updateState({ isConnected: false });
         this.scheduleReconnect();

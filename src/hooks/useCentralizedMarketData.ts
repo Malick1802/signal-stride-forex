@@ -249,7 +249,7 @@ export const useCentralizedMarketData = (symbol: string) => {
     }
     channelsRef.current = [];
 
-    // Use centralized real-time manager for market data updates
+    // Use centralized real-time manager for direct event-driven updates
     if (marketStatus.isOpen) {
       const unsubscribe = realTimeManager.subscribe('market-data-' + symbol + '-' + Date.now(), (event) => {
         if (event.type === 'market_data_update' && event.data.symbol === symbol) {
@@ -263,13 +263,66 @@ export const useCentralizedMarketData = (symbol: string) => {
           
           console.log(`🔔 [${symbol}] Real-time market update via manager`);
           
-          // Debounce updates based on update type
-          const delay = event.data.type === 'price_tick' ? 200 : 50;
-          setTimeout(() => {
-            if (mountedRef.current) {
-              fetchCentralizedData();
+          // Direct state update from event payload for immediate synchronization
+          if (event.data.new_record) {
+            const payload = event.data.new_record;
+            
+            // Update market data directly from real-time event
+            if (event.data.table === 'centralized_market_state') {
+              const currentPrice = parseFloat((payload.fastforex_price || payload.current_price).toString());
+              
+              setMarketData(prevData => {
+                if (!prevData) return null;
+                
+                return {
+                  ...prevData,
+                  currentPrice,
+                  bid: parseFloat(payload.bid?.toString() || prevData.bid.toString()),
+                  ask: parseFloat(payload.ask?.toString() || prevData.ask.toString()),
+                  lastUpdate: payload.fastforex_timestamp 
+                    ? new Date(payload.fastforex_timestamp).toLocaleTimeString()
+                    : new Date(payload.last_update).toLocaleTimeString()
+                };
+              });
+              
+              setIsConnected(true);
+              setDataSource(`Live Real-time Update - ${new Date().toLocaleTimeString()}`);
+              lastUpdateRef.current = Date.now();
             }
-          }, delay);
+            
+            // Add price history point from live_price_history
+            if (event.data.table === 'live_price_history') {
+              const price = parseFloat(payload.price.toString());
+              const timestamp = new Date(payload.timestamp).getTime();
+              
+              setMarketData(prevData => {
+                if (!prevData) return null;
+                
+                const newPricePoint: PriceData = {
+                  timestamp,
+                  time: new Date(timestamp).toLocaleTimeString('en-US', {
+                    hour12: false,
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit'
+                  }),
+                  price,
+                  volume: Math.random() * 150000 + 80000
+                };
+                
+                const updatedHistory = [...prevData.priceHistory, newPricePoint].slice(-200);
+                
+                return {
+                  ...prevData,
+                  currentPrice: price,
+                  priceHistory: updatedHistory,
+                  lastUpdate: new Date().toLocaleTimeString()
+                };
+              });
+              
+              lastUpdateRef.current = Date.now();
+            }
+          }
         }
       });
 
@@ -293,12 +346,12 @@ export const useCentralizedMarketData = (symbol: string) => {
       const now = Date.now();
       const timeSinceUpdate = now - lastUpdateRef.current;
       
-      // Increased threshold to 2 minutes to reduce server load
+      // Fallback refresh every 2 minutes if no real-time updates
       if (timeSinceUpdate > 120000) {
-        console.log(`⚠️ [${symbol}] Stale FastForex data detected, refreshing...`);
+        console.log(`⚠️ [${symbol}] Fallback refresh - no real-time updates received`);
         fetchCentralizedData();
       }
-    }, 60000); // Reduced frequency to 1 minute
+    }, 120000); // Fallback check every 2 minutes
 
     return () => {
       mountedRef.current = false;
