@@ -20,13 +20,32 @@ const AuthCallback: React.FC = () => {
       console.log('🔗 AuthCallback: Component mounted, processing confirmation...');
       
       try {
-        const token_hash = searchParams.get('token_hash');
-        const type = searchParams.get('type');
-        const redirect_to = searchParams.get('redirect_to');
-        const email = searchParams.get('email');
+        // Extract params from URL - handle both regular and malformed URLs
+        let token_hash = searchParams.get('token_hash');
+        let type = searchParams.get('type');
+        let redirect_to = searchParams.get('redirect_to');
+        let email = searchParams.get('email');
+        
+        // Fallback: extract from full URL if regular search params failed (handles malformed URLs)
+        if (!token_hash || !type) {
+          const fullUrl = window.location.href;
+          if (fullUrl.includes('token_hash=')) {
+            const match = fullUrl.match(/token_hash=([^&]+)/);
+            if (match) token_hash = decodeURIComponent(match[1]);
+          }
+          if (fullUrl.includes('type=')) {
+            const match = fullUrl.match(/type=([^&]+)/);
+            if (match) type = decodeURIComponent(match[1]);
+          }
+          if (fullUrl.includes('email=')) {
+            const match = fullUrl.match(/email=([^&]+)/);
+            if (match) email = decodeURIComponent(match[1]);
+          }
+        }
 
         console.log('🔗 Auth callback params:', { token_hash, type, redirect_to, email });
         console.log('🔗 Full URL search params:', window.location.search);
+        console.log('🔗 Full URL:', window.location.href);
 
         if (!token_hash || !type) {
           setState('error');

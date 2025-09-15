@@ -20,15 +20,33 @@ const AuthRedirectHandler = () => {
   const location = useLocation();
 
   useEffect(() => {
-    // Check if we have auth callback parameters in the URL search params
+    // Handle both regular URL params and hash-based params (for malformed URLs)
+    const fullUrl = window.location.href;
     const urlParams = new URLSearchParams(window.location.search);
-    const tokenHash = urlParams.get('token_hash');
-    const type = urlParams.get('type');
+    
+    // Also check for params in the hash portion (in case of malformed URLs)
+    const hashParams = new URLSearchParams();
+    if (fullUrl.includes('?')) {
+      // Extract params from anywhere in the URL, even after multiple hashes
+      const paramString = fullUrl.split('?').slice(1).join('?');
+      const cleanParamString = paramString.split('#')[0]; // Remove any trailing hash
+      const params = new URLSearchParams(cleanParamString);
+      params.forEach((value, key) => hashParams.set(key, value));
+    }
+    
+    const tokenHash = urlParams.get('token_hash') || hashParams.get('token_hash');
+    const type = urlParams.get('type') || hashParams.get('type');
     
     // If we have confirmation parameters but we're not on the callback route, redirect
     if (tokenHash && type && location.pathname !== '/auth/callback') {
       console.log('🔗 AuthRedirectHandler: Found confirmation params, redirecting to callback');
-      navigate(`/auth/callback${window.location.search}`);
+      const params = new URLSearchParams();
+      params.set('token_hash', tokenHash);
+      params.set('type', type);
+      if (urlParams.get('email') || hashParams.get('email')) {
+        params.set('email', urlParams.get('email') || hashParams.get('email') || '');
+      }
+      navigate(`/auth/callback?${params.toString()}`);
     }
   }, [navigate, location.pathname]);
 

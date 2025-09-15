@@ -96,9 +96,13 @@ Deno.serve(async (req) => {
       site_url: string
     }
 
-    // Build proper callback URL that always includes hash route
+    // Build proper callback URL - avoid double hash routes
     const baseUrl = redirect_to.endsWith('/') ? redirect_to.slice(0, -1) : redirect_to
-    const callbackUrl = `${baseUrl}/#/auth/callback?type=${email_action_type}&token_hash=${token_hash}&email=${encodeURIComponent(user.email)}`
+    
+    // Check if redirect_to already includes the auth callback route
+    const callbackUrl = baseUrl.includes('/#/auth/callback') 
+      ? `${baseUrl}?type=${email_action_type}&token_hash=${token_hash}&email=${encodeURIComponent(user.email)}`
+      : `${baseUrl}/#/auth/callback?type=${email_action_type}&token_hash=${token_hash}&email=${encodeURIComponent(user.email)}`
 
     console.log('Auth email webhook triggered:', { 
       email_action_type, 
