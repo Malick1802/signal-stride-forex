@@ -80,6 +80,7 @@ const SignalGenerationSettings = () => {
       });
 
       if (error) {
+        console.error('RPC Error:', error);
         throw error;
       }
 
@@ -87,11 +88,11 @@ const SignalGenerationSettings = () => {
         title: "Settings Updated",
         description: `Signal generation threshold set to ${currentLevel}`,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving settings:', error);
       toast({
         title: "Error",
-        description: "Failed to save settings",
+        description: error?.message || "Failed to save settings",
         variant: "destructive",
       });
     } finally {
