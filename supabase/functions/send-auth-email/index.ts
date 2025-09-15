@@ -185,6 +185,28 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Error in send-auth-email function:', error)
     
+    // Handle Resend 403 errors (thrown exceptions) gracefully
+    if (error.statusCode === 403 || (error.error && typeof error.error === 'string' && error.error.includes('verify a domain'))) {
+      const errorMessage = `Resend 403 error: ${error.error || error.message || 'Domain verification required'}`
+      console.error(errorMessage)
+      
+      if (authMode === 'lenient') {
+        // In lenient mode, don't crash signup - return 200 but log the issue
+        console.warn('Returning success despite email failure (lenient mode) - signup will proceed')
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            warning: 'Email delivery may have failed - check domain verification',
+            diagnostic: errorMessage 
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json', ...corsHeaders }
+          }
+        )
+      }
+    }
+    
     // Handle webhook signature verification errors
     if (error.message?.includes('signature') || error.message?.includes('verify')) {
       return new Response(
