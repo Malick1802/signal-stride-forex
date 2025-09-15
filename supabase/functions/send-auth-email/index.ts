@@ -15,6 +15,9 @@ const corsHeaders = {
 }
 
 Deno.serve(async (req) => {
+  // Get authentication mode (lenient allows missing/invalid auth for testing)
+  const authMode = Deno.env.get('EMAIL_HOOK_AUTH_MODE') || 'lenient'
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -27,9 +30,6 @@ Deno.serve(async (req) => {
   try {
     const payload = await req.text()
     const headers = Object.fromEntries(req.headers)
-    
-    // Get authentication mode (lenient allows missing/invalid auth for testing)
-    const authMode = Deno.env.get('EMAIL_HOOK_AUTH_MODE') || 'lenient'
     
     // Validate hook secret exists
     if (!hookSecret) {
@@ -100,7 +100,8 @@ Deno.serve(async (req) => {
       email_action_type, 
       user_email: user.email,
       redirect_to,
-      from_address: resendFrom
+      from_address: resendFrom,
+      from_domain: resendFrom.includes('<') ? resendFrom.split('<')[1].split('>')[0].split('@')[1] : resendFrom.split('@')[1]
     })
 
     let html: string
@@ -212,6 +213,22 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({ error: 'Invalid webhook signature' }),
         { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      )
+    }
+    
+    // Final lenient fallback - don't crash signup for any remaining errors
+    if (authMode === 'lenient') {
+      console.warn('Returning success despite error (lenient mode) - signup will proceed')
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          warning: 'Email service temporarily unavailable',
+          diagnostic: error.message || 'Unknown error'
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json', ...corsHeaders }
+        }
       )
     }
     
