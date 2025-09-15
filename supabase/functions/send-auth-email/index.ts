@@ -7,6 +7,7 @@ import { PasswordResetEmail } from './_templates/password-reset.tsx'
 
 const resend = new Resend(Deno.env.get('RESEND_API_KEY') as string)
 const hookSecret = Deno.env.get('SEND_EMAIL_HOOK_SECRET') as string
+const resendFrom = Deno.env.get('RESEND_FROM') || 'ForexAlert Pro <onboarding@resend.dev>'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -98,7 +99,8 @@ Deno.serve(async (req) => {
     console.log('Auth email webhook triggered:', { 
       email_action_type, 
       user_email: user.email,
-      redirect_to 
+      redirect_to,
+      from_address: resendFrom
     })
 
     let html: string
@@ -139,7 +141,7 @@ Deno.serve(async (req) => {
     }
 
     const { data, error } = await resend.emails.send({
-      from: 'ForexAlert Pro <onboarding@resend.dev>',
+      from: resendFrom,
       to: [user.email],
       subject,
       html,
@@ -147,6 +149,29 @@ Deno.serve(async (req) => {
 
     if (error) {
       console.error('Resend error:', error)
+      
+      // Handle Resend 403 errors (domain verification issues) gracefully
+      if (error.statusCode === 403) {
+        const errorMessage = `Resend 403 error: ${error.error || 'Domain verification required'}`
+        console.error(errorMessage)
+        
+        if (authMode === 'lenient') {
+          // In lenient mode, don't crash signup - return 200 but log the issue
+          console.warn('Returning success despite email failure (lenient mode) - signup will proceed')
+          return new Response(
+            JSON.stringify({ 
+              success: true, 
+              warning: 'Email delivery may have failed - check domain verification',
+              diagnostic: errorMessage 
+            }),
+            {
+              status: 200,
+              headers: { 'Content-Type': 'application/json', ...corsHeaders }
+            }
+          )
+        }
+      }
+      
       throw error
     }
 
