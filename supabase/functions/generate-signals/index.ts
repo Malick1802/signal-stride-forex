@@ -266,8 +266,18 @@ serve(async (req) => {
     const availablePairs = marketData
       .filter(d => d.symbol && d.current_price > 0)
       .filter(d => !existingSignals?.some(s => s.symbol === d.symbol));
-
-    const selectedPairs = availablePairs.slice(0, 24); // Analyze top 24 pairs
+    
+    // Filter out symbols with insufficient historical data (need >= 50 points)
+    const pairsWithHistory = availablePairs.filter(d => {
+      const hist = historicalData.get(d.symbol) || [];
+      if (hist.length < 50) {
+        console.log(`⚠️ Skipping ${d.symbol}: insufficient history (${hist.length})`);
+        return false;
+      }
+      return true;
+    });
+    
+    const selectedPairs = pairsWithHistory.slice(0, 24); // Analyze top 24 pairs with adequate history
     console.log(`🔥 PROFESSIONAL MODE: Analyzing ${selectedPairs.length} pairs with 3-tier system`);
 
     // 3-Tier Professional Analysis Pipeline
@@ -507,6 +517,7 @@ async function performTier1Analysis(
 
   const historicalData = historicalDataMap.get(pair.symbol) || [];
   if (historicalData.length < 50) {
+    console.log(`⚠️ Tier1 skipped ${pair.symbol}: insufficient_data (${historicalData.length})`);
     return { confluenceScore: 0, signals: [], details: { error: 'insufficient_data' } };
   }
 
@@ -525,8 +536,12 @@ async function performTier1Analysis(
   const currentEMASlow = emaSlow[emaSlow.length - 1];
   const currentATR = atr[atr.length - 1];
 
+  // Pip size heuristic by symbol
+  const pipSize = pair.symbol.endsWith('JPY') ? 0.01 : 0.0001;
+
   let confluenceScore = 0;
-  const signals = [];
+  const signals: string[] = [];
+  const failReasons: string[] = [];
 
   // RSI confluence (20 points max)
   if (currentRSI <= RSI_OVERSOLD) {
@@ -535,28 +550,46 @@ async function performTier1Analysis(
   } else if (currentRSI >= RSI_OVERBOUGHT) {
     confluenceScore += 20;
     signals.push('RSI_OVERBOUGHT');
+  } else {
+    failReasons.push(`RSI neutral (${currentRSI?.toFixed(2)})`);
   }
 
-  // EMA confluence (25 points max)
+  // EMA confluence (25 points max, +10 neutral if near-crossover)
+  const emaDiff = Math.abs(currentEMAFast - currentEMASlow);
+  const emaNearEpsilon = pipSize * 2;
   if (currentEMAFast > currentEMASlow) {
     confluenceScore += 25;
     signals.push('EMA_BULLISH');
   } else if (currentEMAFast < currentEMASlow) {
     confluenceScore += 25;
     signals.push('EMA_BEARISH');
+  } else if (emaDiff <= emaNearEpsilon) {
+    confluenceScore += 10;
+    signals.push('EMA_NEUTRAL');
+  } else {
+    failReasons.push(`EMA unaligned (Δ=${emaDiff.toFixed(6)})`);
   }
 
-  // Volatility confluence (15 points max)
-  if (currentATR > 0.001) {
+  // Volatility confluence (15 points max) - adequacy vs pip size
+  const atrAdequacy = pipSize * 0.5;
+  if (currentATR > atrAdequacy) {
     confluenceScore += 15;
     signals.push('VOLATILITY_ADEQUATE');
+  } else {
+    failReasons.push(`Low ATR (${currentATR?.toFixed(6)} <= ${atrAdequacy.toFixed(6)})`);
   }
 
-  // Price action confluence (20 points max)
-  const priceChange = (pair.current_price - prices[prices.length - 2]) / prices[prices.length - 2];
-  if (Math.abs(priceChange) > 0.001) {
+  // Price action confluence (20 points max) - 0.02% or 0.5x ATR
+  const prevClose = prices[prices.length - 2];
+  const priceDelta = Math.abs(pair.current_price - prevClose);
+  const changeRatio = Math.abs((pair.current_price - prevClose) / prevClose);
+  const momentumByRatio = changeRatio > 0.0002; // 0.02%
+  const momentumByAtr = priceDelta > 0.5 * currentATR;
+  if (momentumByRatio || momentumByAtr) {
     confluenceScore += 20;
     signals.push('PRICE_MOMENTUM');
+  } else {
+    failReasons.push(`Weak momentum (Δ=${priceDelta.toFixed(6)}, %=${(changeRatio*100).toFixed(3)}%)`);
   }
 
   // Session confluence (20 points max)
@@ -565,16 +598,28 @@ async function performTier1Analysis(
   confluenceScore += sessionBonus;
   signals.push(`SESSION_${session.toUpperCase()}`);
 
+  const finalScore = Math.min(confluenceScore, 100);
+
+  if (finalScore < (optimalParams?.min_confluence_score || 0)) {
+    failReasons.push(`Below pair min_confluence_score ${optimalParams?.min_confluence_score}`);
+  }
+
   return {
-    confluenceScore: Math.min(confluenceScore, 100),
+    confluenceScore: finalScore,
     signals,
     details: {
       rsi: currentRSI,
       ema_fast: currentEMAFast,
       ema_slow: currentEMASlow,
+      ema_diff: emaDiff,
       atr: currentATR,
+      atr_adequacy_threshold: atrAdequacy,
+      pip_size: pipSize,
+      price_delta: priceDelta,
+      price_change_ratio: changeRatio,
       session,
-      parameters_used: params
+      parameters_used: params,
+      fail_reasons: failReasons
     }
   };
 }
