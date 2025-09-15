@@ -56,7 +56,6 @@ interface SignalData {
   take_profits: number[];
   confidence: number;
   analysis_text: string;
-  timeframe: string;
   timestamp: string;
   status: string;
   is_centralized: boolean;
@@ -365,9 +364,21 @@ serve(async (req) => {
           optimal_params_available: !!optimalParams
         };
         
+        // Whitelist only valid database columns to prevent schema mismatches
+        const validColumns = [
+          "symbol", "type", "price", "stop_loss", "take_profits", "confidence", 
+          "analysis_text", "timestamp", "status", "is_centralized", "user_id", 
+          "final_quality", "risk_reward_ratio", "t1_confirmations", "session_optimal", 
+          "market_context", "pips", "t2_confidence", "t3_confidence"
+        ];
+        
+        const filteredSignalData = Object.fromEntries(
+          Object.entries(signalData).filter(([key]) => validColumns.includes(key))
+        );
+        
         const { error: insertError } = await supabase
           .from('trading_signals')
-          .insert(signalData);
+          .insert(filteredSignalData);
         
         if (insertError) {
           console.error(`❌ Failed to save signal for ${pair.symbol}:`, insertError);
@@ -952,7 +963,6 @@ function convertProfessionalAnalysisToSignal(analysis: ProfessionalSignalAnalysi
     take_profits: analysis.takeProfits,
     confidence: analysis.confidence,
     analysis_text: analysis.analysis,
-    timeframe: '1H',
     timestamp: new Date().toISOString(),
     status: 'active',
     is_centralized: true,
@@ -962,6 +972,7 @@ function convertProfessionalAnalysisToSignal(analysis: ProfessionalSignalAnalysi
     t1_confirmations: analysis.confluenceFactors || [],
     session_optimal: analysis.sessionOptimal || false,
     market_context: {
+      timeframe: '1H',
       conditions: analysis.marketConditions,
       optimal_parameters_used: analysis.optimalParametersUsed,
       session: analysis.sessionOptimal
