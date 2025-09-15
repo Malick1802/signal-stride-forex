@@ -12,8 +12,6 @@ export const EnhancedMobileInitializer: React.FC<EnhancedMobileInitializerProps>
   onInitializationComplete,
   onStatusUpdate 
 }) => {
-  const [initStatus, setInitStatus] = useState<string>('');
-  
   const { 
     startBackgroundTask,
     requestBatteryOptimizationExemption,
@@ -38,19 +36,19 @@ export const EnhancedMobileInitializer: React.FC<EnhancedMobileInitializerProps>
     
     const initializeEnhancedFeatures = async () => {
       try {
-        setInitStatus('Configuring battery optimization...');
+        console.log('Configuring battery optimization...');
         onStatusUpdate?.('Configuring battery optimization...');
         
         // Request battery optimization exemption
         await requestBatteryOptimizationExemption();
         
-        setInitStatus('Setting up enhanced notifications...');
+        console.log('Setting up enhanced notifications...');
         onStatusUpdate?.('Setting up enhanced notifications...');
         
         // Initialize enhanced push notifications
         await EnhancedMobileNotificationManager.initializeEnhancedPushNotifications();
         
-        setInitStatus('Configuring background tasks...');
+        console.log('Configuring background tasks...');
         onStatusUpdate?.('Configuring background tasks...');
         
         // Set up background sync task
@@ -59,7 +57,7 @@ export const EnhancedMobileInitializer: React.FC<EnhancedMobileInitializerProps>
           // Background sync logic would go here
         });
         
-        setInitStatus('Configuring status bar...');
+        console.log('Configuring status bar...');
         onStatusUpdate?.('Configuring status bar...');
         
         // Configure status bar with delay
@@ -72,7 +70,6 @@ export const EnhancedMobileInitializer: React.FC<EnhancedMobileInitializerProps>
           } catch (error) {
             console.warn('⚠️ Status bar configuration failed (non-critical):', error);
           }
-          setInitStatus('');
           onStatusUpdate?.('');
         }, 2000);
         
@@ -81,7 +78,6 @@ export const EnhancedMobileInitializer: React.FC<EnhancedMobileInitializerProps>
         
       } catch (error) {
         console.error('❌ Enhanced mobile initialization failed:', error);
-        setInitStatus(`Initialization failed: ${error}`);
         onStatusUpdate?.(`Initialization failed: ${error}`);
         // Still call completion to prevent blocking
         onInitializationComplete?.();
@@ -92,20 +88,6 @@ export const EnhancedMobileInitializer: React.FC<EnhancedMobileInitializerProps>
     setTimeout(initializeEnhancedFeatures, 1000);
 
   }, [onInitializationComplete, onStatusUpdate, requestBatteryOptimizationExemption, startBackgroundTask]);
-
-  // Only show status on native platforms
-  if (!Capacitor.isNativePlatform()) {
-    return null;
-  }
-
-  // Show initialization status as a small overlay
-  if (initStatus) {
-    return (
-      <div className="fixed top-4 right-4 z-50 bg-black/80 text-white text-xs px-3 py-2 rounded-lg max-w-48">
-        {initStatus}
-      </div>
-    );
-  }
 
   return null;
 };
