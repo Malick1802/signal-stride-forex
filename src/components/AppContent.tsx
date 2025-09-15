@@ -14,6 +14,7 @@ import { useSignalNotifications } from '@/hooks/useSignalNotifications';
 
 // Direct import to avoid lazy loading issues
 import Dashboard from './Dashboard';
+import { EnhancedNotificationCenter } from './EnhancedNotificationCenter';
 
 const LazySubscriptionPage = lazy(() => import('./SubscriptionPage').catch(error => {
   console.error('🚨 Failed to load SubscriptionPage:', error);
@@ -30,7 +31,7 @@ const LazyAdminDashboard = lazy(() => import('./AdminDashboard').catch(error => 
   return { default: () => <LazyLoadFallback error={error} componentName="Admin Dashboard" /> };
 }));
 
-type ViewType = 'landing' | 'auth' | 'dashboard' | 'subscription' | 'affiliate' | 'admin';
+type ViewType = 'landing' | 'auth' | 'dashboard' | 'subscription' | 'affiliate' | 'admin' | 'notifications';
 
 interface AppContentProps {
   activeTab?: string;
@@ -148,6 +149,8 @@ const AppContent = ({ activeTab = 'signals', onTabChange }: AppContentProps = {}
       navigateToAffiliate();
     } else if (tab === 'admin') {
       navigateToAdmin();
+    } else if (tab === 'notifications') {
+      setCurrentView('notifications');
     } else {
       // Stay on dashboard but change tab
       setCurrentView('dashboard');
@@ -198,6 +201,9 @@ const AppContent = ({ activeTab = 'signals', onTabChange }: AppContentProps = {}
               activeTab={activeTab}
               onTabChange={onTabChange || handleTabChange}
             />
+          )}
+          {currentView === 'notifications' && (
+            <EnhancedNotificationCenter />
           )}
           <Suspense fallback={<MobileLoadingScreen message={`Loading ${currentView}...`} />}>
             {currentView === 'subscription' && (

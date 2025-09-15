@@ -4,6 +4,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMobileNotificationManager } from './useMobileNotificationManager';
 import { useNotifications } from './useNotifications';
+import { useNotificationReliability } from './useNotificationReliability';
+import { useEnhancedAuthRecovery } from './useEnhancedAuthRecovery';
 
 export const useSignalNotifications = () => {
   const { user } = useAuth();
@@ -15,6 +17,8 @@ export const useSignalNotifications = () => {
     sendMarketUpdateNotification
   } = useMobileNotificationManager();
   const { createNotification } = useNotifications();
+  const { queueNotification } = useNotificationReliability();
+  const { createReliableSupabaseCall } = useEnhancedAuthRecovery();
 
   // Listen for new trading signals
   useEffect(() => {
@@ -36,7 +40,15 @@ export const useSignalNotifications = () => {
           const signal = payload.new;
           console.log('🚨 New signal detected for notifications:', signal);
           
-          // Send notification for new signal
+          // Queue notification for reliable delivery
+          queueNotification({
+            type: 'signal',
+            title: `🚨 New ${signal.type} Signal`,
+            body: `${signal.symbol} - Entry: ${signal.price}`,
+            data: { signal, source: 'realtime' }
+          });
+          
+          // Also send through existing system as backup
           await sendNewSignalNotification(signal);
         }
       )
@@ -62,6 +74,15 @@ export const useSignalNotifications = () => {
             
             if (targetPrice) {
               console.log(`🎯 Target ${latestTarget} hit for ${signal.symbol}`);
+              
+              // Queue notification for reliable delivery
+              queueNotification({
+                type: 'target',
+                title: `🎯 Target ${latestTarget} Hit!`,
+                body: `${signal.symbol} reached TP${latestTarget} at ${targetPrice.toFixed(5)}`,
+                data: { signal, targetLevel: latestTarget, price: targetPrice, source: 'realtime' }
+              });
+              
               await sendTargetHitNotification(signal, latestTarget, targetPrice);
             }
           }
@@ -70,12 +91,15 @@ export const useSignalNotifications = () => {
           if (oldSignal.status === 'active' && signal.status === 'expired') {
             console.log(`📊 Signal ${signal.symbol} completed/expired`);
             
-            // Check for signal outcome to determine profit/loss
-            const { data: outcome } = await supabase
-              .from('signal_outcomes')
-              .select('*')
-              .eq('signal_id', signal.id)
-              .single();
+            // Check for signal outcome to determine profit/loss using reliable call
+            const result = await createReliableSupabaseCall(() =>
+              supabase
+                .from('signal_outcomes')
+                .select('*')
+                .eq('signal_id', signal.id)
+                .single()
+            ) as { data: any };
+            const outcome = result?.data;
             
             if (outcome) {
               const pips = outcome.pnl_pips || 0;
@@ -110,12 +134,15 @@ export const useSignalNotifications = () => {
           const outcome = payload.new;
           console.log('📈 Signal outcome detected:', outcome);
           
-          // Get the signal details
-          const { data: signal } = await supabase
-            .from('trading_signals')
-            .select('*')
-            .eq('id', outcome.signal_id)
-            .single();
+          // Get the signal details using reliable call
+          const result = await createReliableSupabaseCall(() =>
+            supabase
+              .from('trading_signals')
+              .select('*')
+              .eq('id', outcome.signal_id)
+              .single()
+          ) as { data: any };
+          const signal = result?.data;
           
           if (signal) {
             const pips = outcome.pnl_pips || 0;
