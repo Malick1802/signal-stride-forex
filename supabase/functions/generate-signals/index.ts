@@ -298,7 +298,14 @@ serve(async (req) => {
         console.log(`🔍 TIER 1: ${pair.symbol} - Score: ${tier1Analysis.confluenceScore}/100 (Pass: ${tier1Threshold}+)`);
         
         if (tier1Analysis.confluenceScore < tier1Threshold) {
+          const details = tier1Analysis.details;
           console.log(`❌ TIER 1: ${pair.symbol} failed pre-screening (${tier1Analysis.confluenceScore}/100)`);
+          console.log(`   📊 Diagnostics: RSI=${details.rsi?.toFixed(2)}, EMA_fast=${details.ema_fast?.toFixed(5)}, EMA_slow=${details.ema_slow?.toFixed(5)}`);
+          console.log(`   📈 ATR=${details.atr?.toFixed(6)}, pip_size=${details.pip_size}, price_Δ=${details.price_delta?.toFixed(6)}`);
+          console.log(`   💫 Session=${details.session}, change%=${(details.price_change_ratio*100)?.toFixed(3)}%`);
+          if (details.fail_reasons?.length > 0) {
+            console.log(`   ❌ Fail reasons: ${details.fail_reasons.join(', ')}`);
+          }
           continue;
         }
         
@@ -447,55 +454,65 @@ function getCurrentSessionText(): string {
   return 'New York';
 }
 
-// Enhanced historical data fetching - Updated to use live_price_history
+// Enhanced historical data fetching - Per symbol to bypass 1000-row API cap
 async function getEnhancedHistoricalData(supabase: any, symbols: string[]) {
-  const historicalData = new Map();
+  console.log(`🔍 Fetching historical data per symbol (${symbols.length} symbols) from live_price_history...`);
+  console.log(`📈 historyFetchMode=per-symbol (200 rows each to bypass 1000-row cap)`);
   
-  try {
-    console.log(`🔍 Fetching historical data for ${symbols.length} symbols from live_price_history...`);
+  const historicalData = new Map();
+  const fetchPromises: Promise<void>[] = [];
+  
+  // Process symbols in batches to control concurrency
+  const batchSize = 8;
+  for (let i = 0; i < symbols.length; i += batchSize) {
+    const batch = symbols.slice(i, i + batchSize);
     
-    const { data, error } = await supabase
-      .from('live_price_history')
-      .select('symbol, price, timestamp')
-      .in('symbol', symbols)
-      .order('timestamp', { ascending: false })
-      .limit(5000); // Increased limit to ensure we get enough data per symbol
-    
-    if (error) {
-      console.error('❌ Error fetching historical data:', error);
-      return historicalData;
-    }
-    
-    if (!data || data.length === 0) {
-      console.warn('⚠️ No historical data available in live_price_history');
-      return historicalData;
-    }
-    
-    console.log(`✅ Retrieved ${data.length} historical price points`);
-    
-    // Group by symbol and transform data structure
-    symbols.forEach(symbol => {
-      const symbolData = data
-        .filter(d => d.symbol === symbol)
-        .slice(0, 200) // Take latest 200 points per symbol
-        .map(d => ({
-          symbol: d.symbol,
-          timestamp: d.timestamp,
-          close_price: d.price,
-          high_price: d.price, // Use price for all OHLC since it's tick data
-          low_price: d.price,
-          open_price: d.price
-        }))
-        .reverse(); // Reverse to get chronological order for technical analysis
-      
-      historicalData.set(symbol, symbolData);
-      console.log(`📊 ${symbol}: ${symbolData.length} data points`);
+    const batchPromises = batch.map(async (symbol) => {
+      try {
+        const { data, error } = await supabase
+          .from('live_price_history')
+          .select('symbol, timestamp, price')
+          .eq('symbol', symbol)
+          .order('timestamp', { ascending: false })
+          .limit(200);
+        
+        if (error) {
+          console.error(`❌ Historical data fetch error for ${symbol}:`, error);
+          return;
+        }
+        
+        if (!data || data.length === 0) {
+          console.log(`⚠️ No historical data for ${symbol}`);
+          return;
+        }
+        
+        // Transform to required format and sort chronologically
+        const symbolData = data
+          .reverse() // Get chronological order for technical analysis
+          .map(d => ({
+            symbol: d.symbol,
+            timestamp: d.timestamp,
+            close_price: d.price,
+            high_price: d.price, // Use price for all OHLC since it's tick data
+            low_price: d.price,
+            open_price: d.price
+          }));
+        
+        console.log(`📊 ${symbol}: ${symbolData.length} data points`);
+        historicalData.set(symbol, symbolData);
+        
+      } catch (err) {
+        console.error(`❌ Failed to fetch data for ${symbol}:`, err);
+      }
     });
     
-  } catch (error) {
-    console.error('❌ Error in getEnhancedHistoricalData:', error);
+    fetchPromises.push(...batchPromises);
+    
+    // Wait for current batch before starting next (respect concurrency limits)
+    await Promise.all(batchPromises);
   }
   
+  console.log(`✅ Retrieved historical data for ${historicalData.size}/${symbols.length} symbols`);
   return historicalData;
 }
 
