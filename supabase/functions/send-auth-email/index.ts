@@ -26,7 +26,27 @@ Deno.serve(async (req) => {
   try {
     const payload = await req.text()
     const headers = Object.fromEntries(req.headers)
-    const wh = new Webhook(hookSecret)
+    
+    // Handle potential Base64 encoding issues with hook secret
+    let processedHookSecret = hookSecret
+    if (!processedHookSecret) {
+      console.error('SEND_EMAIL_HOOK_SECRET is not configured')
+      return new Response(
+        JSON.stringify({ error: 'Email service configuration error' }),
+        { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      )
+    }
+    
+    // Try to decode if it looks like Base64, otherwise use as-is
+    try {
+      if (processedHookSecret.length % 4 === 0 && /^[A-Za-z0-9+/]*={0,2}$/.test(processedHookSecret)) {
+        processedHookSecret = atob(processedHookSecret)
+      }
+    } catch (e) {
+      console.warn('Hook secret Base64 decode failed, using as plain text:', e.message)
+    }
+    
+    const wh = new Webhook(processedHookSecret)
     
     const {
       user,
@@ -109,6 +129,15 @@ Deno.serve(async (req) => {
 
   } catch (error) {
     console.error('Error in send-auth-email function:', error)
+    
+    // Handle webhook signature verification errors
+    if (error.message?.includes('signature') || error.message?.includes('verify')) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid webhook signature' }),
+        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      )
+    }
+    
     return new Response(
       JSON.stringify({
         error: {

@@ -75,9 +75,23 @@ Deno.serve(async (req) => {
     if (deleteError) {
       console.error('Error deleting user:', deleteError)
       return new Response(
-        JSON.stringify({ error: 'Failed to delete user', details: deleteError.message }), 
+        JSON.stringify({ 
+          error: 'Failed to delete user', 
+          details: deleteError.message,
+          code: deleteError.code || 'AUTH_DELETE_ERROR'
+        }), 
         { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       )
+    }
+
+    // Clean up any remaining public data that might not cascade
+    try {
+      await supabaseAdmin.from('profiles').delete().eq('id', userId)
+      await supabaseAdmin.from('user_roles').delete().eq('user_id', userId)
+      console.log('Cleaned up related public data for user:', userId)
+    } catch (cleanupError) {
+      console.warn('Error cleaning up public data (may not exist):', cleanupError)
+      // Don't fail the whole operation for cleanup errors
     }
 
     console.log('User deleted successfully:', userId)

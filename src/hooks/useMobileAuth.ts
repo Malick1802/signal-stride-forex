@@ -130,8 +130,8 @@ export const useMobileAuth = () => {
           friendlyError = 'Password must be at least 6 characters long.';
         } else if (friendlyError.includes('Network')) {
           friendlyError = 'Network error. Please check your connection and try again.';
-        } else if (friendlyError.includes('hook')) {
-          friendlyError = 'Email service configuration issue. Please contact support or try again later.';
+        } else if (friendlyError.includes('hook') || friendlyError.includes('service configuration')) {
+          friendlyError = 'Email service temporarily unavailable. Please try again in a few minutes or contact support.';
         }
         
         setMobileAuthState(prev => ({ ...prev, authError: friendlyError }));
