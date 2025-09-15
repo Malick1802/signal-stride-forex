@@ -354,14 +354,14 @@ serve(async (req) => {
         // Convert to signal format and save
         const signalData = convertProfessionalAnalysisToSignal(finalAnalysis, pair);
         
-        // Store the parameters used for this signal for performance tracking
-        signalData.metadata = {
-          ...signalData.metadata,
+        // Store analysis data in proper database columns
+        signalData.t2_confidence = tier2Analysis.confidence;
+        signalData.t3_confidence = finalAnalysis.confidence;
+        signalData.market_context = {
+          ...signalData.market_context,
           parameters_used: optimalParams || getDefaultParameters(),
           market_session: currentSession,
           tier1_score: tier1Analysis.confluenceScore,
-          tier2_confidence: tier2Analysis.confidence,
-          tier3_confidence: finalAnalysis.confidence,
           optimal_params_available: !!optimalParams
         };
         
@@ -957,14 +957,16 @@ function convertProfessionalAnalysisToSignal(analysis: ProfessionalSignalAnalysi
     status: 'active',
     is_centralized: true,
     user_id: null,
-    metadata: {
-      quality_score: analysis.quality,
-      risk_level: analysis.riskLevel,
-      confluence_factors: analysis.confluenceFactors,
-      session_optimal: analysis.sessionOptimal,
-      market_conditions: analysis.marketConditions,
-      optimal_parameters_used: analysis.optimalParametersUsed
-    }
+    final_quality: analysis.quality || 0,
+    risk_reward_ratio: analysis.riskLevel === 'high' ? 3.0 : analysis.riskLevel === 'medium' ? 2.0 : 1.0,
+    t1_confirmations: analysis.confluenceFactors || [],
+    session_optimal: analysis.sessionOptimal || false,
+    market_context: {
+      conditions: analysis.marketConditions,
+      optimal_parameters_used: analysis.optimalParametersUsed,
+      session: analysis.sessionOptimal
+    },
+    pips: 0 // Will be calculated by monitoring system
   };
 }
 
