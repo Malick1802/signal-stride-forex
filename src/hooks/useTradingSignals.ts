@@ -428,54 +428,31 @@ export const useTradingSignals = () => {
   useEffect(() => {
     fetchSignals();
     
-    // Optimized real-time subscriptions with retry logic
-    let reconnectAttempts = 0;
-    const maxReconnectAttempts = 3;
-    
-    const createSignalsChannel = () => {
-      const signalsChannel = supabase
-        .channel(`pure-market-signals-${Date.now()}`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'trading_signals',
-            filter: 'is_centralized=eq.true'
-          },
-          (payload) => {
-            Logger.debug('signals', `Signal update detected:`, payload.eventType);
-            // Debounce updates to prevent excessive fetching
-            setTimeout(fetchSignals, 1000);
-          }
-        )
-        .subscribe((status) => {
-          Logger.debug('signals', `Signals subscription status: ${status}`);
-          if (status === 'SUBSCRIBED') {
-            Logger.info('signals', `Signal updates connected (up to ${MAX_ACTIVE_SIGNALS} pure market signals)`);
-            reconnectAttempts = 0; // Reset on successful connection
-          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            Logger.error('signals', 'Signal subscription failed');
-            
-            if (reconnectAttempts < maxReconnectAttempts) {
-              reconnectAttempts++;
-              const retryDelay = 5000 * reconnectAttempts; // Exponential backoff
-              Logger.info('signals', `Reconnecting in ${retryDelay}ms (attempt ${reconnectAttempts})`);
-              
-              setTimeout(() => {
-                supabase.removeChannel(signalsChannel);
-                createSignalsChannel();
-              }, retryDelay);
-            } else {
-              Logger.error('signals', 'Max reconnection attempts reached');
-            }
-          }
-        });
-      
-      return signalsChannel;
-    };
-    
-    const signalsChannel = createSignalsChannel();
+    // Optimized real-time subscriptions
+    const signalsChannel = supabase
+      .channel(`pure-market-signals-${Date.now()}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'trading_signals',
+          filter: 'is_centralized=eq.true'
+        },
+        (payload) => {
+          Logger.debug('signals', `Signal update detected:`, payload.eventType);
+          setTimeout(fetchSignals, 300);
+        }
+      )
+      .subscribe((status) => {
+        Logger.debug('signals', `Signals subscription status: ${status}`);
+        if (status === 'SUBSCRIBED') {
+          Logger.info('signals', `Signal updates connected (up to ${MAX_ACTIVE_SIGNALS} pure market signals)`);
+        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+          Logger.error('signals', 'Signal subscription failed, attempting to reconnect...');
+          setTimeout(fetchSignals, 2000);
+        }
+      });
 
     // Subscribe to signal outcomes
     const outcomesChannel = supabase

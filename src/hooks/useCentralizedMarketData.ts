@@ -306,12 +306,11 @@ export const useCentralizedMarketData = (symbol: string) => {
               return;
             }
             console.log(`📈 [${symbol}] Real-time price tick received`);
-            // Debounce real-time updates
             setTimeout(() => {
               if (mountedRef.current) {
                 fetchCentralizedData();
               }
-            }, 200);
+            }, 10);
           }
         )
         .subscribe((status) => {
@@ -322,7 +321,7 @@ export const useCentralizedMarketData = (symbol: string) => {
       channelsRef.current = [stateChannel, historyChannel];
     }
 
-    // Optimized connection monitoring with reduced frequency
+    // Enhanced connection monitoring with market hours validation
     const healthCheck = setInterval(() => {
       if (!mountedRef.current) return;
       
@@ -338,12 +337,12 @@ export const useCentralizedMarketData = (symbol: string) => {
       const now = Date.now();
       const timeSinceUpdate = now - lastUpdateRef.current;
       
-      // Increased threshold to 2 minutes to reduce server load
-      if (timeSinceUpdate > 120000) {
-        console.log(`⚠️ [${symbol}] Stale FastForex data detected, refreshing...`);
+      // If no FastForex updates for 30 seconds during market hours, force refresh
+      if (timeSinceUpdate > 30000) {
+        console.log(`⚠️ [${symbol}] Stale FastForex data detected during market hours, forcing refresh...`);
         fetchCentralizedData();
       }
-    }, 60000); // Reduced frequency to 1 minute
+    }, 30000);
 
     return () => {
       mountedRef.current = false;

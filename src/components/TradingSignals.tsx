@@ -8,10 +8,10 @@ import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
 import SignalCard from './SignalCard';
 import SignalCardLoading from './SignalCardLoading';
-import ConnectionStatus from './ConnectionStatus';
+import { ProductionConnectionStatus } from './ProductionConnectionStatus';
 import Logger from '@/utils/logger';
 import { useOfflineSignals } from '@/hooks/useOfflineSignals';
-import { useConnectionManager } from '@/hooks/useConnectionManager';
+import { useMobileConnectivity } from '@/hooks/useMobileConnectivity';
 import { useBackgroundSync } from '@/hooks/useBackgroundSync';
 
 const TradingSignals = memo(() => {
@@ -39,9 +39,7 @@ const TradingSignals = memo(() => {
     cacheSignals 
   } = useOfflineSignals();
   
-  // Centralized connection management
-  const { connectionState } = useConnectionManager();
-  const { isSupabaseConnected } = connectionState;
+  const { isConnected } = useMobileConnectivity();
 
   // Background sync setup
   const { performBackgroundSync } = useBackgroundSync({
@@ -50,15 +48,15 @@ const TradingSignals = memo(() => {
     }
   });
 
-  // Determine which signals to display based on connection state
-  const displaySignals = isSupabaseConnected ? signals : cachedSignals;
+  // Determine which signals to display
+  const displaySignals = isConnected ? signals : cachedSignals;
 
   // Cache online signals when they're fetched
   React.useEffect(() => {
-    if (isSupabaseConnected && signals.length > 0) {
+    if (isConnected && signals.length > 0) {
       cacheSignals(signals);
     }
-  }, [signals, isSupabaseConnected, cacheSignals]);
+  }, [signals, isConnected, cacheSignals]);
 
 
   // Force refresh with loading state
@@ -106,7 +104,7 @@ const TradingSignals = memo(() => {
 
   return (
     <div className="space-y-6">
-      <ConnectionStatus />
+      <ProductionConnectionStatus />
       
       {/* Enhanced rendering with offline support */}
       {loading ? (
