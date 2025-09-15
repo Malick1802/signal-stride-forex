@@ -112,20 +112,7 @@ export const useMobileAuth = () => {
         let friendlyError = result.error.message;
         
         if (friendlyError.includes('User already registered') || friendlyError.includes('user_repeated_signup')) {
-          // Auto-resend confirmation email for existing users
-          try {
-            const { supabase } = await import('@/integrations/supabase/client');
-            await supabase.auth.resend({
-              type: 'signup',
-              email: email,
-              options: {
-                emailRedirectTo: `${window.location.origin}/#/auth/callback`
-              }
-            });
-            friendlyError = 'Account already exists. We\'ve sent a new confirmation email to your inbox.';
-          } catch (resendError) {
-            friendlyError = 'An account with this email already exists. Please sign in or check your email for the confirmation link.';
-          }
+          friendlyError = 'An account with this email already exists. Please use the login form to sign in instead.';
         } else if (friendlyError.includes('Password')) {
           friendlyError = 'Password must be at least 6 characters long.';
         } else if (friendlyError.includes('Network')) {
