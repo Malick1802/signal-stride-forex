@@ -55,7 +55,7 @@ interface SignalData {
   stop_loss: number;
   take_profits: number[];
   confidence: number;
-  analysis: string;
+  analysis_text: string;
   timeframe: string;
   timestamp: string;
   status: string;
@@ -317,7 +317,7 @@ serve(async (req) => {
           tier2Analysis = await performTier2Analysis(pair, historicalData, tier1Analysis, openAIApiKey, optimalParams);
           
           if (!tier2Analysis.shouldSignal) {
-            console.log(`❌ TIER 2: ${pair.symbol} rejected - confidence ${tier2Analysis.confidence}% < 60%`);
+            console.log(`❌ TIER 2: ${pair.symbol} rejected - confidence ${tier2Analysis.confidence}% < ${CONFIG.tier2EscalationConfidence}%`);
           } else {
             analysisStats.tier2Passed++;
           }
@@ -338,7 +338,7 @@ serve(async (req) => {
           finalAnalysis = await performTier3Analysis(pair, historicalData, tier2Analysis, openAIApiKey, optimalParams);
           
           if (!finalAnalysis.shouldSignal) {
-            console.log(`❌ TIER 3: ${pair.symbol} rejected - confidence ${finalAnalysis.confidence}% < 75%`);
+            console.log(`❌ TIER 3: ${pair.symbol} rejected - confidence ${finalAnalysis.confidence}% < ${CONFIG.tier3ConfidenceThreshold}%`);
             continue;
           }
           
@@ -799,7 +799,7 @@ RETURN ONLY THE JSON OBJECT. NO ADDITIONAL TEXT OR EXPLANATIONS.`;
     
     return {
       symbol: pair.symbol,
-      shouldSignal: analysis.confidence >= 60,
+      shouldSignal: analysis.confidence >= CONFIG.tier2EscalationConfidence,
       signalType: analysis.direction,
       confidence: analysis.confidence,
       quality: tier1Analysis.confluenceScore,
@@ -869,12 +869,14 @@ Enhanced Context:
 Perform final validation and refinement for institutional-grade signal quality.
 
 Requirements:
-- Minimum 75% confidence for signal approval
+- Minimum ${CONFIG.tier3ConfidenceThreshold}% confidence for signal approval
 - Risk-adjusted validation
 - Multi-timeframe confirmation
 - Economic calendar awareness
 
 Provide only refined confidence and analysis. DO NOT change entry price, stop loss, or take profits.
+
+RETURN ONLY A JSON OBJECT. RESPONSE MUST BE VALID JSON ONLY.
 
 {
   "confidence": 85,
@@ -925,7 +927,7 @@ Provide only refined confidence and analysis. DO NOT change entry price, stop lo
     
     return {
       ...tier2Analysis,
-      shouldSignal: refinedAnalysis.confidence >= 75,
+      shouldSignal: refinedAnalysis.confidence >= CONFIG.tier3ConfidenceThreshold,
       confidence: refinedAnalysis.confidence,
       quality: Math.max(tier2Analysis.quality, refinedAnalysis.quality || tier2Analysis.quality),
       analysis: refinedAnalysis.analysis || tier2Analysis.analysis,
@@ -947,7 +949,7 @@ function convertProfessionalAnalysisToSignal(analysis: ProfessionalSignalAnalysi
     stop_loss: analysis.stopLoss,
     take_profits: analysis.takeProfits,
     confidence: analysis.confidence,
-    analysis: analysis.analysis,
+    analysis_text: analysis.analysis,
     timeframe: '1H',
     timestamp: new Date().toISOString(),
     status: 'active',
