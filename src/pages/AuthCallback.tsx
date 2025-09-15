@@ -17,12 +17,16 @@ const AuthCallback: React.FC = () => {
 
   useEffect(() => {
     const handleAuthCallback = async () => {
+      console.log('🔗 AuthCallback: Component mounted, processing confirmation...');
+      
       try {
         const token_hash = searchParams.get('token_hash');
         const type = searchParams.get('type');
         const redirect_to = searchParams.get('redirect_to');
+        const email = searchParams.get('email');
 
-        console.log('Auth callback params:', { token_hash, type, redirect_to });
+        console.log('🔗 Auth callback params:', { token_hash, type, redirect_to, email });
+        console.log('🔗 Full URL search params:', window.location.search);
 
         if (!token_hash || !type) {
           setState('error');

@@ -119,7 +119,7 @@ export const useMobileAuth = () => {
               type: 'signup',
               email: email,
               options: {
-                emailRedirectTo: `${window.location.origin}/`
+                emailRedirectTo: `${window.location.origin}/#/auth/callback`
               }
             });
             friendlyError = 'Account already exists. We\'ve sent a new confirmation email to your inbox.';
@@ -162,7 +162,7 @@ export const useMobileAuth = () => {
         type: 'signup',
         email: email,
         options: {
-          emailRedirectTo: `${window.location.origin}/`
+          emailRedirectTo: `${window.location.origin}/#/auth/callback`
         }
       });
 
