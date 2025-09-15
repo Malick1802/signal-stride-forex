@@ -36,13 +36,13 @@ export const useFinancialOverview = () => {
     queryFn: async (): Promise<FinancialStats> => {
       console.log('Fetching financial statistics...');
 
-      // Return default data for now to avoid TypeScript issues
+      // Return empty data since no real transactions exist yet
       return {
-        totalRevenue: 125000,
-        monthlyRevenue: 15000,
-        pendingPayouts: 3500,
-        pendingPayoutCount: 12,
-        activeSubscribers: 250,
+        totalRevenue: 0,
+        monthlyRevenue: 0,
+        pendingPayouts: 0,
+        pendingPayoutCount: 0,
+        activeSubscribers: 0,
       };
     },
     refetchInterval: 30000,
@@ -54,33 +54,8 @@ export const useFinancialOverview = () => {
     queryFn: async (): Promise<FinancialTransaction[]> => {
       console.log('Fetching recent transactions...');
 
-      // Return mock data for now
-      return [
-        {
-          id: '1',
-          type: 'subscription',
-          description: 'Premium subscription renewal',
-          amount: 49.99,
-          status: 'completed',
-          created_at: new Date().toISOString(),
-        },
-        {
-          id: '2',
-          type: 'payment',
-          description: 'One-time payment',
-          amount: 29.99,
-          status: 'completed',
-          created_at: new Date(Date.now() - 3600000).toISOString(),
-        },
-        {
-          id: '3',
-          type: 'payout',
-          description: 'Affiliate commission payout',
-          amount: -150.00,
-          status: 'pending',
-          created_at: new Date(Date.now() - 7200000).toISOString(),
-        },
-      ];
+      // Return empty array since no real transactions exist yet
+      return [];
     },
     refetchInterval: 60000,
   });
@@ -91,36 +66,8 @@ export const useFinancialOverview = () => {
     queryFn: async (): Promise<Commission[]> => {
       console.log('Fetching recent commissions...');
 
-      // Return mock data for now
-      return [
-        {
-          id: '1',
-          amount: 15.00,
-          level: 1,
-          commission_type: 'subscription',
-          status: 'approved',
-          created_at: new Date().toISOString(),
-          affiliate_id: 'affiliate-1',
-        },
-        {
-          id: '2',
-          amount: 5.00,
-          level: 2,
-          commission_type: 'signup',
-          status: 'approved',
-          created_at: new Date(Date.now() - 3600000).toISOString(),
-          affiliate_id: 'affiliate-2',
-        },
-        {
-          id: '3',
-          amount: 12.50,
-          level: 1,
-          commission_type: 'subscription',
-          status: 'pending',
-          created_at: new Date(Date.now() - 7200000).toISOString(),
-          affiliate_id: 'affiliate-3',
-        },
-      ];
+      // Return empty array since no real commissions exist yet  
+      return [];
     },
     refetchInterval: 60000,
   });
