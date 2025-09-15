@@ -27,16 +27,37 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     headers: {
       'x-client-info': 'forex-signal-pro-mobile'
     },
-    // Android networking configuration
-    fetch: (url, options = {}) => {
-      // Add timeout and better error handling for Android
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    // Improved networking with exponential backoff
+    fetch: async (url, options = {}) => {
+      const maxRetries = 3;
+      const baseDelay = 1000; // 1 second
       
-      return fetch(url, {
-        ...options,
-        signal: controller.signal,
-      }).finally(() => clearTimeout(timeoutId));
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          // Use native fetch without aggressive timeout
+          const response = await fetch(url, {
+            ...options,
+            // Let the browser/platform handle timeouts naturally
+          });
+          
+          if (!response.ok && attempt < maxRetries) {
+            // Exponential backoff for failed requests
+            const delay = baseDelay * Math.pow(2, attempt - 1);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
+          
+          return response;
+        } catch (error) {
+          if (attempt === maxRetries) throw error;
+          
+          // Exponential backoff for network errors
+          const delay = baseDelay * Math.pow(2, attempt - 1);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+      
+      throw new Error('Max retries exceeded');
     }
   }
 });

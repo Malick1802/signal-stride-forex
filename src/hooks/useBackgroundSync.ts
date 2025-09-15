@@ -41,28 +41,43 @@ export const useBackgroundSync = (options: BackgroundSyncOptions = {}) => {
       // Import supabase here to avoid circular dependencies
       const { supabase } = await import('@/integrations/supabase/client');
       
-      const { data: signals, error } = await supabase
-        .from('trading_signals')
-        .select('*')
-        .eq('status', 'active')
-        .eq('is_centralized', true)
-        .is('user_id', null)
-        .order('confidence', { ascending: false })
-        .limit(20);
+      // Add timeout and retry logic
+      const maxRetries = 2;
+      let lastError = null;
+      
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          const { data: signals, error } = await supabase
+            .from('trading_signals')
+            .select('*')
+            .eq('status', 'active')
+            .eq('is_centralized', true)
+            .is('user_id', null)
+            .order('confidence', { ascending: false })
+            .limit(20);
 
-      if (error) {
-        throw error;
-      }
+          if (error) throw error;
 
-      if (signals && signals.length > 0) {
-        await cacheSignals(signals);
-        console.log(`📡 Background sync completed - ${signals.length} signals cached`);
-        onSignalsFetched?.(signals);
-      } else {
-        console.log('📡 Background sync completed - no signals found');
+          if (signals && signals.length > 0) {
+            await cacheSignals(signals);
+            console.log(`📡 Background sync completed - ${signals.length} signals cached`);
+            onSignalsFetched?.(signals);
+          } else {
+            console.log('📡 Background sync completed - no signals found');
+          }
+          return; // Success, exit retry loop
+        } catch (error) {
+          lastError = error;
+          if (attempt < maxRetries) {
+            console.log(`📡 Retry ${attempt}/${maxRetries} after error:`, error);
+            await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
+          }
+        }
       }
+      
+      throw lastError;
     } catch (error) {
-      console.error('❌ Background sync failed:', error);
+      console.error('❌ Background sync failed after retries:', error);
     }
   }, [isConnected, syncInterval, cacheSignals, onSignalsFetched]);
 
@@ -111,7 +126,7 @@ export const useBackgroundSync = (options: BackgroundSyncOptions = {}) => {
     };
   }, [isConnected, performBackgroundSync]);
 
-  // Set up foreground sync interval with debouncing
+  // Set up foreground sync interval with improved debouncing
   useEffect(() => {
     // Clear any existing interval first
     if (syncIntervalRef.current) {
@@ -122,17 +137,17 @@ export const useBackgroundSync = (options: BackgroundSyncOptions = {}) => {
     if (isConnected && enableBackgroundFetch) {
       console.log(`📡 Setting up sync interval: ${syncInterval}ms`);
       
-      // Only set up interval if one doesn't already exist
-      if (!syncIntervalRef.current) {
-        syncIntervalRef.current = setInterval(() => {
-          performBackgroundSync();
-        }, syncInterval);
+      // Increased minimum interval to reduce server load
+      const minInterval = Math.max(syncInterval, 5 * 60 * 1000); // Minimum 5 minutes
+      
+      syncIntervalRef.current = setInterval(() => {
+        performBackgroundSync();
+      }, minInterval);
 
-        // Perform initial sync after a short delay
-        setTimeout(() => {
-          performBackgroundSync();
-        }, 1000);
-      }
+      // Perform initial sync after a longer delay to avoid startup rush
+      setTimeout(() => {
+        performBackgroundSync();
+      }, 5000);
     }
 
     return () => {

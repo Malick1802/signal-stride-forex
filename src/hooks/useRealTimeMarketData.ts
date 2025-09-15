@@ -30,13 +30,13 @@ export const useRealTimeMarketData = ({
   const timeoutRef = useRef<NodeJS.Timeout>();
   const mountedRef = useRef(true);
 
-  // Only fetch centralized data when enabled
+  // Only fetch centralized data when enabled and connected
   const {
     marketData,
     isConnected: centralizedConnected,
     dataSource: centralizedDataSource,
     isLoading: centralizedLoading
-  } = useCentralizedMarketData(enabled ? pair : '');
+  } = useCentralizedMarketData(enabled && pair ? pair : '');
 
   useEffect(() => {
     mountedRef.current = true;
