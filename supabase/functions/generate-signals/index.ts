@@ -225,7 +225,7 @@ serve(async (req) => {
       .is('user_id', null);
 
     const currentSignalCount = existingSignals?.length || 0;
-    const maxTotalSignals = 15;
+    const maxTotalSignals = marketData.length; // Cap matches available pairs (27)
     const maxNewSignals = Math.min(maxSignals, maxTotalSignals - currentSignalCount);
 
     console.log(`📋 Signal Status - Current: ${currentSignalCount}/${maxTotalSignals}, Can generate: ${maxNewSignals}`);
@@ -276,7 +276,7 @@ serve(async (req) => {
       return true;
     });
     
-    const selectedPairs = pairsWithHistory.slice(0, 24); // Analyze top 24 pairs with adequate history
+    const selectedPairs = pairsWithHistory.slice(0, marketData.length); // Analyze all pairs with adequate history
     console.log(`🔥 PROFESSIONAL MODE: Analyzing ${selectedPairs.length} pairs with 3-tier system`);
 
     // 3-Tier Professional Analysis Pipeline
