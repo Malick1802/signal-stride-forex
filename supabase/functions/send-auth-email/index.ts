@@ -28,7 +28,7 @@ Deno.serve(async (req) => {
     const headers = Object.fromEntries(req.headers)
     
     // Get authentication mode (lenient allows missing/invalid auth for testing)
-    const authMode = Deno.env.get('EMAIL_HOOK_AUTH_MODE') || 'strict'
+    const authMode = Deno.env.get('EMAIL_HOOK_AUTH_MODE') || 'lenient'
     
     // Validate hook secret exists
     if (!hookSecret) {
