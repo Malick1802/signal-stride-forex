@@ -1,5 +1,5 @@
 import React from 'npm:react@18.3.1'
-import { Webhook } from 'https://esm.sh/standardwebhooks@1.0.0'
+
 import { Resend } from 'npm:resend@4.0.0'
 import { renderAsync } from 'npm:@react-email/components@0.0.22'
 import { SignupConfirmationEmail } from './_templates/signup-confirmation.tsx'
@@ -36,38 +36,31 @@ Deno.serve(async (req) => {
       )
     }
     
-    console.log('Hook secret length:', hookSecret.length)
-    console.log('Hook secret format check:', /^[A-Za-z0-9+/]*={0,2}$/.test(hookSecret))
-    
-    // The Standard Webhooks library expects the secret as-is (should be Base64)
-    // Don't decode it - pass it directly
-    let processedHookSecret = hookSecret
-    
-    // If the secret doesn't look like Base64, it might be plain text that needs encoding
-    if (!/^[A-Za-z0-9+/]*={0,2}$/.test(hookSecret) || hookSecret.length < 16) {
-      console.log('Secret appears to be plain text, encoding to Base64')
-      processedHookSecret = btoa(hookSecret)
+    // Validate Authorization header from Supabase Auth Hook
+    const authHeader = req.headers.get('authorization') || req.headers.get('Authorization')
+    if (!authHeader || authHeader !== `Bearer ${hookSecret}`) {
+      console.warn('Unauthorized hook request: missing or invalid Authorization header')
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized hook request' }),
+        { status: 401, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      )
     }
-    
-    console.log('Using processed secret length:', processedHookSecret.length)
-    
-    const wh = new Webhook(processedHookSecret)
-    
+
+    // Parse hook payload directly (Supabase Auth sends JSON)
+    const parsed = JSON.parse(payload)
+    const user = parsed.user as { email: string; email_confirmed_at?: string }
     const {
-      user,
-      email_data: { token, token_hash, redirect_to, email_action_type, site_url },
-    } = wh.verify(payload, headers) as {
-      user: {
-        email: string
-        email_confirmed_at?: string
-      }
-      email_data: {
-        token: string
-        token_hash: string
-        redirect_to: string
-        email_action_type: string
-        site_url: string
-      }
+      token,
+      token_hash,
+      redirect_to,
+      email_action_type,
+      site_url,
+    } = parsed.email_data as {
+      token: string
+      token_hash: string
+      redirect_to: string
+      email_action_type: string
+      site_url: string
     }
 
     console.log('Auth email webhook triggered:', { 
