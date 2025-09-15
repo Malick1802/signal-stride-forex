@@ -1,61 +1,65 @@
-
 import React from 'react';
-import { Wifi, WifiOff, RotateCcw, Activity } from 'lucide-react';
-import { useRealTimeConnection } from '@/hooks/useRealTimeConnection';
-import { Button } from '@/components/ui/button';
+import { useRealTimeManager } from '@/hooks/useRealTimeManager';
+import { Badge } from '@/components/ui/badge';
+import { Wifi, WifiOff, Clock, Activity } from 'lucide-react';
 
-const RealTimeStatus = () => {
-  const { isConnected, lastHeartbeat, reconnectAttempts, error, reconnect } = useRealTimeConnection();
+interface RealTimeStatusProps {
+  className?: string;
+  showDetails?: boolean;
+}
+
+export const RealTimeStatus: React.FC<RealTimeStatusProps> = ({ 
+  className = '', 
+  showDetails = false 
+}) => {
+  const { state, isConnected, lastHeartbeat, activeChannels } = useRealTimeManager();
+
+  const getStatusColor = () => {
+    if (isConnected) return 'bg-green-500';
+    if (state.connectionAttempts > 0) return 'bg-yellow-500';
+    return 'bg-red-500';
+  };
+
+  const getStatusText = () => {
+    if (isConnected) return 'Connected';
+    if (state.connectionAttempts > 0) return `Reconnecting... (${state.connectionAttempts})`;
+    return 'Disconnected';
+  };
+
+  const getStatusIcon = () => {
+    if (isConnected) return <Wifi className="h-3 w-3" />;
+    if (state.connectionAttempts > 0) return <Activity className="h-3 w-3 animate-pulse" />;
+    return <WifiOff className="h-3 w-3" />;
+  };
+
+  const formatLastHeartbeat = () => {
+    if (!lastHeartbeat) return 'Never';
+    const diff = Date.now() - lastHeartbeat;
+    if (diff < 60000) return `${Math.floor(diff / 1000)}s ago`;
+    return `${Math.floor(diff / 60000)}m ago`;
+  };
 
   return (
-    <div className="bg-white/5 backdrop-blur-sm rounded-lg border border-white/10 p-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-3">
-          <div className="flex items-center space-x-2">
-            {isConnected ? (
-              <Wifi className="h-4 w-4 text-emerald-400" />
-            ) : (
-              <WifiOff className="h-4 w-4 text-red-400" />
-            )}
-            <span className={`text-sm font-medium ${
-              isConnected ? 'text-emerald-400' : 'text-red-400'
-            }`}>
-              {isConnected ? 'LIVE' : 'DISCONNECTED'}
-            </span>
+    <div className={`flex items-center gap-2 ${className}`}>
+      <Badge 
+        variant={isConnected ? "default" : "destructive"}
+        className="flex items-center gap-1"
+      >
+        {getStatusIcon()}
+        {getStatusText()}
+      </Badge>
+      
+      {showDetails && (
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            {formatLastHeartbeat()}
           </div>
-
-          {lastHeartbeat && (
-            <div className="flex items-center space-x-1 text-xs text-gray-400">
-              <Activity className="h-3 w-3" />
-              <span>Last: {lastHeartbeat}</span>
-            </div>
-          )}
-
-          {error && (
-            <div className="text-xs text-red-400 bg-red-500/10 px-2 py-1 rounded">
-              {error}
-            </div>
-          )}
-
-          {reconnectAttempts > 0 && (
-            <div className="text-xs text-yellow-400">
-              Reconnect attempts: {reconnectAttempts}
-            </div>
-          )}
+          <div>
+            Channels: {activeChannels.length}
+          </div>
         </div>
-
-        {!isConnected && (
-          <Button
-            onClick={reconnect}
-            size="sm"
-            variant="outline"
-            className="text-xs border-white/20 text-white hover:bg-white/10"
-          >
-            <RotateCcw className="h-3 w-3 mr-1" />
-            Reconnect
-          </Button>
-        )}
-      </div>
+      )}
     </div>
   );
 };

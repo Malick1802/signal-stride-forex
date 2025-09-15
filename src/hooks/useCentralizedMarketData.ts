@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { checkMarketHours, isDataStale, getLastMarketCloseTime } from '@/utils/marketHours';
+import { realTimeManager } from '@/hooks/useRealTimeManager';
 
 interface PriceData {
   timestamp: number;
@@ -248,78 +249,32 @@ export const useCentralizedMarketData = (symbol: string) => {
     }
     channelsRef.current = [];
 
-    // Only set up real-time subscriptions during market hours
+    // Use centralized real-time manager for market data updates
     if (marketStatus.isOpen) {
-      // Real-time subscription for market state
-      const stateChannel = supabase
-        .channel(`live-state-${symbol}-${Date.now()}`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'centralized_market_state',
-            filter: `symbol=eq.${symbol}`
-          },
-          (payload) => {
-            if (!mountedRef.current) return;
-            const currentMarketStatus = getMarketStatus();
-            if (!currentMarketStatus.isOpen) {
-              console.log(`💤 [${symbol}] Ignoring update - market closed`);
-              return;
-            }
-            console.log(`🔔 [${symbol}] Real-time state update received`);
-            setTimeout(() => {
-              if (mountedRef.current) {
-                fetchCentralizedData();
-              }
-            }, 50);
-          }
-        )
-        .subscribe((status) => {
+      const unsubscribe = realTimeManager.subscribe('market-data-' + symbol + '-' + Date.now(), (event) => {
+        if (event.type === 'market_data_update' && event.data.symbol === symbol) {
           if (!mountedRef.current) return;
-          console.log(`📡 [${symbol}] State channel: ${status}`);
-          if (status === 'SUBSCRIBED') {
-            setIsConnected(getMarketStatus().isOpen);
-          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            setIsConnected(false);
-            console.error(`❌ [${symbol}] State subscription failed: ${status}`);
+          
+          const currentMarketStatus = getMarketStatus();
+          if (!currentMarketStatus.isOpen) {
+            console.log(`💤 [${symbol}] Ignoring update - market closed`);
+            return;
           }
-        });
-
-      // Real-time subscription for price ticks
-      const historyChannel = supabase
-        .channel(`live-ticks-${symbol}-${Date.now()}`)
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'live_price_history',
-            filter: `symbol=eq.${symbol}`
-          },
-          (payload) => {
-            if (!mountedRef.current) return;
-            const currentMarketStatus = getMarketStatus();
-            if (!currentMarketStatus.isOpen) {
-              console.log(`💤 [${symbol}] Ignoring tick - market closed`);
-              return;
+          
+          console.log(`🔔 [${symbol}] Real-time market update via manager`);
+          
+          // Debounce updates based on update type
+          const delay = event.data.type === 'price_tick' ? 200 : 50;
+          setTimeout(() => {
+            if (mountedRef.current) {
+              fetchCentralizedData();
             }
-            console.log(`📈 [${symbol}] Real-time price tick received`);
-            // Debounce real-time updates
-            setTimeout(() => {
-              if (mountedRef.current) {
-                fetchCentralizedData();
-              }
-            }, 200);
-          }
-        )
-        .subscribe((status) => {
-          if (!mountedRef.current) return;
-          console.log(`📊 [${symbol}] Tick channel: ${status}`);
-        });
+          }, delay);
+        }
+      });
 
-      channelsRef.current = [stateChannel, historyChannel];
+      // Store unsubscribe function
+      channelsRef.current = [{ remove: unsubscribe }];
     }
 
     // Optimized connection monitoring with reduced frequency
@@ -352,9 +307,15 @@ export const useCentralizedMarketData = (symbol: string) => {
         clearTimeout(retryTimeoutRef.current);
       }
       if (channelsRef.current && Array.isArray(channelsRef.current)) {
-        channelsRef.current.forEach(channel => {
+        channelsRef.current.forEach(item => {
           try {
-            supabase.removeChannel(channel);
+            if (item.remove) {
+              // Real-time manager subscription
+              item.remove();
+            } else {
+              // Legacy supabase channel
+              supabase.removeChannel(item);
+            }
           } catch (error) {
             console.warn('[Cleanup] Channel removal error:', error);
           }

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { safeParseFloat, safeParseArray } from '@/utils/signalValidation';
+import { realTimeManager } from '@/hooks/useRealTimeManager';
 import Logger from '@/utils/logger';
 
 interface TradingSignal {
@@ -428,82 +429,17 @@ export const useTradingSignals = () => {
   useEffect(() => {
     fetchSignals();
     
-    // Optimized real-time subscriptions with retry logic
-    let reconnectAttempts = 0;
-    const maxReconnectAttempts = 3;
-    
-    const createSignalsChannel = () => {
-      const signalsChannel = supabase
-        .channel(`pure-market-signals-${Date.now()}`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'trading_signals',
-            filter: 'is_centralized=eq.true'
-          },
-          (payload) => {
-            Logger.debug('signals', `Signal update detected:`, payload.eventType);
-            // Debounce updates to prevent excessive fetching
-            setTimeout(fetchSignals, 1000);
-          }
-        )
-        .subscribe((status) => {
-          Logger.debug('signals', `Signals subscription status: ${status}`);
-          if (status === 'SUBSCRIBED') {
-            Logger.info('signals', `Signal updates connected (up to ${MAX_ACTIVE_SIGNALS} pure market signals)`);
-            reconnectAttempts = 0; // Reset on successful connection
-          } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-            Logger.error('signals', 'Signal subscription failed');
-            
-            if (reconnectAttempts < maxReconnectAttempts) {
-              reconnectAttempts++;
-              const retryDelay = 5000 * reconnectAttempts; // Exponential backoff
-              Logger.info('signals', `Reconnecting in ${retryDelay}ms (attempt ${reconnectAttempts})`);
-              
-              setTimeout(() => {
-                supabase.removeChannel(signalsChannel);
-                createSignalsChannel();
-              }, retryDelay);
-            } else {
-              Logger.error('signals', 'Max reconnection attempts reached');
-            }
-          }
-        });
-      
-      return signalsChannel;
-    };
-    
-    const signalsChannel = createSignalsChannel();
-
-    // Subscribe to signal outcomes
-    const outcomesChannel = supabase
-      .channel(`signal-outcomes-${Date.now()}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'signal_outcomes'
-        },
-        (payload) => {
-          Logger.debug('signals', 'Signal outcome detected, refreshing signals:', payload.new);
-          setTimeout(fetchSignals, 500);
-        }
-      )
-      .subscribe();
-
-    // Optimized monitoring interval (2.5 minutes for balanced performance)
-    const updateInterval = setInterval(async () => {
-      Logger.debug('signals', 'Periodic signal refresh...');
-      await fetchSignals();
-    }, 2.5 * 60 * 1000);
+    // Use centralized real-time manager instead of individual channels
+    const unsubscribe = realTimeManager.subscribe('trading-signals-' + Date.now(), (event) => {
+      if (event.type === 'signal_update') {
+        Logger.debug('signals', `Signal update detected via real-time manager:`, event.data.eventType);
+        // Debounce updates to prevent excessive fetching
+        setTimeout(fetchSignals, 1000);
+      }
+    });
 
     return () => {
-      supabase.removeChannel(signalsChannel);
-      supabase.removeChannel(outcomesChannel);
-      clearInterval(updateInterval);
+      unsubscribe();
     };
   }, [fetchSignals]);
 
