@@ -1,25 +1,19 @@
 import React from 'react';
 import { CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useProductionConnection } from '@/hooks/useProductionConnection';
-import { useMobileConnectivity } from '@/hooks/useMobileConnectivity';
+import { useConnectionManager } from '@/hooks/useConnectionManager';
+import { useRealTimeManager } from '@/hooks/useRealTimeManager';
 import { Capacitor } from '@capacitor/core';
 
 const AndroidConnectionStatus = () => {
-  const productionConnection = useProductionConnection();
-  const mobileConnection = useMobileConnectivity();
+  const { connectionState, retryConnection } = useConnectionManager();
+  const { isConnected: isRealTimeConnected } = useRealTimeManager();
   
+  const { isOnline, isSupabaseConnected, connectionType, retryCount, isRetrying, lastConnected } = connectionState;
   const isNative = Capacitor.isNativePlatform();
-  const connection = isNative ? mobileConnection : productionConnection;
-  
-  const isOnline = (connection as any).isOnline as boolean;
-  const nativeConnected = (connection as any).isConnected as boolean | undefined;
-  const supabaseConnected = (connection as any).isSupabaseConnected as boolean | undefined;
-  const isConnected = isNative ? !!nativeConnected : !!(isOnline && (supabaseConnected ?? true));
-  const isRetrying = (connection as any).retryCount > 0;
-  const isRestoring = (connection as any).isRestoring as boolean | undefined;
+  const isFullyConnected = isOnline && isSupabaseConnected && isRealTimeConnected;
 
-  if (isRestoring) {
+  if (isRetrying) {
     return (
       <div className="flex items-center gap-2 p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
         <RefreshCw className="h-4 w-4 text-blue-400 animate-spin" />
@@ -30,12 +24,12 @@ const AndroidConnectionStatus = () => {
     );
   }
 
-  if (isConnected) {
+  if (isFullyConnected) {
     return (
       <div className="flex items-center gap-2 p-2 bg-green-500/10 border border-green-500/20 rounded-lg">
         <CheckCircle className="h-4 w-4 text-green-400" />
         <span className="text-sm text-green-300">
-          Connected {isNative ? `(${connection.connectionType})` : ''}
+          Connected {isNative && connectionType !== 'unknown' ? `(${connectionType})` : ''}
         </span>
       </div>
     );
@@ -55,20 +49,20 @@ const AndroidConnectionStatus = () => {
         }
       </p>
       
-      {connection.lastConnected && (
+      {lastConnected && (
         <p className="text-xs text-gray-500 mb-3">
-          Last connected: {new Date(connection.lastConnected).toLocaleTimeString()}
+          Last connected: {new Date(lastConnected).toLocaleTimeString()}
         </p>
       )}
       
-      {isRetrying && (
+      {retryCount > 0 && (
         <p className="text-xs text-yellow-400 mb-3">
-          Retry attempt: {connection.retryCount}
+          Retry attempt: {retryCount}
         </p>
       )}
       
       <Button
-        onClick={connection.retryConnection}
+        onClick={retryConnection}
         size="sm"
         className="w-full"
         disabled={isRetrying}

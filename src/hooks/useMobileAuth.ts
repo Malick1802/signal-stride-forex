@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Capacitor } from '@capacitor/core';
-import { useMobileConnectivity } from './useMobileConnectivity';
+import { useConnectionManager } from './useConnectionManager';
 
 interface MobileAuthState {
   isAuthenticating: boolean;
@@ -13,7 +13,9 @@ interface MobileAuthState {
 
 export const useMobileAuth = () => {
   const { user, loading, signIn, signUp, signOut } = useAuth();
-  const { isConnected, retryConnection } = useMobileConnectivity();
+  const { connectionState, retryConnection } = useConnectionManager();
+  const { isOnline, isSupabaseConnected } = connectionState;
+  const isConnected = isOnline && isSupabaseConnected;
   const [mobileAuthState, setMobileAuthState] = useState<MobileAuthState>({
     isAuthenticating: false,
     authError: null,

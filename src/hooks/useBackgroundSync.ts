@@ -1,7 +1,7 @@
 
 import { useEffect, useCallback, useRef } from 'react';
 import { Capacitor } from '@capacitor/core';
-import { useMobileConnectivity } from './useMobileConnectivity';
+import { useConnectionManager } from './useConnectionManager';
 import { useOfflineSignals } from './useOfflineSignals';
 
 interface BackgroundSyncOptions {
@@ -11,7 +11,9 @@ interface BackgroundSyncOptions {
 }
 
 export const useBackgroundSync = (options: BackgroundSyncOptions = {}) => {
-  const { isConnected } = useMobileConnectivity();
+  const { connectionState } = useConnectionManager();
+  const { isOnline, isSupabaseConnected } = connectionState;
+  const isConnected = isOnline && isSupabaseConnected;
   const { cacheSignals } = useOfflineSignals();
   const syncIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastSyncRef = useRef<number>(0);

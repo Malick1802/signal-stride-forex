@@ -1,14 +1,17 @@
 
 import React from 'react';
-import { Wifi, WifiOff, AlertCircle, RefreshCw, Smartphone } from 'lucide-react';
-import { useMobileConnectivity } from '@/hooks/useMobileConnectivity';
+import { Wifi, WifiOff, AlertCircle, RefreshCw } from 'lucide-react';
+import { useConnectionManager } from '@/hooks/useConnectionManager';
 import { Button } from '@/components/ui/button';
 import { Capacitor } from '@capacitor/core';
 
 const MobileConnectionStatus = () => {
-  const { isConnected, connectionType, lastConnected, retryCount, retryConnection, isRestoring } = useMobileConnectivity();
+  const { connectionState, retryConnection } = useConnectionManager();
+  const { isOnline, isSupabaseConnected, connectionType, retryCount, isRetrying, lastConnected } = connectionState;
+  
+  const isConnected = isOnline && isSupabaseConnected;
 
-  if (isRestoring) {
+  if (isRetrying) {
     return (
       <div className="bg-blue-500/20 border border-blue-500/30 rounded-lg p-3 mb-4">
         <div className="flex items-center space-x-2">
@@ -25,7 +28,7 @@ const MobileConnectionStatus = () => {
         <div className="flex items-center space-x-2">
           <Wifi className="h-4 w-4 text-emerald-400" />
           <span className="text-emerald-400 text-sm font-medium">Connected</span>
-          {Capacitor.isNativePlatform() && (
+          {Capacitor.isNativePlatform() && connectionType !== 'unknown' && (
             <>
               <span className="text-gray-400 text-xs">•</span>
               <span className="text-gray-400 text-xs capitalize">{connectionType}</span>
@@ -44,7 +47,7 @@ const MobileConnectionStatus = () => {
           <div className="flex items-center space-x-2 mb-2">
             <span className="text-red-400 text-sm font-medium">No Connection</span>
             {Capacitor.isNativePlatform() && (
-              <Smartphone className="h-3 w-3 text-gray-400" />
+              <AlertCircle className="h-3 w-3 text-gray-400" />
             )}
           </div>
           
@@ -57,7 +60,7 @@ const MobileConnectionStatus = () => {
           
           {lastConnected && (
             <p className="text-gray-400 text-xs mb-3">
-              Last connected: {lastConnected.toLocaleTimeString()}
+              Last connected: {new Date(lastConnected).toLocaleTimeString()}
             </p>
           )}
           

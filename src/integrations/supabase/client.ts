@@ -20,7 +20,7 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   },
   realtime: {
     params: {
-      eventsPerSecond: 10
+      eventsPerSecond: 50, // Increased from 10 to prevent throttling
     }
   },
   global: {

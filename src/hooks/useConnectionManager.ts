@@ -182,12 +182,12 @@ export const useConnectionManager = (): ConnectionManager => {
       }
     });
 
-    // Health check every 30 seconds (reduced from more frequent checks)
+    // Health check every 60 seconds (reduced polling frequency)
     healthCheckRef.current = setInterval(() => {
-      if (mountedRef.current && connectionState.isOnline) {
+      if (mountedRef.current && connectionState.isOnline && !connectionState.isSupabaseConnected) {
         performConnectionCheck();
       }
-    }, 30000);
+    }, 60000);
 
     return () => {
       mountedRef.current = false;

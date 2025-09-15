@@ -1,18 +1,18 @@
-import { useProductionConnection } from '@/hooks/useProductionConnection';
+import { useConnectionManager } from '@/hooks/useConnectionManager';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Wifi, WifiOff, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
 
 export const ProductionConnectionStatus = () => {
+  const { connectionState, retryConnection } = useConnectionManager();
   const {
     isOnline,
     isSupabaseConnected,
     connectionType,
     lastConnected,
     retryCount,
-    isRetrying,
-    retryConnection
-  } = useProductionConnection();
+    isRetrying
+  } = connectionState;
 
   if (isOnline && isSupabaseConnected) {
     return (
@@ -34,7 +34,7 @@ export const ProductionConnectionStatus = () => {
         ) : (
           <WifiOff className="w-4 h-4 text-red-600" />
         )}
-        <XCircle className="w-4 h-4 text-orange-600" />
+        <XCircle className="w-4 w-4 text-orange-600" />
       </div>
       <AlertDescription className="mt-2">
         <div className="flex flex-col gap-2">
@@ -48,7 +48,7 @@ export const ProductionConnectionStatus = () => {
           
           {lastConnected && (
             <div className="text-xs text-muted-foreground">
-              Last connected: {lastConnected.toLocaleTimeString()}
+              Last connected: {new Date(lastConnected).toLocaleTimeString()}
             </div>
           )}
           

@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { offlineSignalCache } from '@/utils/offlineSignalCache';
-import { useMobileConnectivity } from './useMobileConnectivity';
+import { useConnectionManager } from './useConnectionManager';
 
 interface OfflineSignalsState {
   cachedSignals: any[];
@@ -16,7 +16,9 @@ interface OfflineSignalsState {
 }
 
 export const useOfflineSignals = () => {
-  const { isConnected } = useMobileConnectivity();
+  const { connectionState } = useConnectionManager();
+  const { isOnline, isSupabaseConnected } = connectionState;
+  const isConnected = isOnline && isSupabaseConnected;
   const [offlineState, setOfflineState] = useState<OfflineSignalsState>({
     cachedSignals: [],
     cacheStats: {

@@ -20,7 +20,7 @@ import { useToast } from '@/hooks/use-toast';
 import ProfessionalSignalCard from './ProfessionalSignalCard';
 import { measurePerformance, PerformanceMonitor } from '@/utils/performanceMonitoring';
 import { detectEnhancedPatterns } from '@/utils/chartPatternDetection';
-import { useMobileConnectivity } from '@/hooks/useMobileConnectivity';
+import { useConnectionManager } from '@/hooks/useConnectionManager';
 import SignalCardLoading from './SignalCardLoading';
 
 interface ProfessionalSignalData {
@@ -60,7 +60,9 @@ const EnhancedTradingSignals = memo(() => {
   const [activeTab, setActiveTab] = useState('all');
   const [performanceStats, setPerformanceStats] = useState<any>(null);
   const { toast } = useToast();
-  const { isConnected } = useMobileConnectivity();
+  const { connectionState } = useConnectionManager();
+  const { isOnline, isSupabaseConnected } = connectionState;
+  const isConnected = isOnline && isSupabaseConnected;
 
   // Fetch professional signals with performance monitoring
   const fetchProfessionalSignals = measurePerformance('fetch-professional-signals', async () => {

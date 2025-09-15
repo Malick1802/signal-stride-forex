@@ -3,14 +3,17 @@ import React from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { WifiOff, Wifi, Database, RefreshCw } from 'lucide-react';
-import { useMobileConnectivity } from '@/hooks/useMobileConnectivity';
+import { useConnectionManager } from '@/hooks/useConnectionManager';
 import { useOfflineSignals } from '@/hooks/useOfflineSignals';
 
 export const OfflineIndicator = () => {
-  const { isConnected, retryConnection, isRestoring } = useMobileConnectivity();
+  const { connectionState, retryConnection } = useConnectionManager();
   const { isUsingCache, cacheStats, clearCache } = useOfflineSignals();
+  
+  const { isOnline, isSupabaseConnected, isRetrying } = connectionState;
+  const isConnected = isOnline && isSupabaseConnected;
 
-  if (isRestoring) {
+  if (isRetrying) {
     return (
       <div className="flex items-center space-x-2 text-blue-400 text-sm">
         <RefreshCw className="w-4 h-4 animate-spin" />
