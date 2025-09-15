@@ -22,7 +22,7 @@ import PushNotificationTester from './PushNotificationTester';
 import FCMSetupGuide from './FCMSetupGuide';
 import { BackgroundPushTester } from './BackgroundPushTester';
 import { UserMenu } from './UserMenu';
-import { RealTimeStatus } from './RealTimeStatus';
+
 
 // Lazy load heavy components
 const LazyTradingSignals = lazy(() => import('./LazyTradingSignals'));
@@ -286,7 +286,6 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
             
             {/* Status indicators */}
             <div className="flex items-center space-x-1">
-              <RealTimeStatus showDetails={false} />
               {isAdmin && (
                 <div className="flex items-center space-x-1 bg-red-500/20 px-2 py-1 rounded-full">
                   <Shield className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-red-400" />
