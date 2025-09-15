@@ -3,6 +3,8 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { useReferralTracking } from '@/hooks/useReferralTracking';
+import { useSessionMonitor } from '@/hooks/useSessionMonitor';
+import { useAuthPersistence } from '@/hooks/useAuthPersistence';
 
 interface SubscriptionData {
   subscribed: boolean;
@@ -91,6 +93,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
   const [isCheckingSubscription, setIsCheckingSubscription] = useState(false);
   const { trackSignup, trackSubscription } = useReferralTracking();
+  const { sessionHealth, checkSessionHealth, refreshSession, handleNetworkReconnection } = useSessionMonitor();
+  const { saveAuthState } = useAuthPersistence();
 
   const checkSubscription = async (forceRefresh: boolean = false) => {
     // Get the current session directly instead of relying on state
@@ -134,26 +138,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) {
         console.error('AuthContext: Error checking subscription:', error);
         
-        // Handle different error types
-        if (error.message?.includes('401') || error.message?.includes('Authentication')) {
-          console.log('AuthContext: Authentication error, refreshing session...');
-          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        // Handle different error types with improved retry logic
+        if (error.message?.includes('401') || error.message?.includes('Authentication') || error.message?.includes('JWT')) {
+          console.log('AuthContext: Authentication error, attempting session recovery...');
           
-          if (!refreshError && refreshData.session) {
-            // Retry with new token
-            console.log('AuthContext: Retrying subscription check with refreshed token');
-            const { data: retryData, error: retryError } = await supabase.functions.invoke('check-subscription', {
-              headers: {
-                Authorization: `Bearer ${refreshData.session.access_token}`,
-              },
-            });
-            
-            if (!retryError && retryData) {
-              console.log('AuthContext: Subscription data received after retry:', retryData);
-              setSubscription(retryData);
-              setCachedSubscription(userId, retryData);
-              return;
+          // Try session monitor's refresh first
+          const refreshSuccess = await refreshSession();
+          
+          if (refreshSuccess) {
+            // Get the refreshed session and retry
+            const { data: { session: newSession } } = await supabase.auth.getSession();
+            if (newSession) {
+              console.log('AuthContext: Retrying subscription check with refreshed session');
+              const { data: retryData, error: retryError } = await supabase.functions.invoke('check-subscription', {
+                headers: {
+                  Authorization: `Bearer ${newSession.access_token}`,
+                },
+              });
+              
+              if (!retryError && retryData) {
+                console.log('AuthContext: Subscription data received after session recovery:', retryData);
+                setSubscription(retryData);
+                setCachedSubscription(userId, retryData);
+                return;
+              }
             }
+          } else {
+            console.warn('AuthContext: Session recovery failed, using fallback subscription state');
           }
         }
         
@@ -235,26 +246,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     console.log('AuthContext: Initializing auth state');
     
-    // Set up auth state listener FIRST
+    // Set up auth state listener FIRST with enhanced error handling
     const { data: { subscription: authSubscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('AuthContext: Auth state changed:', event, session?.user?.email || 'no user');
         
-        // Update state immediately
-        setSession(session);
-        setUser(session?.user ?? null);
+        // Update state immediately - NEVER clear session unless explicitly signed out
+        if (event === 'SIGNED_OUT') {
+          console.log('AuthContext: User explicitly signed out');
+          setSession(null);
+          setUser(null);
+          setSubscription(null);
+          clearSubscriptionCache();
+        } else if (session) {
+          // Only update session if we have a valid one
+          setSession(session);
+          setUser(session.user);
+        }
         
         // Handle subscription check after state update
-        if (session?.user && event === 'SIGNED_IN') {
-          console.log('AuthContext: User signed in, checking subscription');
+        if (session?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+          console.log('AuthContext: User authenticated, checking subscription');
           // Use setTimeout to avoid blocking the auth state change
           setTimeout(() => {
             checkSubscription(false);
           }, 100);
-        } else if (!session) {
-          console.log('AuthContext: No session, clearing subscription');
-          setSubscription(null);
-          clearSubscriptionCache();
         }
         
         // Set loading to false after first auth state change
@@ -376,18 +392,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signOut = async () => {
-    console.log('AuthContext: Attempting signout');
-    const { error } = await supabase.auth.signOut();
+    console.log('AuthContext: User initiated signout');
     
-    if (error) {
-      console.error('AuthContext: Signout error:', error);
-    } else {
-      console.log('AuthContext: Signout successful');
+    try {
+      // Clear all cached data first
+      setSubscription(null);
+      clearSubscriptionCache();
+      
+      // Clear session backup
+      localStorage.removeItem('session_backup');
+      
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error('AuthContext: Signout error:', error);
+        // Even if signout fails, clear local state
+        setSession(null);
+        setUser(null);
+      } else {
+        console.log('AuthContext: User successfully signed out');
+      }
+      
+      return { error };
+    } catch (error: any) {
+      console.error('AuthContext: Signout failed:', error);
+      // Force clear local state on any error
+      setSession(null);
+      setUser(null);
+      setSubscription(null);
+      return { error };
     }
-    
-    setSubscription(null);
-    clearSubscriptionCache();
-    return { error };
   };
 
   const value = {

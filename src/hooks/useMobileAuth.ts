@@ -78,10 +78,19 @@ export const useMobileAuth = () => {
         return { error: result.error };
       }
 
-      // Cache successful authentication for offline reference
+      // Cache successful authentication for offline reference with enhanced persistence
       if (Capacitor.isNativePlatform()) {
-        localStorage.setItem('mobile_auth_cache', 'authenticated');
-        localStorage.setItem('mobile_auth_sync', new Date().toISOString());
+        try {
+          localStorage.setItem('mobile_auth_cache', JSON.stringify({
+            authenticated: true,
+            timestamp: new Date().toISOString(),
+            userId: user?.id || 'unknown',
+            lastSuccessfulAuth: Date.now()
+          }));
+          localStorage.setItem('mobile_auth_sync', new Date().toISOString());
+        } catch (error) {
+          console.warn('MobileAuth: Failed to cache auth state:', error);
+        }
       }
 
       setMobileAuthState(prev => ({ 

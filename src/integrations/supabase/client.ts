@@ -15,8 +15,35 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    // Android-specific auth settings
+    // Enhanced session persistence settings
     flowType: 'pkce',
+    // Longer session timeout for mobile environments
+    sessionStorage: typeof window !== 'undefined' ? {
+      getItem: (key: string) => {
+        try {
+          return localStorage.getItem(key);
+        } catch {
+          return null;
+        }
+      },
+      setItem: (key: string, value: string) => {
+        try {
+          localStorage.setItem(key, value);
+        } catch {
+          // Fail silently
+        }
+      },
+      removeItem: (key: string) => {
+        try {
+          localStorage.removeItem(key);
+        } catch {
+          // Fail silently
+        }
+      }
+    } : undefined,
+    // Enhanced token refresh settings
+    refreshThreshold: 5 * 60, // Start refreshing 5 minutes before expiry
+    refreshRetryInterval: 30, // Retry every 30 seconds if refresh fails
   },
   realtime: {
     params: {
@@ -25,39 +52,80 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   },
   global: {
     headers: {
-      'x-client-info': 'forex-signal-pro-mobile'
+      'x-client-info': 'forex-signal-pro-mobile',
+      'cache-control': 'no-cache',
+      'pragma': 'no-cache'
     },
-    // Improved networking with exponential backoff
+    // Enhanced networking with better error handling and persistence
     fetch: async (url, options = {}) => {
-      const maxRetries = 3;
-      const baseDelay = 1000; // 1 second
+      const maxRetries = 5; // Increased retries for auth-critical requests
+      const baseDelay = 1000; // 1 second base delay
+      const maxDelay = 30000; // Maximum 30 second delay
       
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-          // Use native fetch without aggressive timeout
+          // Enhanced timeout handling for different request types
+          const isAuthRequest = url.includes('/auth/') || url.includes('/token');
+          const timeout = isAuthRequest ? 30000 : 15000; // Longer timeout for auth requests
+          
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), timeout);
+          
           const response = await fetch(url, {
             ...options,
-            // Let the browser/platform handle timeouts naturally
+            signal: controller.signal,
+            // Add retry-friendly headers
+            headers: {
+              ...options.headers,
+              'x-retry-attempt': attempt.toString(),
+            }
           });
           
-          if (!response.ok && attempt < maxRetries) {
-            // Exponential backoff for failed requests
-            const delay = baseDelay * Math.pow(2, attempt - 1);
-            await new Promise(resolve => setTimeout(resolve, delay));
-            continue;
+          clearTimeout(timeoutId);
+          
+          // Enhanced response handling
+          if (!response.ok) {
+            // Don't retry 4xx errors except 401/403 (auth issues)
+            if (response.status >= 400 && response.status < 500 && 
+                response.status !== 401 && response.status !== 403) {
+              return response;
+            }
+            
+            if (attempt < maxRetries) {
+              // Exponential backoff with jitter
+              const delay = Math.min(
+                baseDelay * Math.pow(2, attempt - 1) + Math.random() * 1000,
+                maxDelay
+              );
+              console.log(`Supabase: Retrying request (${attempt}/${maxRetries}) after ${delay}ms`);
+              await new Promise(resolve => setTimeout(resolve, delay));
+              continue;
+            }
           }
           
           return response;
-        } catch (error) {
-          if (attempt === maxRetries) throw error;
+        } catch (error: any) {
+          console.warn(`Supabase: Request attempt ${attempt} failed:`, error.message);
           
-          // Exponential backoff for network errors
-          const delay = baseDelay * Math.pow(2, attempt - 1);
+          if (attempt === maxRetries) {
+            // Enhanced error information
+            const enhancedError = new Error(`Network request failed after ${maxRetries} attempts: ${error.message}`);
+            enhancedError.cause = error;
+            throw enhancedError;
+          }
+          
+          // Exponential backoff with jitter for network errors
+          const delay = Math.min(
+            baseDelay * Math.pow(2, attempt - 1) + Math.random() * 1000,
+            maxDelay
+          );
+          
+          console.log(`Supabase: Retrying after network error (${attempt}/${maxRetries}) in ${delay}ms`);
           await new Promise(resolve => setTimeout(resolve, delay));
         }
       }
       
-      throw new Error('Max retries exceeded');
+      throw new Error(`All ${maxRetries} network attempts failed`);
     }
   }
 });
