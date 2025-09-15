@@ -15,7 +15,7 @@ interface DashboardStatsProps {
 
 const DashboardStats = ({ 
   activeSignalsCount = 0, 
-  totalSignalsCount = 20, 
+  totalSignalsCount = 27,
   avgConfidence = 0, 
   lastUpdateTime = "Never",
   isAutomated = true,

@@ -15,7 +15,7 @@ const SignalStats = ({ signalsCount, avgConfidence, lastUpdate }: SignalStatsPro
         <div className="flex items-center space-x-3">
           <Activity className="h-8 w-8 text-emerald-400" />
           <div>
-            <div className="text-emerald-400 text-2xl font-bold">{signalsCount}/20</div>
+            <div className="text-emerald-400 text-2xl font-bold">{signalsCount}/27</div>
             <div className="text-gray-400 text-sm">Active Signals</div>
           </div>
         </div>

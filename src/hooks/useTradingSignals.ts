@@ -24,8 +24,8 @@ interface TradingSignal {
   targetsHit: number[];
 }
 
-// UPDATED: Increased signal limit for better market coverage and diversification
-const MAX_ACTIVE_SIGNALS = 20;
+// UPDATED: Signal limit matches available currency pairs for maximum market coverage
+const MAX_ACTIVE_SIGNALS = 27;
 
 export const useTradingSignals = () => {
   const [signals, setSignals] = useState<TradingSignal[]>([]);

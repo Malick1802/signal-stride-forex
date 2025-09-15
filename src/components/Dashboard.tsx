@@ -62,7 +62,7 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
   // Calculate real statistics from signals data
   const calculateStats = () => {
     const activeSignalsCount = signals.length;
-    const totalSignalsCount = 20; // MAX_ACTIVE_SIGNALS from useTradingSignals
+    const totalSignalsCount = 27; // MAX_ACTIVE_SIGNALS from useTradingSignals (matches available pairs)
     
     // Calculate average confidence from all active signals
     const avgConfidence = signals.length > 0 
