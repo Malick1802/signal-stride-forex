@@ -675,7 +675,17 @@ Generate a trading signal with:
 5. Take profit levels
 6. Brief analysis
 
-Respond in JSON format.`;
+IMPORTANT: Respond with ONLY valid JSON, no markdown formatting or code blocks.
+
+Example format:
+{
+  "direction": "BUY",
+  "confidence": 75,
+  "entry_price": 1.2345,
+  "stop_loss": 1.2300,
+  "take_profits": [1.2400, 1.2450],
+  "analysis": "Strong bullish momentum with RSI oversold recovery"
+}`;
 
   try {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -693,7 +703,18 @@ Respond in JSON format.`;
     });
 
     const result = await response.json();
-    const analysis = JSON.parse(result.choices[0].message.content);
+    
+    // Extract JSON from OpenAI response, handling markdown code blocks
+    let content = result.choices[0].message.content.trim();
+    
+    // Remove markdown code block formatting if present
+    if (content.startsWith('```json')) {
+      content = content.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+    } else if (content.startsWith('```')) {
+      content = content.replace(/^```\n?/, '').replace(/\n?```$/, '');
+    }
+    
+    const analysis = JSON.parse(content);
     
     return {
       symbol: pair.symbol,
