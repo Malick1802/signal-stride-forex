@@ -314,7 +314,7 @@ serve(async (req) => {
         // Tier 2: AI-powered analysis for cost-effective signal generation
         let tier2Analysis: ProfessionalSignalAnalysis | null = null;
         try {
-          tier2Analysis = await performTier2Analysis(pair, historicalData, tier1Analysis, openAIApiKey, optimalParams);
+          tier2Analysis = await performTier2Analysis(pair, historicalData, tier1Analysis, openAIApiKey, optimalParams, CONFIG);
           
           if (!tier2Analysis.shouldSignal) {
             console.log(`❌ TIER 2: ${pair.symbol} rejected - confidence ${tier2Analysis.confidence}% < ${CONFIG.tier2EscalationConfidence}%`);
@@ -335,7 +335,7 @@ serve(async (req) => {
         // Tier 3: Premium analysis with institutional-grade criteria
         let finalAnalysis: ProfessionalSignalAnalysis;
         try {
-          finalAnalysis = await performTier3Analysis(pair, historicalData, tier2Analysis, openAIApiKey, optimalParams);
+          finalAnalysis = await performTier3Analysis(pair, historicalData, tier2Analysis, openAIApiKey, optimalParams, CONFIG);
           
           if (!finalAnalysis.shouldSignal) {
             console.log(`❌ TIER 3: ${pair.symbol} rejected - confidence ${finalAnalysis.confidence}% < ${CONFIG.tier3ConfidenceThreshold}%`);
@@ -727,7 +727,8 @@ async function performTier2Analysis(
   historicalDataMap: Map<string, any[]>,
   tier1Analysis: any,
   openaiApiKey: string,
-  optimalParams?: OptimalParameters
+  optimalParams?: OptimalParameters,
+  config: any
 ): Promise<ProfessionalSignalAnalysis> {
   
   const historicalData = historicalDataMap.get(pair.symbol) || [];
@@ -799,7 +800,7 @@ RETURN ONLY THE JSON OBJECT. NO ADDITIONAL TEXT OR EXPLANATIONS.`;
     
     return {
       symbol: pair.symbol,
-      shouldSignal: analysis.confidence >= CONFIG.tier2EscalationConfidence,
+      shouldSignal: analysis.confidence >= config.tier2EscalationConfidence,
       signalType: analysis.direction,
       confidence: analysis.confidence,
       quality: tier1Analysis.confluenceScore,
@@ -848,7 +849,8 @@ async function performTier3Analysis(
   historicalDataMap: Map<string, any[]>,
   tier2Analysis: ProfessionalSignalAnalysis,
   openaiApiKey: string,
-  optimalParams?: OptimalParameters
+  optimalParams?: OptimalParameters,
+  config: any
 ): Promise<ProfessionalSignalAnalysis> {
   
   const prompt = `Professional institutional-grade analysis for ${pair.symbol}.
@@ -869,7 +871,7 @@ Enhanced Context:
 Perform final validation and refinement for institutional-grade signal quality.
 
 Requirements:
-- Minimum ${CONFIG.tier3ConfidenceThreshold}% confidence for signal approval
+- Minimum ${config.tier3ConfidenceThreshold}% confidence for signal approval
 - Risk-adjusted validation
 - Multi-timeframe confirmation
 - Economic calendar awareness
@@ -927,7 +929,7 @@ RETURN ONLY A JSON OBJECT. RESPONSE MUST BE VALID JSON ONLY.
     
     return {
       ...tier2Analysis,
-      shouldSignal: refinedAnalysis.confidence >= CONFIG.tier3ConfidenceThreshold,
+      shouldSignal: refinedAnalysis.confidence >= config.tier3ConfidenceThreshold,
       confidence: refinedAnalysis.confidence,
       quality: Math.max(tier2Analysis.quality, refinedAnalysis.quality || tier2Analysis.quality),
       analysis: refinedAnalysis.analysis || tier2Analysis.analysis,
