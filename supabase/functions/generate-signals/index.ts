@@ -350,6 +350,19 @@ serve(async (req) => {
           analysisStats.tier3Analyzed++;
         }
 
+        // CRITICAL: Apply Final Quality Gates before signal insertion
+        const finalQualityCheck = finalAnalysis.quality >= CONFIG.finalQualityThreshold;
+        const finalConfidenceCheck = finalAnalysis.confidence >= CONFIG.finalConfidenceThreshold;
+        
+        if (!finalQualityCheck || !finalConfidenceCheck) {
+          console.log(`❌ FINAL GATES: ${pair.symbol} rejected`);
+          console.log(`   Quality: ${finalAnalysis.quality}/${CONFIG.finalQualityThreshold} ${finalQualityCheck ? '✅' : '❌'}`);
+          console.log(`   Confidence: ${finalAnalysis.confidence}%/${CONFIG.finalConfidenceThreshold}% ${finalConfidenceCheck ? '✅' : '❌'}`);
+          continue;
+        }
+        
+        console.log(`✅ FINAL GATES: ${pair.symbol} passed all quality thresholds`);
+        
         // Convert to signal format and save
         const signalData = convertProfessionalAnalysisToSignal(finalAnalysis, pair);
         
@@ -732,7 +745,7 @@ function validateTier2Fields(analysis: any): { isValid: boolean; missingFields: 
   };
 }
 
-// Tier 2 Analysis with optimal parameters awareness
+// Tier 2 Analysis with enhanced error handling and retry logic
 async function performTier2Analysis(
   pair: MarketData,
   historicalDataMap: Map<string, any[]>,
@@ -759,6 +772,11 @@ Market Context:
 - Current Session: ${getCurrentSessionText()}
 - Current Price: ${pair.current_price}
 
+REQUIREMENTS FOR MEDIUM/HIGH QUALITY:
+- Quality Score must be ${config.finalQualityThreshold}+ (based on technical confluences)
+- Confidence must be ${config.finalConfidenceThreshold}%+ for signal approval
+- Strict risk/reward validation required
+
 Generate a trading signal with ALL required fields. RESPONSE MUST BE VALID JSON ONLY.
 
 CRITICAL: You must provide ALL fields. Missing fields will result in signal rejection.
@@ -768,68 +786,98 @@ Required JSON format (minified, no extra text):
 
 RETURN ONLY THE JSON OBJECT. NO ADDITIONAL TEXT OR EXPLANATIONS.`;
 
-  try {
-    console.log(`🎯 TIER 2 Request: ${pair.symbol}`);
-    
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.3,
-        max_tokens: 800
-      })
-    });
+  const maxRetries = 2;
+  let attempt = 0;
+  
+  while (attempt < maxRetries) {
+    try {
+      console.log(`🎯 TIER 2 Request: ${pair.symbol} (attempt ${attempt + 1}/${maxRetries})`);
+      
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.3,
+          max_tokens: 800
+        })
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`❌ TIER 2 OpenAI Error: ${pair.symbol} - ${response.status} ${response.statusText} - ${errorText}`);
-      throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
-    }
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ TIER 2 OpenAI Error: ${pair.symbol} - ${response.status} ${response.statusText} - ${errorText}`);
+        
+        if (response.status === 429 && attempt < maxRetries - 1) {
+          console.log(`⏳ TIER 2 Rate limit, retrying in ${(attempt + 1) * 2}s...`);
+          await new Promise(resolve => setTimeout(resolve, (attempt + 1) * 2000));
+          attempt++;
+          continue;
+        }
+        
+        throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+      }
 
-    const result = await response.json();
-    
-    if (!result.choices?.[0]?.message?.content) {
-      throw new Error('Empty response from OpenAI');
+      const result = await response.json();
+      
+      if (!result.choices?.[0]?.message?.content) {
+        throw new Error('Empty response from OpenAI');
+      }
+      
+      const analysis = extractJsonObject(result.choices[0].message.content);
+      console.log(`📝 TIER 2 Raw Response: ${pair.symbol} - ${JSON.stringify(analysis)}`);
+      
+      // Validate all required fields
+      const validation = validateTier2Fields(analysis);
+      if (!validation.isValid) {
+        console.log(`❌ TIER 2 Validation Failed: ${pair.symbol} - Missing: ${validation.missingFields.join(', ')}`);
+        if (attempt < maxRetries - 1) {
+          attempt++;
+          continue;
+        }
+        throw new Error(`Missing required fields: ${validation.missingFields.join(', ')}`);
+      }
+      
+      // Enhanced quality calculation for MEDIUM/HIGH thresholds
+      const enhancedQuality = Math.min(100, 
+        tier1Analysis.confluenceScore + 
+        (analysis.confidence >= 80 ? 15 : analysis.confidence >= 70 ? 10 : 5) +
+        (optimalParams ? 5 : 0)
+      );
+      
+      console.log(`✅ TIER 2 Valid: ${pair.symbol} - ${analysis.direction} @ ${analysis.entry_price}, confidence: ${analysis.confidence}%, quality: ${enhancedQuality}`);
+      
+      return {
+        symbol: pair.symbol,
+        shouldSignal: analysis.confidence >= config.tier2EscalationConfidence,
+        signalType: analysis.direction,
+        confidence: analysis.confidence,
+        quality: enhancedQuality,
+        entryPrice: analysis.entry_price,
+        stopLoss: analysis.stop_loss,
+        takeProfits: analysis.take_profits,
+        analysis: analysis.analysis,
+        confluenceFactors: tier1Analysis.signals,
+        riskLevel: analysis.confidence >= 80 ? 'LOW' : analysis.confidence >= 65 ? 'MEDIUM' : 'HIGH',
+        sessionOptimal: getCurrentSessionText() !== 'Asian',
+        marketConditions: tier1Analysis.details,
+        optimalParametersUsed: optimalParams
+      };
+      
+    } catch (error) {
+      console.error(`❌ TIER 2 Error (attempt ${attempt + 1}): ${pair.symbol} -`, error);
+      if (attempt >= maxRetries - 1) {
+        throw error;
+      }
+      attempt++;
+      await new Promise(resolve => setTimeout(resolve, 1000));
     }
-    
-    const analysis = extractJsonObject(result.choices[0].message.content);
-    console.log(`📝 TIER 2 Raw Response: ${pair.symbol} - ${JSON.stringify(analysis)}`);
-    
-    // Validate all required fields
-    const validation = validateTier2Fields(analysis);
-    if (!validation.isValid) {
-      console.log(`❌ TIER 2 Validation Failed: ${pair.symbol} - Missing: ${validation.missingFields.join(', ')}`);
-      throw new Error(`Missing required fields: ${validation.missingFields.join(', ')}`);
-    }
-    
-    console.log(`✅ TIER 2 Valid: ${pair.symbol} - ${analysis.direction} @ ${analysis.entry_price}, confidence: ${analysis.confidence}%`);
-    
-    return {
-      symbol: pair.symbol,
-      shouldSignal: analysis.confidence >= config.tier2EscalationConfidence,
-      signalType: analysis.direction,
-      confidence: analysis.confidence,
-      quality: tier1Analysis.confluenceScore,
-      entryPrice: analysis.entry_price,
-      stopLoss: analysis.stop_loss,
-      takeProfits: analysis.take_profits,
-      analysis: analysis.analysis,
-      confluenceFactors: tier1Analysis.signals,
-      riskLevel: analysis.confidence >= 80 ? 'LOW' : analysis.confidence >= 65 ? 'MEDIUM' : 'HIGH',
-      sessionOptimal: getCurrentSessionText() !== 'Asian',
-      marketConditions: tier1Analysis.details,
-      optimalParametersUsed: optimalParams
-    };
-    
-  } catch (error) {
-    console.error(`❌ TIER 2 Error: ${pair.symbol} -`, error);
-    throw error;
   }
+  
+  throw new Error('All Tier 2 attempts failed');
 }
 
 // Validate required fields for Tier 3 refinement
@@ -854,7 +902,7 @@ function validateTier3Fields(analysis: any): { isValid: boolean; missingFields: 
   };
 }
 
-// Tier 3 Analysis with optimal parameters awareness
+// Tier 3 Analysis with enhanced error handling and quality validation
 async function performTier3Analysis(
   pair: MarketData,
   historicalDataMap: Map<string, any[]>,
@@ -879,78 +927,122 @@ Enhanced Context:
 - Market Session: ${getCurrentSessionText()}
 - Risk Level: ${tier2Analysis.riskLevel}
 
+CRITICAL FINAL VALIDATION REQUIREMENTS:
+- MUST exceed ${config.finalQualityThreshold} quality score for signal approval
+- MUST exceed ${config.finalConfidenceThreshold}% confidence for publication
+- Institutional-grade risk assessment required
+
 Perform final validation and refinement for institutional-grade signal quality.
 
 Requirements:
 - Minimum ${config.tier3ConfidenceThreshold}% confidence for signal approval
+- Quality score must justify ${config.finalQualityThreshold}+ threshold
 - Risk-adjusted validation
 - Multi-timeframe confirmation
 - Economic calendar awareness
 
-Provide only refined confidence and analysis. DO NOT change entry price, stop loss, or take profits.
+Provide refined confidence, quality, and analysis. DO NOT change entry price, stop loss, or take profits.
 
 RETURN ONLY A JSON OBJECT. RESPONSE MUST BE VALID JSON ONLY.
 
 {
   "confidence": 85,
-  "analysis": "Institutional-grade signal with multi-timeframe confirmation",
-  "quality": 90
+  "quality": 90,
+  "analysis": "Institutional-grade signal with multi-timeframe confirmation and strict quality validation"
 }`;
 
-  try {
-    console.log(`🎯 TIER 3 Request: ${pair.symbol}`);
-    
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openaiApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4.1',
-        messages: [{ role: 'user', content: prompt }],
-        response_format: { type: "json_object" },
-        max_completion_tokens: 1000
-      })
-    });
+  const maxRetries = 2;
+  let attempt = 0;
+  
+  while (attempt < maxRetries) {
+    try {
+      console.log(`🎯 TIER 3 Request: ${pair.symbol} (attempt ${attempt + 1}/${maxRetries})`);
+      
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4.1',
+          messages: [{ role: 'user', content: prompt }],
+          response_format: { type: "json_object" },
+          max_completion_tokens: 1000
+        })
+      });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`❌ TIER 3 OpenAI Error: ${pair.symbol} - ${response.status} ${response.statusText} - ${errorText}`);
-      throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
-    }
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ TIER 3 OpenAI Error: ${pair.symbol} - ${response.status} ${response.statusText} - ${errorText}`);
+        
+        if (response.status === 429 && attempt < maxRetries - 1) {
+          console.log(`⏳ TIER 3 Rate limit, retrying in ${(attempt + 1) * 3}s...`);
+          await new Promise(resolve => setTimeout(resolve, (attempt + 1) * 3000));
+          attempt++;
+          continue;
+        }
+        
+        throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+      }
 
-    const result = await response.json();
-    
-    if (!result.choices?.[0]?.message?.content) {
-      throw new Error('Empty response from OpenAI');
+      const result = await response.json();
+      
+      if (!result.choices?.[0]?.message?.content) {
+        throw new Error('Empty response from OpenAI');
+      }
+      
+      const refinedAnalysis = extractJsonObject(result.choices[0].message.content);
+      console.log(`📝 TIER 3 Raw Response: ${pair.symbol} - ${JSON.stringify(refinedAnalysis)}`);
+      
+      // Validate required fields
+      const validation = validateTier3Fields(refinedAnalysis);
+      if (!validation.isValid) {
+        console.log(`❌ TIER 3 Validation Failed: ${pair.symbol} - Missing: ${validation.missingFields.join(', ')}`);
+        if (attempt < maxRetries - 1) {
+          attempt++;
+          continue;
+        }
+        throw new Error(`Missing required fields: ${validation.missingFields.join(', ')}`);
+      }
+      
+      // Enhanced quality validation with explicit institutional criteria
+      const finalQuality = Math.max(
+        tier2Analysis.quality,
+        refinedAnalysis.quality || tier2Analysis.quality,
+        // Bonus for institutional validation
+        tier2Analysis.quality + (refinedAnalysis.confidence >= config.finalConfidenceThreshold ? 10 : 0)
+      );
+      
+      console.log(`✅ TIER 3 Valid: ${pair.symbol} - confidence: ${refinedAnalysis.confidence}%, quality: ${finalQuality}`);
+      
+      return {
+        ...tier2Analysis,
+        shouldSignal: refinedAnalysis.confidence >= config.tier3ConfidenceThreshold,
+        confidence: refinedAnalysis.confidence,
+        quality: finalQuality,
+        analysis: refinedAnalysis.analysis || tier2Analysis.analysis,
+        optimalParametersUsed: optimalParams
+      };
+      
+    } catch (error) {
+      console.error(`❌ TIER 3 Error (attempt ${attempt + 1}): ${pair.symbol} -`, error);
+      if (attempt >= maxRetries - 1) {
+        // Graceful fallback to Tier 2 with penalty
+        console.log(`⚠️ TIER 3 Fallback: Using Tier 2 results with quality penalty for ${pair.symbol}`);
+        return {
+          ...tier2Analysis,
+          quality: Math.max(0, tier2Analysis.quality - 10), // Quality penalty for Tier 3 failure
+          analysis: `${tier2Analysis.analysis} (Note: Advanced validation unavailable)`
+        };
+      }
+      attempt++;
+      await new Promise(resolve => setTimeout(resolve, 1500));
     }
-    
-    const refinedAnalysis = extractJsonObject(result.choices[0].message.content);
-    console.log(`📝 TIER 3 Raw Response: ${pair.symbol} - ${JSON.stringify(refinedAnalysis)}`);
-    
-    // Validate required fields
-    const validation = validateTier3Fields(refinedAnalysis);
-    if (!validation.isValid) {
-      console.log(`❌ TIER 3 Validation Failed: ${pair.symbol} - Missing: ${validation.missingFields.join(', ')}`);
-      throw new Error(`Missing required fields: ${validation.missingFields.join(', ')}`);
-    }
-    
-    console.log(`✅ TIER 3 Valid: ${pair.symbol} - confidence: ${refinedAnalysis.confidence}%`);
-    
-    return {
-      ...tier2Analysis,
-      shouldSignal: refinedAnalysis.confidence >= config.tier3ConfidenceThreshold,
-      confidence: refinedAnalysis.confidence,
-      quality: Math.max(tier2Analysis.quality, refinedAnalysis.quality || tier2Analysis.quality),
-      analysis: refinedAnalysis.analysis || tier2Analysis.analysis,
-      optimalParametersUsed: optimalParams
-    };
-    
-  } catch (error) {
-    console.error(`❌ TIER 3 Error: ${pair.symbol} -`, error);
-    throw error;
   }
+  
+  // Should not reach here due to fallback above
+  throw new Error('All Tier 3 attempts failed');
 }
 
 // Convert analysis to signal format
