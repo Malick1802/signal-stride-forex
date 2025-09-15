@@ -437,32 +437,53 @@ function getCurrentSessionText(): string {
   return 'New York';
 }
 
-// Enhanced historical data fetching
+// Enhanced historical data fetching - Updated to use live_price_history
 async function getEnhancedHistoricalData(supabase: any, symbols: string[]) {
   const historicalData = new Map();
   
   try {
+    console.log(`🔍 Fetching historical data for ${symbols.length} symbols from live_price_history...`);
+    
     const { data, error } = await supabase
-      .from('multi_timeframe_data')
-      .select('*')
+      .from('live_price_history')
+      .select('symbol, price, timestamp')
       .in('symbol', symbols)
-      .eq('timeframe', '1H')
       .order('timestamp', { ascending: false })
-      .limit(1000);
+      .limit(5000); // Increased limit to ensure we get enough data per symbol
     
     if (error) {
-      console.error('Error fetching historical data:', error);
+      console.error('❌ Error fetching historical data:', error);
       return historicalData;
     }
     
-    // Group by symbol
+    if (!data || data.length === 0) {
+      console.warn('⚠️ No historical data available in live_price_history');
+      return historicalData;
+    }
+    
+    console.log(`✅ Retrieved ${data.length} historical price points`);
+    
+    // Group by symbol and transform data structure
     symbols.forEach(symbol => {
-      const symbolData = data.filter(d => d.symbol === symbol);
+      const symbolData = data
+        .filter(d => d.symbol === symbol)
+        .slice(0, 200) // Take latest 200 points per symbol
+        .map(d => ({
+          symbol: d.symbol,
+          timestamp: d.timestamp,
+          close_price: d.price,
+          high_price: d.price, // Use price for all OHLC since it's tick data
+          low_price: d.price,
+          open_price: d.price
+        }))
+        .reverse(); // Reverse to get chronological order for technical analysis
+      
       historicalData.set(symbol, symbolData);
+      console.log(`📊 ${symbol}: ${symbolData.length} data points`);
     });
     
   } catch (error) {
-    console.error('Error in getEnhancedHistoricalData:', error);
+    console.error('❌ Error in getEnhancedHistoricalData:', error);
   }
   
   return historicalData;
