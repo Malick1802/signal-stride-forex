@@ -17,6 +17,11 @@ interface ConnectionManager {
   performConnectionCheck: () => Promise<void>;
 }
 
+// Debug logging function
+const debugLog = (message: string, data?: any) => {
+  console.log(`[ConnectionManager] ${message}`, data || '');
+};
+
 // Singleton connection manager
 let connectionManagerInstance: ConnectionManager | null = null;
 
@@ -36,13 +41,17 @@ export const useConnectionManager = (): ConnectionManager => {
 
   const checkSupabaseConnection = useCallback(async (): Promise<boolean> => {
     try {
+      debugLog('Checking Supabase connection...');
       const { data, error } = await supabase
         .from('trading_signals')
         .select('id')
         .limit(1);
       
-      return !error;
+      const isConnected = !error;
+      debugLog(`Supabase connection check result: ${isConnected}`, error || 'Success');
+      return isConnected;
     } catch (error) {
+      debugLog('Supabase connection check failed:', error);
       return false;
     }
   }, []);
@@ -68,8 +77,15 @@ export const useConnectionManager = (): ConnectionManager => {
     if (!mountedRef.current) return;
 
     try {
+      debugLog('Starting connection check...');
       const networkStatus = await checkNetworkStatus();
+      debugLog('Network status:', networkStatus);
+      
       const isSupabaseConnected = networkStatus.connected ? await checkSupabaseConnection() : false;
+      debugLog('Final connection status:', { 
+        online: networkStatus.connected, 
+        supabase: isSupabaseConnected 
+      });
 
       if (!mountedRef.current) return;
 
@@ -82,7 +98,7 @@ export const useConnectionManager = (): ConnectionManager => {
         retryCount: isSupabaseConnected ? 0 : prev.retryCount,
       }));
     } catch (error) {
-      console.error('Connection check failed:', error);
+      debugLog('Connection check failed:', error);
       if (mountedRef.current) {
         setConnectionState(prev => ({
           ...prev,
