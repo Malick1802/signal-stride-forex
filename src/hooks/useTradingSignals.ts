@@ -429,12 +429,25 @@ export const useTradingSignals = () => {
   useEffect(() => {
     fetchSignals();
     
-    // Use centralized real-time manager instead of individual channels
+    // Use centralized real-time manager for immediate updates
     const unsubscribe = realTimeManager.subscribe('trading-signals-' + Date.now(), (event) => {
       if (event.type === 'signal_update') {
-        Logger.debug('signals', `Signal update detected via real-time manager:`, event.data.eventType);
-        // Debounce updates to prevent excessive fetching
-        setTimeout(fetchSignals, 1000);
+        Logger.debug('signals', `Signal update detected via real-time manager:`, event.data);
+        
+        const { eventType, new: newSignal, old: oldSignal } = event.data;
+        
+        // Handle different event types immediately
+        if (eventType === 'INSERT' && newSignal) {
+          Logger.info('signals', 'New signal detected, updating immediately');
+          // Immediately fetch fresh signals to include the new one
+          fetchSignals();
+        } else if (eventType === 'UPDATE' && newSignal) {
+          Logger.info('signals', 'Signal updated, refreshing data');
+          fetchSignals();
+        } else if (eventType === 'DELETE' && oldSignal) {
+          Logger.info('signals', 'Signal deleted, refreshing data');
+          fetchSignals();
+        }
       }
     });
 

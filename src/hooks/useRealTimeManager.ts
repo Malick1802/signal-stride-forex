@@ -74,9 +74,10 @@ class RealTimeManager {
           filter: 'is_centralized=eq.true'
         },
         (payload) => {
+          console.log('📡 Signal update received:', payload.eventType, payload);
           this.broadcast({
             type: 'signal_update',
-            data: payload,
+            data: { ...payload, eventType: payload.eventType },
             timestamp: Date.now()
           });
         }
