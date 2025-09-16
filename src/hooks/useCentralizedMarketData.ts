@@ -269,7 +269,13 @@ export const useCentralizedMarketData = (symbol: string) => {
           // Use coordinator first, then fallback to direct updates
           const coordinatedData = getMarketData(symbol);
           if (coordinatedData) {
-            setCurrentPrice(coordinatedData.price);
+            setMarketData(prev => prev ? {
+              ...prev,
+              currentPrice: coordinatedData.price,
+              bid: coordinatedData.bid,
+              ask: coordinatedData.ask,
+              lastUpdate: new Date(coordinatedData.timestamp).toLocaleTimeString()
+            } : null);
             setIsConnected(true);
             setDataSource('Centralized Coordination');
             lastUpdateRef.current = Date.now();
