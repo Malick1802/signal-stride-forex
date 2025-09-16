@@ -206,7 +206,6 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
         <SheetContent 
           side="bottom" 
           className="h-[80svh] bg-slate-900/95 backdrop-blur-sm border-white/10"
-          lockOnMobile={true}
         >
           <div className="flex flex-col h-full">
             {/* Header */}
