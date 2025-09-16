@@ -10,12 +10,19 @@ const SignalGenerationSettings = () => {
   const { toast } = useToast();
 
   const thresholdLevels = {
-    ULTRA: {
-      name: 'ULTRA (Ultra-Conservative)',
+    EXTREME: {
+      name: 'EXTREME (Ultra-Conservative)',
       description: 'Ultra-conservative signals with 6+ technical confluences. 95+ pass threshold, max 1 signal per run. Near-perfect setups only.',
+      color: 'text-red-400',
+      bgColor: 'bg-red-500/20 border-red-500/30',
+      characteristics: ['6+ Technical Confluences', '95+ Pass Threshold', 'Max 1 Signal/5min', 'RSI: 15/85', '3:1 Risk/Reward', '72hr Gap Between Signals', '2hr News Buffer']
+    },
+    ULTRA: {
+      name: 'ULTRA (Maximum Precision)',
+      description: 'Elite-grade signals with 5+ technical confluences. 85+ pass threshold, max 2 signals per run.',
       color: 'text-purple-400',
       bgColor: 'bg-purple-500/20 border-purple-500/30',
-      characteristics: ['6+ Technical Confluences', '95+ Pass Threshold', 'Max 1 Signal/5min', 'RSI: 15/85', '3:1 Risk/Reward', '72hr Gap Between Signals', '2hr News Buffer']
+      characteristics: ['5+ Technical Confluences', '85+ Pass Threshold', 'Max 2 Signals/5min', 'RSI: 20/80', '2.5:1 Risk/Reward']
     },
     HIGH: {
       name: 'HIGH (Ultra-Selective)',
