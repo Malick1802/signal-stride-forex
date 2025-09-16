@@ -64,12 +64,12 @@ export class MobileNotificationManager {
     try {
       const { LocalNotifications } = await import('@capacitor/local-notifications');
       
-      // High priority signal channel with custom sound
+      // Create v2 channels for backward compatibility
       await LocalNotifications.createChannel({
-        id: 'forex_signals_v3',
+        id: 'forex_signals_v2',
         name: 'Forex Trading Signals',
         description: 'Critical trading signals and market updates',
-        sound: 'coin_notification', // Custom sound for Android (no extension)
+        sound: 'coin_notification',
         importance: 5,
         visibility: 1,
         lights: true,
@@ -77,12 +77,11 @@ export class MobileNotificationManager {
         lightColor: '#FF0000'
       });
 
-      // Trade alerts with different sound
       await LocalNotifications.createChannel({
-        id: 'trade_alerts_v3', 
+        id: 'trade_alerts_v2', 
         name: 'Trade Alerts',
         description: 'Target hits, stop losses, and trade outcomes',
-        sound: 'coin_notification', // Custom sound for Android (no extension)
+        sound: 'coin_notification',
         importance: 5,
         visibility: 1,
         lights: true,
@@ -90,12 +89,47 @@ export class MobileNotificationManager {
         lightColor: '#00FF00'
       });
 
-      // Market updates channel
       await LocalNotifications.createChannel({
-        id: 'market_updates_v3',
+        id: 'market_updates_v2',
         name: 'Market Updates', 
         description: 'General market news and updates',
-        sound: 'coin_notification', // Custom sound for Android (no extension)
+        sound: 'coin_notification',
+        importance: 4,
+        visibility: 1,
+        lights: true,
+        vibration: true
+      });
+
+      // Create v3 channels for future-proofing
+      await LocalNotifications.createChannel({
+        id: 'forex_signals_v3',
+        name: 'Forex Trading Signals V3',
+        description: 'Critical trading signals and market updates',
+        sound: 'coin_notification',
+        importance: 5,
+        visibility: 1,
+        lights: true,
+        vibration: true,
+        lightColor: '#FF0000'
+      });
+
+      await LocalNotifications.createChannel({
+        id: 'trade_alerts_v3', 
+        name: 'Trade Alerts V3',
+        description: 'Target hits, stop losses, and trade outcomes',
+        sound: 'coin_notification',
+        importance: 5,
+        visibility: 1,
+        lights: true,
+        vibration: true,
+        lightColor: '#00FF00'
+      });
+
+      await LocalNotifications.createChannel({
+        id: 'market_updates_v3',
+        name: 'Market Updates V3', 
+        description: 'General market news and updates',
+        sound: 'coin_notification',
         importance: 4,
         visibility: 1,
         lights: true,
@@ -280,7 +314,7 @@ export class MobileNotificationManager {
             smallIcon: 'ic_stat_your_custom_icon',
             attachments: undefined,
             actionTypeId: '',
-            channelId: 'forex_signals_v3',
+            channelId: 'forex_signals_v2',
             extra: {
               ...data,
               source: 'signal',
@@ -319,7 +353,7 @@ export class MobileNotificationManager {
             smallIcon: 'ic_stat_your_custom_icon',
             attachments: undefined,
             actionTypeId: '',
-            channelId: 'trade_alerts_v3',
+            channelId: 'trade_alerts_v2',
             extra: {
               ...data,
               source: 'signal',

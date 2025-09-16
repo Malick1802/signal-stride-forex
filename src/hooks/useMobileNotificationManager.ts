@@ -289,7 +289,7 @@ export const useMobileNotificationManager = () => {
         '🧪 Test Notification',
         'Your push notification system is working correctly!',
         { test: true },
-        'signal',
+        'new_signal',
         user ? [user.id] : undefined
       );
       
