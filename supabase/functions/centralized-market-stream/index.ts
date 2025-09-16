@@ -52,15 +52,6 @@ serve(async (req) => {
       }
     }
     
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-    const fastForexApiKey = Deno.env.get('FASTFOREX_API_KEY');
-    
-    if (!supabaseUrl || !supabaseServiceKey || !fastForexApiKey) {
-      throw new Error('Missing required environment variables');
-    }
-    
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // EXPANDED currency pairs for centralized streaming - Now supports all 27 pairs
     const streamingPairs = [

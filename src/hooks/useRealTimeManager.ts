@@ -259,12 +259,6 @@ class RealTimeManager {
       console.log('⚠️ No market data received for 60s, triggering fallback update...');
       
       try {
-        const { createClient } = await import('@supabase/supabase-js');
-        const supabase = createClient(
-          import.meta.env.VITE_SUPABASE_URL!,
-          import.meta.env.VITE_SUPABASE_ANON_KEY!
-        );
-        
         await supabase.functions.invoke('update-centralized-market', {
           body: { forced: true, reason: 'timeout_fallback' }
         });

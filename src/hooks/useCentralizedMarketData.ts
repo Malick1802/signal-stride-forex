@@ -386,14 +386,36 @@ export const useCentralizedMarketData = (symbol: string) => {
       
       if (error) {
         console.error(`❌ [${symbol}] Market update failed:`, error);
+        // Fallback 1: trigger the updater function which calls the stream
+        try {
+          const { data: updData, error: updErr } = await supabase.functions.invoke('update-centralized-market', {
+            body: { reason: 'client_fallback' }
+          });
+          if (updErr) {
+            console.error(`❌ [${symbol}] Update-centralized-market failed:`, updErr);
+            // Fallback 2: legacy fetch-market-data as last resort
+            try {
+              await supabase.functions.invoke('fetch-market-data');
+              console.warn(`⚠️ [${symbol}] Legacy fetch-market-data invoked as fallback`);
+            } catch (legacyErr) {
+              console.error(`❌ [${symbol}] Legacy fallback failed:`, legacyErr);
+            }
+          } else {
+            console.log(`✅ [${symbol}] Update-centralized-market triggered:`, updData);
+          }
+        } catch (fallbackErr) {
+          console.error(`❌ [${symbol}] Fallback update error:`, fallbackErr);
+        }
       } else {
         console.log(`✅ [${symbol}] Market update triggered:`, data);
-        setTimeout(() => {
-          if (mountedRef.current && getMarketStatus().isOpen) {
-            fetchCentralizedData();
-          }
-        }, 200);
       }
+
+      // After any trigger/fallback, refetch shortly
+      setTimeout(() => {
+        if (mountedRef.current && getMarketStatus().isOpen) {
+          fetchCentralizedData();
+        }
+      }, 800);
     } catch (error) {
       console.error(`❌ [${symbol}] Market update error:`, error);
     }
