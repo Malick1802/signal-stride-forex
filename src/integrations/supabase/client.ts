@@ -41,85 +41,12 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   },
   realtime: {
     params: {
-      eventsPerSecond: 50, // Increased from 10 to prevent throttling
+      eventsPerSecond: 10,
     }
   },
   global: {
     headers: {
-      'x-client-info': 'forex-signal-pro-mobile',
-      'cache-control': 'no-cache',
-      'pragma': 'no-cache'
-    },
-    // Enhanced networking with better error handling and persistence
-    fetch: async (url, options = {}) => {
-      const maxRetries = 5; // Increased retries for auth-critical requests
-      const baseDelay = 1000; // 1 second base delay
-      const maxDelay = 30000; // Maximum 30 second delay
-      
-      for (let attempt = 1; attempt <= maxRetries; attempt++) {
-        try {
-          // Enhanced timeout handling for different request types
-          const isAuthRequest = url.includes('/auth/') || url.includes('/token');
-          const timeout = isAuthRequest ? 30000 : 15000; // Longer timeout for auth requests
-          
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), timeout);
-          
-          const response = await fetch(url, {
-            ...options,
-            signal: controller.signal,
-            // Add retry-friendly headers
-            headers: {
-              ...((options as any)?.headers || {}),
-              'x-retry-attempt': attempt.toString(),
-            }
-          });
-          
-          clearTimeout(timeoutId);
-          
-          // Enhanced response handling
-          if (!response.ok) {
-            // Don't retry 4xx errors except 401/403 (auth issues)
-            if (response.status >= 400 && response.status < 500 && 
-                response.status !== 401 && response.status !== 403) {
-              return response;
-            }
-            
-            if (attempt < maxRetries) {
-              // Exponential backoff with jitter
-              const delay = Math.min(
-                baseDelay * Math.pow(2, attempt - 1) + Math.random() * 1000,
-                maxDelay
-              );
-              console.log(`Supabase: Retrying request (${attempt}/${maxRetries}) after ${delay}ms`);
-              await new Promise(resolve => setTimeout(resolve, delay));
-              continue;
-            }
-          }
-          
-          return response;
-        } catch (error: any) {
-          console.warn(`Supabase: Request attempt ${attempt} failed:`, error.message);
-          
-          if (attempt === maxRetries) {
-            // Enhanced error information
-            const enhancedError = new Error(`Network request failed after ${maxRetries} attempts: ${error.message}`);
-            (enhancedError as any).originalError = error;
-            throw enhancedError;
-          }
-          
-          // Exponential backoff with jitter for network errors
-          const delay = Math.min(
-            baseDelay * Math.pow(2, attempt - 1) + Math.random() * 1000,
-            maxDelay
-          );
-          
-          console.log(`Supabase: Retrying after network error (${attempt}/${maxRetries}) in ${delay}ms`);
-          await new Promise(resolve => setTimeout(resolve, delay));
-        }
-      }
-      
-      throw new Error(`All ${maxRetries} network attempts failed`);
+      'x-client-info': 'forex-signal-pro-mobile'
     }
   }
 });

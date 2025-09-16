@@ -14,7 +14,7 @@ import { useSignalNotifications } from '@/hooks/useSignalNotifications';
 
 // Direct import to avoid lazy loading issues
 import Dashboard from './Dashboard';
-import { EnhancedNotificationCenter } from './EnhancedNotificationCenter';
+import { NotificationCenter } from './NotificationCenter';
 
 const LazySubscriptionPage = lazy(() => import('./SubscriptionPage').catch(error => {
   console.error('🚨 Failed to load SubscriptionPage:', error);
@@ -203,7 +203,12 @@ const AppContent = ({ activeTab = 'signals', onTabChange }: AppContentProps = {}
             />
           )}
           {currentView === 'notifications' && (
-            <EnhancedNotificationCenter />
+            <NotificationCenter>
+              <div className="p-4">
+                <h2 className="text-xl font-bold mb-4">Notifications</h2>
+                <p>Notification center will be displayed here.</p>
+              </div>
+            </NotificationCenter>
           )}
           <Suspense fallback={<MobileLoadingScreen message={`Loading ${currentView}...`} />}>
             {currentView === 'subscription' && (

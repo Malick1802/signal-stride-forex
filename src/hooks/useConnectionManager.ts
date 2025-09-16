@@ -43,7 +43,6 @@ export const useConnectionManager = (): ConnectionManager => {
       
       return !error;
     } catch (error) {
-      console.error('Supabase connection check failed:', error);
       return false;
     }
   }, []);
@@ -182,12 +181,12 @@ export const useConnectionManager = (): ConnectionManager => {
       }
     });
 
-    // Health check every 60 seconds (reduced polling frequency)
+    // Health check every 2 minutes (less frequent)
     healthCheckRef.current = setInterval(() => {
-      if (mountedRef.current && connectionState.isOnline && !connectionState.isSupabaseConnected) {
+      if (mountedRef.current && connectionState.isOnline) {
         performConnectionCheck();
       }
-    }, 60000);
+    }, 120000);
 
     return () => {
       mountedRef.current = false;
