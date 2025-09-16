@@ -22,8 +22,6 @@ import PushNotificationTester from './PushNotificationTester';
 import FCMSetupGuide from './FCMSetupGuide';
 import { BackgroundPushTester } from './BackgroundPushTester';
 import { UserMenu } from './UserMenu';
-import { RealTimeStatus } from './RealTimeStatus';
-import MobileConnectionStatus from './MobileConnectionStatus';
 
 // Lazy load heavy components
 const LazyTradingSignals = lazy(() => import('./LazyTradingSignals'));
@@ -447,16 +445,6 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
       {/* Content Area - With Pull to Refresh for Mobile */}
       <PullToRefresh onRefresh={handleRefresh} className="flex-1">
         <div className="p-3 sm:p-6">
-          {/* Connection Status - Mobile and Desktop */}
-          <div className="mb-4">
-            <div className="hidden sm:block">
-              <RealTimeStatus showDetails={true} className="mb-4" />
-            </div>
-            <div className="sm:hidden">
-              <MobileConnectionStatus />
-            </div>
-          </div>
-
           {/* Trial Expiration Banner */}
           {!bannerDismissed && (
             <TrialExpirationBanner
