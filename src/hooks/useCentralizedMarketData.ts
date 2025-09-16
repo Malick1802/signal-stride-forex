@@ -254,42 +254,60 @@ export const useCentralizedMarketData = (symbol: string) => {
       const unsubscribe = realTimeManager.subscribe('market-data-' + symbol + '-' + Date.now(), (event) => {
         if (!mountedRef.current) return;
         
-        // Handle different event types with proper symbol matching
-        if (event.type === 'market_data_update' && event.data.symbol === symbol) {
-          const currentMarketStatus = getMarketStatus();
-          if (!currentMarketStatus.isOpen) {
-            console.log(`💤 [${symbol}] Ignoring update - market closed`);
-            return;
-          }
-          
-          console.log(`🔔 [${symbol}] Real-time market update via manager`, event.data);
-          
-          // Update from centralized_market_state table
-          if (event.data.table === 'centralized_market_state') {
-            const newData = event.data.new;
-            if (newData && (newData as any).symbol === symbol) {
-              const currentPrice = parseFloat(((newData as any).fastforex_price || (newData as any).current_price).toString());
-              
-              setMarketData(prevData => {
-                if (!prevData) return null;
+          // Handle different event types with proper symbol matching
+          if (event.type === 'market_data_update' && event.data.symbol === symbol) {
+            const currentMarketStatus = getMarketStatus();
+            if (!currentMarketStatus.isOpen) {
+              console.log(`💤 [${symbol}] Ignoring update - market closed`);
+              return;
+            }
+            
+            console.log(`🔔 [${symbol}] Real-time market update via manager`, event.data);
+            
+            // Update from centralized_market_state table
+            if (event.data.table === 'centralized_market_state') {
+              const newData = event.data.new;
+              if (newData && (newData as any).symbol === symbol) {
+                const currentPrice = parseFloat(((newData as any).fastforex_price || (newData as any).current_price).toString());
                 
-                return {
-                  ...prevData,
-                  currentPrice,
-                  bid: parseFloat((newData as any).bid?.toString() || prevData.bid.toString()),
-                  ask: parseFloat((newData as any).ask?.toString() || prevData.ask.toString()),
-                  lastUpdate: (newData as any).fastforex_timestamp 
-                    ? new Date((newData as any).fastforex_timestamp).toLocaleTimeString()
-                    : new Date((newData as any).last_update).toLocaleTimeString()
-                };
-              });
-              
-              setIsConnected(true);
-              setDataSource(`Live Real-time Update - ${new Date().toLocaleTimeString()}`);
-              lastUpdateRef.current = Date.now();
+                setMarketData(prevData => {
+                  if (!prevData) return null;
+                  
+                  // Create new price data point for chart
+                  const now = Date.now();
+                  const newPricePoint: PriceData = {
+                    timestamp: now,
+                    time: new Date(now).toLocaleTimeString('en-US', {
+                      hour12: false,
+                      hour: '2-digit',
+                      minute: '2-digit',
+                      second: '2-digit'
+                    }),
+                    price: currentPrice,
+                    volume: Math.random() * 150000 + 80000
+                  };
+                  
+                  // Add to price history, keeping last 300 points
+                  const updatedHistory = [...prevData.priceHistory, newPricePoint].slice(-300);
+                  
+                  return {
+                    ...prevData,
+                    currentPrice,
+                    bid: parseFloat((newData as any).bid?.toString() || prevData.bid.toString()),
+                    ask: parseFloat((newData as any).ask?.toString() || prevData.ask.toString()),
+                    lastUpdate: (newData as any).fastforex_timestamp 
+                      ? new Date((newData as any).fastforex_timestamp).toLocaleTimeString()
+                      : new Date((newData as any).last_update).toLocaleTimeString(),
+                    priceHistory: updatedHistory
+                  };
+                });
+                
+                setIsConnected(true);
+                setDataSource(`Live Real-time Update - ${new Date().toLocaleTimeString()}`);
+                lastUpdateRef.current = Date.now();
+              }
             }
           }
-        }
       });
 
       // Store unsubscribe function
@@ -315,7 +333,14 @@ export const useCentralizedMarketData = (symbol: string) => {
       // Fallback refresh every 60 seconds to match FastForex update frequency
       if (timeSinceUpdate > 65000) {
         console.log(`⚠️ [${symbol}] Fallback refresh - no real-time updates received (FastForex cadence)`);
-        fetchCentralizedData();
+        // Trigger market update first, then refetch
+        triggerMarketUpdate().then(() => {
+          setTimeout(() => {
+            if (mountedRef.current && getMarketStatus().isOpen) {
+              fetchCentralizedData();
+            }
+          }, 2000);
+        });
       }
     }, 30000); // Check every 30 seconds for 60s cadence alignment
 
