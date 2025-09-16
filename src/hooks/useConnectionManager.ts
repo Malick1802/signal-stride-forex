@@ -42,23 +42,39 @@ export const useConnectionManager = (): ConnectionManager => {
   const checkSupabaseConnection = useCallback(async (): Promise<boolean> => {
     try {
       debugLog('Checking Supabase connection...');
-      
-      // Use lightweight REST HEAD request instead of RPC
+
       const SUPABASE_URL = "https://ugtaodrvbpfeyhdgmisn.supabase.co";
       const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVndGFvZHJ2YnBmZXloZGdtaXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQwNjA2MTUsImV4cCI6MjA0OTYzNjYxNX0.Z-71hRCpHB0YivrsTb2kZQdObcF42BQVYIQ8_yMb_JM";
-      
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/trading_signals?select=id&limit=1`, {
-        method: 'HEAD',
+      const token = (await supabase.auth.getSession()).data.session?.access_token || SUPABASE_PUBLISHABLE_KEY;
+
+      // Attempt lightweight HEAD first
+      try {
+        const headResp = await fetch(`${SUPABASE_URL}/rest/v1/trading_signals?select=id&limit=1`, {
+          method: 'HEAD',
+          headers: {
+            'apikey': SUPABASE_PUBLISHABLE_KEY,
+            'authorization': `Bearer ${token}`,
+          },
+        });
+        const ok = [200, 401, 404].includes(headResp.status);
+        debugLog(`Supabase HEAD check: ${ok} (status: ${headResp.status})`);
+        if (ok) return true;
+      } catch (e) {
+        debugLog('HEAD check failed, falling back to GET', e);
+      }
+
+      // Fallback: very small GET which works on WebViews that block HEAD
+      const getResp = await fetch(`${SUPABASE_URL}/rest/v1/trading_signals?select=id&limit=1`, {
+        method: 'GET',
         headers: {
+          'accept': 'application/json',
           'apikey': SUPABASE_PUBLISHABLE_KEY,
-          'authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || SUPABASE_PUBLISHABLE_KEY}`,
-        }
+          'authorization': `Bearer ${token}`,
+        },
       });
-      
-      // 200, 401, 404 all indicate backend is reachable
-      const isReachable = response.status === 200 || response.status === 401 || response.status === 404;
-      debugLog(`Supabase connection check result: ${isReachable} (status: ${response.status})`);
-      return isReachable;
+      const reachable = [200, 401, 404].includes(getResp.status);
+      debugLog(`Supabase GET check: ${reachable} (status: ${getResp.status})`);
+      return reachable;
     } catch (error: any) {
       debugLog('Supabase connection check failed:', error);
       return false;
