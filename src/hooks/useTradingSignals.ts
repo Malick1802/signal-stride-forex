@@ -433,49 +433,8 @@ export const useTradingSignals = () => {
     }
   }, [fetchSignals, toast]);
 
-  // Enhanced mobile initialization with authentication wait
   useEffect(() => {
-    const initializeSignals = async () => {
-      // For mobile platforms, wait for authentication to be ready
-      if (typeof window !== 'undefined' && window.location.pathname !== '/') {
-        const { Capacitor } = await import('@capacitor/core');
-        if (Capacitor.isNativePlatform()) {
-          Logger.info('signals', 'Mobile platform detected, waiting for auth...');
-          
-          // Wait up to 5 seconds for authentication to initialize
-          let authReady = false;
-          let attempts = 0;
-          const maxAttempts = 10;
-          
-          while (!authReady && attempts < maxAttempts) {
-            try {
-              const { data: { session } } = await supabase.auth.getSession();
-              if (session?.user) {
-                authReady = true;
-                Logger.info('signals', 'Auth ready, proceeding with signal fetch');
-              } else {
-                Logger.info('signals', `Auth not ready, attempt ${attempts + 1}/${maxAttempts}`);
-                await new Promise(resolve => setTimeout(resolve, 500));
-                attempts++;
-              }
-            } catch (error) {
-              Logger.error('signals', 'Auth check error:', error);
-              await new Promise(resolve => setTimeout(resolve, 500));
-              attempts++;
-            }
-          }
-          
-          if (!authReady) {
-            Logger.warn('signals', 'Auth not ready after timeout, proceeding anyway');
-          }
-        }
-      }
-      
-      // Now fetch signals
-      fetchSignals();
-    };
-
-    initializeSignals();
+    fetchSignals();
     
     // Use centralized real-time manager for immediate updates
     const unsubscribe = realTimeManager.subscribe('trading-signals-' + Date.now(), (event) => {

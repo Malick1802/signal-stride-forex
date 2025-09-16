@@ -5,7 +5,7 @@ import { useEnhancedSignalMonitoring } from '@/hooks/useEnhancedSignalMonitoring
 import { useSystemHealthMonitor } from '@/hooks/useSystemHealthMonitor';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
-import { RefreshCw, AlertCircle, Wifi, WifiOff } from 'lucide-react';
+import { RefreshCw } from 'lucide-react';
 import SignalCard from './SignalCard';
 import SignalCardLoading from './SignalCardLoading';
 
@@ -13,14 +13,10 @@ import Logger from '@/utils/logger';
 import { useOfflineSignals } from '@/hooks/useOfflineSignals';
 import { useConnectionManager } from '@/hooks/useConnectionManager';
 import { useBackgroundSync } from '@/hooks/useBackgroundSync';
-import { Capacitor } from '@capacitor/core';
-import { getPlatformInfo } from '@/utils/platformDetection';
 
 const TradingSignals = memo(() => {
   const { signals, loading, lastUpdate, signalDistribution, fetchSignals } = useTradingSignals();
   const { toast } = useToast();
-  const [mobileRetrying, setMobileRetrying] = useState(false);
-  const platformInfo = getPlatformInfo();
   
   // Enhanced monitoring systems
   
@@ -44,8 +40,8 @@ const TradingSignals = memo(() => {
   } = useOfflineSignals();
   
   // Centralized connection management
-  const { connectionState, retryConnection } = useConnectionManager();
-  const { isSupabaseConnected, isOnline, isRetrying } = connectionState;
+  const { connectionState } = useConnectionManager();
+  const { isSupabaseConnected } = connectionState;
 
   // Background sync setup
   const { performBackgroundSync } = useBackgroundSync({
@@ -64,42 +60,6 @@ const TradingSignals = memo(() => {
     }
   }, [signals, isSupabaseConnected, cacheSignals]);
 
-
-  // Enhanced mobile retry with connection recovery
-  const handleMobileRetry = useCallback(async () => {
-    if (mobileRetrying) return;
-    
-    setMobileRetrying(true);
-    Logger.info('signals', 'Mobile retry initiated');
-    
-    try {
-      // Retry connection first for mobile
-      if (platformInfo.isNative && !isSupabaseConnected) {
-        await retryConnection();
-        // Wait a bit for connection to establish
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      }
-      
-      // Then fetch signals
-      await fetchSignals();
-      
-      toast({
-        title: "Connection Restored",
-        description: "Signals loaded successfully",
-      });
-    } catch (error) {
-      Logger.error('signals', 'Mobile retry failed:', error);
-      toast({
-        title: "Retry Failed",
-        description: platformInfo.isNative 
-          ? "Check your network connection and try again"
-          : "Failed to load signals. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setMobileRetrying(false);
-    }
-  }, [mobileRetrying, platformInfo.isNative, isSupabaseConnected, retryConnection, fetchSignals, toast]);
 
   // Force refresh with loading state
   const handleRefresh = useCallback(async () => {
@@ -146,43 +106,7 @@ const TradingSignals = memo(() => {
 
   return (
     <div className="space-y-6">
-      {/* Mobile Connection Status - Show when there are connection issues */}
-      {platformInfo.isNative && (!isSupabaseConnected || !isOnline) && (
-        <div className="bg-amber-500/20 border border-amber-500/30 rounded-lg p-4 mb-4">
-          <div className="flex items-start space-x-3">
-            {isOnline ? (
-              <Wifi className="h-5 w-5 text-amber-400 mt-0.5" />
-            ) : (
-              <WifiOff className="h-5 w-5 text-red-400 mt-0.5" />
-            )}
-            <div className="flex-1">
-              <div className="flex items-center space-x-2 mb-2">
-                <span className="text-amber-400 text-sm font-medium">
-                  {isOnline ? 'Server Connection Issue' : 'No Internet Connection'}
-                </span>
-                <AlertCircle className="h-3 w-3 text-amber-400" />
-              </div>
-              
-              <p className="text-gray-300 text-xs mb-3">
-                {isOnline 
-                  ? 'Unable to load fresh signals. Using cached data when available.'
-                  : 'Please check your internet connection to load fresh signals.'
-                }
-              </p>
-              
-              <Button
-                onClick={handleMobileRetry}
-                disabled={mobileRetrying || isRetrying}
-                size="sm"
-                className="bg-amber-500 hover:bg-amber-600 text-white"
-              >
-                <RefreshCw className={`h-3 w-3 mr-2 ${(mobileRetrying || isRetrying) ? 'animate-spin' : ''}`} />
-                {mobileRetrying || isRetrying ? 'Reconnecting...' : 'Retry Connection'}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      
       
       {/* Enhanced rendering with offline support */}
       {loading ? (
