@@ -49,17 +49,27 @@ const sheetVariants = cva(
 
 interface SheetContentProps
   extends React.ComponentPropsWithoutRef<typeof SheetPrimitive.Content>,
-  VariantProps<typeof sheetVariants> { }
+  VariantProps<typeof sheetVariants> {
+  lockOnMobile?: boolean
+}
 
 const SheetContent = React.forwardRef<
   React.ElementRef<typeof SheetPrimitive.Content>,
   SheetContentProps
->(({ side = "right", className, children, ...props }, ref) => (
+>(({ side = "right", className, children, lockOnMobile = false, ...props }, ref) => (
   <SheetPortal>
     <SheetOverlay />
     <SheetPrimitive.Content
       ref={ref}
       className={cn(sheetVariants({ side }), className)}
+      onPointerDownOutside={lockOnMobile ? (e) => {
+        // Prevent sheet from closing when touching outside on mobile
+        if (window.innerWidth < 768) {
+          e.preventDefault();
+        }
+      } : props.onPointerDownOutside}
+      onOpenAutoFocus={lockOnMobile ? (e) => e.preventDefault() : props.onOpenAutoFocus}
+      onCloseAutoFocus={lockOnMobile ? (e) => e.preventDefault() : props.onCloseAutoFocus}
       {...props}
     >
       {children}

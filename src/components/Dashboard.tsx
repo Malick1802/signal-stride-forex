@@ -205,19 +205,8 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
         </SheetTrigger>
         <SheetContent 
           side="bottom" 
-          className="h-[80svh] bg-slate-900/95 backdrop-blur-sm border-white/10 focus:outline-none"
-          onOpenAutoFocus={(e) => e.preventDefault()}
-          onCloseAutoFocus={(e) => e.preventDefault()}
-          onPointerDownOutside={(e) => {
-            // Prevent sheet from closing when touching outside on mobile
-            if (window.innerWidth < 768) {
-              e.preventDefault();
-            }
-          }}
-          onEscapeKeyDown={(e) => {
-            // Allow escape key to close
-            return;
-          }}
+          className="h-[80svh] bg-slate-900/95 backdrop-blur-sm border-white/10"
+          lockOnMobile={true}
         >
           <div className="flex flex-col h-full">
             {/* Header */}
