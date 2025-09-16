@@ -24,6 +24,7 @@ class RealTimeManager {
   private static instance: RealTimeManager | null = null;
   private subscriptions: Map<string, RealTimeSubscription> = new Map();
   private channels: Map<string, any> = new Map();
+  private channelStatuses: Map<string, string> = new Map();
   private state: RealTimeState = {
     isConnected: false,
     lastHeartbeat: 0,
@@ -33,6 +34,7 @@ class RealTimeManager {
   private stateListeners: Set<(state: RealTimeState) => void> = new Set();
   private heartbeatInterval: NodeJS.Timeout | null = null;
   private reconnectTimeout: NodeJS.Timeout | null = null;
+  private marketDataTimeout: NodeJS.Timeout | null = null;
 
   static getInstance(): RealTimeManager {
     if (!RealTimeManager.instance) {
@@ -77,7 +79,7 @@ class RealTimeManager {
           console.log('📡 Signal update received:', payload.eventType, payload);
           this.broadcast({
             type: 'signal_update',
-            data: { ...payload, eventType: payload.eventType },
+            data: { ...payload, eventType: payload.eventType, table: 'trading_signals', symbol: (payload.new as any)?.symbol || (payload.old as any)?.symbol || null },
             timestamp: Date.now()
           });
         }
@@ -100,7 +102,7 @@ class RealTimeManager {
         (payload) => {
           this.broadcast({
             type: 'signal_outcome_update',
-            data: payload,
+            data: { ...payload, table: 'signal_outcomes' },
             timestamp: Date.now()
           });
         }
@@ -110,56 +112,30 @@ class RealTimeManager {
         this.handleChannelStatus('signal-outcomes', status);
       });
 
-  // 3. Market Data Channels - all supported trading pairs for full synchronization
-  const allSupportedPairs = [
-    'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
-    'EURGBP', 'EURJPY', 'GBPJPY', 'EURCHF', 'GBPCHF', 'AUDCHF', 'CADJPY',
-    'GBPNZD', 'AUDNZD', 'CADCHF', 'EURAUD', 'EURNZD', 'GBPCAD', 'NZDCAD',
-    'NZDCHF', 'NZDJPY', 'AUDJPY', 'CHFJPY'
-  ];
-  
-  allSupportedPairs.forEach(pair => {
-      const marketChannel = supabase
-        .channel(`market-data-${pair}`)
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'centralized_market_state',
-            filter: `symbol=eq.${pair}`
-          },
-          (payload) => {
-            this.broadcast({
-              type: 'market_data_update',
-              data: { ...payload, symbol: pair },
-              timestamp: Date.now()
-            });
-          }
-        )
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'live_price_history',
-            filter: `symbol=eq.${pair}`
-          },
-          (payload) => {
-            this.broadcast({
-              type: 'market_data_update',
-              data: { ...payload, symbol: pair, type: 'price_tick' },
-              timestamp: Date.now()
-            });
-          }
-        )
-        .subscribe((status) => {
-          console.log(`📈 Market data ${pair} channel:`, status);
-          this.handleChannelStatus(`market-data-${pair}`, status);
-        });
+    // 3. Centralized Market Data Channel (reduced channel churn)
+    const centralizedMarketChannel = supabase
+      .channel('centralized-market-data')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'centralized_market_state'
+        },
+        (payload) => {
+          this.broadcast({
+            type: 'market_data_update',
+            data: { ...payload, table: 'centralized_market_state', symbol: (payload.new as any)?.symbol || (payload.old as any)?.symbol || null },
+            timestamp: Date.now()
+          });
+        }
+      )
+      .subscribe((status) => {
+        console.log('📈 Centralized market data channel:', status);
+        this.handleChannelStatus('centralized-market-data', status);
+      });
 
-      this.channels.set(`market-data-${pair}`, marketChannel);
-    });
+    this.channels.set('centralized-market-data', centralizedMarketChannel);
 
     // 4. Heartbeat Channel for connection monitoring
     const heartbeatChannel = supabase
@@ -191,26 +167,54 @@ class RealTimeManager {
   }
 
   private handleChannelStatus(channelName: string, status: string) {
+    // Track latest status per channel
+    this.channelStatuses.set(channelName, status);
+
+    // Determine active channels using either channel.state (joined) or last known SUBSCRIBED status
     const activeChannels = Array.from(this.channels.keys()).filter(name => {
-      // You'd need to track individual channel statuses here
-      return true; // Simplified for now
+      const channel: any = this.channels.get(name);
+      const knownStatus = this.channelStatuses.get(name);
+      const joined = channel && (channel.state === 'joined' || channel.state === 'subscribed');
+      const subscribed = knownStatus === 'SUBSCRIBED';
+      return joined || subscribed;
     });
+
+    const recentHeartbeat = (Date.now() - this.state.lastHeartbeat) < 60000; // 60s tolerance
 
     if (status === 'SUBSCRIBED') {
       this.updateState({
         isConnected: true,
         connectionAttempts: 0,
-        activeChannels
+        activeChannels,
+        lastHeartbeat: Date.now()
       });
-    } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+      
+      // Set up market data timeout if this is a market channel
+      if (channelName === 'centralized-market-data') {
+        this.resetMarketDataTimeout();
+      }
+      return;
+    }
+
+    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
       this.updateState({
-        isConnected: false,
+        isConnected: activeChannels.length > 0 || recentHeartbeat,
         connectionAttempts: this.state.connectionAttempts + 1,
         activeChannels
       });
-      
       // Auto-reconnect with exponential backoff
       this.scheduleReconnect();
+      return;
+    }
+
+    if (status === 'CLOSED') {
+      // Remove closed channel from status map
+      this.channelStatuses.delete(channelName);
+      const stillActive = activeChannels.length > 0 || recentHeartbeat;
+      this.updateState({
+        isConnected: stillActive,
+        activeChannels
+      });
     }
   }
 
@@ -243,6 +247,33 @@ class RealTimeManager {
         this.scheduleReconnect();
       }
     }, 10000); // Check every 10 seconds
+  }
+
+  private resetMarketDataTimeout() {
+    if (this.marketDataTimeout) {
+      clearTimeout(this.marketDataTimeout);
+    }
+    
+    // Set timeout for 60 seconds to trigger fallback market update
+    this.marketDataTimeout = setTimeout(async () => {
+      console.log('⚠️ No market data received for 60s, triggering fallback update...');
+      
+      try {
+        const { createClient } = await import('@supabase/supabase-js');
+        const supabase = createClient(
+          import.meta.env.VITE_SUPABASE_URL!,
+          import.meta.env.VITE_SUPABASE_ANON_KEY!
+        );
+        
+        await supabase.functions.invoke('update-centralized-market', {
+          body: { forced: true, reason: 'timeout_fallback' }
+        });
+        
+        console.log('✅ Fallback market update triggered');
+      } catch (error) {
+        console.error('❌ Fallback market update failed:', error);
+      }
+    }, 60000);
   }
 
   private scheduleReconnect() {
@@ -310,6 +341,11 @@ class RealTimeManager {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
     }
+    
+    if (this.marketDataTimeout) {
+      clearTimeout(this.marketDataTimeout);
+      this.marketDataTimeout = null;
+    }
 
     // Remove all channels
     this.channels.forEach((channel, name) => {
@@ -322,6 +358,7 @@ class RealTimeManager {
     });
     
     this.channels.clear();
+    this.channelStatuses.clear();
     this.subscriptions.clear();
     this.stateListeners.clear();
     
@@ -329,6 +366,50 @@ class RealTimeManager {
       isConnected: false,
       activeChannels: []
     });
+  }
+
+  // Helper method for lazy market data subscription (if needed)
+  public subscribeToMarketPair(pair: string): () => void {
+    const channelName = `market-data-${pair}`;
+    
+    if (this.channels.has(channelName)) {
+      console.log(`📈 Market channel ${pair} already exists`);
+      return () => {};
+    }
+
+    const marketChannel = supabase
+      .channel(channelName)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'centralized_market_state',
+          filter: `symbol=eq.${pair}`
+        },
+        (payload) => {
+          this.broadcast({
+            type: 'market_data_update',
+            data: { ...payload, symbol: pair },
+            timestamp: Date.now()
+          });
+        }
+      )
+      .subscribe((status) => {
+        console.log(`📈 Market data ${pair} channel:`, status);
+        this.handleChannelStatus(channelName, status);
+      });
+
+    this.channels.set(channelName, marketChannel);
+
+    return () => {
+      if (this.channels.has(channelName)) {
+        const channel = this.channels.get(channelName);
+        supabase.removeChannel(channel);
+        this.channels.delete(channelName);
+        console.log(`📡 Removed market channel: ${pair}`);
+      }
+    };
   }
 }
 

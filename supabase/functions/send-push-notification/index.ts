@@ -203,7 +203,16 @@ serve(async (req) => {
               aps: {
                 sound: 'coin_notification',
                 'content-available': 1,
+                alert: {
+                  title,
+                  body,
+                },
+                'mutable-content': 1,
               },
+            },
+            headers: {
+              'apns-priority': '10',
+              'apns-push-type': 'alert',
             },
           },
         },

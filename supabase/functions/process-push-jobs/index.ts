@@ -227,7 +227,16 @@ async function sendFCM(tokens: string[], title: string, body: string, data: Reco
               aps: {
                 sound: "coin_notification",
                 "content-available": 1,
+                alert: {
+                  title,
+                  body,
+                },
+                "mutable-content": 1,
               },
+            },
+            headers: {
+              "apns-priority": "10",
+              "apns-push-type": "alert",
             },
           },
         },
