@@ -36,11 +36,8 @@ if (!hasCleared) {
   sessionStorage.setItem('cache-cleared', 'true');
   clearStaleCache().then(() => {
     // Force page reload after cache clear to ensure fresh assets
-    if (!window.location.hash.includes('no-reload')) {
-      window.location.hash = 'no-reload';
-      window.location.reload();
-      return;
-    }
+    window.location.reload();
+    return;
     
     // Render app after cleanup
     ReactDOM.createRoot(document.getElementById('root')!).render(

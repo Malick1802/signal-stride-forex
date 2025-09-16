@@ -34,6 +34,13 @@ const AuthRedirectHandler = () => {
       params.forEach((value, key) => hashParams.set(key, value));
     }
     
+    // Normalize accidental "#no-reload" hash created by older builds
+    const rawHash = window.location.hash;
+    if (rawHash === '#no-reload' || location.pathname === '/no-reload') {
+      navigate('/', { replace: true });
+      return;
+    }
+    
     const tokenHash = urlParams.get('token_hash') || hashParams.get('token_hash');
     const type = urlParams.get('type') || hashParams.get('type');
     
