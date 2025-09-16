@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { RefreshCw } from 'lucide-react';
 import SignalCard from './SignalCard';
 import SignalCardLoading from './SignalCardLoading';
-import { RealTimeStatus } from './RealTimeStatus';
+
 import Logger from '@/utils/logger';
 import { useOfflineSignals } from '@/hooks/useOfflineSignals';
 import { useConnectionManager } from '@/hooks/useConnectionManager';
@@ -106,7 +106,7 @@ const TradingSignals = memo(() => {
 
   return (
     <div className="space-y-6">
-      <RealTimeStatus showDetails={true} className="mb-4" />
+      
       
       {/* Enhanced rendering with offline support */}
       {loading ? (
