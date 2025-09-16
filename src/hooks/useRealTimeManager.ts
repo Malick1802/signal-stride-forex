@@ -24,6 +24,7 @@ class RealTimeManager {
   private static instance: RealTimeManager | null = null;
   private subscriptions: Map<string, RealTimeSubscription> = new Map();
   private channels: Map<string, any> = new Map();
+  private channelStatuses: Map<string, string> = new Map();
   private state: RealTimeState = {
     isConnected: false,
     lastHeartbeat: 0,
@@ -165,10 +166,19 @@ class RealTimeManager {
   }
 
   private handleChannelStatus(channelName: string, status: string) {
+    // Track latest status per channel
+    this.channelStatuses.set(channelName, status);
+
+    // Determine active channels using either channel.state (joined) or last known SUBSCRIBED status
     const activeChannels = Array.from(this.channels.keys()).filter(name => {
-      const channel = this.channels.get(name);
-      return channel && channel.state === 'subscribed';
+      const channel: any = this.channels.get(name);
+      const knownStatus = this.channelStatuses.get(name);
+      const joined = channel && (channel.state === 'joined' || channel.state === 'subscribed');
+      const subscribed = knownStatus === 'SUBSCRIBED';
+      return joined || subscribed;
     });
+
+    const recentHeartbeat = (Date.now() - this.state.lastHeartbeat) < 60000; // 60s tolerance
 
     if (status === 'SUBSCRIBED') {
       this.updateState({
@@ -177,15 +187,28 @@ class RealTimeManager {
         activeChannels,
         lastHeartbeat: Date.now()
       });
-    } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+      return;
+    }
+
+    if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
       this.updateState({
-        isConnected: activeChannels.length > 0,
+        isConnected: activeChannels.length > 0 || recentHeartbeat,
         connectionAttempts: this.state.connectionAttempts + 1,
         activeChannels
       });
-      
       // Auto-reconnect with exponential backoff
       this.scheduleReconnect();
+      return;
+    }
+
+    if (status === 'CLOSED') {
+      // Remove closed channel from status map
+      this.channelStatuses.delete(channelName);
+      const stillActive = activeChannels.length > 0 || recentHeartbeat;
+      this.updateState({
+        isConnected: stillActive,
+        activeChannels
+      });
     }
   }
 
@@ -297,6 +320,7 @@ class RealTimeManager {
     });
     
     this.channels.clear();
+    this.channelStatuses.clear();
     this.subscriptions.clear();
     this.stateListeners.clear();
     
