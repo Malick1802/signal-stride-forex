@@ -116,13 +116,6 @@ export const useSignalStatusManager = () => {
   // Validate signal status consistency
   const validateSignalStatus = useCallback(async (signalId: string) => {
     try {
-      // Skip validation in preview environments to avoid CORS noise
-      if (typeof window !== 'undefined') {
-        const host = window.location.hostname;
-        if (host.includes('preview--') || host.endsWith('.lovable.app')) {
-          return { isValid: true, reason: 'Skipped in preview environment' };
-        }
-      }
       const { data: signal, error } = await supabase
         .from('trading_signals')
         .select('id, status, take_profits, targets_hit, symbol')

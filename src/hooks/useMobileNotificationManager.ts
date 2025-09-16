@@ -51,46 +51,36 @@ export const useMobileNotificationManager = () => {
   }, [profile?.push_vibration_enabled]);
 
   const sendPushNotification = useCallback(async (
-    title: string, 
-    body: string, 
-    data?: any, 
+    title: string,
+    body: string,
+    data?: any,
     notificationType: string = 'signal',
     userIds?: string[]
-  ): Promise<void> => {
+  ) => {
     try {
-      if (!user?.id) return;
-
-      // Stringify and filter data to ensure FCM compatibility
-      const safeData: Record<string, string> = {};
-      if (data && typeof data === 'object') {
-        Object.entries(data).forEach(([key, value]) => {
-          if (value !== null && value !== undefined) {
-            safeData[key] = typeof value === 'string' ? value : String(value);
-          }
-        });
-      }
-
-      const { error } = await supabase.functions.invoke('send-push-notification', {
+      console.log('📱 Sending push notification via backend...');
+      
+      const { data: result, error } = await supabase.functions.invoke('send-push-notification', {
         body: {
           title,
           body,
-          data: safeData,
+          data,
           notificationType,
-          userIds: userIds || [user.id]
+          userIds,
         }
       });
 
       if (error) {
-        console.error('❌ Push notification error:', error);
+        console.error('❌ Error sending push notification:', error);
         throw error;
       }
 
-      console.log('✅ Push notification sent successfully');
+      console.log('✅ Push notification sent:', result);
     } catch (error) {
       console.error('❌ Failed to send push notification:', error);
       throw error;
     }
-  }, [user?.id]);
+  }, []);
 
   const sendNotificationSafely = useCallback(async (
     notificationFn: () => Promise<void>,
@@ -299,7 +289,7 @@ export const useMobileNotificationManager = () => {
         '🧪 Test Notification',
         'Your push notification system is working correctly!',
         { test: true },
-        'new_signal',
+        'signal',
         user ? [user.id] : undefined
       );
       

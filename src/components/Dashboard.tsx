@@ -12,7 +12,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useMobileNotificationManager } from '@/hooks/useMobileNotificationManager';
-
+import { useSignalNotifications } from '@/hooks/useSignalNotifications';
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -60,7 +60,9 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
     sendTestNotification 
   } = useMobileNotificationManager();
   
-const [loggingOut, setLoggingOut] = useState(false);
+  // Initialize signal notifications listener (for real-time push notifications)
+  useSignalNotifications();
+  const [loggingOut, setLoggingOut] = useState(false);
   
   const { profile, fetchProfile } = useProfile();
   const { subscription, createCheckout, openCustomerPortal, signOut } = useAuth();
@@ -270,7 +272,7 @@ const [loggingOut, setLoggingOut] = useState(false);
   );
 
   const DesktopNavigation = () => (
-    <div className="hidden md:flex space-x-8 relative z-[200] pointer-events-auto">
+    <div className="hidden md:flex space-x-8">
       {tabItems.map(tab => (
         <button
           key={tab.id}
@@ -291,7 +293,7 @@ const [loggingOut, setLoggingOut] = useState(false);
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
       {/* Mobile-First Top Navigation */}
-      <nav className="relative z-[60] bg-black/20 backdrop-blur-sm border-b border-white/10 px-3 sm:px-6 pt-8 py-3 sm:py-4 pointer-events-auto">
+      <nav className="bg-black/20 backdrop-blur-sm border-b border-white/10 px-3 sm:px-6 pt-8 py-3 sm:py-4">
         <div className="flex items-center justify-between">
           {/* Left side - Logo and status */}
           <div className="flex items-center space-x-2 sm:space-x-4 flex-1 min-w-0">
@@ -406,7 +408,7 @@ const [loggingOut, setLoggingOut] = useState(false);
       </SettingsDialog>
 
       {/* Desktop Tab Navigation */}
-      <div className="relative z-[60] bg-black/10 backdrop-blur-sm border-b border-white/10 hidden md:block pointer-events-auto">
+      <div className="bg-black/10 backdrop-blur-sm border-b border-white/10 hidden md:block">
         <div className="px-6">
           <DesktopNavigation />
         </div>

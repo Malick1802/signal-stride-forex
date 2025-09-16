@@ -175,16 +175,6 @@ serve(async (req) => {
     const invalidTokens = [];
 
     for (const profile of eligibleProfiles) {
-      // Ensure all data values are strings to prevent FCM 400 errors
-      const stringifiedData: Record<string, string> = {};
-      if (data && typeof data === 'object') {
-        Object.entries(data).forEach(([key, value]) => {
-          if (value !== null && value !== undefined) {
-            stringifiedData[key] = typeof value === 'string' ? value : String(value);
-          }
-        });
-      }
-
       const fcmPayload = {
         message: {
           token: profile.push_token,
@@ -193,17 +183,17 @@ serve(async (req) => {
             body,
           },
           data: {
-            ...stringifiedData,
+            ...data,
             type: notificationType,
             timestamp: new Date().toISOString(),
           },
           android: {
             notification: {
               channel_id: notificationType === 'market_update'
-                ? 'market_updates_v2'
+                ? 'market_updates_v3'
                 : notificationType === 'signal_complete'
-                  ? 'trade_alerts_v2'
-                  : 'forex_signals_v2',
+                  ? 'trade_alerts_v3'
+                  : 'forex_signals_v3',
               sound: 'coin_notification',
             },
             priority: 'high',

@@ -5,10 +5,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { usePushNotifications } from './usePushNotifications';
 import { toast } from 'sonner';
 
-// Singleton guards for realtime channel per user session
-let activeUserId: string | null = null;
-let activeChannelRef: any = null;
-
 export const useSignalNotifications = () => {
   const { user, session } = useAuth();
   const { isRegistered: pushEnabled, sendTestNotification } = usePushNotifications();
@@ -17,37 +13,26 @@ export const useSignalNotifications = () => {
   const channelRef = useRef<any>(null);
 
   const setupSignalListener = useCallback(async () => {
-    if (!user) return;
-    if (activeUserId === user.id && activeChannelRef) {
-      console.log('🔁 Signal listener already active for user, reusing channel.');
-      channelRef.current = activeChannelRef;
-      setIsListening(true);
-      return;
-    }
-
-    if (isListening) return;
+    if (!user || isListening) return;
 
     try {
       console.log('📡 Setting up signal notification listener...');
       setIsListening(true);
 
-      // Clean up existing channels
+      // Clean up existing channel
       if (channelRef.current) {
         supabase.removeChannel(channelRef.current);
       }
-      if (activeChannelRef) {
-        supabase.removeChannel(activeChannelRef);
-      }
 
       const channel = supabase
-        .channel(`signal-notifications-${user.id}`)
+        .channel('signal-notifications')
         .on('postgres_changes', {
           event: 'INSERT',
           schema: 'public',
           table: 'trading_signals',
           filter: 'is_centralized=eq.true'
         }, async (payload) => {
-          const signal = payload.new as any;
+          const signal = payload.new;
           console.log('🚨 New signal received:', signal);
           
           const notificationData = {
@@ -60,19 +45,14 @@ export const useSignalNotifications = () => {
           // Show notification
           try {
             if (pushEnabled) {
-              try {
-                const { data: fnData, error: fnError } = await supabase.functions.invoke('send-push-notification', {
-                  body: {
-                    title: notificationData.title,
-                    body: notificationData.body,
-                    data: notificationData.data,
-                    notificationType: 'new_signal'
-                  }
-                });
-                console.log('send-push-notification result:', { fnData, fnError });
-              } catch (err) {
-                console.warn('send-push-notification invoke threw:', err);
-              }
+              await supabase.functions.invoke('send-push-notification', {
+                body: {
+                  title: notificationData.title,
+                  body: notificationData.body,
+                  data: notificationData.data,
+                  notificationType: 'signal'
+                }
+              });
             }
           } catch (error) {
             console.warn('Push notification failed:', error);
@@ -120,8 +100,6 @@ export const useSignalNotifications = () => {
         .subscribe();
 
       channelRef.current = channel;
-      activeChannelRef = channel;
-      activeUserId = user.id;
       
     } catch (error) {
       console.error('Error setting up signal listener:', error);
@@ -134,15 +112,8 @@ export const useSignalNotifications = () => {
     
     return () => {
       if (channelRef.current) {
-        try { supabase.removeChannel(channelRef.current); } catch {}
+        supabase.removeChannel(channelRef.current);
       }
-      if (activeChannelRef) {
-        try { supabase.removeChannel(activeChannelRef); } catch {}
-      }
-      channelRef.current = null;
-      activeChannelRef = null;
-      activeUserId = null;
-      setIsListening(false);
     };
   }, [setupSignalListener]);
 

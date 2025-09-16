@@ -42,40 +42,25 @@ export const useConnectionManager = (): ConnectionManager => {
   const checkSupabaseConnection = useCallback(async (): Promise<boolean> => {
     try {
       debugLog('Checking Supabase connection...');
-
-      const SUPABASE_URL = "https://ugtaodrvbpfeyhdgmisn.supabase.co";
-      const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVndGFvZHJ2YnBmZXloZGdtaXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQwNjA2MTUsImV4cCI6MjA0OTYzNjYxNX0.Z-71hRCpHB0YivrsTb2kZQdObcF42BQVYIQ8_yMb_JM";
-      const token = (await supabase.auth.getSession()).data.session?.access_token || SUPABASE_PUBLISHABLE_KEY;
-
-      // Attempt lightweight HEAD first
-      try {
-        const headResp = await fetch(`${SUPABASE_URL}/rest/v1/trading_signals?select=id&limit=1`, {
-          method: 'HEAD',
-          headers: {
-            'apikey': SUPABASE_PUBLISHABLE_KEY,
-            'authorization': `Bearer ${token}`,
-          },
-        });
-        const ok = [200, 401, 404].includes(headResp.status);
-        debugLog(`Supabase HEAD check: ${ok} (status: ${headResp.status})`);
-        if (ok) return true;
-      } catch (e) {
-        debugLog('HEAD check failed, falling back to GET', e);
-      }
-
-      // Fallback: very small GET which works on WebViews that block HEAD
-      const getResp = await fetch(`${SUPABASE_URL}/rest/v1/trading_signals?select=id&limit=1`, {
-        method: 'GET',
-        headers: {
-          'accept': 'application/json',
-          'apikey': SUPABASE_PUBLISHABLE_KEY,
-          'authorization': `Bearer ${token}`,
-        },
+      const { data, error } = await supabase.rpc('get_app_setting', { 
+        setting_name: 'signal_threshold_level' 
       });
-      const reachable = [200, 401, 404].includes(getResp.status);
-      debugLog(`Supabase GET check: ${reachable} (status: ${getResp.status})`);
-      return reachable;
+      
+      // If 401/403, treat as temporary auth issue but backend is reachable
+      if (error && (error.code === '401' || error.code === '403')) {
+        debugLog('Auth issue detected, but backend is reachable');
+        return true; // Backend is up, just auth state issue
+      }
+      
+      const isConnected = !error;
+      debugLog(`Supabase connection check result: ${isConnected}`, error || 'Success');
+      return isConnected;
     } catch (error: any) {
+      // Handle auth errors as backend reachable
+      if (error?.status === 401 || error?.status === 403) {
+        debugLog('Auth error, but backend is reachable');
+        return true;
+      }
       debugLog('Supabase connection check failed:', error);
       return false;
     }

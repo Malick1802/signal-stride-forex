@@ -56,22 +56,10 @@ async function getFcmAccessToken(): Promise<string> {
   const encodedPayload = base64urlEncode(jwtPayload);
   const unsignedToken = `${encodedHeader}.${encodedPayload}`;
 
-  // Convert PEM to DER format for private key import
-  const pemKey = serviceAccount.private_key.replace(/\\n/g, '\n');
-  const pemHeader = '-----BEGIN PRIVATE KEY-----\n';
-  const pemFooter = '\n-----END PRIVATE KEY-----';
-  
-  const pemContents = pemKey
-    .replace(pemHeader, '')
-    .replace(pemFooter, '')
-    .replace(/\s/g, '');
-  
-  const binaryDer = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
-  
   // Import private key for signing
   const privateKey = await crypto.subtle.importKey(
     "pkcs8",
-    binaryDer,
+    new TextEncoder().encode(serviceAccount.private_key),
     { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
     false,
     ["sign"]
@@ -208,38 +196,28 @@ async function sendFCM(tokens: string[], title: string, body: string, data: Reco
     const serviceAccount = JSON.parse(fcmServiceAccountJson);
     const projectId = serviceAccount.project_id;
 
-  // Ensure all data values are strings to prevent FCM 400 errors
-  const stringifiedData: Record<string, string> = {};
-  if (data && typeof data === 'object') {
-    Object.entries(data).forEach(([key, value]) => {
-      if (value !== null && value !== undefined) {
-        stringifiedData[key] = typeof value === 'string' ? value : String(value);
-      }
-    });
-  }
-
-  const results = [];
-  
-  // Send individual messages for each token (FCM HTTP v1 doesn't support bulk sending)
-  for (const token of tokens) {
-    const payload = {
-      message: {
-        token: token,
-        notification: {
-          title,
-          body,
-        },
-        data: {
-          ...stringifiedData,
-          timestamp: new Date().toISOString(),
-        },
+    const results = [];
+    
+    // Send individual messages for each token (FCM HTTP v1 doesn't support bulk sending)
+    for (const token of tokens) {
+      const payload = {
+        message: {
+          token: token,
+          notification: {
+            title,
+            body,
+          },
+          data: {
+            ...data,
+            timestamp: new Date().toISOString(),
+          },
           android: {
             notification: {
               channel_id: data?.type === "market_update"
-                ? "market_updates_v2"
+                ? "market_updates_v3"
                 : data?.type === "signal_complete"
-                  ? "trade_alerts_v2"
-                  : "forex_signals_v2",
+                  ? "trade_alerts_v3"
+                  : "forex_signals_v3",
               sound: "coin_notification",
             },
             priority: "high",
