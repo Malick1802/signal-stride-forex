@@ -5,7 +5,6 @@ import SubscriptionStatusWidget from './SubscriptionStatusWidget';
 import TrialExpirationBanner from './TrialExpirationBanner';
 import MobileLoadingScreen from './MobileLoadingScreen';
 import DashboardStats from './DashboardStats';
-import { ProductionConnectionStatus } from './ProductionConnectionStatus';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '../contexts/AuthContext';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
@@ -446,9 +445,6 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
       {/* Content Area - With Pull to Refresh for Mobile */}
       <PullToRefresh onRefresh={handleRefresh} className="flex-1">
         <div className="p-3 sm:p-6">
-          {/* Connection Status */}
-          <ProductionConnectionStatus />
-          
           {/* Trial Expiration Banner */}
           {!bannerDismissed && (
             <TrialExpirationBanner
