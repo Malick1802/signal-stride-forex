@@ -268,14 +268,24 @@ self.addEventListener('sync', (event) => {
 self.addEventListener('push', (event) => {
   console.log('📱 Push notification received:', event);
   
+  let notificationData;
+  try {
+    notificationData = event.data ? JSON.parse(event.data.text()) : {};
+  } catch (error) {
+    console.warn('Failed to parse push data:', error);
+    notificationData = {};
+  }
+  
+  const title = notificationData.title || 'ForexAlert Pro';
   const options = {
-    body: event.data ? event.data.text() : 'New forex signal available',
+    body: notificationData.body || 'New forex signal available',
     icon: '/favicon.ico',
     badge: '/favicon.ico',
     vibrate: [200, 100, 200],
     data: {
       url: '/',
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      ...notificationData.data
     },
     actions: [
       {
@@ -289,8 +299,10 @@ self.addEventListener('push', (event) => {
     ]
   };
   
+  console.log('📱 Showing notification:', title, options);
+  
   event.waitUntil(
-    self.registration.showNotification('ForexAlert Pro', options)
+    self.registration.showNotification(title, options)
   );
 });
 

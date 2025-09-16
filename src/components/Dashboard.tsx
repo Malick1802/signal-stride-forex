@@ -11,6 +11,7 @@ import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '../contexts/AuthContext';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
+import { useMobileNotificationManager } from '@/hooks/useMobileNotificationManager';
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -48,6 +49,15 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
   const [refreshing, setRefreshing] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
+  
+  // Initialize mobile notification manager
+  const { 
+    sendNewSignalNotification,
+    sendTargetHitNotification, 
+    sendStopLossNotification,
+    sendSignalCompleteNotification,
+    sendTestNotification 
+  } = useMobileNotificationManager();
   const [loggingOut, setLoggingOut] = useState(false);
   
   const { profile, fetchProfile } = useProfile();
