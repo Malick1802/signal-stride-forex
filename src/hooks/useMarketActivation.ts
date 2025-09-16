@@ -23,30 +23,8 @@ export const useMarketActivation = () => {
         return;
       }
       
-      // Initialize fresh baseline data for the automated system
-      console.log('📊 Initializing automated baseline data...');
-      const { data: baselineData, error: baselineError } = await supabase.functions.invoke('centralized-market-stream');
-      
-      if (baselineError) {
-        console.error('❌ Failed to initialize automated baseline:', baselineError);
-        return;
-      }
-      
-      console.log('✅ Automated baseline initialized:', baselineData);
-      
-      // Wait for baseline data to propagate
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Start automated real-time tick generation from baseline
-      console.log('🎯 Starting automated tick generation...');
-      const { data: tickData, error: tickError } = await supabase.functions.invoke('real-time-tick-generator');
-      
-      if (tickError) {
-        console.error('❌ Failed to start automated ticks:', tickError);
-        return;
-      }
-      
-      console.log('✅ Automated real-time market system activated:', tickData);
+      console.log('📊 Centralized market system - relying on 60s FastForex updates');
+      console.log('✅ Market activation completed - using centralized data flow');
       
     } catch (error) {
       console.error('💥 Automated market activation error:', error);

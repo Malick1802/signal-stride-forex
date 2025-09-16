@@ -5,6 +5,7 @@ import SubscriptionStatusWidget from './SubscriptionStatusWidget';
 import TrialExpirationBanner from './TrialExpirationBanner';
 import MobileLoadingScreen from './MobileLoadingScreen';
 import DashboardStats from './DashboardStats';
+import GlobalRefreshIndicator from './GlobalRefreshIndicator';
 import { ProductionConnectionStatus } from './ProductionConnectionStatus';
 import { useProfile } from '@/hooks/useProfile';
 import { useAuth } from '../contexts/AuthContext';
@@ -445,6 +446,11 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
           loading={loading}
         />
       )}
+
+      {/* Global Real-time Data Synchronization Status */}
+      <div className="px-3 sm:px-6 py-2">
+        <GlobalRefreshIndicator />
+      </div>
 
       {/* Content Area - With Pull to Refresh for Mobile */}
       <PullToRefresh onRefresh={handleRefresh} className="flex-1">

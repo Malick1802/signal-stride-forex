@@ -72,7 +72,7 @@ const GlobalRefreshIndicator = () => {
 
       {/* Auto-refresh Info */}
       <div className="mt-2 text-xs text-gray-400">
-        Auto-refresh: Prices every 8s • Signals every 45s • Full sync every 3min
+        Centralized FastForex: Updates every 60s • Real-time sync across all clients
       </div>
     </div>
   );

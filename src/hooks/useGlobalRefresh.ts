@@ -35,29 +35,12 @@ class GlobalRefreshService {
   }
 
   async triggerPriceUpdate() {
-    if (this.state.isUpdating) return;
-    
-    this.state.isUpdating = true;
+    // Remove client-side invocation to maintain centralization
+    // FastForex updates happen every 60s via centralized cron or server triggers
     this.state.lastPriceUpdate = Date.now();
     this.notifySubscribers();
-
-    try {
-      console.log('🔄 Global price update triggered');
-      
-      // Trigger centralized market update
-      const { error } = await supabase.functions.invoke('centralized-market-stream');
-      
-      if (error) {
-        console.error('❌ Global price update failed:', error);
-      } else {
-        console.log('✅ Global price update completed');
-      }
-    } catch (error) {
-      console.error('❌ Global price update error:', error);
-    } finally {
-      this.state.isUpdating = false;
-      this.notifySubscribers();
-    }
+    
+    console.log('📊 Price update timestamp recorded - relying on centralized FastForex 60s cycle');
   }
 
   async triggerSignalUpdate() {
@@ -78,39 +61,33 @@ class GlobalRefreshService {
     this.state.lastFullSync = Date.now();
     this.notifySubscribers();
     
-    try {
-      console.log('🔄 Global full sync triggered');
-      
-      // Trigger both price and signal updates
-      await this.triggerPriceUpdate();
-      await this.triggerSignalUpdate();
-      
-      console.log('✅ Global full sync completed');
-    } catch (error) {
-      console.error('❌ Global full sync error:', error);
-    }
+    console.log('🔄 Global full sync - relying on centralized 60s FastForex updates');
+    
+    // Update timestamps without triggering redundant API calls
+    await this.triggerPriceUpdate();
+    await this.triggerSignalUpdate();
   }
 
   start() {
-    console.log('🌐 Starting global refresh service');
+    console.log('🌐 Starting global refresh service (centralized mode - 60s FastForex cycle)');
     
-    // Price updates every 8 seconds
+    // Align with FastForex 60-second centralized updates
     this.priceInterval = setInterval(() => {
       this.triggerPriceUpdate();
-    }, 8000);
+    }, 60000);
 
     // Signal refresh every 45 seconds
     this.signalInterval = setInterval(() => {
       this.triggerSignalUpdate();
     }, 45000);
 
-    // Full sync every 3 minutes
+    // Full sync every 2 minutes (aligned with centralized data flow)
     this.fullSyncInterval = setInterval(() => {
       this.triggerFullSync();
-    }, 180000);
+    }, 120000);
 
-    // Initial update
-    setTimeout(() => this.triggerPriceUpdate(), 1000);
+    // Initial update after brief delay
+    setTimeout(() => this.triggerPriceUpdate(), 2000);
   }
 
   stop() {

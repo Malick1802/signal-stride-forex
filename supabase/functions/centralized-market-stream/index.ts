@@ -14,7 +14,43 @@ serve(async (req) => {
   }
 
   try {
-    console.log('🌊 FastForex direct market stream (15s refresh cycle)...');
+    console.log('🌊 FastForex centralized market stream (60s refresh cycle)...');
+    
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    const fastForexApiKey = Deno.env.get('FASTFOREX_API_KEY');
+    
+    if (!supabaseUrl || !supabaseServiceKey || !fastForexApiKey) {
+      throw new Error('Missing required environment variables');
+    }
+    
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    // 60-second guardrail to prevent race conditions across clients
+    const { data: lastRun, error: checkError } = await supabase
+      .from('centralized_market_state')
+      .select('last_update')
+      .order('last_update', { ascending: false })
+      .limit(1);
+    
+    if (!checkError && lastRun?.length > 0) {
+      const lastUpdate = new Date(lastRun[0].last_update);
+      const now = new Date();
+      const timeSinceLastUpdate = now.getTime() - lastUpdate.getTime();
+      
+      if (timeSinceLastUpdate < 55000) { // Less than 55 seconds
+        console.log(`⏰ FastForex guardrail: Last update ${Math.round(timeSinceLastUpdate/1000)}s ago, skipping to maintain centralization`);
+        return new Response(
+          JSON.stringify({
+            success: true,
+            message: 'Skipped - maintaining 60s centralized update cycle',
+            lastUpdate: lastUpdate.toISOString(),
+            nextUpdateIn: Math.round((60000 - timeSinceLastUpdate) / 1000) + 's'
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
@@ -37,7 +73,7 @@ serve(async (req) => {
       'NZDCHF', 'NZDJPY', 'AUDJPY', 'CHFJPY', 'EURCAD', 'GBPAUD'
     ];
 
-    console.log(`📊 Fetching fresh FastForex data for ${streamingPairs.length} pairs (15s cycle)`);
+    console.log(`📊 Fetching fresh FastForex data for ${streamingPairs.length} pairs (60s centralized cycle)`);
 
     // Check market hours
     const now = new Date();
@@ -226,7 +262,7 @@ serve(async (req) => {
       }
     }
 
-    console.log('✅ Direct FastForex market stream update completed (15s cycle)');
+    console.log('✅ Direct FastForex market stream update completed (60s centralized cycle)');
 
     return new Response(
       JSON.stringify({
@@ -234,7 +270,7 @@ serve(async (req) => {
         message: `Direct FastForex data updated for ${marketUpdates.length} pairs`,
         pairs: marketUpdates.map(u => u.symbol),
         timestamp,
-        source: 'fastforex-direct-15s',
+        source: 'fastforex-centralized-60s',
         isMarketOpen: true,
         session: getMarketSession().name,
         changeDetectionEnabled: true

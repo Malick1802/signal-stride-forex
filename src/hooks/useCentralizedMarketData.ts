@@ -264,8 +264,8 @@ export const useCentralizedMarketData = (symbol: string) => {
           console.log(`🔔 [${symbol}] Real-time market update via manager`);
           
           // Direct state update from event payload for immediate synchronization
-          if (event.data.new_record) {
-            const payload = event.data.new_record;
+          const payload = event.data.new || event.data.payload;
+          if (payload) {
             
             // Update market data directly from real-time event
             if (event.data.table === 'centralized_market_state') {
@@ -346,12 +346,12 @@ export const useCentralizedMarketData = (symbol: string) => {
       const now = Date.now();
       const timeSinceUpdate = now - lastUpdateRef.current;
       
-      // Fallback refresh every 2 minutes if no real-time updates
-      if (timeSinceUpdate > 120000) {
-        console.log(`⚠️ [${symbol}] Fallback refresh - no real-time updates received`);
+      // Fallback refresh every 60 seconds to match FastForex update frequency
+      if (timeSinceUpdate > 65000) {
+        console.log(`⚠️ [${symbol}] Fallback refresh - no real-time updates received (FastForex cadence)`);
         fetchCentralizedData();
       }
-    }, 120000); // Fallback check every 2 minutes
+    }, 30000); // Check every 30 seconds for 60s cadence alignment
 
     return () => {
       mountedRef.current = false;
