@@ -270,7 +270,7 @@ const [loggingOut, setLoggingOut] = useState(false);
   );
 
   const DesktopNavigation = () => (
-    <div className="hidden md:flex space-x-8 relative z-[60] pointer-events-auto">
+    <div className="hidden md:flex space-x-8 relative z-[200] pointer-events-auto">
       {tabItems.map(tab => (
         <button
           key={tab.id}

@@ -118,6 +118,11 @@ self.addEventListener('fetch', (event) => {
   
   const url = new URL(request.url);
   
+  // Skip cross-origin requests (let the browser handle them to avoid CORS/sw issues)
+  if (url.origin !== self.location.origin) {
+    return;
+  }
+  
   // Handle API requests with network-first strategy
   if (API_CACHE_PATTERNS.some(pattern => pattern.test(url.pathname))) {
     event.respondWith(
