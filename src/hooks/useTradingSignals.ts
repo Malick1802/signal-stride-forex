@@ -355,16 +355,26 @@ export const useTradingSignals = () => {
     try {
       Logger.info('signals', 'Executing time-based expiration elimination plan...');
       
-      // Server-side cleanup is now handled automatically
-      // No need to invoke functions from client-side
-      Logger.info('signals', 'Server-side cleanup active');
+      const { data: cleanupResult, error: cleanupError } = await supabase.functions.invoke('cleanup-crons');
+      
+      if (cleanupError) {
+        Logger.error('signals', 'Elimination plan error:', cleanupError);
+        toast({
+          title: "❌ Elimination Plan Failed",
+          description: "Failed to eliminate time-based expiration. Check console for details.",
+          variant: "destructive"
+        });
+        return false;
+      }
+
+      Logger.info('signals', 'Elimination plan result:', cleanupResult);
       
       await new Promise(resolve => setTimeout(resolve, 3000));
       await fetchSignals();
       
       toast({
-        title: "🎯 SERVER-SIDE CLEANUP ACTIVE",
-        description: "Signals are managed by automated server-side systems. Real-time updates active.",
+        title: "🎯 TIME-BASED EXPIRATION ELIMINATED",
+        description: `${cleanupResult?.removedJobsByName?.length || 0} time-based jobs removed. Signals now expire ONLY on SL/TP hits + 72h safety net.`,
       });
 
       return true;

@@ -42,14 +42,18 @@ class GlobalRefreshService {
     this.notifySubscribers();
 
     try {
-      console.log('🔄 Global price refresh triggered from cache');
+      console.log('🔄 Global price update triggered');
       
-      // Simply refresh the UI - the real-time system handles data updates
-      // No need to invoke edge functions from client to avoid connection issues
+      // Trigger centralized market update
+      const { error } = await supabase.functions.invoke('centralized-market-stream');
       
-      console.log('✅ Global price refresh initiated');
+      if (error) {
+        console.error('❌ Global price update failed:', error);
+      } else {
+        console.log('✅ Global price update completed');
+      }
     } catch (error) {
-      console.error('❌ Global price refresh error:', error);
+      console.error('❌ Global price update error:', error);
     } finally {
       this.state.isUpdating = false;
       this.notifySubscribers();
