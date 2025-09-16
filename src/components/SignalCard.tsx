@@ -132,8 +132,8 @@ const SignalCard = memo(({ signal, analysis }: SignalCardProps) => {
         }))
     : [];
 
-  // Enhanced connection status - rely solely on hook's connection state
-  const connectionStatus = isConnected;
+  // Enhanced connection status
+  const connectionStatus = isConnected && chartDataToDisplay.length > 0;
 
   return (
     <div className="bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 overflow-hidden">

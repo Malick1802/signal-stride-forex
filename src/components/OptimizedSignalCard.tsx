@@ -98,8 +98,7 @@ const OptimizedSignalCard = memo<OptimizedSignalCardProps>(({
         }))
     : [];
 
-  // Enhanced connection status - rely solely on hook's connection state
-  const connectionStatus = isConnected;
+  const connectionStatus = isConnected && chartDataToDisplay.length > 0;
 
   const handleAnalysisToggle = useCallback((open: boolean) => {
     setIsAnalysisOpen(open);

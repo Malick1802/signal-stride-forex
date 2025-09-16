@@ -1,10 +1,13 @@
 
 // Service Worker for PWA functionality
-const CACHE_NAME = 'forex-signals-v3';
-const OFFLINE_CACHE_NAME = 'forex-signals-offline-v3';
+const CACHE_NAME = 'forex-signals-v1';
+const OFFLINE_CACHE_NAME = 'forex-signals-offline-v1';
 
 // Assets to cache for offline functionality
 const STATIC_ASSETS = [
+  '/',
+  '/static/js/bundle.js',
+  '/static/css/main.css',
   '/favicon.ico',
   '/manifest.json'
 ];
@@ -174,42 +177,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
   
-  // Handle navigation and Vite chunks with network-first strategy
-  if (request.destination === 'document' || url.pathname.includes('assets/') || url.pathname.includes('.js') || url.pathname.includes('.css')) {
-    event.respondWith(
-      fetch(request)
-        .then(async response => {
-          if (response.ok) {
-            const responseClone = response.clone();
-            await safeCachePut(CACHE_NAME, request, responseClone);
-          }
-          return response;
-        })
-        .catch(() => {
-          // Network failed, try cache
-          return caches.match(request)
-            .then(cachedResponse => {
-              if (cachedResponse) {
-                console.log('📱 Serving from cache:', request.url);
-                return cachedResponse;
-              }
-              
-              // Return basic offline response for documents
-              if (request.destination === 'document') {
-                return new Response('App offline - please check your connection', { 
-                  status: 503,
-                  headers: { 'Content-Type': 'text/html' }
-                });
-              }
-              
-              return new Response('Offline', { status: 503 });
-            });
-        })
-    );
-    return;
-  }
-  
-  // Handle other static assets with cache-first strategy
+  // Handle static assets with cache-first strategy
   event.respondWith(
     caches.match(request)
       .then(cachedResponse => {
@@ -234,6 +202,12 @@ self.addEventListener('fetch', (event) => {
             return response;
           })
           .catch(() => {
+            // Network failed and not in cache
+            if (request.destination === 'document') {
+              // Return offline page for navigation requests
+              return caches.match('/offline.html');
+            }
+            
             return new Response('Offline', { status: 503 });
           });
       })

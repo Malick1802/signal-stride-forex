@@ -1,7 +1,7 @@
 import React from 'react';
 import { useRealTimeManager } from '@/hooks/useRealTimeManager';
 import { Badge } from '@/components/ui/badge';
-import { Wifi, WifiOff, Clock, Activity, Signal } from 'lucide-react';
+import { Wifi, WifiOff, Clock, Activity } from 'lucide-react';
 
 interface RealTimeStatusProps {
   className?: string;
@@ -13,26 +13,22 @@ export const RealTimeStatus: React.FC<RealTimeStatusProps> = ({
   showDetails = false 
 }) => {
   const { state, isConnected, lastHeartbeat, activeChannels } = useRealTimeManager();
-  const recentHeartbeat = lastHeartbeat ? (Date.now() - lastHeartbeat) < 30000 : false;
-  const live = (isConnected && activeChannels.length > 0) || recentHeartbeat;
 
   const getStatusColor = () => {
-    if (isConnected && activeChannels.length > 0) return 'bg-green-500';
+    if (isConnected) return 'bg-green-500';
     if (state.connectionAttempts > 0) return 'bg-yellow-500';
     return 'bg-red-500';
   };
 
   const getStatusText = () => {
-    if (live) return `Live (${activeChannels.length})`;
+    if (isConnected) return 'Connected';
     if (state.connectionAttempts > 0) return `Reconnecting... (${state.connectionAttempts})`;
-    if (isConnected) return 'Partial';
-    return 'Offline';
+    return 'Disconnected';
   };
 
   const getStatusIcon = () => {
-    if (live) return <Signal className="h-3 w-3" />;
-    if (state.connectionAttempts > 0) return <Activity className="h-3 w-3 animate-pulse" />;
     if (isConnected) return <Wifi className="h-3 w-3" />;
+    if (state.connectionAttempts > 0) return <Activity className="h-3 w-3 animate-pulse" />;
     return <WifiOff className="h-3 w-3" />;
   };
 
@@ -46,7 +42,7 @@ export const RealTimeStatus: React.FC<RealTimeStatusProps> = ({
   return (
     <div className={`flex items-center gap-2 ${className}`}>
       <Badge 
-        variant={live ? "default" : "destructive"}
+        variant={isConnected ? "default" : "destructive"}
         className="flex items-center gap-1"
       >
         {getStatusIcon()}

@@ -436,78 +436,17 @@ export const useTradingSignals = () => {
         
         const { eventType, new: newSignal, old: oldSignal } = event.data;
         
-        // Handle different event types with immediate state updates
-        if (eventType === 'INSERT' && newSignal && newSignal.status === 'active' && newSignal.is_centralized === true && !newSignal.user_id) {
-          Logger.info('signals', 'New centralized signal detected, adding immediately');
-          
-          // Process and add the new signal immediately
-          try {
-            const processedNewSignals = processSignals([newSignal]);
-            if (processedNewSignals.length > 0) {
-              setSignals(prev => {
-                // Add new signal to the beginning and ensure we don't exceed MAX_ACTIVE_SIGNALS
-                const updated = [processedNewSignals[0], ...prev].slice(0, MAX_ACTIVE_SIGNALS);
-                
-                // Update distribution
-                const buyCount = updated.filter(s => s.type === 'BUY').length;
-                const sellCount = updated.filter(s => s.type === 'SELL').length;
-                setSignalDistribution({ buy: buyCount, sell: sellCount });
-                
-                Logger.info('signals', `New signal added immediately. Total: ${updated.length}`);
-                return updated;
-              });
-              setLastUpdate(new Date().toLocaleTimeString());
-            }
-          } catch (error) {
-            Logger.error('signals', 'Error processing new signal for immediate update:', error);
-            // Fallback to full fetch
-            fetchSignals();
-          }
+        // Handle different event types immediately
+        if (eventType === 'INSERT' && newSignal) {
+          Logger.info('signals', 'New signal detected, updating immediately');
+          // Immediately fetch fresh signals to include the new one
+          fetchSignals();
         } else if (eventType === 'UPDATE' && newSignal) {
-          Logger.info('signals', 'Signal updated, updating state');
-          
-          // Update existing signal in state or fetch fresh if not found
-          setSignals(prev => {
-            const existingIndex = prev.findIndex(s => s.id === newSignal.id);
-            if (existingIndex !== -1) {
-              try {
-                const processedUpdated = processSignals([newSignal]);
-                if (processedUpdated.length > 0) {
-                  const updated = [...prev];
-                  updated[existingIndex] = processedUpdated[0];
-                  
-                  // Update distribution
-                  const buyCount = updated.filter(s => s.type === 'BUY').length;
-                  const sellCount = updated.filter(s => s.type === 'SELL').length;
-                  setSignalDistribution({ buy: buyCount, sell: sellCount });
-                  
-                  Logger.info('signals', `Signal ${newSignal.id} updated in state`);
-                  return updated;
-                }
-              } catch (error) {
-                Logger.error('signals', 'Error updating signal in state:', error);
-              }
-            }
-            return prev;
-          });
-          
-          // Also do a trailing fetch to ensure consistency
-          setTimeout(() => fetchSignals(), 1000);
+          Logger.info('signals', 'Signal updated, refreshing data');
+          fetchSignals();
         } else if (eventType === 'DELETE' && oldSignal) {
-          Logger.info('signals', 'Signal deleted, removing from state');
-          
-          setSignals(prev => {
-            const updated = prev.filter(s => s.id !== oldSignal.id);
-            
-            // Update distribution
-            const buyCount = updated.filter(s => s.type === 'BUY').length;
-            const sellCount = updated.filter(s => s.type === 'SELL').length;
-            setSignalDistribution({ buy: buyCount, sell: sellCount });
-            
-            Logger.info('signals', `Signal ${oldSignal.id} removed from state. Remaining: ${updated.length}`);
-            return updated;
-          });
-          setLastUpdate(new Date().toLocaleTimeString());
+          Logger.info('signals', 'Signal deleted, refreshing data');
+          fetchSignals();
         }
       }
     });
@@ -515,7 +454,7 @@ export const useTradingSignals = () => {
     return () => {
       unsubscribe();
     };
-  }, [fetchSignals, processSignals]);
+  }, [fetchSignals]);
 
   return {
     signals,
