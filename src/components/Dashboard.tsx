@@ -12,7 +12,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { useAdminAccess } from '@/hooks/useAdminAccess';
 import { useTradingSignals } from '@/hooks/useTradingSignals';
 import { useMobileNotificationManager } from '@/hooks/useMobileNotificationManager';
-import { useSignalNotifications } from '@/hooks/useSignalNotifications';
+
 import { Sheet, SheetContent, SheetTrigger, SheetClose } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -60,9 +60,7 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
     sendTestNotification 
   } = useMobileNotificationManager();
   
-  // Initialize signal notifications listener (for real-time push notifications)
-  useSignalNotifications();
-  const [loggingOut, setLoggingOut] = useState(false);
+const [loggingOut, setLoggingOut] = useState(false);
   
   const { profile, fetchProfile } = useProfile();
   const { subscription, createCheckout, openCustomerPortal, signOut } = useAuth();
