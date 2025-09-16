@@ -379,7 +379,7 @@ export const useCentralizedMarketData = (symbol: string) => {
     };
   }, [symbol, fetchCentralizedData, getMarketStatus]);
 
-  // Enhanced market update trigger with market hours check
+  // Enhanced market update trigger - relies on real-time system
   const triggerMarketUpdate = useCallback(async () => {
     const marketStatus = getMarketStatus();
     
@@ -389,22 +389,18 @@ export const useCentralizedMarketData = (symbol: string) => {
     }
 
     try {
-      console.log(`🚀 [${symbol}] Triggering FastForex market update...`);
+      console.log(`🔄 [${symbol}] Refreshing from real-time market data...`);
       
-      const { data, error } = await supabase.functions.invoke('centralized-market-stream');
+      // Simply refresh from existing data - the real-time system handles updates
+      setTimeout(() => {
+        if (mountedRef.current && getMarketStatus().isOpen) {
+          fetchCentralizedData();
+        }
+      }, 100);
       
-      if (error) {
-        console.error(`❌ [${symbol}] Market update failed:`, error);
-      } else {
-        console.log(`✅ [${symbol}] Market update triggered:`, data);
-        setTimeout(() => {
-          if (mountedRef.current && getMarketStatus().isOpen) {
-            fetchCentralizedData();
-          }
-        }, 200);
-      }
+      console.log(`✅ [${symbol}] Market data refresh initiated`);
     } catch (error) {
-      console.error(`❌ [${symbol}] Market update error:`, error);
+      console.error(`❌ [${symbol}] Market refresh error:`, error);
     }
   }, [fetchCentralizedData, symbol, getMarketStatus]);
 

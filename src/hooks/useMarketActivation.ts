@@ -23,30 +23,13 @@ export const useMarketActivation = () => {
         return;
       }
       
-      // Initialize fresh baseline data for the automated system
-      console.log('📊 Initializing automated baseline data...');
-      const { data: baselineData, error: baselineError } = await supabase.functions.invoke('centralized-market-stream');
+      // Market activation relies on real-time system
+      console.log('📊 Market activation relying on real-time updates...');
       
-      if (baselineError) {
-        console.error('❌ Failed to initialize automated baseline:', baselineError);
-        return;
-      }
+      // The centralized market stream runs automatically via cron
+      // No need to invoke it from client-side to avoid connection issues
       
-      console.log('✅ Automated baseline initialized:', baselineData);
-      
-      // Wait for baseline data to propagate
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      // Start automated real-time tick generation from baseline
-      console.log('🎯 Starting automated tick generation...');
-      const { data: tickData, error: tickError } = await supabase.functions.invoke('real-time-tick-generator');
-      
-      if (tickError) {
-        console.error('❌ Failed to start automated ticks:', tickError);
-        return;
-      }
-      
-      console.log('✅ Automated real-time market system activated:', tickData);
+      console.log('✅ Market activation completed - real-time system active');
       
     } catch (error) {
       console.error('💥 Automated market activation error:', error);

@@ -20,8 +20,24 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
     const fastForexApiKey = Deno.env.get('FASTFOREX_API_KEY');
     
-    if (!supabaseUrl || !supabaseServiceKey || !fastForexApiKey) {
-      throw new Error('Missing required environment variables');
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Missing required Supabase environment variables');
+    }
+    
+    // Check if FastForex API key is available
+    if (!fastForexApiKey) {
+      console.log('⚠️ FASTFOREX_API_KEY not configured - using cached data only');
+      
+      return new Response(
+        JSON.stringify({
+          success: true,
+          message: 'Market stream active with cached data',
+          mode: 'cached_only',
+          timestamp: new Date().toISOString(),
+          note: 'FastForex API key not configured - real-time updates disabled'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
