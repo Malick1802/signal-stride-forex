@@ -42,15 +42,25 @@ export const useConnectionManager = (): ConnectionManager => {
   const checkSupabaseConnection = useCallback(async (): Promise<boolean> => {
     try {
       debugLog('Checking Supabase connection...');
-      const { data, error } = await supabase
-        .from('trading_signals')
-        .select('id')
-        .limit(1);
+      const { data, error } = await supabase.rpc('get_app_setting', { 
+        setting_name: 'signal_threshold_level' 
+      });
+      
+      // If 401/403, treat as temporary auth issue but backend is reachable
+      if (error && (error.code === '401' || error.code === '403')) {
+        debugLog('Auth issue detected, but backend is reachable');
+        return true; // Backend is up, just auth state issue
+      }
       
       const isConnected = !error;
       debugLog(`Supabase connection check result: ${isConnected}`, error || 'Success');
       return isConnected;
-    } catch (error) {
+    } catch (error: any) {
+      // Handle auth errors as backend reachable
+      if (error?.status === 401 || error?.status === 403) {
+        debugLog('Auth error, but backend is reachable');
+        return true;
+      }
       debugLog('Supabase connection check failed:', error);
       return false;
     }

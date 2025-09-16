@@ -133,7 +133,7 @@ export const useGlobalRefresh = () => {
   return {
     ...state,
     triggerManualUpdate,
-    isConnected: !state.isUpdating && Date.now() - state.lastPriceUpdate < 30000
+    isConnected: !state.isUpdating && Date.now() - state.lastPriceUpdate < 90000
   };
 };
 
