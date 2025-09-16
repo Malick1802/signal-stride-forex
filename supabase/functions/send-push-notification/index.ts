@@ -175,6 +175,16 @@ serve(async (req) => {
     const invalidTokens = [];
 
     for (const profile of eligibleProfiles) {
+      // Ensure all data values are strings to prevent FCM 400 errors
+      const stringifiedData: Record<string, string> = {};
+      if (data && typeof data === 'object') {
+        Object.entries(data).forEach(([key, value]) => {
+          if (value !== null && value !== undefined) {
+            stringifiedData[key] = typeof value === 'string' ? value : String(value);
+          }
+        });
+      }
+
       const fcmPayload = {
         message: {
           token: profile.push_token,
@@ -183,7 +193,7 @@ serve(async (req) => {
             body,
           },
           data: {
-            ...data,
+            ...stringifiedData,
             type: notificationType,
             timestamp: new Date().toISOString(),
           },

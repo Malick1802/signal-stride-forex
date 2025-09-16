@@ -43,6 +43,13 @@ export const useTradingSignals = () => {
       
       Logger.debug('signals', `Fetching active signals (limit: ${MAX_ACTIVE_SIGNALS})...`);
       
+      // Wait for authentication if not available yet
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        Logger.debug('signals', 'No session available, waiting for auth...');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      
       // First check if we have any signals at all
       const { data: allSignals, error: allError } = await supabase
         .from('trading_signals')

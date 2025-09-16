@@ -208,21 +208,31 @@ async function sendFCM(tokens: string[], title: string, body: string, data: Reco
     const serviceAccount = JSON.parse(fcmServiceAccountJson);
     const projectId = serviceAccount.project_id;
 
-    const results = [];
-    
-    // Send individual messages for each token (FCM HTTP v1 doesn't support bulk sending)
-    for (const token of tokens) {
-      const payload = {
-        message: {
-          token: token,
-          notification: {
-            title,
-            body,
-          },
-          data: {
-            ...data,
-            timestamp: new Date().toISOString(),
-          },
+  // Ensure all data values are strings to prevent FCM 400 errors
+  const stringifiedData: Record<string, string> = {};
+  if (data && typeof data === 'object') {
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== null && value !== undefined) {
+        stringifiedData[key] = typeof value === 'string' ? value : String(value);
+      }
+    });
+  }
+
+  const results = [];
+  
+  // Send individual messages for each token (FCM HTTP v1 doesn't support bulk sending)
+  for (const token of tokens) {
+    const payload = {
+      message: {
+        token: token,
+        notification: {
+          title,
+          body,
+        },
+        data: {
+          ...stringifiedData,
+          timestamp: new Date().toISOString(),
+        },
           android: {
             notification: {
               channel_id: data?.type === "market_update"
