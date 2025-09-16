@@ -23,6 +23,7 @@ import BatteryOptimizationGuide from './BatteryOptimizationGuide';
 import PushNotificationTester from './PushNotificationTester';
 import FCMSetupGuide from './FCMSetupGuide';
 import { BackgroundPushTester } from './BackgroundPushTester';
+import { RealTimeSignalTester } from './RealTimeSignalTester';
 import { UserMenu } from './UserMenu';
 
 // Lazy load heavy components
@@ -473,6 +474,7 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
             )}
             {activeTab === 'testing' && (
               <div className="space-y-4">
+                  <RealTimeSignalTester />
                   <FCMSetupGuide />
                   <BatteryOptimizationGuide />
                   <BackgroundPushTester />
