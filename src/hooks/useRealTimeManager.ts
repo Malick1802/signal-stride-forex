@@ -34,6 +34,7 @@ class RealTimeManager {
   private stateListeners: Set<(state: RealTimeState) => void> = new Set();
   private heartbeatInterval: NodeJS.Timeout | null = null;
   private reconnectTimeout: NodeJS.Timeout | null = null;
+  private marketDataTimeout: NodeJS.Timeout | null = null;
 
   static getInstance(): RealTimeManager {
     if (!RealTimeManager.instance) {
@@ -187,6 +188,11 @@ class RealTimeManager {
         activeChannels,
         lastHeartbeat: Date.now()
       });
+      
+      // Set up market data timeout if this is a market channel
+      if (channelName === 'centralized-market-data') {
+        this.resetMarketDataTimeout();
+      }
       return;
     }
 
@@ -241,6 +247,33 @@ class RealTimeManager {
         this.scheduleReconnect();
       }
     }, 10000); // Check every 10 seconds
+  }
+
+  private resetMarketDataTimeout() {
+    if (this.marketDataTimeout) {
+      clearTimeout(this.marketDataTimeout);
+    }
+    
+    // Set timeout for 60 seconds to trigger fallback market update
+    this.marketDataTimeout = setTimeout(async () => {
+      console.log('⚠️ No market data received for 60s, triggering fallback update...');
+      
+      try {
+        const { createClient } = await import('@supabase/supabase-js');
+        const supabase = createClient(
+          import.meta.env.VITE_SUPABASE_URL!,
+          import.meta.env.VITE_SUPABASE_ANON_KEY!
+        );
+        
+        await supabase.functions.invoke('update-centralized-market', {
+          body: { forced: true, reason: 'timeout_fallback' }
+        });
+        
+        console.log('✅ Fallback market update triggered');
+      } catch (error) {
+        console.error('❌ Fallback market update failed:', error);
+      }
+    }, 60000);
   }
 
   private scheduleReconnect() {
@@ -307,6 +340,11 @@ class RealTimeManager {
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
       this.reconnectTimeout = null;
+    }
+    
+    if (this.marketDataTimeout) {
+      clearTimeout(this.marketDataTimeout);
+      this.marketDataTimeout = null;
     }
 
     // Remove all channels
