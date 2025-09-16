@@ -24,6 +24,8 @@ import PushNotificationTester from './PushNotificationTester';
 import FCMSetupGuide from './FCMSetupGuide';
 import { BackgroundPushTester } from './BackgroundPushTester';
 import { RealTimeSignalTester } from './RealTimeSignalTester';
+import { UnifiedConnectionStatus } from './UnifiedConnectionStatus';
+import { RealTimeStatus } from './RealTimeStatus';
 import { UserMenu } from './UserMenu';
 
 // Lazy load heavy components
@@ -290,7 +292,9 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
             </div>
             
             {/* Status indicators */}
-            <div className="flex items-center space-x-1">
+            <div className="flex items-center space-x-2">
+              <UnifiedConnectionStatus />
+              <RealTimeStatus showDetails={false} />
               {isAdmin && (
                 <div className="flex items-center space-x-1 bg-red-500/20 px-2 py-1 rounded-full">
                   <Shield className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-red-400" />

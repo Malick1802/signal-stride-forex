@@ -77,7 +77,7 @@ class RealTimeManager {
           console.log('📡 Signal update received:', payload.eventType, payload);
           this.broadcast({
             type: 'signal_update',
-            data: { ...payload, eventType: payload.eventType },
+            data: { ...payload, eventType: payload.eventType, table: 'trading_signals', symbol: (payload.new as any)?.symbol || (payload.old as any)?.symbol || null },
             timestamp: Date.now()
           });
         }
@@ -100,7 +100,7 @@ class RealTimeManager {
         (payload) => {
           this.broadcast({
             type: 'signal_outcome_update',
-            data: payload,
+            data: { ...payload, table: 'signal_outcomes' },
             timestamp: Date.now()
           });
         }
@@ -123,7 +123,7 @@ class RealTimeManager {
         (payload) => {
           this.broadcast({
             type: 'market_data_update',
-            data: payload,
+            data: { ...payload, table: 'centralized_market_state', symbol: (payload.new as any)?.symbol || (payload.old as any)?.symbol || null },
             timestamp: Date.now()
           });
         }
@@ -166,19 +166,20 @@ class RealTimeManager {
 
   private handleChannelStatus(channelName: string, status: string) {
     const activeChannels = Array.from(this.channels.keys()).filter(name => {
-      // You'd need to track individual channel statuses here
-      return true; // Simplified for now
+      const channel = this.channels.get(name);
+      return channel && channel.state === 'subscribed';
     });
 
     if (status === 'SUBSCRIBED') {
       this.updateState({
         isConnected: true,
         connectionAttempts: 0,
-        activeChannels
+        activeChannels,
+        lastHeartbeat: Date.now()
       });
     } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
       this.updateState({
-        isConnected: false,
+        isConnected: activeChannels.length > 0,
         connectionAttempts: this.state.connectionAttempts + 1,
         activeChannels
       });

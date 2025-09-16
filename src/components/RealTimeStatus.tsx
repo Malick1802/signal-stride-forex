@@ -1,7 +1,7 @@
 import React from 'react';
 import { useRealTimeManager } from '@/hooks/useRealTimeManager';
 import { Badge } from '@/components/ui/badge';
-import { Wifi, WifiOff, Clock, Activity } from 'lucide-react';
+import { Wifi, WifiOff, Clock, Activity, Signal } from 'lucide-react';
 
 interface RealTimeStatusProps {
   className?: string;
@@ -15,19 +15,19 @@ export const RealTimeStatus: React.FC<RealTimeStatusProps> = ({
   const { state, isConnected, lastHeartbeat, activeChannels } = useRealTimeManager();
 
   const getStatusColor = () => {
-    if (isConnected) return 'bg-green-500';
+    if (isConnected && activeChannels.length > 0) return 'bg-green-500';
     if (state.connectionAttempts > 0) return 'bg-yellow-500';
     return 'bg-red-500';
   };
 
   const getStatusText = () => {
-    if (isConnected) return 'Connected';
+    if (isConnected && activeChannels.length > 0) return `Live (${activeChannels.length})`;
     if (state.connectionAttempts > 0) return `Reconnecting... (${state.connectionAttempts})`;
-    return 'Disconnected';
+    return 'Offline';
   };
 
   const getStatusIcon = () => {
-    if (isConnected) return <Wifi className="h-3 w-3" />;
+    if (isConnected && activeChannels.length > 0) return <Signal className="h-3 w-3" />;
     if (state.connectionAttempts > 0) return <Activity className="h-3 w-3 animate-pulse" />;
     return <WifiOff className="h-3 w-3" />;
   };

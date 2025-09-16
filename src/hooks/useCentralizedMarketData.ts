@@ -252,24 +252,23 @@ export const useCentralizedMarketData = (symbol: string) => {
     // Use centralized real-time manager for direct event-driven updates
     if (marketStatus.isOpen) {
       const unsubscribe = realTimeManager.subscribe('market-data-' + symbol + '-' + Date.now(), (event) => {
+        if (!mountedRef.current) return;
+        
+        // Handle different event types with proper symbol matching
         if (event.type === 'market_data_update' && event.data.symbol === symbol) {
-          if (!mountedRef.current) return;
-          
           const currentMarketStatus = getMarketStatus();
           if (!currentMarketStatus.isOpen) {
             console.log(`💤 [${symbol}] Ignoring update - market closed`);
             return;
           }
           
-          console.log(`🔔 [${symbol}] Real-time market update via manager`);
+          console.log(`🔔 [${symbol}] Real-time market update via manager`, event.data);
           
-          // Direct state update from event payload for immediate synchronization
-          const payload = event.data.new || event.data.payload;
-          if (payload) {
-            
-            // Update market data directly from real-time event
-            if (event.data.table === 'centralized_market_state') {
-              const currentPrice = parseFloat((payload.fastforex_price || payload.current_price).toString());
+          // Update from centralized_market_state table
+          if (event.data.table === 'centralized_market_state') {
+            const newData = event.data.new;
+            if (newData && (newData as any).symbol === symbol) {
+              const currentPrice = parseFloat(((newData as any).fastforex_price || (newData as any).current_price).toString());
               
               setMarketData(prevData => {
                 if (!prevData) return null;
@@ -277,49 +276,16 @@ export const useCentralizedMarketData = (symbol: string) => {
                 return {
                   ...prevData,
                   currentPrice,
-                  bid: parseFloat(payload.bid?.toString() || prevData.bid.toString()),
-                  ask: parseFloat(payload.ask?.toString() || prevData.ask.toString()),
-                  lastUpdate: payload.fastforex_timestamp 
-                    ? new Date(payload.fastforex_timestamp).toLocaleTimeString()
-                    : new Date(payload.last_update).toLocaleTimeString()
+                  bid: parseFloat((newData as any).bid?.toString() || prevData.bid.toString()),
+                  ask: parseFloat((newData as any).ask?.toString() || prevData.ask.toString()),
+                  lastUpdate: (newData as any).fastforex_timestamp 
+                    ? new Date((newData as any).fastforex_timestamp).toLocaleTimeString()
+                    : new Date((newData as any).last_update).toLocaleTimeString()
                 };
               });
               
               setIsConnected(true);
               setDataSource(`Live Real-time Update - ${new Date().toLocaleTimeString()}`);
-              lastUpdateRef.current = Date.now();
-            }
-            
-            // Add price history point from live_price_history
-            if (event.data.table === 'live_price_history') {
-              const price = parseFloat(payload.price.toString());
-              const timestamp = new Date(payload.timestamp).getTime();
-              
-              setMarketData(prevData => {
-                if (!prevData) return null;
-                
-                const newPricePoint: PriceData = {
-                  timestamp,
-                  time: new Date(timestamp).toLocaleTimeString('en-US', {
-                    hour12: false,
-                    hour: '2-digit',
-                    minute: '2-digit',
-                    second: '2-digit'
-                  }),
-                  price,
-                  volume: Math.random() * 150000 + 80000
-                };
-                
-                const updatedHistory = [...prevData.priceHistory, newPricePoint].slice(-200);
-                
-                return {
-                  ...prevData,
-                  currentPrice: price,
-                  priceHistory: updatedHistory,
-                  lastUpdate: new Date().toLocaleTimeString()
-                };
-              });
-              
               lastUpdateRef.current = Date.now();
             }
           }
