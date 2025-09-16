@@ -42,25 +42,24 @@ export const useConnectionManager = (): ConnectionManager => {
   const checkSupabaseConnection = useCallback(async (): Promise<boolean> => {
     try {
       debugLog('Checking Supabase connection...');
-      const { data, error } = await supabase.rpc('get_app_setting', { 
-        setting_name: 'signal_threshold_level' 
+      
+      // Use lightweight REST HEAD request instead of RPC
+      const SUPABASE_URL = "https://ugtaodrvbpfeyhdgmisn.supabase.co";
+      const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVndGFvZHJ2YnBmZXloZGdtaXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQwNjA2MTUsImV4cCI6MjA0OTYzNjYxNX0.Z-71hRCpHB0YivrsTb2kZQdObcF42BQVYIQ8_yMb_JM";
+      
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/trading_signals?select=id&limit=1`, {
+        method: 'HEAD',
+        headers: {
+          'apikey': SUPABASE_PUBLISHABLE_KEY,
+          'authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token || SUPABASE_PUBLISHABLE_KEY}`,
+        }
       });
       
-      // If 401/403, treat as temporary auth issue but backend is reachable
-      if (error && (error.code === '401' || error.code === '403')) {
-        debugLog('Auth issue detected, but backend is reachable');
-        return true; // Backend is up, just auth state issue
-      }
-      
-      const isConnected = !error;
-      debugLog(`Supabase connection check result: ${isConnected}`, error || 'Success');
-      return isConnected;
+      // 200, 401, 404 all indicate backend is reachable
+      const isReachable = response.status === 200 || response.status === 401 || response.status === 404;
+      debugLog(`Supabase connection check result: ${isReachable} (status: ${response.status})`);
+      return isReachable;
     } catch (error: any) {
-      // Handle auth errors as backend reachable
-      if (error?.status === 401 || error?.status === 403) {
-        debugLog('Auth error, but backend is reachable');
-        return true;
-      }
       debugLog('Supabase connection check failed:', error);
       return false;
     }

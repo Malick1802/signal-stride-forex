@@ -291,7 +291,7 @@ const [loggingOut, setLoggingOut] = useState(false);
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-800">
       {/* Mobile-First Top Navigation */}
-      <nav className="bg-black/20 backdrop-blur-sm border-b border-white/10 px-3 sm:px-6 pt-8 py-3 sm:py-4">
+      <nav className="relative z-30 bg-black/20 backdrop-blur-sm border-b border-white/10 px-3 sm:px-6 pt-8 py-3 sm:py-4">
         <div className="flex items-center justify-between">
           {/* Left side - Logo and status */}
           <div className="flex items-center space-x-2 sm:space-x-4 flex-1 min-w-0">
@@ -406,7 +406,7 @@ const [loggingOut, setLoggingOut] = useState(false);
       </SettingsDialog>
 
       {/* Desktop Tab Navigation */}
-      <div className="bg-black/10 backdrop-blur-sm border-b border-white/10 hidden md:block">
+      <div className="relative z-30 bg-black/10 backdrop-blur-sm border-b border-white/10 hidden md:block">
         <div className="px-6">
           <DesktopNavigation />
         </div>

@@ -50,15 +50,27 @@ const TradingSignals = memo(() => {
     }
   });
 
-  // Determine which signals to display based on connection state
-  const displaySignals = isSupabaseConnected ? signals : cachedSignals;
+  // Prefer fetched signals, use cache as fallback
+  const displaySignals = signals.length > 0 ? signals : cachedSignals;
+  const usingOfflineMode = signals.length === 0 && cachedSignals.length > 0;
 
   // Cache online signals when they're fetched
   React.useEffect(() => {
-    if (isSupabaseConnected && signals.length > 0) {
+    if (signals.length > 0) {
       cacheSignals(signals);
     }
-  }, [signals, isSupabaseConnected, cacheSignals]);
+  }, [signals, cacheSignals]);
+
+  // Mobile-specific: Try to fetch signals after mount with delay
+  React.useEffect(() => {
+    const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    if (isMobile && signals.length === 0 && !loading) {
+      const timer = setTimeout(() => {
+        fetchSignals().catch(console.error);
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [signals.length, loading, fetchSignals]);
 
 
   // Force refresh with loading state
@@ -139,6 +151,11 @@ const TradingSignals = memo(() => {
             </h3>
             <p className="text-muted-foreground text-sm leading-relaxed mb-6 max-w-md mx-auto">
               Our AI is continuously monitoring the markets. New high-quality signals will appear here when market conditions are favorable.
+              {usingOfflineMode && (
+                <span className="block mt-2 text-orange-500 font-medium">
+                  • Offline mode - showing cached signals
+                </span>
+              )}
             </p>
             <div className="flex justify-center">
               <Button 
@@ -153,6 +170,7 @@ const TradingSignals = memo(() => {
             </div>
             <div className="mt-4 text-xs text-muted-foreground/60">
               Last updated: {lastUpdate ? new Date(lastUpdate).toLocaleTimeString() : 'Never'}
+              {usingOfflineMode && <span className="text-orange-500"> (Cached)</span>}
             </div>
           </div>
         </div>

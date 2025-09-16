@@ -86,7 +86,7 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({
           className={`absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-full
             flex items-center justify-center w-10 h-10 rounded-full 
             bg-emerald-500/20 backdrop-blur-sm border border-emerald-500/30
-            transition-all duration-200 z-50
+            transition-all duration-200 z-50 pointer-events-none
             ${pullProgress >= 1 ? 'bg-emerald-500/30' : ''}
           `}
           style={{
