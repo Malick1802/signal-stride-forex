@@ -16,6 +16,10 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ children }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('profile');
 
+  const handleTabChange = (newTab: string) => {
+    setActiveTab(newTab);
+  };
+
   const settingsTabs = [
     { id: 'profile', label: 'Profile', icon: User },
     { id: 'push', label: 'Push Notifications', icon: Bell },
@@ -23,13 +27,15 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ children }) => {
   ];
 
   return (
-    <Sheet open={isOpen} onOpenChange={setIsOpen}>
+    <Sheet open={isOpen} onOpenChange={setIsOpen} modal={true}>
       <SheetTrigger asChild>
         {children}
       </SheetTrigger>
       <SheetContent 
         side="bottom" 
         className="h-[90vh] bg-slate-900/95 backdrop-blur-sm border-emerald-500/20"
+        onInteractOutside={(e) => e.preventDefault()}
+        onEscapeKeyDown={(e) => e.preventDefault()}
       >
         <SheetHeader className="text-left">
           <div className="flex items-center justify-between">
@@ -48,14 +54,18 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ children }) => {
           </div>
         </SheetHeader>
 
-        <div className="mt-6">
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <div className="mt-6" onClick={(e) => e.stopPropagation()}>
+          <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
             <TabsList className="grid w-full grid-cols-3 bg-slate-800/50 border border-slate-700">
               {settingsTabs.map(tab => (
                 <TabsTrigger 
                   key={tab.id}
                   value={tab.id}
                   className="text-xs text-gray-300 data-[state=active]:text-emerald-400 data-[state=active]:bg-emerald-500/20"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleTabChange(tab.id);
+                  }}
                 >
                   <tab.icon className="w-3 h-3 mr-1" />
                   <span className="hidden sm:inline">{tab.label}</span>
@@ -64,8 +74,8 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ children }) => {
               ))}
             </TabsList>
 
-            <div className="mt-4 h-[calc(90vh-160px)] overflow-y-auto">
-              <TabsContent value="profile" className="mt-0">
+            <div className="mt-4 h-[calc(90vh-160px)] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              <TabsContent value="profile" className="mt-0" onClick={(e) => e.stopPropagation()}>
                 <div className="space-y-4">
                   {/* Profile settings will be embedded here */}
                   <div className="p-4 rounded-lg bg-slate-800/30 border border-slate-700">
@@ -77,7 +87,8 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ children }) => {
                       variant="outline"
                       size="sm"
                       className="mt-3"
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setIsOpen(false);
                         // This will be handled by opening the UserProfile modal
                       }}
@@ -88,12 +99,16 @@ export const SettingsDialog: React.FC<SettingsDialogProps> = ({ children }) => {
                 </div>
               </TabsContent>
 
-              <TabsContent value="push" className="mt-0">
-                <PushNotificationSettings />
+              <TabsContent value="push" className="mt-0" onClick={(e) => e.stopPropagation()}>
+                <div onClick={(e) => e.stopPropagation()}>
+                  <PushNotificationSettings />
+                </div>
               </TabsContent>
 
-              <TabsContent value="sms" className="mt-0">
-                <SMSSettings />
+              <TabsContent value="sms" className="mt-0" onClick={(e) => e.stopPropagation()}>
+                <div onClick={(e) => e.stopPropagation()}>
+                  <SMSSettings />
+                </div>
               </TabsContent>
             </div>
           </Tabs>

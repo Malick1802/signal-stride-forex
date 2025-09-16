@@ -29,6 +29,8 @@ import { RealTimeSignalTester } from './RealTimeSignalTester';
 import { UnifiedConnectionStatus } from './UnifiedConnectionStatus';
 import { RealTimeStatus } from './RealTimeStatus';
 import { UserMenu } from './UserMenu';
+import { MobileConnectionIndicator } from './MobileConnectionIndicator';
+import { EnhancedSettingsSheet } from './EnhancedSettingsSheet';
 
 // Lazy load heavy components
 const LazyTradingSignals = lazy(() => import('./LazyTradingSignals'));
@@ -344,11 +346,11 @@ const [loggingOut, setLoggingOut] = useState(false);
               </NotificationCenter>
 
               {/* Settings */}
-              <SettingsDialog>
-                <button className="p-2.5 text-gray-400 hover:text-white transition-colors" aria-label="Settings">
+              <EnhancedSettingsSheet>
+                <button className="p-2.5 text-gray-400 hover:text-white transition-colors focus-visible:outline-none" aria-label="Settings">
                   <Settings className="h-6 w-6 md:h-5 md:w-5" />
                 </button>
-              </SettingsDialog>
+              </EnhancedSettingsSheet>
             </div>
 
             {/* User profile and Desktop logout button */}
@@ -397,13 +399,13 @@ const [loggingOut, setLoggingOut] = useState(false);
       <UserProfile open={profileOpen} onOpenChange={setProfileOpen} />
       
       {/* Hidden Settings Trigger */}
-      <SettingsDialog>
+      <EnhancedSettingsSheet>
         <button
           id="settings-trigger"
           style={{ display: 'none' }}
           aria-hidden="true"
         />
-      </SettingsDialog>
+      </EnhancedSettingsSheet>
 
       {/* Desktop Tab Navigation */}
       <div className="bg-black/10 backdrop-blur-sm border-b border-white/10 hidden md:block">
@@ -466,8 +468,8 @@ const [loggingOut, setLoggingOut] = useState(false);
       {/* Content Area - With Pull to Refresh for Mobile */}
       <PullToRefresh onRefresh={handleRefresh} className="flex-1">
         <div className="p-3 sm:p-6">
-          {/* Connection Status */}
-          <ProductionConnectionStatus />
+          {/* Mobile Connection Status */}
+          <MobileConnectionIndicator showDetailedStatus={false} />
           
           {/* Trial Expiration Banner */}
           {!bannerDismissed && (
