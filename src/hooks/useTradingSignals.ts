@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { safeParseFloat, safeParseArray } from '@/utils/signalValidation';
 import { realTimeManager } from '@/hooks/useRealTimeManager';
+import { useMarketCoordinator } from '@/hooks/useMarketCoordinator';
 import Logger from '@/utils/logger';
 
 interface TradingSignal {
@@ -34,6 +35,13 @@ export const useTradingSignals = () => {
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [signalDistribution, setSignalDistribution] = useState({ buy: 0, sell: 0 });
   const { toast } = useToast();
+
+  // Use market coordinator for synchronized signal management
+  const { 
+    signals: coordinatedSignals, 
+    isConnected: coordinatorConnected,
+    syncWithCoordinator 
+  } = useMarketCoordinator();
 
   const fetchSignals = useCallback(async () => {
     try {
