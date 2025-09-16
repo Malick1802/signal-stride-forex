@@ -62,9 +62,9 @@ class RealTimeManager {
   }
 
   private setupCoreChannels() {
-    // 1. CENTRALIZED Trading Signals Channel - unified for all clients
+    // 1. Trading Signals Channel - consistent name for all clients
     const signalsChannel = supabase
-      .channel('centralized-trading-signals')
+      .channel('trading-signals')
       .on(
         'postgres_changes',
         {
@@ -73,24 +73,22 @@ class RealTimeManager {
           table: 'trading_signals',
           filter: 'is_centralized=eq.true'
         },
-        (payload: any) => {
-          const symbol = payload.new?.symbol || payload.old?.symbol || 'unknown';
-          console.log('🎯 Centralized signal update:', payload.eventType, symbol);
+        (payload) => {
           this.broadcast({
             type: 'signal_update',
-            data: { ...payload, table: 'trading_signals', synchronized: true },
+            data: payload,
             timestamp: Date.now()
           });
         }
       )
       .subscribe((status) => {
-        console.log('📡 Centralized trading signals channel:', status);
-        this.handleChannelStatus('centralized-trading-signals', status);
+        console.log('📡 Trading signals channel:', status);
+        this.handleChannelStatus('trading-signals', status);
       });
 
-    // 2. CENTRALIZED Signal Outcomes Channel
+    // 2. Signal Outcomes Channel
     const outcomesChannel = supabase
-      .channel('centralized-signal-outcomes')
+      .channel('signal-outcomes')
       .on(
         'postgres_changes',
         {
@@ -99,17 +97,16 @@ class RealTimeManager {
           table: 'signal_outcomes'
         },
         (payload) => {
-          console.log('🎯 Centralized outcome update:', payload.eventType);
           this.broadcast({
             type: 'signal_outcome_update',
-            data: { ...payload, table: 'signal_outcomes', synchronized: true },
+            data: payload,
             timestamp: Date.now()
           });
         }
       )
       .subscribe((status) => {
-        console.log('📊 Centralized signal outcomes channel:', status);
-        this.handleChannelStatus('centralized-signal-outcomes', status);
+        console.log('📊 Signal outcomes channel:', status);
+        this.handleChannelStatus('signal-outcomes', status);
       });
 
   // 3. Market Data Channels - all supported trading pairs for full synchronization
@@ -120,49 +117,48 @@ class RealTimeManager {
     'NZDCHF', 'NZDJPY', 'AUDJPY', 'CHFJPY'
   ];
   
-    // 3. UNIFIED CENTRALIZED MARKET DATA CHANNEL - single channel for all pairs
-    const unifiedMarketChannel = supabase
-      .channel('centralized-market-data-all')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'centralized_market_state'
-        },
-        (payload: any) => {
-          const symbol = payload.new?.symbol || payload.old?.symbol || 'unknown';
-          console.log(`🎯 Centralized market update for ${symbol}:`, payload.eventType);
-          this.broadcast({
-            type: 'market_data_update',
-            data: { ...payload, symbol, table: 'centralized_market_state', synchronized: true },
-            timestamp: Date.now()
-          });
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'live_price_history'
-        },
-        (payload: any) => {
-          const symbol = payload.new?.symbol || 'unknown';
-          console.log(`🎯 Centralized price tick for ${symbol}`);
-          this.broadcast({
-            type: 'market_data_update',
-            data: { ...payload, symbol, table: 'live_price_history', type: 'price_tick', synchronized: true },
-            timestamp: Date.now()
-          });
-        }
-      )
-      .subscribe((status) => {
-        console.log('📈 Unified centralized market channel:', status);
-        this.handleChannelStatus('centralized-market-data-all', status);
-      });
+  allSupportedPairs.forEach(pair => {
+      const marketChannel = supabase
+        .channel(`market-data-${pair}`)
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'centralized_market_state',
+            filter: `symbol=eq.${pair}`
+          },
+          (payload) => {
+            this.broadcast({
+              type: 'market_data_update',
+              data: { ...payload, symbol: pair },
+              timestamp: Date.now()
+            });
+          }
+        )
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'live_price_history',
+            filter: `symbol=eq.${pair}`
+          },
+          (payload) => {
+            this.broadcast({
+              type: 'market_data_update',
+              data: { ...payload, symbol: pair, type: 'price_tick' },
+              timestamp: Date.now()
+            });
+          }
+        )
+        .subscribe((status) => {
+          console.log(`📈 Market data ${pair} channel:`, status);
+          this.handleChannelStatus(`market-data-${pair}`, status);
+        });
 
-    this.channels.set('centralized-market-data-all', unifiedMarketChannel);
+      this.channels.set(`market-data-${pair}`, marketChannel);
+    });
 
     // 4. Heartbeat Channel for connection monitoring
     const heartbeatChannel = supabase
@@ -184,9 +180,9 @@ class RealTimeManager {
         }
       });
 
-    // Store centralized channels
-    this.channels.set('centralized-trading-signals', signalsChannel);
-    this.channels.set('centralized-signal-outcomes', outcomesChannel);
+    // Store channels
+    this.channels.set('trading-signals', signalsChannel);
+    this.channels.set('signal-outcomes', outcomesChannel);
     this.channels.set('realtime-heartbeat', heartbeatChannel);
 
     // Start heartbeat monitoring

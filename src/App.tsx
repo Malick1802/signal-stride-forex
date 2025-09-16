@@ -5,7 +5,6 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { AuthProvider } from './contexts/AuthContext';
-import { CoordinatorProvider } from '@/components/ui/use-coordinator';
 import Index from "./pages/Index";
 import TestPage from "./pages/TestPage";
 import NotFound from "./pages/NotFound";
@@ -64,25 +63,23 @@ const queryClient = new QueryClient({
 });
 
 const App = () => {
-  console.log('🎯 ForexAlert Pro - Centralized market coordination active');
+  console.log('🚀 ForexAlert Pro - Ultra-minimal startup');
 
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <CoordinatorProvider>
-            <HashRouter>
-              <AuthRedirectHandler />
-              <Routes>
-                <Route path="/" element={<Index />} />
-                <Route path="/test" element={<TestPage />} />
-                <Route path="/auth/callback" element={<AuthCallback />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </HashRouter>
-            <Toaster />
-            <Sonner />
-          </CoordinatorProvider>
+          <HashRouter>
+            <AuthRedirectHandler />
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/test" element={<TestPage />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </HashRouter>
+          <Toaster />
+          <Sonner />
         </AuthProvider>
       </QueryClientProvider>
     </ErrorBoundary>
