@@ -197,13 +197,28 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
 
   const MobileNavigation = () => (
     <div className="md:hidden">
-      <Sheet>
+      <Sheet modal={true}>
         <SheetTrigger asChild>
           <Button variant="ghost" size="sm" className="text-white">
             <Menu className="h-6 w-6" />
           </Button>
         </SheetTrigger>
-        <SheetContent side="bottom" className="h-[80svh] bg-slate-900/95 backdrop-blur-sm border-white/10">
+        <SheetContent 
+          side="bottom" 
+          className="h-[80svh] bg-slate-900/95 backdrop-blur-sm border-white/10 focus:outline-none"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          onCloseAutoFocus={(e) => e.preventDefault()}
+          onPointerDownOutside={(e) => {
+            // Prevent sheet from closing when touching outside on mobile
+            if (window.innerWidth < 768) {
+              e.preventDefault();
+            }
+          }}
+          onEscapeKeyDown={(e) => {
+            // Allow escape key to close
+            return;
+          }}
+        >
           <div className="flex flex-col h-full">
             {/* Header */}
             <div className="flex items-center justify-between p-4 border-b border-white/10 flex-shrink-0">
