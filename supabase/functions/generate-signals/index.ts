@@ -74,26 +74,44 @@ interface PricePoint {
 
 // Configuration for different threshold levels
 const THRESHOLD_CONFIGS = {
-  ULTRA: {
+  EXTREME: {
     sequentialTiers: true,
     allowTier3Cap: false,
     tier1PassThreshold: 95,        // ULTRA-CONSERVATIVE: Near-perfect confluence required
-    tier1RequiredConfluences: 6,   // 6+ technical confirmations (increased from 5)
-    tier2EscalationQuality: 95,    // Elite quality bar (increased from 90)
-    tier2EscalationConfidence: 92, // 92%+ confidence required (increased from 85)
-    tier3QualityThreshold: 98,     // Ultra-institutional quality (increased from 95)
-    tier3ConfidenceThreshold: 95,  // 95%+ confidence for signal publication (increased from 90)
-    finalQualityThreshold: 98,     // Final gate quality threshold (increased from 95)
-    finalConfidenceThreshold: 95,  // Final gate confidence threshold (increased from 90)
-    maxSignalsPerRun: 1,           // Ultimate precision - max 1 signal per 5min (reduced from 2)
-    rsiOversoldBuy: 15,            // Ultra-extreme RSI levels (more conservative: 15 from 20)
-    rsiOverboughtSell: 85,         // Ultra-extreme RSI levels (more conservative: 85 from 80)
-    minRewardRisk: 3.0,            // Minimum 3:1 reward/risk ratio (increased from 2.5)
-    atrMinimumMultiplier: 2.0,     // Higher ATR for maximum volatility (increased from 1.5)
-    economicCalendarBuffer: 120,   // Avoid signals 2hrs before/after high impact news (increased from 90min)
+    tier1RequiredConfluences: 6,   // 6+ technical confirmations
+    tier2EscalationQuality: 95,    // Elite quality bar
+    tier2EscalationConfidence: 92, // 92%+ confidence required
+    tier3QualityThreshold: 98,     // Ultra-institutional quality
+    tier3ConfidenceThreshold: 95,  // 95%+ confidence for signal publication
+    finalQualityThreshold: 98,     // Final gate quality threshold
+    finalConfidenceThreshold: 95,  // Final gate confidence threshold
+    maxSignalsPerRun: 1,           // Ultimate precision - max 1 signal per 5min
+    rsiOversoldBuy: 15,            // Ultra-extreme RSI levels
+    rsiOverboughtSell: 85,         // Ultra-extreme RSI levels
+    minRewardRisk: 3.0,            // Minimum 3:1 reward/risk ratio
+    atrMinimumMultiplier: 2.0,     // Higher ATR for maximum volatility
+    economicCalendarBuffer: 120,   // Avoid signals 2hrs before/after high impact news
     sessionRestriction: true,      // Only London/NY overlap periods
     correlationCheck: true,        // Avoid highly correlated pairs
     minimumGapHours: 72,          // Minimum 72-hour gap between signals on same pair
+  },
+  ULTRA: {
+    sequentialTiers: true,
+    allowTier3Cap: false,
+    tier1PassThreshold: 85,        // MAXIMUM: Require 5+ confluences
+    tier1RequiredConfluences: 5,   // 5+ technical confirmations
+    tier2EscalationQuality: 90,    // Elite quality bar
+    tier2EscalationConfidence: 85, // 85%+ confidence required
+    tier3QualityThreshold: 95,     // Ultra-institutional quality
+    tier3ConfidenceThreshold: 90,  // 90%+ confidence for signal publication
+    finalQualityThreshold: 95,     // Final gate quality threshold
+    finalConfidenceThreshold: 90,  // Final gate confidence threshold
+    maxSignalsPerRun: 2,           // Elite precision - max 2 signals per 5min
+    rsiOversoldBuy: 20,            // Ultra-extreme RSI levels
+    rsiOverboughtSell: 80,
+    minRewardRisk: 2.5,            // Minimum 2.5:1 reward/risk ratio
+    atrMinimumMultiplier: 1.5,     // Higher ATR for maximum volatility
+    economicCalendarBuffer: 90,    // Avoid signals 90min before/after high impact news
   },
   HIGH: {
     sequentialTiers: true,
