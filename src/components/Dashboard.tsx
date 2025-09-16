@@ -285,7 +285,8 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
             </div>
             
             {/* Status indicators */}
-            <div className="flex items-center space-x-1">
+            <div className="flex items-center space-x-2">
+              <ProductionConnectionStatus />
               {isAdmin && (
                 <div className="flex items-center space-x-1 bg-red-500/20 px-2 py-1 rounded-full">
                   <Shield className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-red-400" />
@@ -446,8 +447,6 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
       {/* Content Area - With Pull to Refresh for Mobile */}
       <PullToRefresh onRefresh={handleRefresh} className="flex-1">
         <div className="p-3 sm:p-6">
-          {/* Connection Status */}
-          <ProductionConnectionStatus />
           
           {/* Trial Expiration Banner */}
           {!bannerDismissed && (
