@@ -72,70 +72,73 @@ interface PricePoint {
   volume?: number;
 }
 
-// Configuration for different threshold levels
+// Configuration for different threshold levels - GENUINE MARKET-DRIVEN APPROACH
 const THRESHOLD_CONFIGS = {
   EXTREME: {
     sequentialTiers: true,
     allowTier3Cap: false,
-    tier1PassThreshold: 95,        // ULTRA-CONSERVATIVE: Near-perfect confluence required
-    tier1RequiredConfluences: 6,   // 6+ technical confirmations
-    tier2EscalationQuality: 95,    // Elite quality bar
-    tier2EscalationConfidence: 92, // 92%+ confidence required
-    tier3QualityThreshold: 98,     // Ultra-institutional quality
-    tier3ConfidenceThreshold: 95,  // 95%+ confidence for signal publication
-    finalQualityThreshold: 98,     // Final gate quality threshold
-    finalConfidenceThreshold: 95,  // Final gate confidence threshold
-    maxSignalsPerRun: 1,           // Ultimate precision - max 1 signal per 5min
-    rsiOversoldBuy: 15,            // Ultra-extreme RSI levels
-    rsiOverboughtSell: 85,         // Ultra-extreme RSI levels
-    minRewardRisk: 3.0,            // Minimum 3:1 reward/risk ratio
-    atrMinimumMultiplier: 2.0,     // Higher ATR for maximum volatility
-    economicCalendarBuffer: 120,   // Avoid signals 2hrs before/after high impact news
-    sessionRestriction: true,      // Only London/NY overlap periods
-    correlationCheck: true,        // Avoid highly correlated pairs
-    minimumGapHours: 72,          // Minimum 72-hour gap between signals on same pair
-    minTakeProfits: 3,            // Minimum 3 take profit levels
-    maxTakeProfits: 4,            // Maximum 4 take profit levels
-  },
-  ULTRA: {
-    sequentialTiers: true,
-    allowTier3Cap: false,
-    tier1PassThreshold: 85,        // MAXIMUM: Require 5+ confluences
-    tier1RequiredConfluences: 5,   // 5+ technical confirmations
+    tier1PassThreshold: 80,        // REALISTIC: High quality but achievable
+    tier1RequiredConfluences: 4,   // 4+ technical confirmations  
     tier2EscalationQuality: 90,    // Elite quality bar
     tier2EscalationConfidence: 85, // 85%+ confidence required
     tier3QualityThreshold: 95,     // Ultra-institutional quality
     tier3ConfidenceThreshold: 90,  // 90%+ confidence for signal publication
     finalQualityThreshold: 95,     // Final gate quality threshold
     finalConfidenceThreshold: 90,  // Final gate confidence threshold
-    maxSignalsPerRun: 2,           // Elite precision - max 2 signals per 5min
-    rsiOversoldBuy: 20,            // Ultra-extreme RSI levels
-    rsiOverboughtSell: 80,
+    maxSignalsPerRun: 2,           // Premium precision - max 2 signals per 5min
+    rsiOversoldBuy: 20,            // Extreme RSI levels
+    rsiOverboughtSell: 80,         // Extreme RSI levels
     minRewardRisk: 2.5,            // Minimum 2.5:1 reward/risk ratio
-    atrMinimumMultiplier: 1.5,     // Higher ATR for maximum volatility
+    atrMinimumMultiplier: 1.5,     // Higher ATR for sufficient volatility
     economicCalendarBuffer: 90,    // Avoid signals 90min before/after high impact news
+    sessionRestriction: true,      // Only London/NY overlap periods
+    correlationCheck: true,        // Avoid highly correlated pairs
+    minimumGapHours: 48,          // Minimum 48-hour gap between signals on same pair
     minTakeProfits: 3,            // Minimum 3 take profit levels
     maxTakeProfits: 4,            // Maximum 4 take profit levels
+    fallbackThreshold: 70,        // Fallback if no signals generated
+  },
+  ULTRA: {
+    sequentialTiers: true,
+    allowTier3Cap: false,
+    tier1PassThreshold: 70,        // BALANCED: Quality with market-driven flexibility
+    tier1RequiredConfluences: 4,   // 4+ technical confirmations with fallback
+    tier2EscalationQuality: 85,    // High quality bar
+    tier2EscalationConfidence: 80, // 80%+ confidence required
+    tier3QualityThreshold: 90,     // Institutional quality
+    tier3ConfidenceThreshold: 85,  // 85%+ confidence for signal publication
+    finalQualityThreshold: 90,     // Final gate quality threshold
+    finalConfidenceThreshold: 85,  // Final gate confidence threshold
+    maxSignalsPerRun: 3,           // Quality precision - max 3 signals per 5min
+    rsiOversoldBuy: 25,            // Selective RSI levels
+    rsiOverboughtSell: 75,
+    minRewardRisk: 2.0,            // Minimum 2:1 reward/risk ratio
+    atrMinimumMultiplier: 1.2,     // Higher ATR for sufficient volatility
+    economicCalendarBuffer: 60,    // Avoid signals 60min before/after high impact news
+    minTakeProfits: 3,            // Minimum 3 take profit levels
+    maxTakeProfits: 4,            // Maximum 4 take profit levels
+    fallbackThreshold: 60,        // Fallback if no signals generated
   },
   HIGH: {
     sequentialTiers: true,
     allowTier3Cap: false,
-    tier1PassThreshold: 80,        // STRICT: Require 4+ confluences
-    tier1RequiredConfluences: 4,   // 4+ technical confirmations
-    tier2EscalationQuality: 85,    // Premium quality bar
-    tier2EscalationConfidence: 80, // 80%+ confidence required
-    tier3QualityThreshold: 90,     // Institutional-grade quality
-    tier3ConfidenceThreshold: 85,  // 85%+ confidence for signal publication
-    finalQualityThreshold: 90,     // Final gate quality threshold
-    finalConfidenceThreshold: 85,  // Final gate confidence threshold
-    maxSignalsPerRun: 3,           // Quality over quantity - max 3 signals per 5min
-    rsiOversoldBuy: 25,            // Ultra-selective RSI levels
-    rsiOverboughtSell: 75,
-    minRewardRisk: 2.0,            // Minimum 2:1 reward/risk ratio
-    atrMinimumMultiplier: 1.2,     // Minimum ATR for sufficient volatility
-    economicCalendarBuffer: 60,    // Avoid signals 60min before/after high impact news
+    tier1PassThreshold: 60,        // ACHIEVABLE: Quality signals with realistic standards
+    tier1RequiredConfluences: 3,   // 3+ technical confirmations
+    tier2EscalationQuality: 80,    // Good quality bar
+    tier2EscalationConfidence: 75, // 75%+ confidence required
+    tier3QualityThreshold: 85,     // Strong quality
+    tier3ConfidenceThreshold: 80,  // 80%+ confidence for signal publication
+    finalQualityThreshold: 85,     // Final gate quality threshold
+    finalConfidenceThreshold: 80,  // Final gate confidence threshold
+    maxSignalsPerRun: 5,           // Balanced quantity - max 5 signals per 5min
+    rsiOversoldBuy: 30,            // Realistic RSI levels
+    rsiOverboughtSell: 70,
+    minRewardRisk: 1.8,            // Minimum 1.8:1 reward/risk ratio
+    atrMinimumMultiplier: 1.0,     // Standard ATR requirement
+    economicCalendarBuffer: 45,    // Avoid signals 45min before/after high impact news
     minTakeProfits: 3,            // Minimum 3 take profit levels
     maxTakeProfits: 4,            // Maximum 4 take profit levels
+    fallbackThreshold: 50,        // Fallback if no signals generated
   },
   MEDIUM: {
     sequentialTiers: true,
@@ -273,11 +276,15 @@ serve(async (req) => {
       .eq('is_centralized', true)
       .is('user_id', null);
 
-    // Bias detection and monitoring
+    // Market-driven signal analysis (no artificial bias enforcement)
     const biasCheck = await monitorSignalBias(supabase, existingSignals || []);
+    console.log(`📊 Current signal distribution: BUY: ${biasCheck.buy_percentage}%, SELL: ${biasCheck.sell_percentage}%`);
+    console.log(`🎯 GENUINE APPROACH: Signals driven by authentic market conditions, not artificial balance`);
+    
+    // Log but don't restrict based on bias - let market conditions drive direction
     if (biasCheck.bias_detected) {
-      console.log(`⚠️ BIAS ALERT: ${biasCheck.message}`);
-      console.log(`📊 Recent signal distribution: BUY: ${biasCheck.buy_percentage}%, SELL: ${biasCheck.sell_percentage}%`);
+      console.log(`📊 Distribution note: ${biasCheck.message}`);
+      console.log(`✅ Continuing with market-driven analysis regardless of historical distribution`);
     }
 
     const currentSignalCount = existingSignals?.length || 0;
@@ -313,10 +320,10 @@ serve(async (req) => {
       totalTokens: 0
     };
 
-    const tier1Threshold = CONFIG.tier1PassThreshold;
-    console.log(`⚙️ Tier 1 pass threshold: ${tier1Threshold} (Level: ${CONFIG.level || 'LOW'})`);
+    let tier1Threshold = CONFIG.tier1PassThreshold;
+    console.log(`⚙️ Tier 1 pass threshold: ${tier1Threshold} (Level: ${CONFIG.level || 'HIGH'})`);
     
-    // Prioritize major pairs
+    // Prioritize major pairs but analyze all available
     const majorPairs = ['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD'];
     const availablePairs = marketData
       .filter(d => d.symbol && d.current_price > 0)
@@ -333,9 +340,11 @@ serve(async (req) => {
     });
     
     const selectedPairs = pairsWithHistory.slice(0, marketData.length); // Analyze all pairs with adequate history
-    console.log(`🔥 PROFESSIONAL MODE: Analyzing ${selectedPairs.length} pairs with 3-tier system`);
+    console.log(`🔥 GENUINE MARKET ANALYSIS: Analyzing ${selectedPairs.length} pairs with enhanced 3-tier system`);
 
-    // 3-Tier Professional Analysis Pipeline
+    // 3-Tier Professional Analysis Pipeline with Fallback Mechanism
+    let fallbackActivated = false;
+    
     for (let i = 0; i < selectedPairs.length && generatedSignals.length < maxNewSignals; i++) {
       const pair = selectedPairs[i];
       
@@ -351,6 +360,13 @@ serve(async (req) => {
         analysisStats.tier1Analyzed++;
         
         console.log(`🔍 TIER 1: ${pair.symbol} - Score: ${tier1Analysis.confluenceScore}/100 (Pass: ${tier1Threshold}+)`);
+        
+        // Check if we need fallback threshold (no signals generated yet and halfway through pairs)
+        if (!fallbackActivated && generatedSignals.length === 0 && i > selectedPairs.length / 2 && CONFIG.fallbackThreshold) {
+          tier1Threshold = CONFIG.fallbackThreshold;
+          fallbackActivated = true;
+          console.log(`🔄 FALLBACK ACTIVATED: Lowering threshold to ${tier1Threshold} to ensure signal generation`);
+        }
         
         if (tier1Analysis.confluenceScore < tier1Threshold) {
           const details = tier1Analysis.details;
@@ -725,16 +741,17 @@ async function performTier1Analysis(pair: MarketData, historicalDataMap: Map<str
   const currentATR = atr[atr.length - 1] || 0.0001;
   const marketRegime = detectMarketRegime(prices, currentATR);
   
-  // Dynamic RSI thresholds based on market regime (BIAS FIX)
+  // Market-adaptive RSI thresholds for genuine signals
   let dynamicRSIOversold = params.rsi_oversold;
   let dynamicRSIOverbought = params.rsi_overbought;
   
+  // Adjust RSI thresholds based on genuine market conditions, not artificial balance
   if (marketRegime.regime === 'uptrending') {
-    dynamicRSIOversold += 5; // More lenient oversold in uptrend
-    dynamicRSIOverbought += 3; // Stricter overbought in uptrend
+    dynamicRSIOversold += 3; // Slightly more lenient oversold in uptrend (market reality)
+    dynamicRSIOverbought += 2; // Slightly stricter overbought in uptrend (market reality)
   } else if (marketRegime.regime === 'downtrending') {
-    dynamicRSIOversold -= 3; // Stricter oversold in downtrend  
-    dynamicRSIOverbought -= 5; // More lenient overbought in downtrend
+    dynamicRSIOversold -= 2; // Slightly stricter oversold in downtrend (market reality)
+    dynamicRSIOverbought -= 3; // Slightly more lenient overbought in downtrend (market reality)
   }
   
   // Technical calculations
@@ -754,12 +771,12 @@ async function performTier1Analysis(pair: MarketData, historicalDataMap: Map<str
   const priceDelta = Math.abs(currentPrice - prices[0]);
   const changeRatio = priceDelta / currentPrice;
   
-  // Enhanced confluence scoring with balanced bias prevention
+  // Genuine technical confluence scoring based on market conditions
   let confluenceScore = marketRegime.bias_adjustment; // Start with regime adjustment
   const signals = [];
   const failReasons = [];
   
-  // RSI analysis with dynamic thresholds (MAJOR BIAS FIX)
+  // RSI analysis with market-adaptive thresholds
   const rsiScore = calculateRSIScore(currentRSI, dynamicRSIOversold, dynamicRSIOverbought);
   confluenceScore += rsiScore.score;
   if (rsiScore.signal) {
@@ -768,9 +785,9 @@ async function performTier1Analysis(pair: MarketData, historicalDataMap: Map<str
     failReasons.push(rsiScore.reason);
   }
   
-  // EMA trend analysis (BIAS FIX - equal treatment for both directions)
+  // EMA trend analysis - authentic directional assessment
   const emaCrossStrength = Math.abs(currentEMAFast - currentEMASlow) / currentPrice;
-  if (emaCrossStrength > 0.001) {
+  if (emaCrossStrength > 0.0008) { // Slightly more lenient for genuine signals
     confluenceScore += 20;
     const direction = currentEMAFast > currentEMASlow ? 'Bullish' : 'Bearish';
     signals.push(`${direction} EMA crossover (${(emaCrossStrength*100).toFixed(3)}%)`);
@@ -783,8 +800,8 @@ async function performTier1Analysis(pair: MarketData, historicalDataMap: Map<str
   confluenceScore += srBonus.score;
   if (srBonus.signal) signals.push(srBonus.signal);
   
-  // Price momentum with volatility adjustment (BIAS FIX)
-  const momentumThreshold = marketRegime.volatility === 'high' ? 0.003 : 0.002;
+  // Price momentum with genuine volatility assessment
+  const momentumThreshold = marketRegime.volatility === 'high' ? 0.0025 : 0.0015; // More realistic thresholds
   if (changeRatio > momentumThreshold) {
     confluenceScore += 15;
     signals.push(`Strong momentum (${(changeRatio*100).toFixed(3)}%)`);
@@ -792,9 +809,9 @@ async function performTier1Analysis(pair: MarketData, historicalDataMap: Map<str
     failReasons.push(`Weak momentum (Δ=${priceDelta.toFixed(6)}, %=${(changeRatio*100).toFixed(3)}%)`);
   }
   
-  // ATR volatility check (enhanced)
+  // ATR volatility check (realistic standards)
   const pipSize = pair.symbol.includes('JPY') ? 0.01 : 0.0001;
-  const minATR = pipSize * (marketRegime.volatility === 'high' ? 3 : 5);
+  const minATR = pipSize * (marketRegime.volatility === 'high' ? 2 : 3); // More achievable ATR requirements
   const atrAdequacy = currentATR >= minATR;
   
   if (atrAdequacy) {
@@ -1392,9 +1409,9 @@ function prepareTechnicalSummary(pair: MarketData, historicalData: any[], optima
 - Session: ${getCurrentSessionText()}`;
 }
 
-// Bias detection and monitoring functions
+// Market-driven signal analysis (no artificial bias enforcement)
 async function monitorSignalBias(supabase: any, existingSignals: any[]): Promise<{ bias_detected: boolean; message: string; buy_percentage: number; sell_percentage: number }> {
-  // Check recent signals (last 7 days)
+  // Check recent signals (last 7 days) for monitoring purposes only
   const sevenDaysAgo = new Date();
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
   
@@ -1406,7 +1423,7 @@ async function monitorSignalBias(supabase: any, existingSignals: any[]): Promise
     .gte('created_at', sevenDaysAgo.toISOString());
   
   if (!recentSignals || recentSignals.length < 5) {
-    return { bias_detected: false, message: 'Insufficient data for bias analysis', buy_percentage: 50, sell_percentage: 50 };
+    return { bias_detected: false, message: 'Insufficient data for distribution analysis', buy_percentage: 50, sell_percentage: 50 };
   }
   
   const buyCount = recentSignals.filter(s => s.type === 'BUY').length;
@@ -1416,26 +1433,27 @@ async function monitorSignalBias(supabase: any, existingSignals: any[]): Promise
   const buyPercentage = Math.round((buyCount / total) * 100);
   const sellPercentage = Math.round((sellCount / total) * 100);
   
-  const biasThreshold = 75; // Alert if >75% in one direction
+  const extremeThreshold = 85; // Only flag extreme imbalances (85%+)
   let biasDetected = false;
   let message = '';
   
-  if (buyPercentage > biasThreshold) {
+  if (buyPercentage > extremeThreshold) {
     biasDetected = true;
-    message = `EXCESSIVE BUY BIAS DETECTED: ${buyPercentage}% BUY signals in last 7 days. Prioritize SELL signal opportunities.`;
-  } else if (sellPercentage > biasThreshold) {
+    message = `Very high BUY signal distribution: ${buyPercentage}% in last 7 days. This reflects current market conditions.`;
+  } else if (sellPercentage > extremeThreshold) {
     biasDetected = true;
-    message = `EXCESSIVE SELL BIAS DETECTED: ${sellPercentage}% SELL signals in last 7 days. Prioritize BUY signal opportunities.`;
+    message = `Very high SELL signal distribution: ${sellPercentage}% in last 7 days. This reflects current market conditions.`;
+  } else {
+    message = `Signal distribution reflects genuine market conditions: ${buyPercentage}% BUY, ${sellPercentage}% SELL`;
   }
   
   return { bias_detected: biasDetected, message, buy_percentage: buyPercentage, sell_percentage: sellPercentage };
 }
 
 async function checkSignalBias(symbol: string): Promise<{ warning?: string; recent_bias?: string }> {
-  // This is a placeholder for per-symbol bias checking
-  // In production, this would query recent signals for this specific symbol
+  // Market-driven analysis - no artificial balance enforcement
   return {
-    warning: 'ENSURE BALANCED SIGNAL GENERATION: Consider both BUY and SELL opportunities equally.',
-    recent_bias: 'analyze_both_directions'
+    warning: 'ANALYZE GENUINE MARKET CONDITIONS: Let technical analysis determine signal direction naturally.',
+    recent_bias: 'market_driven_analysis'
   };
 }
