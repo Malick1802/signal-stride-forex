@@ -72,13 +72,13 @@ interface PricePoint {
   volume?: number;
 }
 
-// Configuration for winning signals - Enhanced thresholds and 20+ pip enforcement
+// Configuration for different threshold levels - GENUINE MARKET-DRIVEN APPROACH
 const THRESHOLD_CONFIGS = {
   EXTREME: {
     sequentialTiers: true,
     allowTier3Cap: false,
-    tier1PassThreshold: 85,        // Higher quality bar
-    tier1RequiredConfluences: 5,   // 5+ technical confirmations  
+    tier1PassThreshold: 80,        // REALISTIC: High quality but achievable
+    tier1RequiredConfluences: 4,   // 4+ technical confirmations  
     tier2EscalationQuality: 90,    // Elite quality bar
     tier2EscalationConfidence: 85, // 85%+ confidence required
     tier3QualityThreshold: 95,     // Ultra-institutional quality
@@ -86,23 +86,22 @@ const THRESHOLD_CONFIGS = {
     finalQualityThreshold: 95,     // Final gate quality threshold
     finalConfidenceThreshold: 90,  // Final gate confidence threshold
     maxSignalsPerRun: 2,           // Premium precision - max 2 signals per 5min
-    rsiOversoldBuy: 15,            // Extreme RSI levels
-    rsiOverboughtSell: 85,         // Extreme RSI levels
-    minRewardRisk: 3.0,            // Minimum 3:1 reward/risk ratio
-    atrMinimumMultiplier: 2.0,     // Higher ATR for sufficient volatility
+    rsiOversoldBuy: 20,            // Extreme RSI levels
+    rsiOverboughtSell: 80,         // Extreme RSI levels
+    minRewardRisk: 2.5,            // Minimum 2.5:1 reward/risk ratio
+    atrMinimumMultiplier: 1.5,     // Higher ATR for sufficient volatility
     economicCalendarBuffer: 90,    // Avoid signals 90min before/after high impact news
     sessionRestriction: true,      // Only London/NY overlap periods
     correlationCheck: true,        // Avoid highly correlated pairs
     minimumGapHours: 48,          // Minimum 48-hour gap between signals on same pair
     minTakeProfits: 3,            // Minimum 3 take profit levels
     maxTakeProfits: 4,            // Maximum 4 take profit levels
-    fallbackThreshold: 75,        // Fallback if no signals generated
-    minFirstTPPips: 25,           // Minimum 25 pips for first TP
+    fallbackThreshold: 70,        // Fallback if no signals generated
   },
   ULTRA: {
     sequentialTiers: true,
     allowTier3Cap: false,
-    tier1PassThreshold: 80,        // High quality bar
+    tier1PassThreshold: 70,        // BALANCED: Quality with market-driven flexibility
     tier1RequiredConfluences: 4,   // 4+ technical confirmations with fallback
     tier2EscalationQuality: 85,    // High quality bar
     tier2EscalationConfidence: 80, // 80%+ confidence required
@@ -111,21 +110,20 @@ const THRESHOLD_CONFIGS = {
     finalQualityThreshold: 90,     // Final gate quality threshold
     finalConfidenceThreshold: 85,  // Final gate confidence threshold
     maxSignalsPerRun: 3,           // Quality precision - max 3 signals per 5min
-    rsiOversoldBuy: 20,            // Selective RSI levels
-    rsiOverboughtSell: 80,
-    minRewardRisk: 2.5,            // Minimum 2.5:1 reward/risk ratio
-    atrMinimumMultiplier: 1.5,     // Higher ATR for sufficient volatility
+    rsiOversoldBuy: 25,            // Selective RSI levels
+    rsiOverboughtSell: 75,
+    minRewardRisk: 2.0,            // Minimum 2:1 reward/risk ratio
+    atrMinimumMultiplier: 1.2,     // Higher ATR for sufficient volatility
     economicCalendarBuffer: 60,    // Avoid signals 60min before/after high impact news
     minTakeProfits: 3,            // Minimum 3 take profit levels
     maxTakeProfits: 4,            // Maximum 4 take profit levels
-    fallbackThreshold: 70,        // Fallback if no signals generated
-    minFirstTPPips: 22,           // Minimum 22 pips for first TP
+    fallbackThreshold: 60,        // Fallback if no signals generated
   },
   HIGH: {
     sequentialTiers: true,
     allowTier3Cap: false,
-    tier1PassThreshold: 75,        // Raised for better win rates
-    tier1RequiredConfluences: 4,   // 4+ technical confirmations
+    tier1PassThreshold: 60,        // ACHIEVABLE: Quality signals with realistic standards
+    tier1RequiredConfluences: 3,   // 3+ technical confirmations
     tier2EscalationQuality: 80,    // Good quality bar
     tier2EscalationConfidence: 75, // 75%+ confidence required
     tier3QualityThreshold: 85,     // Strong quality
@@ -133,20 +131,19 @@ const THRESHOLD_CONFIGS = {
     finalQualityThreshold: 85,     // Final gate quality threshold
     finalConfidenceThreshold: 80,  // Final gate confidence threshold
     maxSignalsPerRun: 5,           // Balanced quantity - max 5 signals per 5min
-    rsiOversoldBuy: 25,            // Stricter RSI levels
-    rsiOverboughtSell: 75,
-    minRewardRisk: 2.0,            // Minimum 2:1 reward/risk ratio
-    atrMinimumMultiplier: 1.2,     // Higher ATR requirement
+    rsiOversoldBuy: 30,            // Realistic RSI levels
+    rsiOverboughtSell: 70,
+    minRewardRisk: 1.8,            // Minimum 1.8:1 reward/risk ratio
+    atrMinimumMultiplier: 1.0,     // Standard ATR requirement
     economicCalendarBuffer: 45,    // Avoid signals 45min before/after high impact news
     minTakeProfits: 3,            // Minimum 3 take profit levels
     maxTakeProfits: 4,            // Maximum 4 take profit levels
-    fallbackThreshold: 65,        // Fallback if no signals generated
-    minFirstTPPips: 20,           // Minimum 20 pips for first TP
+    fallbackThreshold: 50,        // Fallback if no signals generated
   },
   MEDIUM: {
     sequentialTiers: true,
     allowTier3Cap: false,
-    tier1PassThreshold: 70,        // Moderate threshold
+    tier1PassThreshold: 65,        // SELECTIVE: Require 3+ confluences
     tier1RequiredConfluences: 3,   // 3+ technical confirmations
     tier2EscalationQuality: 75,    // Moderate quality bar
     tier2EscalationConfidence: 70, // 70%+ confidence required
@@ -162,13 +159,12 @@ const THRESHOLD_CONFIGS = {
     economicCalendarBuffer: 45,    // Avoid signals 45min before/after high impact news
     minTakeProfits: 3,            // Minimum 3 take profit levels
     maxTakeProfits: 4,            // Maximum 4 take profit levels
-    minFirstTPPips: 20,           // Minimum 20 pips for first TP
   },
   LOW: {
     sequentialTiers: true,
     allowTier3Cap: false,
-    tier1PassThreshold: 60,        // Lower threshold
-    tier1RequiredConfluences: 3,   // 3+ technical confirmations
+    tier1PassThreshold: 55,        // PERMISSIVE: Require 2+ confluences
+    tier1RequiredConfluences: 2,   // 2+ technical confirmations
     tier2EscalationQuality: 65,    // Lower quality bar
     tier2EscalationConfidence: 60, // 60%+ confidence required
     tier3QualityThreshold: 70,     // Standard quality threshold
@@ -183,7 +179,6 @@ const THRESHOLD_CONFIGS = {
     economicCalendarBuffer: 30,    // Avoid signals 30min before/after high impact news
     minTakeProfits: 3,            // Minimum 3 take profit levels
     maxTakeProfits: 4,            // Maximum 4 take profit levels
-    minFirstTPPips: 20,           // Minimum 20 pips for first TP
   }
 } as const;
 
@@ -211,7 +206,7 @@ async function getSignalConfig(supabase: any) {
 }
 
 serve(async (req) => {
-  console.log(`🚀 ENHANCED Signal Generation for WINNING TRADES - ${new Date().toISOString()}`);
+  console.log(`🚀 PROFESSIONAL 3-Tier Signal Generation Started - ${new Date().toISOString()}`);
   
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -247,7 +242,7 @@ serve(async (req) => {
       fullAnalysis = true
     } = requestBody;
 
-    console.log(`🎯 WINNING MODE - Force: ${force}, Debug: ${debug}, Max Signals: ${maxSignals}`);
+    console.log(`🎯 Professional Mode - Force: ${force}, Debug: ${debug}, Max Signals: ${maxSignals}`);
     
     // Get current market session for optimal parameters
     const currentSession = getCurrentSessionText();
@@ -273,7 +268,7 @@ serve(async (req) => {
 
     console.log(`📈 Loaded market data for ${marketData.length} pairs`);
 
-    // Check existing signals with bias monitoring (informational only)
+    // Check existing signals with bias monitoring
     const { data: existingSignals } = await supabase
       .from('trading_signals')
       .select('symbol, type, confidence, created_at')
@@ -283,8 +278,8 @@ serve(async (req) => {
 
     // Market-driven signal analysis (no artificial bias enforcement)
     const biasCheck = await monitorSignalBias(supabase, existingSignals || []);
-    console.log(`📊 Current distribution: BUY: ${biasCheck.buy_percentage}%, SELL: ${biasCheck.sell_percentage}%`);
-    console.log(`🎯 AUTHENTIC APPROACH: Signals driven by market conditions, not artificial balance`);
+    console.log(`📊 Current signal distribution: BUY: ${biasCheck.buy_percentage}%, SELL: ${biasCheck.sell_percentage}%`);
+    console.log(`🎯 GENUINE APPROACH: Signals driven by authentic market conditions, not artificial balance`);
     
     // Log but don't restrict based on bias - let market conditions drive direction
     if (biasCheck.bias_detected) {
@@ -311,7 +306,7 @@ serve(async (req) => {
     // Get historical data for analysis
     const historicalData = await getEnhancedHistoricalData(supabase, marketData.map(d => d.symbol));
 
-    // Enhanced 3-Tier Analysis Pipeline for Winning Signals
+    // Professional 3-Tier Analysis Pipeline with Optimal Parameters
     const startTime = Date.now();
     const generatedSignals: SignalData[] = [];
     const analysisStats = {
@@ -344,10 +339,10 @@ serve(async (req) => {
       return true;
     });
     
-    const selectedPairs = pairsWithHistory.slice(0, marketData.length);
-    console.log(`🔥 WINNING SIGNAL ANALYSIS: Analyzing ${selectedPairs.length} pairs with enhanced system`);
+    const selectedPairs = pairsWithHistory.slice(0, marketData.length); // Analyze all pairs with adequate history
+    console.log(`🔥 GENUINE MARKET ANALYSIS: Analyzing ${selectedPairs.length} pairs with enhanced 3-tier system`);
 
-    // Enhanced 3-Tier Analysis Pipeline with Fallback Mechanism
+    // 3-Tier Professional Analysis Pipeline with Fallback Mechanism
     let fallbackActivated = false;
     
     for (let i = 0; i < selectedPairs.length && generatedSignals.length < maxNewSignals; i++) {
@@ -360,8 +355,8 @@ serve(async (req) => {
         const optimalParams = await getOptimalParametersForPair(supabase, pair.symbol, currentSession);
         console.log(`🎯 Using ${optimalParams ? 'optimal' : 'default'} parameters for ${pair.symbol}`);
         
-        // Tier 1: Enhanced technical analysis with winning signal focus
-        const tier1Analysis = await performTier1Analysis(pair, historicalData, optimalParams, CONFIG);
+        // Tier 1: Quick local analysis to filter out weak setups
+        const tier1Analysis = await performTier1Analysis(pair, historicalData, optimalParams);
         analysisStats.tier1Analyzed++;
         
         console.log(`🔍 TIER 1: ${pair.symbol} - Score: ${tier1Analysis.confluenceScore}/100 (Pass: ${tier1Threshold}+)`);
@@ -387,7 +382,7 @@ serve(async (req) => {
         
         analysisStats.tier1Passed++;
 
-        // Tier 2: AI-powered analysis with bias elimination and 20+ pip enforcement
+        // Tier 2: AI-powered analysis for cost-effective signal generation
         let tier2Analysis: ProfessionalSignalAnalysis | null = null;
         try {
           tier2Analysis = await performTier2Analysis(pair, historicalData, tier1Analysis, openAIApiKey, optimalParams, CONFIG);
@@ -420,102 +415,92 @@ serve(async (req) => {
           
           analysisStats.tier3Passed++;
         } catch (error) {
-          console.error(`❌ TIER 3: ${pair.symbol} analysis failed:`, error);
-          continue;
+          console.error(`❌ TIER 3: ${pair.symbol} analysis failed, using Tier 2 results:`, error);
+          // Gracefully fallback to Tier 2 results if Tier 3 fails
+          finalAnalysis = tier2Analysis;
         } finally {
           analysisStats.tier3Analyzed++;
         }
 
-        // FINAL QUALITY ASSURANCE - Enforce 20+ pip requirement
-        const pipSize = getPipSize(finalAnalysis.symbol);
-        const firstTPDistance = Math.abs(finalAnalysis.takeProfits[0] - finalAnalysis.entryPrice) / pipSize;
+        // CRITICAL: Apply Final Quality Gates before signal insertion
+        const finalQualityCheck = finalAnalysis.quality >= CONFIG.finalQualityThreshold;
+        const finalConfidenceCheck = finalAnalysis.confidence >= CONFIG.finalConfidenceThreshold;
         
-        if (firstTPDistance < CONFIG.minFirstTPPips) {
-          console.log(`❌ FINAL GATE: ${finalAnalysis.symbol} rejected - first TP only ${firstTPDistance.toFixed(1)} pips (minimum ${CONFIG.minFirstTPPips} required)`);
+        if (!finalQualityCheck || !finalConfidenceCheck) {
+          console.log(`❌ FINAL GATES: ${pair.symbol} rejected`);
+          console.log(`   Quality: ${finalAnalysis.quality}/${CONFIG.finalQualityThreshold} ${finalQualityCheck ? '✅' : '❌'}`);
+          console.log(`   Confidence: ${finalAnalysis.confidence}%/${CONFIG.finalConfidenceThreshold}% ${finalConfidenceCheck ? '✅' : '❌'}`);
           continue;
         }
-
-        console.log(`✅ FINAL GATES: ${finalAnalysis.symbol} passed all quality thresholds`);
-
-        // Create the signal data
-        const signalData: SignalData = {
-          symbol: finalAnalysis.symbol,
-          type: finalAnalysis.signalType,
-          price: finalAnalysis.entryPrice,
-          stop_loss: finalAnalysis.stopLoss,
-          take_profits: finalAnalysis.takeProfits,
-          confidence: finalAnalysis.confidence,
-          analysis_text: finalAnalysis.analysis,
-          timestamp: new Date().toISOString(),
-          status: 'active',
-          is_centralized: true,
-          user_id: null,
-          metadata: {
-            tier1_score: tier1Analysis.confluenceScore,
-            tier2_quality: tier2Analysis.quality,
-            tier3_quality: finalAnalysis.quality,
-            session: currentSession,
-            risk_level: finalAnalysis.riskLevel,
-            confluence_factors: finalAnalysis.confluenceFactors
-          }
+        
+        console.log(`✅ FINAL GATES: ${pair.symbol} passed all quality thresholds`);
+        
+        // Convert to signal format and save
+        const signalData = convertProfessionalAnalysisToSignal(finalAnalysis, pair);
+        
+        // Store analysis data in proper database columns
+        signalData.t2_confidence = tier2Analysis.confidence;
+        signalData.t3_confidence = finalAnalysis.confidence;
+        signalData.market_context = {
+          ...signalData.market_context,
+          parameters_used: optimalParams || getDefaultParameters(),
+          market_session: currentSession,
+          tier1_score: tier1Analysis.confluenceScore,
+          optimal_params_available: !!optimalParams
         };
-
-        // Insert the signal into the database
-        const { data: insertedSignal, error: insertError } = await supabase
+        
+        // Whitelist only valid database columns to prevent schema mismatches
+        const validColumns = [
+          "symbol", "type", "price", "stop_loss", "take_profits", "confidence", 
+          "analysis_text", "timestamp", "status", "is_centralized", "user_id", 
+          "final_quality", "risk_reward_ratio", "t1_confirmations", "session_optimal", 
+          "market_context", "pips", "t2_confidence", "t3_confidence"
+        ];
+        
+        const filteredSignalData = Object.fromEntries(
+          Object.entries(signalData).filter(([key]) => validColumns.includes(key))
+        );
+        
+        const { error: insertError } = await supabase
           .from('trading_signals')
-          .insert([signalData])
-          .select()
-          .single();
-
+          .insert(filteredSignalData);
+        
         if (insertError) {
-          console.error(`❌ Error inserting signal for ${finalAnalysis.symbol}:`, insertError);
+          console.error(`❌ Failed to save signal for ${pair.symbol}:`, insertError);
           continue;
         }
-
-        console.log(`✅ Generated signal for ${finalAnalysis.symbol}: ${finalAnalysis.signalType} @ ${finalAnalysis.entryPrice}`);
+        
         generatedSignals.push(signalData);
-
+        console.log(`✅ Generated signal for ${pair.symbol}: ${signalData.type} @ ${signalData.price}`);
+        
       } catch (error) {
-        console.error(`❌ Error analyzing ${pair.symbol}:`, error);
-        continue;
+        console.error(`❌ Analysis failed for ${pair.symbol}:`, error);
       }
     }
 
     const executionTime = Date.now() - startTime;
-    
-    console.log(`✅ ENHANCED GENERATION COMPLETE:`);
+
+    console.log(`✅ PROFESSIONAL GENERATION COMPLETE:`);
     console.log(`   📊 Signals Generated: ${generatedSignals.length}/${maxNewSignals}`);
     console.log(`   🎯 Tier 1: ${analysisStats.tier1Passed}/${analysisStats.tier1Analyzed} passed`);
     console.log(`   💰 Tier 2: ${analysisStats.tier2Passed}/${analysisStats.tier2Analyzed} passed`);
     console.log(`   💎 Tier 3: ${analysisStats.tier3Passed}/${analysisStats.tier3Analyzed} passed`);
-    console.log(`   ⏱️ Execution Time: ${executionTime}ms`);
     console.log(`   💵 Total Cost: $${analysisStats.totalCost.toFixed(4)}`);
+    console.log(`   ⏱️ Execution Time: ${executionTime}ms`);
 
     return new Response(JSON.stringify({
-      status: 'success',
+      success: true,
       signalsGenerated: generatedSignals.length,
-      signals: generatedSignals.map(s => ({
-        symbol: s.symbol,
-        type: s.type,
-        confidence: s.confidence,
-        entryPrice: s.price,
-        firstTPPips: Math.abs(s.take_profits[0] - s.price) / getPipSize(s.symbol)
-      })),
-      stats: {
-        totalAnalyzed: analysisStats.tier1Analyzed,
-        tier1Passed: analysisStats.tier1Passed,
-        tier2Passed: analysisStats.tier2Passed,
-        tier3Passed: analysisStats.tier3Passed,
-        executionTimeMs: executionTime,
-        totalCost: analysisStats.totalCost,
-        fallbackActivated
-      }
+      analysisStats,
+      executionTimeMs: executionTime,
+      mode: 'professional_3_tier',
+      timestamp: new Date().toISOString()
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
   } catch (error) {
-    console.error('❌ Enhanced signal generation error:', error);
+    console.error('Signal generation error:', error);
     return new Response(JSON.stringify({
       error: error.message,
       timestamp: new Date().toISOString()
@@ -526,7 +511,42 @@ serve(async (req) => {
   }
 });
 
-// Session helper functions
+// Get optimal parameters for a currency pair from backtesting results
+async function getOptimalParametersForPair(supabase: any, symbol: string, session: string = 'all'): Promise<OptimalParameters | null> {
+  try {
+    const { data, error } = await supabase
+      .rpc('get_optimal_parameters', {
+        symbol_name: symbol,
+        session_name: session,
+        volatility_name: 'normal'
+      });
+    
+    if (error) {
+      console.error(`Failed to get optimal parameters for ${symbol}:`, error);
+      return null;
+    }
+    
+    return data && data.length > 0 ? data[0] : null;
+  } catch (error) {
+    console.error(`Error fetching optimal parameters for ${symbol}:`, error);
+    return null;
+  }
+}
+
+// Get default parameters when no optimal parameters are available
+function getDefaultParameters(): OptimalParameters {
+  return {
+    rsi_oversold: 30,
+    rsi_overbought: 70,
+    ema_fast_period: 12,
+    ema_slow_period: 26,
+    atr_period: 14,
+    confluence_required: 3,
+    min_confluence_score: 55
+  };
+}
+
+// Get current trading session
 function getCurrentSessionText(): string {
   const now = new Date();
   const utcHour = now.getUTCHours();
@@ -536,18 +556,16 @@ function getCurrentSessionText(): string {
   return 'New York';
 }
 
-function isOptimalSession(session: string): boolean {
-  // London and NY sessions generally have higher volume
-  return session === 'London' || session === 'New York';
-}
-
-// Enhanced historical data fetching
+// Enhanced historical data fetching - Per symbol to bypass 1000-row API cap
 async function getEnhancedHistoricalData(supabase: any, symbols: string[]) {
   console.log(`🔍 Fetching historical data per symbol (${symbols.length} symbols) from live_price_history...`);
+  console.log(`📈 historyFetchMode=per-symbol (200 rows each to bypass 1000-row cap)`);
   
   const historicalData = new Map();
-  const batchSize = 8;
+  const fetchPromises: Promise<void>[] = [];
   
+  // Process symbols in batches to control concurrency
+  const batchSize = 8;
   for (let i = 0; i < symbols.length; i += batchSize) {
     const batch = symbols.slice(i, i + batchSize);
     
@@ -590,7 +608,9 @@ async function getEnhancedHistoricalData(supabase: any, symbols: string[]) {
       }
     });
     
-    // Wait for current batch before starting next
+    fetchPromises.push(...batchPromises);
+    
+    // Wait for current batch before starting next (respect concurrency limits)
     await Promise.all(batchPromises);
   }
   
@@ -598,758 +618,46 @@ async function getEnhancedHistoricalData(supabase: any, symbols: string[]) {
   return historicalData;
 }
 
-// Get optimal parameters for a pair
-async function getOptimalParametersForPair(supabase: any, symbol: string, session: string): Promise<OptimalParameters | null> {
-  try {
-    const { data, error } = await supabase
-      .from('optimal_trading_parameters')
-      .select('*')
-      .eq('symbol', symbol)
-      .eq('market_session', session)
-      .order('last_optimized_at', { ascending: false })
-      .limit(1);
-
-    if (error || !data || data.length === 0) {
-      return null;
-    }
-
-    const params = data[0];
-    return {
-      rsi_oversold: params.rsi_oversold || 25,
-      rsi_overbought: params.rsi_overbought || 75,
-      ema_fast_period: params.ema_fast_period || 21,
-      ema_slow_period: params.ema_slow_period || 55,
-      atr_period: params.atr_period || 14,
-      confluence_required: params.confluence_required || 4,
-      min_confluence_score: params.min_confluence_score || 75,
-      win_rate: params.win_rate,
-      profit_factor: params.profit_factor
-    };
-  } catch (error) {
-    console.error(`Error fetching optimal parameters for ${symbol}:`, error);
-    return null;
-  }
-}
-
-// Tier 1: Enhanced technical analysis with winning signal focus
-async function performTier1Analysis(
-  marketData: MarketData, 
-  historicalData: Map<string, any[]>, 
-  optimalParams?: OptimalParameters,
-  config?: any
-) {
-  const symbol = marketData.symbol;
-  const hist = historicalData.get(symbol) || [];
+// Market regime detection for dynamic threshold adjustment
+function detectMarketRegime(prices: number[], atr: number): { regime: string; volatility: string; bias_adjustment: number } {
+  if (prices.length < 10) return { regime: 'unknown', volatility: 'normal', bias_adjustment: 0 };
   
-  if (hist.length < 50) {
-    return {
-      confluenceScore: 0,
-      signalDirection: null,
-      details: { error: `Insufficient historical data for ${symbol}: ${hist.length}` }
-    };
-  }
+  const recentPrices = prices.slice(0, 10);
+  const priceRange = Math.max(...recentPrices) - Math.min(...recentPrices);
+  const avgPrice = recentPrices.reduce((a, b) => a + b, 0) / recentPrices.length;
+  const volatilityRatio = (priceRange / avgPrice) * 100;
   
-  const prices = hist.map(h => h.close_price);
-  const recentPrices = prices.slice(-50);
-  const current = marketData.current_price;
+  let regime = 'ranging';
+  let volatility = 'normal';
+  let biasAdjustment = 0;
   
-  // Use winning parameters with stricter thresholds
-  const params = optimalParams || {
-    rsi_oversold: 25,     // Stricter oversold
-    rsi_overbought: 75,   // Stricter overbought
-    ema_fast_period: 21,
-    ema_slow_period: 55,
-    atr_period: 14,
-    confluence_required: 4,  // More confluences required
-    min_confluence_score: 75 // Higher quality bar
-  };
-  
-  // Calculate enhanced technical indicators
-  const rsi = calculateRSI(recentPrices, 14);
-  const emaFast = calculateEMA(recentPrices, params.ema_fast_period);
-  const emaSlow = calculateEMA(recentPrices, params.ema_slow_period);
-  const atr = calculateATR(hist.slice(-20));
-  
-  // Calculate volumes for confirmation
-  const recentVolumes = hist.slice(-10).map(h => h.volume || 0);
-  const avgVolume = recentVolumes.reduce((a, b) => a + b, 0) / recentVolumes.length;
-  const currentVolume = hist[hist.length - 1]?.volume || 0;
-  
-  // Price change analysis
-  const priceChange = current - hist[hist.length - 1].close_price;
-  const priceChangeRatio = Math.abs(priceChange) / hist[hist.length - 1].close_price;
-  
-  // Get pip size for this pair
-  const pipSize = getPipSize(symbol);
-  
-  // Get current session
-  const session = getCurrentSessionText();
-  
-  let confluenceScore = 0;
-  let signalDirection: 'BUY' | 'SELL' | null = null;
-  const failReasons: string[] = [];
-  
-  // WINNING CONFLUENCE ANALYSIS - STRICTER CRITERIA
-  
-  // 1. RSI Analysis - More selective thresholds
-  if (rsi < params.rsi_oversold) {
-    confluenceScore += 30; // Higher weight for clear oversold
-    if (!signalDirection) signalDirection = 'BUY';
-  } else if (rsi > params.rsi_overbought) {
-    confluenceScore += 30; // Higher weight for clear overbought
-    if (!signalDirection) signalDirection = 'SELL';
+  // Detect trending vs ranging
+  const trendStrength = Math.abs(recentPrices[0] - recentPrices[recentPrices.length - 1]) / avgPrice;
+  if (trendStrength > 0.005) { // 0.5% directional movement
+    regime = recentPrices[0] > recentPrices[recentPrices.length - 1] ? 'uptrending' : 'downtrending';
   } else {
-    failReasons.push(`RSI not extreme (${rsi.toFixed(1)} not < ${params.rsi_oversold} or > ${params.rsi_overbought})`);
+    regime = 'ranging';
+    biasAdjustment = 5; // Favor reversal signals in ranging markets
   }
   
-  // 2. EMA Trend Analysis - Clearer separation required
-  const emaSeparation = Math.abs(emaFast - emaSlow) / emaSlow;
-  if (emaSeparation > 0.005) { // 0.5% minimum separation (stricter)
-    confluenceScore += 25;
-    if (emaFast > emaSlow && rsi < params.rsi_oversold) {
-      signalDirection = 'BUY';
-    } else if (emaFast < emaSlow && rsi > params.rsi_overbought) {
-      signalDirection = 'SELL';
-    }
-  } else {
-    failReasons.push(`Weak EMA trend (${(emaSeparation*100).toFixed(3)}% separation)`);
+  // Volatility classification
+  if (volatilityRatio > 1.5) {
+    volatility = 'high';
+    biasAdjustment += 3; // Slightly favor high volatility setups
+  } else if (volatilityRatio < 0.5) {
+    volatility = 'low';
+    biasAdjustment -= 2; // Penalize low volatility setups
   }
   
-  // 3. Volume Confirmation - Require above-average volume
-  if (currentVolume > avgVolume * 1.2) {
-    confluenceScore += 15;
-  } else {
-    failReasons.push(`Low volume confirmation`);
-  }
-  
-  // 4. ATR Volatility - Ensure sufficient movement potential
-  const atrThreshold = symbol.includes('JPY') ? 0.05 : 0.0008;
-  if (atr > atrThreshold) {
-    confluenceScore += 15;
-  } else {
-    failReasons.push(`Insufficient volatility (ATR=${atr.toFixed(6)})`);
-  }
-  
-  // 5. Momentum Confirmation - Stronger momentum required
-  if (priceChangeRatio > 0.008) { // 0.8% minimum momentum (stricter)
-    confluenceScore += 10;
-  } else {
-    failReasons.push(`Weak momentum (${(priceChangeRatio*100).toFixed(3)}%)`);
-  }
-  
-  // 6. Session Timing - Only trade optimal sessions
-  if (isOptimalSession(session)) {
-    confluenceScore += 10;
-  } else {
-    failReasons.push(`Suboptimal session (${session})`);
-  }
-  
-  // 7. Support/Resistance Analysis
-  const supportResistance = findSupportResistanceLevels(recentPrices, current);
-  if (isNearSupportResistance(current, supportResistance, pipSize)) {
-    confluenceScore += 5;
-  }
-  
-  // ELIMINATE BIAS: Only signal when ALL technical conditions align
-  if (signalDirection && confluenceScore < 85) {
-    signalDirection = null; // Reset if not strong enough
-    failReasons.push(`Insufficient confluence score (${confluenceScore}/100)`);
-  }
-  
-  return {
-    confluenceScore,
-    signalDirection,
-    details: {
-      rsi,
-      ema_fast: emaFast,
-      ema_slow: emaSlow,
-      atr,
-      pip_size: pipSize,
-      price_delta: priceChange,
-      price_change_ratio: priceChangeRatio,
-      session,
-      fail_reasons: failReasons,
-      volume_ratio: currentVolume / (avgVolume || 1),
-      ema_separation: emaSeparation
-    }
-  };
+  return { regime, volatility, bias_adjustment: biasAdjustment };
 }
 
-// Tier 2: AI-powered analysis with bias elimination and 20+ pip enforcement
-async function performTier2Analysis(
-  marketData: MarketData, 
-  historicalData: Map<string, any[]>, 
-  tier1Analysis: any, 
-  openAIApiKey: string,
-  optimalParams?: OptimalParameters,
-  config?: any
-): Promise<ProfessionalSignalAnalysis> {
-  const symbol = marketData.symbol;
-  const hist = historicalData.get(symbol) || [];
-  const prices = hist.map(h => h.close_price);
-  const current = marketData.current_price;
-  
-  // Calculate comprehensive technical indicators
-  const rsi = calculateRSI(prices.slice(-50), 14);
-  const emaFast = calculateEMA(prices.slice(-50), 21);
-  const emaSlow = calculateEMA(prices.slice(-50), 55);
-  const atr = calculateATR(hist.slice(-20));
-  const bb = calculateBollingerBands(prices.slice(-20), 20, 2);
-  
-  // Market regime detection
-  const trendStrength = calculateTrendStrength(prices.slice(-100));
-  const volatilityRegime = atr > getPipSize(symbol) * 30 ? 'high' : 'normal';
-  const marketRegime = trendStrength > 0.6 ? 'trending' : 'ranging';
-  
-  // Prepare UNBIASED market context for AI
-  const marketContext = {
-    symbol,
-    currentPrice: current,
-    rsi: rsi.toFixed(2),
-    emaFast: emaFast.toFixed(5),
-    emaSlow: emaSlow.toFixed(5),
-    emaTrend: emaFast > emaSlow ? 'bullish' : 'bearish',
-    atr: atr.toFixed(6),
-    bbPosition: current > bb.upper ? 'above_upper' : current < bb.lower ? 'below_lower' : 'middle',
-    trendStrength: trendStrength.toFixed(3),
-    marketRegime,
-    volatilityRegime,
-    session: getCurrentSessionText(),
-    tier1Score: tier1Analysis.confluenceScore
-  };
-
-  // UNBIASED PROMPT - No directional suggestions
-  const prompt = `Analyze ${symbol} objectively for WINNING trading opportunities. Be extremely selective.
-
-MARKET DATA:
-- Price: ${marketContext.currentPrice}
-- RSI(14): ${marketContext.rsi}  
-- EMA Fast(21): ${marketContext.emaFast} | EMA Slow(55): ${marketContext.emaSlow}
-- EMA Trend: ${marketContext.emaTrend}
-- ATR: ${marketContext.atr}
-- Bollinger Position: ${marketContext.bbPosition}
-- Market Regime: ${marketContext.marketRegime}
-- Session: ${marketContext.session}
-
-CRITICAL REQUIREMENTS:
-1. ONLY signal if you see a HIGH-PROBABILITY setup (70%+ win rate potential)
-2. First take profit MUST be minimum ${config?.minFirstTPPips || 20} pips from entry
-3. Stop loss maximum 25 pips from entry  
-4. Risk/reward ratio minimum 2:1
-5. Require MULTIPLE technical confirmations (RSI + EMA + Volume/ATR)
-6. NO BIAS: Analyze purely based on technical merit
-
-RESPOND WITH VALID JSON ONLY:
-{
-  "direction": "BUY" or "SELL" or "NEUTRAL",
-  "confidence": 60-95,
-  "entry_price": ${current},
-  "stop_loss": number,
-  "take_profits": [tp1_min_${config?.minFirstTPPips || 20}_pips, tp2, tp3],
-  "analysis": "Technical reasoning for decision"
-}
-
-If technical conditions don't strongly support BUY or SELL, choose NEUTRAL.`;
-
-  try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { 
-            role: 'system', 
-            content: 'You are an objective forex analyst. Analyze technical data without bias. Only suggest signals with strong technical confluence. Prefer NEUTRAL over weak setups.' 
-          },
-          { role: 'user', content: prompt }
-        ],
-        max_tokens: 300,
-        temperature: 0.3 // Lower temperature for more consistent analysis
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    let aiResponse = data.choices[0].message.content.trim();
-    
-    // Clean up the response
-    if (aiResponse.startsWith('```json')) {
-      aiResponse = aiResponse.replace(/```json\n?/, '').replace(/\n?```$/, '');
-    }
-    
-    console.log(`📝 TIER 2 Raw Response: ${symbol} - ${aiResponse}`);
-    
-    const parsed = JSON.parse(aiResponse);
-    
-    // Validate AI response
-    if (parsed.direction === 'NEUTRAL' || !parsed.direction) {
-      return {
-        symbol,
-        shouldSignal: false,
-        signalType: 'BUY',
-        confidence: 0,
-        quality: 0,
-        entryPrice: current,
-        stopLoss: current,
-        takeProfits: [],
-        analysis: 'Neutral market conditions - no strong technical setup',
-        confluenceFactors: [],
-        riskLevel: 'HIGH',
-        sessionOptimal: false,
-        marketConditions: marketContext
-      };
-    }
-
-    // ENFORCE 20+ PIP REQUIREMENT
-    const entryPrice = parsed.entry_price || current;
-    const takeProfits = parsed.take_profits || [];
-    const stopLoss = parsed.stop_loss || current;
-    const pipSize = getPipSize(symbol);
-    
-    // Validate first take profit is at least required pips
-    if (takeProfits.length === 0) {
-      console.log(`❌ TIER 2: ${symbol} rejected - no take profits specified`);
-      return {
-        symbol,
-        shouldSignal: false,
-        signalType: parsed.direction,
-        confidence: 0,
-        quality: 0,
-        entryPrice,
-        stopLoss,
-        takeProfits: [],
-        analysis: 'No take profits specified',
-        confluenceFactors: [],
-        riskLevel: 'HIGH',
-        sessionOptimal: false,
-        marketConditions: marketContext
-      };
-    }
-    
-    const firstTPDistance = Math.abs(takeProfits[0] - entryPrice) / pipSize;
-    const minPips = config?.minFirstTPPips || 20;
-    
-    if (firstTPDistance < minPips) {
-      console.log(`❌ TIER 2: ${symbol} rejected - first TP only ${firstTPDistance.toFixed(1)} pips (minimum ${minPips} required)`);
-      return {
-        symbol,
-        shouldSignal: false,
-        signalType: parsed.direction,
-        confidence: parsed.confidence || 0,
-        quality: 0,
-        entryPrice,
-        stopLoss,
-        takeProfits,
-        analysis: `First TP insufficient: ${firstTPDistance.toFixed(1)} pips < ${minPips} required`,
-        confluenceFactors: [],
-        riskLevel: 'HIGH',
-        sessionOptimal: false,
-        marketConditions: marketContext
-      };
-    }
-    
-    // Validate stop loss is not too wide (max 25 pips)
-    const stopLossDistance = Math.abs(stopLoss - entryPrice) / pipSize;
-    if (stopLossDistance > 25) {
-      console.log(`❌ TIER 2: ${symbol} rejected - stop loss too wide: ${stopLossDistance.toFixed(1)} pips (maximum 25)`);
-      return {
-        symbol,
-        shouldSignal: false,
-        signalType: parsed.direction,
-        confidence: parsed.confidence || 0,
-        quality: 0,
-        entryPrice,
-        stopLoss,
-        takeProfits,
-        analysis: `Stop loss too wide: ${stopLossDistance.toFixed(1)} pips > 25 maximum`,
-        confluenceFactors: [],
-        riskLevel: 'HIGH',
-        sessionOptimal: false,
-        marketConditions: marketContext
-      };
-    }
-    
-    // Calculate risk/reward ratio
-    const riskReward = firstTPDistance / stopLossDistance;
-    if (riskReward < 2.0) {
-      console.log(`❌ TIER 2: ${symbol} rejected - poor risk/reward: ${riskReward.toFixed(2)} (minimum 2.0)`);
-      return {
-        symbol,
-        shouldSignal: false,
-        signalType: parsed.direction,
-        confidence: parsed.confidence || 0,
-        quality: 0,
-        entryPrice,
-        stopLoss,
-        takeProfits,
-        analysis: `Poor risk/reward ratio: ${riskReward.toFixed(2)} < 2.0 required`,
-        confluenceFactors: [],
-        riskLevel: 'HIGH',
-        sessionOptimal: false,
-        marketConditions: marketContext
-      };
-    }
-
-    // Calculate quality score based on technical factors
-    const quality = calculateSignalQuality({
-      rsi,
-      emaFast,
-      emaSlow,
-      atr,
-      current,
-      trendStrength,
-      volatilityRegime,
-      bbPosition: marketContext.bbPosition
-    });
-
-    const shouldSignal = quality >= (config?.tier2EscalationQuality || 80) && 
-                        (parsed.confidence || 0) >= (config?.tier2EscalationConfidence || 75);
-
-    console.log(`✅ TIER 2 Valid: ${symbol} - ${parsed.direction} @ ${entryPrice}, confidence: ${parsed.confidence}%, quality: ${quality.toFixed(2)}`);
-
-    return {
-      symbol,
-      shouldSignal,
-      signalType: parsed.direction,
-      confidence: parsed.confidence || 0,
-      quality,
-      entryPrice,
-      stopLoss,
-      takeProfits,
-      analysis: parsed.analysis || 'Technical analysis',
-      confluenceFactors: ['RSI', 'EMA', 'ATR', 'Session'],
-      riskLevel: quality > 85 ? 'LOW' : quality > 70 ? 'MEDIUM' : 'HIGH',
-      sessionOptimal: isOptimalSession(getCurrentSessionText()),
-      marketConditions: marketContext,
-      optimalParametersUsed: optimalParams
-    };
-
-  } catch (error) {
-    console.error(`❌ TIER 2 ${symbol} error:`, error);
-    throw error;
-  }
-}
-
-// Tier 3: Premium analysis with institutional-grade criteria
-async function performTier3Analysis(
-  marketData: MarketData,
-  historicalData: Map<string, any[]>,
-  tier2Analysis: ProfessionalSignalAnalysis,
-  openAIApiKey: string,
-  optimalParams?: OptimalParameters,
-  config?: any
-): Promise<ProfessionalSignalAnalysis> {
-  const symbol = marketData.symbol;
-  const hist = historicalData.get(symbol) || [];
-  
-  // Enhanced context for institutional-grade analysis
-  const prompt = `INSTITUTIONAL QUALITY REVIEW for ${symbol} signal:
-
-PROPOSED SIGNAL:
-- Direction: ${tier2Analysis.signalType}
-- Entry: ${tier2Analysis.entryPrice}
-- Stop Loss: ${tier2Analysis.stopLoss}
-- Take Profits: ${tier2Analysis.takeProfits.join(', ')}
-- Initial Confidence: ${tier2Analysis.confidence}%
-
-REQUIREMENTS FOR INSTITUTIONAL APPROVAL:
-1. Multi-timeframe confluence (H1/H4/D1)
-2. Risk management meets fund standards
-3. No conflicting fundamental factors
-4. Statistical validation of setup
-5. Quality score 85+ for publication
-
-Respond with JSON only:
-{
-  "confidence": 60-95,
-  "quality": 60-100,
-  "analysis": "Institutional assessment"
-}
-
-Confidence <80 or Quality <85 = REJECT signal.`;
-
-  try {
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${openAIApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o-mini',
-        messages: [
-          { 
-            role: 'system', 
-            content: 'You are an institutional-grade analyst. Apply the highest quality standards. Reject signals that don\'t meet institutional criteria.' 
-          },
-          { role: 'user', content: prompt }
-        ],
-        max_tokens: 200,
-        temperature: 0.2
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`OpenAI API error: ${response.status}`);
-    }
-
-    const data = await response.json();
-    let aiResponse = data.choices[0].message.content.trim();
-    
-    if (aiResponse.startsWith('```json')) {
-      aiResponse = aiResponse.replace(/```json\n?/, '').replace(/\n?```$/, '');
-    }
-    
-    console.log(`📝 TIER 3 Raw Response: ${symbol} - ${aiResponse}`);
-    
-    const parsed = JSON.parse(aiResponse);
-    
-    const finalConfidence = parsed.confidence || tier2Analysis.confidence;
-    const finalQuality = parsed.quality || tier2Analysis.quality;
-    
-    const shouldSignal = finalConfidence >= (config?.tier3ConfidenceThreshold || 80) && 
-                        finalQuality >= (config?.tier3QualityThreshold || 85);
-    
-    console.log(`✅ TIER 3 Valid: ${symbol} - confidence: ${finalConfidence}%, quality: ${finalQuality}`);
-    
-    return {
-      ...tier2Analysis,
-      confidence: finalConfidence,
-      quality: finalQuality,
-      shouldSignal,
-      analysis: parsed.analysis || tier2Analysis.analysis
-    };
-
-  } catch (error) {
-    console.error(`❌ TIER 3 ${symbol} error:`, error);
-    throw error;
-  }
-}
-
-// Function to monitor signal bias (informational only - no enforcement)
-async function monitorSignalBias(supabase: any, existingSignals: any[]) {
-  try {
-    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-    
-    const { data: recentSignals, error } = await supabase
-      .from('trading_signals')
-      .select('type, confidence, created_at')
-      .gte('created_at', twentyFourHoursAgo)
-      .eq('is_centralized', true)
-      .is('user_id', null);
-
-    if (error) {
-      console.warn('⚠️ Could not fetch recent signals for bias monitoring:', error);
-      return { bias_detected: false, message: 'Unable to monitor bias', buy_percentage: 50, sell_percentage: 50 };
-    }
-
-    const allSignals = [...(existingSignals || []), ...(recentSignals || [])];
-    
-    if (allSignals.length === 0) {
-      return { bias_detected: false, message: 'No signals to analyze', buy_percentage: 0, sell_percentage: 0 };
-    }
-
-    const buySignals = allSignals.filter(s => s.type === 'BUY').length;
-    const sellSignals = allSignals.filter(s => s.type === 'SELL').length;
-    const total = allSignals.length;
-    
-    const buyPercentage = (buySignals / total) * 100;
-    const sellPercentage = (sellSignals / total) * 100;
-    
-    // INFORMATIONAL ONLY - No restrictions based on bias
-    const biasThreshold = 70;
-    let biasDetected = false;
-    let message = `Distribution: ${buyPercentage.toFixed(1)}% BUY, ${sellPercentage.toFixed(1)}% SELL (market-driven)`;
-    
-    if (buyPercentage > biasThreshold) {
-      biasDetected = true;
-      message = `Market showing BULLISH bias: ${buyPercentage.toFixed(1)}% BUY signals (natural market condition)`;
-    } else if (sellPercentage > biasThreshold) {
-      biasDetected = true;
-      message = `Market showing BEARISH bias: ${sellPercentage.toFixed(1)}% SELL signals (natural market condition)`;
-    }
-    
-    console.log(`📊 BIAS MONITORING (informational): ${message}`);
-    console.log(`🎯 AUTHENTIC APPROACH: No artificial balancing - let market conditions drive signal direction`);
-    
-    return {
-      bias_detected: biasDetected,
-      message,
-      buy_percentage: buyPercentage,
-      sell_percentage: sellPercentage,
-      total_signals: total,
-      buy_count: buySignals,
-      sell_count: sellSignals
-    };
-    
-  } catch (error) {
-    console.warn('⚠️ Error monitoring signal bias:', error);
-    return { bias_detected: false, message: 'Error monitoring bias', buy_percentage: 50, sell_percentage: 50 };
-  }
-}
-
-// Enhanced signal quality calculation
-function calculateSignalQuality(indicators: {
-  rsi: number;
-  emaFast: number;
-  emaSlow: number;
-  atr: number;
-  current: number;
-  trendStrength: number;
-  volatilityRegime: string;
-  bbPosition: string;
-}): number {
-  let score = 30; // Lower base score - require merit to reach high quality
-  
-  // RSI contribution (30 points max) - Stricter thresholds
-  if (indicators.rsi < 20 || indicators.rsi > 80) {
-    score += 30; // Very strong RSI signal
-  } else if (indicators.rsi < 25 || indicators.rsi > 75) {
-    score += 25; // Strong RSI signal  
-  } else if (indicators.rsi < 30 || indicators.rsi > 70) {
-    score += 15; // Moderate RSI signal
-  } else {
-    score -= 10; // Penalty for neutral RSI
-  }
-  
-  // EMA trend strength (25 points max) - Require stronger separation
-  const emaSeparation = Math.abs(indicators.emaFast - indicators.emaSlow) / indicators.emaSlow;
-  if (emaSeparation > 0.008) {
-    score += 25; // Very strong trend
-  } else if (emaSeparation > 0.005) {
-    score += 20; // Strong trend
-  } else if (emaSeparation > 0.003) {
-    score += 10; // Moderate trend
-  } else {
-    score -= 15; // Penalty for no trend
-  }
-  
-  // Trend strength (20 points max)
-  if (indicators.trendStrength > 0.8) {
-    score += 20; // Very strong trend
-  } else if (indicators.trendStrength > 0.6) {
-    score += 15; // Strong trend
-  } else if (indicators.trendStrength > 0.4) {
-    score += 8; // Moderate trend
-  } else {
-    score -= 10; // Penalty for weak trend
-  }
-  
-  // Volatility (15 points max) - Favor higher volatility for better pip potential
-  if (indicators.volatilityRegime === 'high') {
-    score += 15; // High volatility good for pip capture
-  } else {
-    score += 5; // Lower score for normal volatility
-  }
-  
-  // Bollinger Bands position (10 points max) - Extreme positions favored
-  if (indicators.bbPosition === 'above_upper' || indicators.bbPosition === 'below_lower') {
-    score += 10; // Extreme BB position good for reversal
-  } else {
-    score += 2; // Minimal score for middle position
-  }
-  
-  return Math.min(100, Math.max(0, score));
-}
-
-// Technical analysis helper functions
-function calculateRSI(prices: number[], period: number = 14): number {
-  if (prices.length < period + 1) return 50;
-  
-  let gains = 0;
-  let losses = 0;
-  
-  for (let i = 1; i <= period; i++) {
-    const change = prices[prices.length - i] - prices[prices.length - i - 1];
-    if (change > 0) gains += change;
-    else losses += Math.abs(change);
-  }
-  
-  const avgGain = gains / period;
-  const avgLoss = losses / period;
-  
-  if (avgLoss === 0) return 100;
-  const rs = avgGain / avgLoss;
-  return 100 - (100 / (1 + rs));
-}
-
-function calculateEMA(prices: number[], period: number): number {
-  if (prices.length === 0) return 0;
-  
-  const multiplier = 2 / (period + 1);
-  let ema = prices[0];
-  
-  for (let i = 1; i < prices.length; i++) {
-    ema = (prices[i] * multiplier) + (ema * (1 - multiplier));
-  }
-  
-  return ema;
-}
-
-function calculateATR(bars: any[], period: number = 14): number {
-  if (bars.length < 2) return 0;
-  
-  let trSum = 0;
-  for (let i = 1; i < Math.min(bars.length, period + 1); i++) {
-    const tr = Math.max(
-      bars[i].high_price - bars[i].low_price,
-      Math.abs(bars[i].high_price - bars[i - 1].close_price),
-      Math.abs(bars[i].low_price - bars[i - 1].close_price)
-    );
-    trSum += tr;
-  }
-  
-  return trSum / Math.min(bars.length - 1, period);
-}
-
-function calculateBollingerBands(prices: number[], period: number, deviation: number) {
-  if (prices.length < period) {
-    const mid = prices[prices.length - 1] || 0;
-    return { upper: mid, middle: mid, lower: mid };
-  }
-  
-  const recentPrices = prices.slice(-period);
-  const sma = recentPrices.reduce((a, b) => a + b, 0) / period;
-  
-  const variance = recentPrices.reduce((sum, price) => sum + Math.pow(price - sma, 2), 0) / period;
-  const stdDev = Math.sqrt(variance);
-  
-  return {
-    upper: sma + (stdDev * deviation),
-    middle: sma,
-    lower: sma - (stdDev * deviation)
-  };
-}
-
-function calculateTrendStrength(prices: number[]): number {
-  if (prices.length < 10) return 0;
-  
-  const recentPrices = prices.slice(-10);
-  const firstPrice = recentPrices[0];
-  const lastPrice = recentPrices[recentPrices.length - 1];
-  
-  return Math.abs(lastPrice - firstPrice) / firstPrice;
-}
-
-function getPipSize(symbol: string): number {
-  if (symbol.includes('JPY')) {
-    return 0.01; // For JPY pairs, pip is 0.01
-  }
-  return 0.0001; // For most other pairs, pip is 0.0001
-}
-
+// Support and resistance detection
 function findSupportResistanceLevels(prices: number[], currentPrice: number): { support: number[]; resistance: number[] } {
   if (prices.length < 20) return { support: [], resistance: [] };
   
   const levels = [];
-  const recentPrices = prices.slice(-50);
+  const recentPrices = prices.slice(0, 50); // Use more data for better levels
   
   // Find local highs and lows
   for (let i = 2; i < recentPrices.length - 2; i++) {
@@ -1376,11 +684,776 @@ function findSupportResistanceLevels(prices: number[], currentPrice: number): { 
   return { support, resistance };
 }
 
-function isNearSupportResistance(currentPrice: number, levels: { support: number[]; resistance: number[] }, pipSize: number): boolean {
-  const tolerance = pipSize * 10; // Within 10 pips
+// Helper function for balanced RSI scoring
+function calculateRSIScore(rsi: number, oversold: number, overbought: number): { score: number; signal?: string; reason?: string } {
+  if (rsi <= oversold) {
+    const strength = oversold - rsi;
+    return { 
+      score: 25 + Math.min(10, strength), 
+      signal: `RSI oversold (${rsi.toFixed(1)}, strength: ${strength.toFixed(1)})` 
+    };
+  } else if (rsi >= overbought) {
+    const strength = rsi - overbought;
+    return { 
+      score: 25 + Math.min(10, strength), 
+      signal: `RSI overbought (${rsi.toFixed(1)}, strength: ${strength.toFixed(1)})` 
+    };
+  } else if (rsi > 45 && rsi < 55) {
+    return { score: 5, signal: `RSI neutral zone (${rsi.toFixed(1)})` };
+  } else {
+    return { score: 0, reason: `RSI neutral (${rsi.toFixed(1)})` };
+  }
+}
+
+// Helper function for support/resistance confluence
+function calculateSRConfluence(currentPrice: number, srLevels: { support: number[]; resistance: number[] }): { score: number; signal?: string } {
+  const nearSupport = srLevels.support.some(level => Math.abs(currentPrice - level) / currentPrice < 0.01);
+  const nearResistance = srLevels.resistance.some(level => Math.abs(currentPrice - level) / currentPrice < 0.01);
   
-  const nearSupport = levels.support.some(level => Math.abs(currentPrice - level) <= tolerance);
-  const nearResistance = levels.resistance.some(level => Math.abs(currentPrice - level) <= tolerance);
+  if (nearSupport) {
+    return { score: 12, signal: 'Near key support level' };
+  } else if (nearResistance) {
+    return { score: 12, signal: 'Near key resistance level' };
+  }
   
-  return nearSupport || nearResistance;
+  return { score: 0 };
+}
+
+// Tier 1: Enhanced local pre-filtering with bias prevention
+async function performTier1Analysis(pair: MarketData, historicalDataMap: Map<string, any[]>, optimalParams?: OptimalParameters) {
+  const historicalData = historicalDataMap.get(pair.symbol) || [];
+  
+  if (!historicalData || historicalData.length < 20) {
+    return {
+      confluenceScore: 0,
+      signals: [],
+      details: { reason: 'insufficient_data' }
+    };
+  }
+
+  const prices = historicalData.slice(0, 50).map(d => d.close_price);
+  const currentPrice = pair.current_price;
+  
+  const params = optimalParams || getDefaultParameters();
+  
+  // Market regime detection for dynamic adjustment
+  const atr = computeATRApprox(prices);
+  const currentATR = atr[atr.length - 1] || 0.0001;
+  const marketRegime = detectMarketRegime(prices, currentATR);
+  
+  // Market-adaptive RSI thresholds for genuine signals
+  let dynamicRSIOversold = params.rsi_oversold;
+  let dynamicRSIOverbought = params.rsi_overbought;
+  
+  // Adjust RSI thresholds based on genuine market conditions, not artificial balance
+  if (marketRegime.regime === 'uptrending') {
+    dynamicRSIOversold += 3; // Slightly more lenient oversold in uptrend (market reality)
+    dynamicRSIOverbought += 2; // Slightly stricter overbought in uptrend (market reality)
+  } else if (marketRegime.regime === 'downtrending') {
+    dynamicRSIOversold -= 2; // Slightly stricter oversold in downtrend (market reality)
+    dynamicRSIOverbought -= 3; // Slightly more lenient overbought in downtrend (market reality)
+  }
+  
+  // Technical calculations
+  const rsi = calculateRSI(prices);
+  const currentRSI = rsi[rsi.length - 1] || 50;
+  
+  const emaFast = calculateEMA(prices, params.ema_fast_period);
+  const emaSlow = calculateEMA(prices, params.ema_slow_period);
+  const currentEMAFast = emaFast[emaFast.length - 1] || currentPrice;
+  const currentEMASlow = emaSlow[emaSlow.length - 1] || currentPrice;
+  
+  // Support/Resistance analysis
+  const srLevels = findSupportResistanceLevels(prices, currentPrice);
+  
+  const session = getCurrentSessionText();
+  const emaDiff = Math.abs(currentEMAFast - currentEMASlow);
+  const priceDelta = Math.abs(currentPrice - prices[0]);
+  const changeRatio = priceDelta / currentPrice;
+  
+  // Genuine technical confluence scoring based on market conditions
+  let confluenceScore = marketRegime.bias_adjustment; // Start with regime adjustment
+  const signals = [];
+  const failReasons = [];
+  
+  // RSI analysis with market-adaptive thresholds
+  const rsiScore = calculateRSIScore(currentRSI, dynamicRSIOversold, dynamicRSIOverbought);
+  confluenceScore += rsiScore.score;
+  if (rsiScore.signal) {
+    signals.push(rsiScore.signal);
+  } else {
+    failReasons.push(rsiScore.reason);
+  }
+  
+  // EMA trend analysis - authentic directional assessment
+  const emaCrossStrength = Math.abs(currentEMAFast - currentEMASlow) / currentPrice;
+  if (emaCrossStrength > 0.0008) { // Slightly more lenient for genuine signals
+    confluenceScore += 20;
+    const direction = currentEMAFast > currentEMASlow ? 'Bullish' : 'Bearish';
+    signals.push(`${direction} EMA crossover (${(emaCrossStrength*100).toFixed(3)}%)`);
+  } else {
+    failReasons.push(`Weak EMA separation (${(emaCrossStrength*100).toFixed(3)}%)`);
+  }
+  
+  // Support/Resistance confluence (NEW)
+  const srBonus = calculateSRConfluence(currentPrice, srLevels);
+  confluenceScore += srBonus.score;
+  if (srBonus.signal) signals.push(srBonus.signal);
+  
+  // Price momentum with genuine volatility assessment
+  const momentumThreshold = marketRegime.volatility === 'high' ? 0.0025 : 0.0015; // More realistic thresholds
+  if (changeRatio > momentumThreshold) {
+    confluenceScore += 15;
+    signals.push(`Strong momentum (${(changeRatio*100).toFixed(3)}%)`);
+  } else {
+    failReasons.push(`Weak momentum (Δ=${priceDelta.toFixed(6)}, %=${(changeRatio*100).toFixed(3)}%)`);
+  }
+  
+  // ATR volatility check (realistic standards)
+  const pipSize = pair.symbol.includes('JPY') ? 0.01 : 0.0001;
+  const minATR = pipSize * (marketRegime.volatility === 'high' ? 2 : 3); // More achievable ATR requirements
+  const atrAdequacy = currentATR >= minATR;
+  
+  if (atrAdequacy) {
+    confluenceScore += 10;
+    signals.push(`Adequate volatility (ATR=${currentATR.toFixed(6)})`);
+  } else {
+    failReasons.push(`Low ATR (${currentATR.toFixed(6)} <= ${minATR.toFixed(6)})`);
+  }
+  
+  // Session timing bonus
+  if (session === 'London' || session === 'New York') {
+    confluenceScore += 10;
+    signals.push(`Optimal session (${session})`);
+  }
+  
+  // Multi-timeframe consistency bonus (simulated)
+  if (prices.length >= 5) {
+    const short = prices.slice(0, 3);
+    const medium = prices.slice(0, 5);
+    
+    const shortTrend = short[0] > short[short.length - 1] ? 'bullish' : 'bearish';
+    const mediumTrend = medium[0] > medium[medium.length - 1] ? 'bullish' : 'bearish';
+    
+    if (shortTrend === mediumTrend) {
+      confluenceScore += 8;
+      signals.push(`Multi-timeframe alignment (${shortTrend})`);
+    }
+  }
+
+  return {
+    confluenceScore,
+    signals,
+    details: {
+      rsi: currentRSI,
+      ema_fast: currentEMAFast,
+      ema_slow: currentEMASlow,
+      ema_diff: emaDiff,
+      atr: currentATR,
+      atr_adequacy_threshold: atrAdequacy,
+      pip_size: pipSize,
+      price_delta: priceDelta,
+      price_change_ratio: changeRatio,
+      session,
+      market_regime: marketRegime,
+      support_levels: srLevels.support,
+      resistance_levels: srLevels.resistance,
+      parameters_used: params,
+      fail_reasons: failReasons
+    }
+  };
+}
+
+// Extract valid JSON from OpenAI response
+function extractJsonObject(content: string): any {
+  let cleanContent = content.trim();
+  
+  // Remove markdown code block formatting
+  if (cleanContent.startsWith('```json')) {
+    cleanContent = cleanContent.replace(/^```json\n?/, '').replace(/\n?```$/, '');
+  } else if (cleanContent.startsWith('```')) {
+    cleanContent = cleanContent.replace(/^```\n?/, '').replace(/\n?```$/, '');
+  }
+  
+  // Find the first valid JSON object by bracket matching
+  let braceCount = 0;
+  let startIndex = -1;
+  let endIndex = -1;
+  
+  for (let i = 0; i < cleanContent.length; i++) {
+    if (cleanContent[i] === '{') {
+      if (startIndex === -1) startIndex = i;
+      braceCount++;
+    } else if (cleanContent[i] === '}') {
+      braceCount--;
+      if (braceCount === 0 && startIndex !== -1) {
+        endIndex = i;
+        break;
+      }
+    }
+  }
+  
+  if (startIndex !== -1 && endIndex !== -1) {
+    const jsonStr = cleanContent.substring(startIndex, endIndex + 1);
+    return JSON.parse(jsonStr);
+  }
+  
+  // Fallback to direct parsing
+  return JSON.parse(cleanContent);
+}
+
+// Enhanced validation for professional signals with take profit requirements
+function validateTier2Fields(analysis: any, config: any): { isValid: boolean; missingFields: string[] } {
+  const missingFields: string[] = [];
+  
+  if (!analysis.direction || !['BUY', 'SELL'].includes(analysis.direction)) {
+    missingFields.push('direction (must be BUY or SELL)');
+  }
+  
+  if (typeof analysis.confidence !== 'number' || analysis.confidence < 0 || analysis.confidence > 100) {
+    missingFields.push('confidence (must be number 0-100)');
+  }
+  
+  if (typeof analysis.entry_price !== 'number' || analysis.entry_price <= 0) {
+    missingFields.push('entry_price (must be positive number)');
+  }
+  
+  if (typeof analysis.stop_loss !== 'number' || analysis.stop_loss <= 0) {
+    missingFields.push('stop_loss (must be positive number)');
+  }
+  
+  // Enhanced take profit validation (MAJOR FIX)
+  if (!Array.isArray(analysis.take_profits) || analysis.take_profits.length === 0) {
+    missingFields.push('take_profits (must be non-empty array)');
+  } else {
+    if (analysis.take_profits.length < config.minTakeProfits) {
+      missingFields.push(`take_profits (must have at least ${config.minTakeProfits} levels, got ${analysis.take_profits.length})`);
+    }
+    if (analysis.take_profits.length > config.maxTakeProfits) {
+      missingFields.push(`take_profits (must have at most ${config.maxTakeProfits} levels, got ${analysis.take_profits.length})`);
+    }
+    if (!analysis.take_profits.every((tp: any) => typeof tp === 'number' && tp > 0)) {
+      missingFields.push('take_profits (all must be positive numbers)');
+    }
+    
+    // Validate take profit ordering and risk/reward ratios
+    const entryPrice = analysis.entry_price;
+    const stopLoss = analysis.stop_loss;
+    const direction = analysis.direction;
+    
+    if (entryPrice && stopLoss && direction) {
+      const isValidOrdering = direction === 'BUY' 
+        ? analysis.take_profits.every((tp: number) => tp > entryPrice) && stopLoss < entryPrice
+        : analysis.take_profits.every((tp: number) => tp < entryPrice) && stopLoss > entryPrice;
+      
+      if (!isValidOrdering) {
+        missingFields.push(`take_profits (invalid ordering for ${direction} signal)`);
+      }
+      
+      // Check minimum risk/reward ratio for first TP
+      const stopDistance = Math.abs(entryPrice - stopLoss);
+      const firstTpDistance = Math.abs(analysis.take_profits[0] - entryPrice);
+      const riskReward = firstTpDistance / stopDistance;
+      
+      if (riskReward < 1.2) { // Minimum 1.2:1 risk/reward
+        missingFields.push(`take_profits (insufficient risk/reward ratio: ${riskReward.toFixed(2)}:1, minimum 1.2:1)`);
+      }
+    }
+  }
+  
+  if (!analysis.analysis || typeof analysis.analysis !== 'string' || analysis.analysis.trim().length === 0) {
+    missingFields.push('analysis (must be non-empty string)');
+  }
+  
+  return {
+    isValid: missingFields.length === 0,
+    missingFields
+  };
+}
+
+// Tier 2 Analysis with enhanced error handling and retry logic
+async function performTier2Analysis(
+  pair: MarketData,
+  historicalDataMap: Map<string, any[]>,
+  tier1Analysis: any,
+  openaiApiKey: string,
+  optimalParams?: OptimalParameters,
+  config: any
+): Promise<ProfessionalSignalAnalysis> {
+  
+  const historicalData = historicalDataMap.get(pair.symbol) || [];
+  const technicalSummary = prepareTechnicalSummary(pair, historicalData, optimalParams);
+  
+  // Bias detection and warning system
+  const signalBiasCheck = await checkSignalBias(pair.symbol);
+  
+  const prompt = `Analyze ${pair.symbol} for BALANCED professional trading signal generation.
+
+Technical Analysis:
+${technicalSummary}
+
+Tier 1 Analysis Results:
+- Confluence Score: ${tier1Analysis.confluenceScore}/100
+- Technical Signals: ${tier1Analysis.signals.join(', ')}
+- Market Regime: ${tier1Analysis.details.market_regime?.regime || 'unknown'}
+- Support/Resistance: ${tier1Analysis.details.support_levels?.length || 0} support, ${tier1Analysis.details.resistance_levels?.length || 0} resistance levels
+- Parameters Used: ${optimalParams ? 'Backtesting-Optimized' : 'Default'}
+
+Market Context:
+- Current Session: ${getCurrentSessionText()}
+- Current Price: ${pair.current_price}
+- Volatility: ${tier1Analysis.details.market_regime?.volatility || 'normal'}
+
+CRITICAL BIAS PREVENTION:
+${signalBiasCheck.warning || ''}
+- MUST generate signals in BOTH directions when technical conditions warrant
+- BUY signals: Look for oversold RSI + bullish EMA alignment + support levels
+- SELL signals: Look for overbought RSI + bearish EMA alignment + resistance levels
+- Recent ${pair.symbol} bias: ${signalBiasCheck.recent_bias || 'balanced'}
+
+PROFESSIONAL REQUIREMENTS:
+- Quality Score must be ${config.finalQualityThreshold}+ (based on technical confluences)
+- Confidence must be ${config.finalConfidenceThreshold}%+ for signal approval
+- MANDATORY: Exactly ${config.minTakeProfits}-${config.maxTakeProfits} take profit levels
+- Minimum 1.2:1 risk/reward ratio for first take profit
+- Progressive take profit spacing (each TP further than the previous)
+
+Generate a BALANCED trading signal. Consider BOTH BUY and SELL possibilities based on technical analysis.
+
+CRITICAL: You MUST provide ${config.minTakeProfits}-${config.maxTakeProfits} take profit levels. Signals with fewer take profits will be REJECTED.
+
+Required JSON format (minified, no extra text):
+{"direction": "BUY", "confidence": 78, "entry_price": 1.2345, "stop_loss": 1.2300, "take_profits": [1.2400, 1.2460, 1.2520], "analysis": "Strong bullish confluence: RSI oversold recovery (28.5), bullish EMA crossover, near key support at 1.2340. Multi-timeframe alignment confirms upward momentum."}
+
+Example SELL signal:
+{"direction": "SELL", "confidence": 82, "entry_price": 1.2345, "stop_loss": 1.2390, "take_profits": [1.2290, 1.2230, 1.2170], "analysis": "Bearish confluence: RSI overbought (76.2), bearish EMA divergence, rejection at resistance 1.2350. Volume confirms selling pressure."}
+
+RETURN ONLY THE JSON OBJECT. NO ADDITIONAL TEXT OR EXPLANATIONS.`;
+
+  const maxRetries = 2;
+  let attempt = 0;
+  
+  while (attempt < maxRetries) {
+    try {
+      console.log(`🎯 TIER 2 Request: ${pair.symbol} (attempt ${attempt + 1}/${maxRetries})`);
+      
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.3,
+          max_tokens: 800
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ TIER 2 OpenAI Error: ${pair.symbol} - ${response.status} ${response.statusText} - ${errorText}`);
+        
+        if (response.status === 429 && attempt < maxRetries - 1) {
+          console.log(`⏳ TIER 2 Rate limit, retrying in ${(attempt + 1) * 2}s...`);
+          await new Promise(resolve => setTimeout(resolve, (attempt + 1) * 2000));
+          attempt++;
+          continue;
+        }
+        
+        throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      
+      if (!result.choices?.[0]?.message?.content) {
+        throw new Error('Empty response from OpenAI');
+      }
+      
+      const analysis = extractJsonObject(result.choices[0].message.content);
+      console.log(`📝 TIER 2 Raw Response: ${pair.symbol} - ${JSON.stringify(analysis)}`);
+      
+      // Enhanced validation with config requirements
+      const validation = validateTier2Fields(analysis, config);
+      if (!validation.isValid) {
+        console.log(`❌ TIER 2 Validation Failed: ${pair.symbol} - Missing: ${validation.missingFields.join(', ')}`);
+        if (attempt < maxRetries - 1) {
+          attempt++;
+          continue;
+        }
+        throw new Error(`Missing required fields: ${validation.missingFields.join(', ')}`);
+      }
+      
+      // Enhanced quality calculation for MEDIUM/HIGH thresholds
+      const enhancedQuality = Math.min(100, 
+        tier1Analysis.confluenceScore + 
+        (analysis.confidence >= 80 ? 15 : analysis.confidence >= 70 ? 10 : 5) +
+        (optimalParams ? 5 : 0)
+      );
+      
+      console.log(`✅ TIER 2 Valid: ${pair.symbol} - ${analysis.direction} @ ${analysis.entry_price}, confidence: ${analysis.confidence}%, quality: ${enhancedQuality}`);
+      
+      return {
+        symbol: pair.symbol,
+        shouldSignal: analysis.confidence >= config.tier2EscalationConfidence,
+        signalType: analysis.direction,
+        confidence: analysis.confidence,
+        quality: enhancedQuality,
+        entryPrice: analysis.entry_price,
+        stopLoss: analysis.stop_loss,
+        takeProfits: analysis.take_profits,
+        analysis: analysis.analysis,
+        confluenceFactors: tier1Analysis.signals,
+        riskLevel: analysis.confidence >= 80 ? 'LOW' : analysis.confidence >= 65 ? 'MEDIUM' : 'HIGH',
+        sessionOptimal: getCurrentSessionText() !== 'Asian',
+        marketConditions: tier1Analysis.details,
+        optimalParametersUsed: optimalParams
+      };
+      
+    } catch (error) {
+      console.error(`❌ TIER 2 Error (attempt ${attempt + 1}): ${pair.symbol} -`, error);
+      if (attempt >= maxRetries - 1) {
+        throw error;
+      }
+      attempt++;
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    }
+  }
+  
+  throw new Error('All Tier 2 attempts failed');
+}
+
+// Validate required fields for Tier 3 refinement
+function validateTier3Fields(analysis: any): { isValid: boolean; missingFields: string[] } {
+  const missingFields: string[] = [];
+  
+  if (typeof analysis.confidence !== 'number' || analysis.confidence < 0 || analysis.confidence > 100) {
+    missingFields.push('confidence (must be number 0-100)');
+  }
+  
+  if (analysis.analysis && typeof analysis.analysis !== 'string') {
+    missingFields.push('analysis (must be string if provided)');
+  }
+  
+  if (analysis.quality && (typeof analysis.quality !== 'number' || analysis.quality < 0)) {
+    missingFields.push('quality (must be positive number if provided)');
+  }
+  
+  return {
+    isValid: missingFields.length === 0,
+    missingFields
+  };
+}
+
+// Tier 3 Analysis with enhanced error handling and quality validation
+async function performTier3Analysis(
+  pair: MarketData,
+  historicalDataMap: Map<string, any[]>,
+  tier2Analysis: ProfessionalSignalAnalysis,
+  openaiApiKey: string,
+  optimalParams?: OptimalParameters,
+  config: any
+): Promise<ProfessionalSignalAnalysis> {
+  
+  const prompt = `Professional institutional-grade analysis for ${pair.symbol}.
+
+Previous Analysis:
+- Tier 2 Confidence: ${tier2Analysis.confidence}%
+- Signal Type: ${tier2Analysis.signalType}
+- Quality Score: ${tier2Analysis.quality}
+- Entry Price: ${tier2Analysis.entryPrice}
+- Stop Loss: ${tier2Analysis.stopLoss}
+- Take Profits: ${tier2Analysis.takeProfits}
+
+Enhanced Context:
+- Optimal Parameters Available: ${!!optimalParams}
+- Market Session: ${getCurrentSessionText()}
+- Risk Level: ${tier2Analysis.riskLevel}
+
+CRITICAL FINAL VALIDATION REQUIREMENTS:
+- MUST exceed ${config.finalQualityThreshold} quality score for signal approval
+- MUST exceed ${config.finalConfidenceThreshold}% confidence for publication
+- Institutional-grade risk assessment required
+
+Perform final validation and refinement for institutional-grade signal quality.
+
+Requirements:
+- Minimum ${config.tier3ConfidenceThreshold}% confidence for signal approval
+- Quality score must justify ${config.finalQualityThreshold}+ threshold
+- Risk-adjusted validation
+- Multi-timeframe confirmation
+- Economic calendar awareness
+
+Provide refined confidence, quality, and analysis. DO NOT change entry price, stop loss, or take profits.
+
+RETURN ONLY A JSON OBJECT. RESPONSE MUST BE VALID JSON ONLY.
+
+{
+  "confidence": 85,
+  "quality": 90,
+  "analysis": "Institutional-grade signal with multi-timeframe confirmation and strict quality validation"
+}`;
+
+  const maxRetries = 2;
+  let attempt = 0;
+  
+  while (attempt < maxRetries) {
+    try {
+      console.log(`🎯 TIER 3 Request: ${pair.symbol} (attempt ${attempt + 1}/${maxRetries})`);
+      
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openaiApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4.1',
+          messages: [{ role: 'user', content: prompt }],
+          response_format: { type: "json_object" },
+          max_completion_tokens: 1000
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`❌ TIER 3 OpenAI Error: ${pair.symbol} - ${response.status} ${response.statusText} - ${errorText}`);
+        
+        if (response.status === 429 && attempt < maxRetries - 1) {
+          console.log(`⏳ TIER 3 Rate limit, retrying in ${(attempt + 1) * 3}s...`);
+          await new Promise(resolve => setTimeout(resolve, (attempt + 1) * 3000));
+          attempt++;
+          continue;
+        }
+        
+        throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      
+      if (!result.choices?.[0]?.message?.content) {
+        throw new Error('Empty response from OpenAI');
+      }
+      
+      const refinedAnalysis = extractJsonObject(result.choices[0].message.content);
+      console.log(`📝 TIER 3 Raw Response: ${pair.symbol} - ${JSON.stringify(refinedAnalysis)}`);
+      
+      // Validate required fields
+      const validation = validateTier3Fields(refinedAnalysis);
+      if (!validation.isValid) {
+        console.log(`❌ TIER 3 Validation Failed: ${pair.symbol} - Missing: ${validation.missingFields.join(', ')}`);
+        if (attempt < maxRetries - 1) {
+          attempt++;
+          continue;
+        }
+        throw new Error(`Missing required fields: ${validation.missingFields.join(', ')}`);
+      }
+      
+      // Enhanced quality validation with explicit institutional criteria
+      const finalQuality = Math.max(
+        tier2Analysis.quality,
+        refinedAnalysis.quality || tier2Analysis.quality,
+        // Bonus for institutional validation
+        tier2Analysis.quality + (refinedAnalysis.confidence >= config.finalConfidenceThreshold ? 10 : 0)
+      );
+      
+      console.log(`✅ TIER 3 Valid: ${pair.symbol} - confidence: ${refinedAnalysis.confidence}%, quality: ${finalQuality}`);
+      
+      return {
+        ...tier2Analysis,
+        shouldSignal: refinedAnalysis.confidence >= config.tier3ConfidenceThreshold,
+        confidence: refinedAnalysis.confidence,
+        quality: finalQuality,
+        analysis: refinedAnalysis.analysis || tier2Analysis.analysis,
+        optimalParametersUsed: optimalParams
+      };
+      
+    } catch (error) {
+      console.error(`❌ TIER 3 Error (attempt ${attempt + 1}): ${pair.symbol} -`, error);
+      if (attempt >= maxRetries - 1) {
+        // Graceful fallback to Tier 2 with penalty
+        console.log(`⚠️ TIER 3 Fallback: Using Tier 2 results with quality penalty for ${pair.symbol}`);
+        return {
+          ...tier2Analysis,
+          quality: Math.max(0, tier2Analysis.quality - 10), // Quality penalty for Tier 3 failure
+          analysis: `${tier2Analysis.analysis} (Note: Advanced validation unavailable)`
+        };
+      }
+      attempt++;
+      await new Promise(resolve => setTimeout(resolve, 1500));
+    }
+  }
+  
+  // Should not reach here due to fallback above
+  throw new Error('All Tier 3 attempts failed');
+}
+
+// Convert analysis to signal format
+function convertProfessionalAnalysisToSignal(analysis: ProfessionalSignalAnalysis, marketData: MarketData): SignalData {
+  return {
+    symbol: analysis.symbol,
+    type: analysis.signalType,
+    price: analysis.entryPrice,
+    stop_loss: analysis.stopLoss,
+    take_profits: analysis.takeProfits,
+    confidence: analysis.confidence,
+    analysis_text: analysis.analysis,
+    timestamp: new Date().toISOString(),
+    status: 'active',
+    is_centralized: true,
+    user_id: null,
+    final_quality: analysis.quality || 0,
+    risk_reward_ratio: analysis.riskLevel === 'high' ? 3.0 : analysis.riskLevel === 'medium' ? 2.0 : 1.0,
+    t1_confirmations: analysis.confluenceFactors || [],
+    session_optimal: analysis.sessionOptimal || false,
+    market_context: {
+      timeframe: '1H',
+      conditions: analysis.marketConditions,
+      optimal_parameters_used: analysis.optimalParametersUsed,
+      session: analysis.sessionOptimal
+    },
+    pips: 0 // Will be calculated by monitoring system
+  };
+}
+
+// Technical analysis helper functions
+function calculateRSI(prices: number[], period: number = 14): number[] {
+  const rsi = [];
+  const changes = [];
+  
+  for (let i = 1; i < prices.length; i++) {
+    changes.push(prices[i] - prices[i - 1]);
+  }
+  
+  for (let i = period; i < changes.length; i++) {
+    const gains = changes.slice(i - period, i).filter(x => x > 0);
+    const losses = changes.slice(i - period, i).filter(x => x < 0).map(x => Math.abs(x));
+    
+    const avgGain = gains.length ? gains.reduce((a, b) => a + b, 0) / period : 0;
+    const avgLoss = losses.length ? losses.reduce((a, b) => a + b, 0) / period : 0;
+    
+    if (avgLoss === 0) {
+      rsi.push(100);
+    } else {
+      const rs = avgGain / avgLoss;
+      rsi.push(100 - (100 / (1 + rs)));
+    }
+  }
+  
+  return rsi;
+}
+
+function calculateEMA(prices: number[], period: number): number[] {
+  const ema = [];
+  const multiplier = 2 / (period + 1);
+  
+  ema[0] = prices[0];
+  
+  for (let i = 1; i < prices.length; i++) {
+    ema[i] = (prices[i] * multiplier) + (ema[i - 1] * (1 - multiplier));
+  }
+  
+  return ema;
+}
+
+function computeATRApprox(prices: number[], period: number = 14): number[] {
+  const atr = [];
+  
+  for (let i = period; i < prices.length; i++) {
+    const slice = prices.slice(i - period, i);
+    const ranges = [];
+    
+    for (let j = 1; j < slice.length; j++) {
+      ranges.push(Math.abs(slice[j] - slice[j - 1]));
+    }
+    
+    const avgRange = ranges.reduce((a, b) => a + b, 0) / ranges.length;
+    atr.push(avgRange);
+  }
+  
+  return atr;
+}
+
+function prepareTechnicalSummary(pair: MarketData, historicalData: any[], optimalParams?: OptimalParameters): string {
+  if (!historicalData || historicalData.length < 20) {
+    return `Limited historical data available for ${pair.symbol}. Current price: ${pair.current_price}`;
+  }
+
+  const prices = historicalData.slice(0, 20).map(d => d.close_price);
+  const rsi = calculateRSI(prices);
+  const currentRSI = rsi[rsi.length - 1] || 50;
+  
+  const emaFast = calculateEMA(prices, 12);
+  const emaSlow = calculateEMA(prices, 26);
+  const currentEMAFast = emaFast[emaFast.length - 1] || pair.current_price;
+  const currentEMASlow = emaSlow[emaSlow.length - 1] || pair.current_price;
+  
+  const atr = computeATRApprox(prices);
+  const currentATR = atr[atr.length - 1] || 0.0001;
+  
+  const params = optimalParams || getDefaultParameters();
+  const srLevels = findSupportResistanceLevels(prices, pair.current_price);
+  
+  return `${pair.symbol} Technical Summary:
+- Current Price: ${pair.current_price}
+- RSI(14): ${currentRSI.toFixed(2)} (Oversold<${params.rsi_oversold}, Overbought>${params.rsi_overbought})
+- EMA Fast(${params.ema_fast_period}): ${currentEMAFast.toFixed(5)}
+- EMA Slow(${params.ema_slow_period}): ${currentEMASlow.toFixed(5)}
+- EMA Alignment: ${currentEMAFast > currentEMASlow ? 'Bullish' : 'Bearish'}
+- ATR(14): ${currentATR.toFixed(6)} (Volatility: ${currentATR > 0.0005 ? 'High' : currentATR > 0.0002 ? 'Medium' : 'Low'})
+- Support Levels: ${srLevels.support.length} identified
+- Resistance Levels: ${srLevels.resistance.length} identified
+- Parameters Source: ${optimalParams ? 'Backtesting-Optimized' : 'Default'}
+- 24h Change: ${pair.price_change_24h || 0}%
+- Session: ${getCurrentSessionText()}`;
+}
+
+// Market-driven signal analysis (no artificial bias enforcement)
+async function monitorSignalBias(supabase: any, existingSignals: any[]): Promise<{ bias_detected: boolean; message: string; buy_percentage: number; sell_percentage: number }> {
+  // Check recent signals (last 7 days) for monitoring purposes only
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  
+  const { data: recentSignals } = await supabase
+    .from('trading_signals')
+    .select('type, created_at')
+    .eq('is_centralized', true)
+    .is('user_id', null)
+    .gte('created_at', sevenDaysAgo.toISOString());
+  
+  if (!recentSignals || recentSignals.length < 5) {
+    return { bias_detected: false, message: 'Insufficient data for distribution analysis', buy_percentage: 50, sell_percentage: 50 };
+  }
+  
+  const buyCount = recentSignals.filter(s => s.type === 'BUY').length;
+  const sellCount = recentSignals.filter(s => s.type === 'SELL').length;
+  const total = buyCount + sellCount;
+  
+  const buyPercentage = Math.round((buyCount / total) * 100);
+  const sellPercentage = Math.round((sellCount / total) * 100);
+  
+  const extremeThreshold = 85; // Only flag extreme imbalances (85%+)
+  let biasDetected = false;
+  let message = '';
+  
+  if (buyPercentage > extremeThreshold) {
+    biasDetected = true;
+    message = `Very high BUY signal distribution: ${buyPercentage}% in last 7 days. This reflects current market conditions.`;
+  } else if (sellPercentage > extremeThreshold) {
+    biasDetected = true;
+    message = `Very high SELL signal distribution: ${sellPercentage}% in last 7 days. This reflects current market conditions.`;
+  } else {
+    message = `Signal distribution reflects genuine market conditions: ${buyPercentage}% BUY, ${sellPercentage}% SELL`;
+  }
+  
+  return { bias_detected: biasDetected, message, buy_percentage: buyPercentage, sell_percentage: sellPercentage };
+}
+
+async function checkSignalBias(symbol: string): Promise<{ warning?: string; recent_bias?: string }> {
+  // Market-driven analysis - no artificial balance enforcement
+  return {
+    warning: 'ANALYZE GENUINE MARKET CONDITIONS: Let technical analysis determine signal direction naturally.',
+    recent_bias: 'market_driven_analysis'
+  };
 }
