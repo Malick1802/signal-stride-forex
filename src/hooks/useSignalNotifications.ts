@@ -13,16 +13,23 @@ export const useSignalNotifications = () => {
   const channelRef = useRef<any>(null);
 
   const setupSignalListener = useCallback(async () => {
-    if (!user || isListening) return;
+    if (!user) return;
 
     try {
       console.log('📡 Setting up signal notification listener...');
-      setIsListening(true);
-
+      
       // Clean up existing channel
       if (channelRef.current) {
+        console.log('🧹 Cleaning up existing signal listener channel...');
         supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+        setIsListening(false);
       }
+
+      // Brief delay to ensure clean state
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      setIsListening(true);
 
       const channel = supabase
         .channel('signal-notifications')
@@ -100,22 +107,42 @@ export const useSignalNotifications = () => {
         .subscribe();
 
       channelRef.current = channel;
+      console.log('✅ Signal notification listener established successfully');
       
     } catch (error) {
-      console.error('Error setting up signal listener:', error);
+      console.error('❌ Error setting up signal listener:', error);
       setIsListening(false);
+      
+      // Auto-retry after 10 seconds if setup fails
+      setTimeout(() => {
+        if (!channelRef.current && user) {
+          console.log('🔄 Retrying signal listener setup...');
+          setupSignalListener();
+        }
+      }, 10000);
     }
-  }, [user, isListening, pushEnabled]);
+  }, [user, pushEnabled]);
 
   useEffect(() => {
     setupSignalListener();
     
     return () => {
       if (channelRef.current) {
+        console.log('🧹 Cleaning up signal listener on unmount');
         supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+        setIsListening(false);
       }
     };
   }, [setupSignalListener]);
+
+  // Add effect to handle reconnection when user changes
+  useEffect(() => {
+    if (user && !isListening) {
+      console.log('👤 User changed - setting up signal listener');
+      setupSignalListener();
+    }
+  }, [user, isListening, setupSignalListener]);
 
   return {
     notifications,

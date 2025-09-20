@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
 import MobileErrorBoundary from './MobileErrorBoundary';
+import MobilePushNotificationReviver from './MobilePushNotificationReviver';
 import { Capacitor } from '@capacitor/core';
 import { useAuth } from '@/contexts/AuthContext';
 interface MobileAppWrapperProps {
@@ -153,6 +154,9 @@ export default function MobileAppWrapper({ children, activeTab, onTabChange }: M
     <div className={`min-h-screen bg-background overflow-y-auto ${Capacitor.isNativePlatform() ? 'android-app mobile-app' : ''}`}>
       {/* Main content area with proper scrolling */}
       <div className="flex flex-col min-h-screen">
+        {/* Push notification revival system for mobile */}
+        {Capacitor.isNativePlatform() && <MobilePushNotificationReviver />}
+        
         <MobileErrorBoundary>
           <main className="flex-1 overflow-y-auto -webkit-overflow-scrolling-touch">
             {children}
