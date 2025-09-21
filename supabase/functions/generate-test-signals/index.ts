@@ -149,6 +149,33 @@ serve(async (req) => {
 
     console.log(`✅ Successfully inserted ${insertedSignals?.length || 0} test signals`);
 
+    // Dispatch background push notifications for each new test signal (for end-to-end testing)
+    try {
+      if (insertedSignals && insertedSignals.length > 0) {
+        for (const s of insertedSignals) {
+          const title = `🧪 New ${s.type} Test Signal`;
+          const body = `${s.symbol} - Entry: ${s.price}`;
+          await supabase.functions.invoke('send-push-notification', {
+            body: {
+              title,
+              body,
+              data: {
+                symbol: String(s.symbol),
+                type: 'new_signal',
+                price: String(s.price),
+                confidence: String(s.confidence ?? ''),
+                test: 'true',
+                timestamp: new Date().toISOString(),
+              },
+              notificationType: 'new_signal',
+            },
+          });
+        }
+      }
+    } catch (notifyErr) {
+      console.warn('⚠️ Test push notification dispatch failed (non-blocking):', notifyErr);
+    }
+
     // Log the inserted signals
     insertedSignals?.forEach((signal, index) => {
       console.log(`🎯 Test Signal ${index + 1}: ${signal.symbol} ${signal.type} @ ${signal.price} (${signal.confidence}% confidence)`);

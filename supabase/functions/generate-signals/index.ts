@@ -470,6 +470,29 @@ serve(async (req) => {
           continue;
         }
         
+        // Fire background push notification for the new signal (works even if app is closed)
+        try {
+          const title = `🚨 New ${signalData.type} Signal`;
+          const body = `${signalData.symbol} - Entry: ${signalData.price}`;
+          await supabase.functions.invoke('send-push-notification', {
+            body: {
+              title,
+              body,
+              // Ensure all data values are strings for FCM data payload compatibility
+              data: {
+                symbol: String(signalData.symbol),
+                type: 'new_signal',
+                price: String(signalData.price),
+                confidence: String(signalData.confidence ?? ''),
+                timestamp: new Date().toISOString(),
+              },
+              notificationType: 'new_signal',
+            },
+          });
+        } catch (notifyErr) {
+          console.warn('⚠️ Push notification dispatch failed (non-blocking):', notifyErr);
+        }
+        
         generatedSignals.push(signalData);
         console.log(`✅ Generated signal for ${pair.symbol}: ${signalData.type} @ ${signalData.price}`);
         
