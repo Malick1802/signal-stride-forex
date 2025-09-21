@@ -12,13 +12,28 @@ const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const fcmServiceAccountJson = Deno.env.get('FCM_SERVICE_ACCOUNT');
 
 // Helper function to get OAuth2 access token for FCM HTTP v1
-async function getFcmAccessToken(): Promise<string> {
-  if (!fcmServiceAccountJson) {
-    throw new Error("FCM_SERVICE_ACCOUNT not configured");
+function parseFcmServiceAccount() {
+  const raw = Deno.env.get('FCM_SERVICE_ACCOUNT')?.trim();
+  if (!raw) throw new Error('FCM_SERVICE_ACCOUNT not configured');
+  let parsed: any;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (_) {
+    try {
+      const decoded = atob(raw);
+      parsed = JSON.parse(decoded);
+    } catch (e) {
+      throw new Error('FCM_SERVICE_ACCOUNT is not valid JSON. Paste the FULL Google service account JSON or a base64-encoded version.');
+    }
   }
+  if (parsed.private_key) {
+    parsed.private_key = parsed.private_key.replace(/\\n/g, '\n');
+  }
+  return parsed;
+}
 
-  const serviceAccount = JSON.parse(fcmServiceAccountJson);
-  
+async function getFcmAccessToken(): Promise<string> {
+  const serviceAccount = parseFcmServiceAccount();
   // Create JWT for Google OAuth2
   const now = Math.floor(Date.now() / 1000);
   const jwtHeader = { alg: "RS256", typ: "JWT" };
@@ -102,9 +117,14 @@ serve(async (req) => {
   try {
     console.log('🔥 Push notification request received');
     
-    if (!fcmServiceAccountJson) {
-      console.error('❌ FCM_SERVICE_ACCOUNT not configured');
-      throw new Error('FCM service account not configured');
+try {
+      parseFcmServiceAccount();
+    } catch (e) {
+      console.error('❌ FCM service account misconfigured:', e);
+      return new Response(JSON.stringify({ error: String((e as Error).message || e) }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
@@ -163,11 +183,9 @@ serve(async (req) => {
       });
     }
 
-    // Get access token and prepare FCM HTTP v1 payload
+// Get access token and prepare FCM HTTP v1 payload
     const accessToken = await getFcmAccessToken();
-    const serviceAccount = JSON.parse(fcmServiceAccountJson);
-    const projectId = serviceAccount.project_id;
-
+    const projectId = parseFcmServiceAccount().project_id;
     console.log('🚀 Sending FCM request via HTTP v1...');
     
     // Send notifications using FCM HTTP v1 (individual messages)
