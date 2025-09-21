@@ -29,6 +29,7 @@ import { RealTimeSignalTester } from './RealTimeSignalTester';
 import { UnifiedConnectionStatus } from './UnifiedConnectionStatus';
 import { RealTimeStatus } from './RealTimeStatus';
 import { UserMenu } from './UserMenu';
+import { PushNotificationStatusCenter } from './PushNotificationStatusCenter';
 
 // Lazy load heavy components
 const LazyTradingSignals = lazy(() => import('./LazyTradingSignals'));
@@ -490,6 +491,7 @@ const Dashboard = ({ user, onLogout, onNavigateToAffiliate, onNavigateToAdmin, o
             )}
             {activeTab === 'testing' && (
               <div className="space-y-4">
+                  <PushNotificationStatusCenter />
                   <RealTimeSignalTester />
                   <FCMSetupGuide />
                   <BatteryOptimizationGuide />

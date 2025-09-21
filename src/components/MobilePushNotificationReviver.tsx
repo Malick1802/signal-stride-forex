@@ -104,11 +104,11 @@ export const MobilePushNotificationReviver: React.FC<MobilePushNotificationReviv
         console.log('🧪 Testing FCM connectivity...');
         onStatusUpdate?.('Testing FCM connectivity...');
         
-        const { error: testError } = await supabase.functions.invoke('send-push-notification', {
+        const { data: testData, error: testError } = await supabase.functions.invoke('send-push-notification', {
           body: {
-            title: 'Connectivity Test',
+            title: '🔧 System Health Check',
             body: 'Push notifications are working properly',
-            data: { test: true, timestamp: Date.now() },
+            data: { test: true, timestamp: Date.now(), type: 'test' },
             notificationType: 'signal',
             userIds: [user.id]
           }
