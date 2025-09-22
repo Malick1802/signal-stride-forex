@@ -1,12 +1,19 @@
 
 import React from 'react';
-import { Activity, TrendingUp, Target, Clock } from 'lucide-react';
+import { Activity, TrendingUp, Target, Clock, Trash2 } from 'lucide-react';
 import { useSignalManagement } from '@/hooks/useSignalManagement';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 const SignalManagement = () => {
-  const { signalStats, statsLoading, recentSignals, signalsLoading } = useSignalManagement();
+  const { signalStats, statsLoading, recentSignals, signalsLoading, deleteSignal, isDeletingSignal } = useSignalManagement();
+
+  const handleDeleteSignal = (signalId: string, symbol: string) => {
+    if (window.confirm(`Are you sure you want to delete the ${symbol} signal? This action cannot be undone.`)) {
+      deleteSignal(signalId);
+    }
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -103,6 +110,7 @@ const SignalManagement = () => {
                 <TableHead className="text-gray-300">Outcome</TableHead>
                 <TableHead className="text-gray-300">P&L (Pips)</TableHead>
                 <TableHead className="text-gray-300">Created</TableHead>
+                <TableHead className="text-gray-300">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -125,6 +133,17 @@ const SignalManagement = () => {
                   </TableCell>
                   <TableCell className="text-gray-300">
                     {new Date(signal.created_at).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteSignal(signal.id, signal.symbol)}
+                      disabled={isDeletingSignal}
+                      className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
