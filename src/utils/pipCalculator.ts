@@ -85,8 +85,8 @@ export const calculateImprovedStopLoss = (
   const pipValue = getPipValue(symbol);
   const atrDistance = atrValue * volatilityMultiplier;
   
-  // ENHANCED: Stricter minimum stop loss distances (40 pips minimum for all pairs)
-  const minimumPips = isJPYPair(symbol) ? 40 : 40; // Unified 40 pip minimum
+  // ENHANCED: Minimum stop loss distances (20 pips minimum for all pairs)
+  const minimumPips = isJPYPair(symbol) ? 20 : 20; // Unified 20 pip minimum
   const minimumDistance = minimumPips * pipValue;
   
   const stopDistance = Math.max(atrDistance, minimumDistance);
@@ -225,7 +225,7 @@ export const assessSignalQuality = (
   const rrRatio = firstTPPips > 0 ? firstTPPips / stopLossPips : 0;
   
   // Check minimum requirements
-  const meetsStopLoss = stopLossPips >= 40;
+  const meetsStopLoss = stopLossPips >= 20;
   const meetsTakeProfit = firstTPPips >= 25;
   const meetsRR = rrRatio >= 2.0;
   
@@ -236,7 +236,7 @@ export const assessSignalQuality = (
     score += 25;
     factors.push(`Stop Loss: ${stopLossPips} pips ✓`);
   } else {
-    factors.push(`Stop Loss: ${stopLossPips} pips (min 40 required) ✗`);
+    factors.push(`Stop Loss: ${stopLossPips} pips (min 20 required) ✗`);
   }
   
   if (meetsTakeProfit) {
