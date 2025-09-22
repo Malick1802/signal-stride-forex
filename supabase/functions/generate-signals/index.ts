@@ -6,6 +6,28 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Pip calculation utilities (duplicated for edge function)
+function isJPYPair(symbol: string): boolean {
+  return symbol.includes('JPY');
+}
+
+function getPipValue(symbol: string): number {
+  return isJPYPair(symbol) ? 0.01 : 0.0001;
+}
+
+function calculatePips(entryPrice: number, targetPrice: number, signalType: 'BUY' | 'SELL', symbol: string): number {
+  const pipValue = getPipValue(symbol);
+  let priceDiff: number;
+  
+  if (signalType === 'BUY') {
+    priceDiff = targetPrice - entryPrice;
+  } else { // SELL
+    priceDiff = entryPrice - targetPrice;
+  }
+  
+  return Math.round(priceDiff / pipValue);
+}
+
 // Enhanced interfaces with optimal parameters support
 interface MarketData {
   symbol: string;
@@ -926,7 +948,7 @@ function extractJsonObject(content: string): any {
 }
 
 // Enhanced validation for professional signals with take profit requirements
-function validateTier2Fields(analysis: any, config: any): { isValid: boolean; missingFields: string[] } {
+function validateTier2Fields(analysis: any, config: any, symbol?: string): { isValid: boolean; missingFields: string[] } {
   const missingFields: string[] = [];
   
   if (!analysis.direction || !['BUY', 'SELL'].includes(analysis.direction)) {
@@ -943,6 +965,15 @@ function validateTier2Fields(analysis: any, config: any): { isValid: boolean; mi
   
   if (typeof analysis.stop_loss !== 'number' || analysis.stop_loss <= 0) {
     missingFields.push('stop_loss (must be positive number)');
+  }
+  
+  // Pip validation for stop loss (minimum 20 pips)
+  if (analysis.entry_price && analysis.stop_loss && analysis.direction) {
+    const symbolToUse = symbol || analysis.symbol || 'EURUSD';
+    const stopLossPips = Math.abs(calculatePips(analysis.entry_price, analysis.stop_loss, analysis.direction, symbolToUse));
+    if (stopLossPips < 20) {
+      missingFields.push(`stop_loss (insufficient pip distance: ${stopLossPips} pips, minimum 20 pips required)`);
+    }
   }
   
   // Enhanced take profit validation (MAJOR FIX)
@@ -1038,12 +1069,13 @@ PROFESSIONAL REQUIREMENTS:
 - Quality Score must be ${config.finalQualityThreshold}+ (based on technical confluences)
 - Confidence must be ${config.finalConfidenceThreshold}%+ for signal approval
 - MANDATORY: Exactly ${config.minTakeProfits}-${config.maxTakeProfits} take profit levels
+- MANDATORY: Stop loss must be at least 20 pips from entry price
 - Minimum 1.2:1 risk/reward ratio for first take profit
 - Progressive take profit spacing (each TP further than the previous)
 
 Generate a BALANCED trading signal. Consider BOTH BUY and SELL possibilities based on technical analysis.
 
-CRITICAL: You MUST provide ${config.minTakeProfits}-${config.maxTakeProfits} take profit levels. Signals with fewer take profits will be REJECTED.
+CRITICAL: You MUST provide ${config.minTakeProfits}-${config.maxTakeProfits} take profit levels AND ensure stop loss is AT LEAST 20 PIPS from entry. Signals not meeting these requirements will be REJECTED.
 
 Required JSON format (minified, no extra text):
 {"direction": "BUY", "confidence": 78, "entry_price": 1.2345, "stop_loss": 1.2300, "take_profits": [1.2400, 1.2460, 1.2520], "analysis": "Strong bullish confluence: RSI oversold recovery (28.5), bullish EMA crossover, near key support at 1.2340. Multi-timeframe alignment confirms upward momentum."}
@@ -1098,7 +1130,7 @@ RETURN ONLY THE JSON OBJECT. NO ADDITIONAL TEXT OR EXPLANATIONS.`;
       console.log(`📝 TIER 2 Raw Response: ${pair.symbol} - ${JSON.stringify(analysis)}`);
       
       // Enhanced validation with config requirements
-      const validation = validateTier2Fields(analysis, config);
+      const validation = validateTier2Fields(analysis, config, pair.symbol);
       if (!validation.isValid) {
         console.log(`❌ TIER 2 Validation Failed: ${pair.symbol} - Missing: ${validation.missingFields.join(', ')}`);
         if (attempt < maxRetries - 1) {
@@ -1115,7 +1147,8 @@ RETURN ONLY THE JSON OBJECT. NO ADDITIONAL TEXT OR EXPLANATIONS.`;
         (optimalParams ? 5 : 0)
       );
       
-      console.log(`✅ TIER 2 Valid: ${pair.symbol} - ${analysis.direction} @ ${analysis.entry_price}, confidence: ${analysis.confidence}%, quality: ${enhancedQuality}`);
+      const stopLossPips = Math.abs(calculatePips(analysis.entry_price, analysis.stop_loss, analysis.direction, pair.symbol));
+      console.log(`✅ TIER 2 Valid: ${pair.symbol} - ${analysis.direction} @ ${analysis.entry_price}, confidence: ${analysis.confidence}%, quality: ${enhancedQuality}, stop loss: ${stopLossPips} pips`);
       
       return {
         symbol: pair.symbol,
@@ -1186,7 +1219,7 @@ Previous Analysis:
 - Signal Type: ${tier2Analysis.signalType}
 - Quality Score: ${tier2Analysis.quality}
 - Entry Price: ${tier2Analysis.entryPrice}
-- Stop Loss: ${tier2Analysis.stopLoss}
+- Stop Loss: ${tier2Analysis.stopLoss} (${Math.abs(calculatePips(tier2Analysis.entryPrice, tier2Analysis.stopLoss, tier2Analysis.signalType, pair.symbol))} pips)
 - Take Profits: ${tier2Analysis.takeProfits}
 
 Enhanced Context:
@@ -1197,6 +1230,7 @@ Enhanced Context:
 CRITICAL FINAL VALIDATION REQUIREMENTS:
 - MUST exceed ${config.finalQualityThreshold} quality score for signal approval
 - MUST exceed ${config.finalConfidenceThreshold}% confidence for publication
+- Stop loss MUST be at least 20 pips from entry (currently ${Math.abs(calculatePips(tier2Analysis.entryPrice, tier2Analysis.stopLoss, tier2Analysis.signalType, pair.symbol))} pips)
 - Institutional-grade risk assessment required
 
 Perform final validation and refinement for institutional-grade signal quality.
