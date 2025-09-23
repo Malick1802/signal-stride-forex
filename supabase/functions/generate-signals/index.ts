@@ -1,6 +1,30 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+// Enhanced imports for market session optimization and regime analysis
+interface SessionAnalysis {
+  session: 'Asian' | 'London' | 'NY' | 'Overlap';
+  isOptimal: boolean;
+  volatilityMultiplier: number;
+  preferredPairs: string[];
+  bonusScore: number;
+}
+
+interface MarketRegimeAnalysis {
+  regime: 'trending' | 'ranging' | 'volatile' | 'breakout';
+  strength: number;
+  direction: 'bullish' | 'bearish' | 'neutral';
+  confidence: number;
+}
+
+interface AIAnalysisContext {
+  marketRegime: 'trending' | 'ranging' | 'volatile' | 'breakout';
+  volatilityProfile: 'low' | 'normal' | 'high' | 'extreme';
+  session: 'Asian' | 'London' | 'NY' | 'Overlap';
+  economicEvents: { hasNearbyEvents: boolean; impactLevel: string };
+  supportResistance: { supports: number[]; resistances: number[]; strength: number };
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -377,8 +401,8 @@ serve(async (req) => {
         const optimalParams = await getOptimalParametersForPair(supabase, pair.symbol, currentSession);
         console.log(`🎯 Using ${optimalParams ? 'optimal' : 'default'} parameters for ${pair.symbol}`);
         
-        // Tier 1: Quick local analysis to filter out weak setups
-        const tier1Analysis = await performTier1Analysis(pair, historicalData, optimalParams);
+        // Enhanced Tier 1: Quick local analysis with session and regime awareness
+        const tier1Analysis = await performEnhancedTier1Analysis(pair, historicalData, optimalParams, supabase);
         analysisStats.tier1Analyzed++;
         
         console.log(`🔍 TIER 1: ${pair.symbol} - Score: ${tier1Analysis.confluenceScore}/100 (Pass: ${tier1Threshold}+)`);
