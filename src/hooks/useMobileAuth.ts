@@ -54,22 +54,25 @@ export const useMobileAuth = () => {
     setMobileAuthState(prev => ({ ...prev, isAuthenticating: true, authError: null }));
 
     try {
-      if (!isConnected) {
-        throw new Error('No internet connection. Please check your network and try again.');
-      }
-
       const result = await signIn(email, password);
       
       if (result.error) {
         let friendlyError = result.error.message;
         
+        // Check for service restrictions (quota exceeded)
+        if (friendlyError.includes('exceed_realtime_message_count_quota') || 
+            friendlyError.includes('Service for this project is restricted')) {
+          friendlyError = 'Service temporarily unavailable due to high usage. Please contact support at https://supabase.help for assistance.';
+        }
         // Mobile-specific error handling
-        if (friendlyError.includes('Invalid login credentials')) {
+        else if (friendlyError.includes('Invalid login credentials')) {
           friendlyError = 'Invalid email or password. Please check your credentials.';
         } else if (friendlyError.includes('Email not confirmed')) {
           friendlyError = 'Please check your email and confirm your account before signing in.';
         } else if (friendlyError.includes('Too many requests')) {
           friendlyError = 'Too many login attempts. Please wait a few minutes before trying again.';
+        } else if (!isConnected) {
+          friendlyError = 'No internet connection. Please check your network and try again.';
         } else if (friendlyError.includes('Network')) {
           friendlyError = 'Network error. Please check your connection and try again.';
         }
@@ -113,19 +116,23 @@ export const useMobileAuth = () => {
     setMobileAuthState(prev => ({ ...prev, isAuthenticating: true, authError: null }));
 
     try {
-      if (!isConnected) {
-        throw new Error('No internet connection. Please check your network and try again.');
-      }
-
       const result = await signUp(email, password);
       
       if (result.error) {
         let friendlyError = result.error.message;
         
-        if (friendlyError.includes('User already registered') || friendlyError.includes('user_repeated_signup')) {
+        // Check for service restrictions (quota exceeded)
+        if (friendlyError.includes('exceed_realtime_message_count_quota') || 
+            friendlyError.includes('Service for this project is restricted')) {
+          friendlyError = 'Service temporarily unavailable due to high usage. Please contact support at https://supabase.help for assistance.';
+        }
+        // Other error handling
+        else if (friendlyError.includes('User already registered') || friendlyError.includes('user_repeated_signup')) {
           friendlyError = 'An account with this email already exists. Please use the login form to sign in instead.';
         } else if (friendlyError.includes('Password')) {
           friendlyError = 'Password must be at least 6 characters long.';
+        } else if (!isConnected) {
+          friendlyError = 'No internet connection. Please check your network and try again.';
         } else if (friendlyError.includes('Network')) {
           friendlyError = 'Network error. Please check your connection and try again.';
         } else if (friendlyError.includes('hook') || friendlyError.includes('service configuration')) {

@@ -52,13 +52,19 @@ export const useConnectionManager = (): ConnectionManager => {
         return true; // Backend is up, just auth state issue
       }
       
+      // If 402, it's a service restriction (quota exceeded) but backend is reachable
+      if (error && error.code === '402') {
+        debugLog('Service restricted (quota exceeded), but backend is reachable');
+        return true; // Backend is up, just service restricted
+      }
+      
       const isConnected = !error;
       debugLog(`Supabase connection check result: ${isConnected}`, error || 'Success');
       return isConnected;
     } catch (error: any) {
-      // Handle auth errors as backend reachable
-      if (error?.status === 401 || error?.status === 403) {
-        debugLog('Auth error, but backend is reachable');
+      // Handle auth errors and service restrictions as backend reachable
+      if (error?.status === 401 || error?.status === 403 || error?.status === 402) {
+        debugLog('Auth/Service error, but backend is reachable');
         return true;
       }
       debugLog('Supabase connection check failed:', error);
