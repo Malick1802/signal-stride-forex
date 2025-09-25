@@ -209,19 +209,18 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
       </section>
 
       {/* Video Section */}
-      <section className="px-4 py-8">
+<section className="px-4 py-8">
         <div className="max-w-2xl mx-auto text-center">
-          <video 
-            className="w-full max-w-md mx-auto rounded-lg shadow-lg"
-            controls
-            preload="metadata"
-          >
-            <source src="/your-video.mp4" type="video/mp4" />
-            <source src="/your-video.webm" type="video/webm" />
-            <p className="text-gray-300 p-4">
-              Your browser does not support the video tag.
-            </p>
-          </video>
+          <div className="relative w-full max-w-md mx-auto aspect-video rounded-lg overflow-hidden shadow-lg">
+            <iframe
+              className="w-full h-full"
+              src="https://www.youtube.com/embed/YOUR_VIDEO_ID"
+              title="ForexAlert Pro Demo"
+              frameBorder="0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+              allowFullScreen
+            ></iframe>
+          </div>
         </div>
       </section>
 
