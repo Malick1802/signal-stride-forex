@@ -209,35 +209,19 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
       </section>
 
       {/* Video Section */}
-      <section className="px-4 py-12">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-8">
-            <h2 className="text-xl sm:text-2xl font-bold text-white mb-4">
-              See ForexAlert Pro in Action
-            </h2>
-            <p className="text-gray-300 max-w-2xl mx-auto">
-              Watch how our platform delivers real-time trading signals and analysis.
+      <section className="px-4 py-8">
+        <div className="max-w-2xl mx-auto text-center">
+          <video 
+            className="w-full max-w-md mx-auto rounded-lg shadow-lg"
+            controls
+            preload="metadata"
+          >
+            <source src="/your-video.mp4" type="video/mp4" />
+            <source src="/your-video.webm" type="video/webm" />
+            <p className="text-gray-300 p-4">
+              Your browser does not support the video tag.
             </p>
-          </div>
-          
-          <Card className="bg-white/5 backdrop-blur-sm border-white/10 overflow-hidden">
-            <CardContent className="p-0">
-              <div className="relative aspect-video w-full max-w-2xl mx-auto">
-                <video 
-                  className="w-full h-full object-cover rounded-lg"
-                  controls
-                  preload="metadata"
-                  poster="/lovable-uploads/5cb710d6-c2c0-4a1b-a359-6d70ccb9800c.png"
-                >
-                  <source src="/demo-video.mp4" type="video/mp4" />
-                  <source src="/demo-video.webm" type="video/webm" />
-                  <p className="text-gray-300 p-4">
-                    Your browser does not support the video tag. Please upgrade to a modern browser.
-                  </p>
-                </video>
-              </div>
-            </CardContent>
-          </Card>
+          </video>
         </div>
       </section>
 
