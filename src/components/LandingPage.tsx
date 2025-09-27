@@ -1,7 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, Star, Users, Shield, TrendingDown, Clock } from 'lucide-react';
-import { useTranslation } from 'react-i18next';
 import { useAuth } from '../contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -25,7 +24,6 @@ interface LandingPageProps {
 
 const LandingPage = ({ onNavigate }: LandingPageProps) => {
   const { user } = useAuth();
-  const { t } = useTranslation('landing');
   const [stats, setStats] = useState<Stat[]>([
     { 
       label: 'Average Accuracy', 
@@ -183,11 +181,11 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
           </div>
 
           <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-white mb-6 leading-tight">
-            {t('hero.title')}
+            ForexAlert Pro: Elite Trading Signals
           </h1>
           
           <p className="text-lg text-gray-300 mb-8 max-w-2xl mx-auto leading-relaxed">
-            {t('hero.subtitle')}
+            Professional-grade AI forex signals with real-time mobile alerts, precision entry points, and expert risk management for serious traders
           </p>
 
           {!user ? (
