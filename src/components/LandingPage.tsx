@@ -9,6 +9,7 @@ import aiSignalsImage from '@/assets/ai-signals.jpg';
 import mobileAlertsImage from '@/assets/mobile-alerts.jpg';
 import riskManagementImage from '@/assets/risk-management.jpg';
 import expertAnalysisImage from '@/assets/expert-analysis.jpg';
+import androidDownloadButton from '@/assets/android-download-button.png';
 
 interface Stat {
   label: string;
@@ -205,6 +206,25 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
               Dashboard
             </Button>
           )}
+          
+          {/* Android Download Button */}
+          <div className="mt-6">
+            <a 
+              href="#" 
+              className="inline-block transition-transform hover:scale-105"
+              onClick={(e) => {
+                e.preventDefault();
+                // TODO: Link to APK download for now, Google Play later
+                console.log('Android download clicked');
+              }}
+            >
+              <img 
+                src={androidDownloadButton} 
+                alt="Download on Google Play" 
+                className="h-14 w-auto"
+              />
+            </a>
+          </div>
         </div>
       </section>
 
