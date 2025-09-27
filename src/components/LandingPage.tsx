@@ -208,23 +208,17 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
           )}
           
           {/* Android Download Button */}
-          <div className="mt-6">
-            <a 
-              href="#" 
-              className="inline-block transition-transform hover:scale-105"
-              onClick={(e) => {
-                e.preventDefault();
-                // TODO: Link to APK download for now, Google Play later
-                console.log('Android download clicked');
-              }}
-            >
-              <img 
-                src={androidDownloadButton} 
-                alt="Download on Google Play" 
-                className="h-14 w-auto"
-              />
-            </a>
-          </div>
+          <a 
+            href="/android-app.apk" 
+            download="ForexAlert-Pro.apk"
+            className="inline-block mt-6 transition-transform hover:scale-105"
+          >
+            <img 
+              src={androidDownloadButton} 
+              alt="Download Android APK" 
+              className="h-20 w-auto"
+            />
+          </a>
         </div>
       </section>
 
