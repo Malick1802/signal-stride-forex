@@ -305,7 +305,7 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
         </div>
         
         <div className="relative z-10 max-w-4xl mx-auto text-center">
-          <Card className="bg-gradient-to-r from-emerald-500/20 to-blue-500/20 backdrop-blur-md border-emerald-500/30 border-2">
+          <Card className="bg-gradient-to-r from-slate-900/90 to-blue-900/90 backdrop-blur-md border-emerald-500/30 border-2">
             <CardContent className="p-8">
               <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
                 Start Trading Smarter Today
