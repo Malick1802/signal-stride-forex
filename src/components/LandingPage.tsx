@@ -299,13 +299,13 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
           <img 
             src={heroTradingImage} 
             alt="Trading success background" 
-            className="w-full h-full object-cover opacity-20"
+            className="w-full h-full object-cover opacity-10"
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-emerald-900/60 to-blue-900/60"></div>
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-900/90 to-blue-900/90"></div>
         </div>
         
         <div className="relative z-10 max-w-4xl mx-auto text-center">
-          <Card className="bg-gradient-to-r from-emerald-500/10 to-blue-500/10 backdrop-blur-md border-emerald-500/20 border-2">
+          <Card className="bg-gradient-to-r from-emerald-500/20 to-blue-500/20 backdrop-blur-md border-emerald-500/30 border-2">
             <CardContent className="p-8">
               <h2 className="text-2xl sm:text-3xl font-bold text-white mb-4">
                 Start Trading Smarter Today
