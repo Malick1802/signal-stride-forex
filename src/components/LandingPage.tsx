@@ -226,7 +226,7 @@ const LandingPage = ({ onNavigate }: LandingPageProps) => {
 
       {/* Video Section */}
       <section className="px-4 py-8">
-        <div className="max-w-4xl mx-auto text-center">
+        <div className="max-w-2xl mx-auto text-center">
           <div className="relative w-full aspect-video rounded-lg overflow-hidden shadow-lg">
             <iframe
               className="w-full h-full"
