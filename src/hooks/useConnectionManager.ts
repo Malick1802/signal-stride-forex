@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { realtimeCircuitBreaker } from '@/utils/realtimeCircuitBreaker';
 import { Capacitor } from '@capacitor/core';
 
 interface ConnectionState {
@@ -40,6 +41,13 @@ export const useConnectionManager = (): ConnectionManager => {
   const mountedRef = useRef(true);
 
   const checkSupabaseConnection = useCallback(async (): Promise<boolean> => {
+    // Check circuit breaker before attempting connection
+    if (!realtimeCircuitBreaker.canAttempt()) {
+      const state = realtimeCircuitBreaker.getState();
+      debugLog(`⚠️ Circuit breaker ${state.state}, skipping connection attempt. Next attempt in ${Math.round(state.nextAttemptIn / 1000)}s`);
+      return false;
+    }
+
     try {
       debugLog('Checking Supabase connection...');
       const { data, error } = await supabase.rpc('get_app_setting', { 
@@ -49,25 +57,55 @@ export const useConnectionManager = (): ConnectionManager => {
       // If 401/403, treat as temporary auth issue but backend is reachable
       if (error && (error.code === '401' || error.code === '403')) {
         debugLog('Auth issue detected, but backend is reachable');
+        realtimeCircuitBreaker.recordSuccess();
         return true; // Backend is up, just auth state issue
       }
       
-      // If 402, it's a service restriction (quota exceeded) but backend is reachable
-      if (error && error.code === '402') {
-        debugLog('Service restricted (quota exceeded), but backend is reachable');
-        return true; // Backend is up, just service restricted
+      // If 402 or quota/restriction error, record failure and trigger circuit breaker
+      const isQuotaError = error && (
+        error.code === '402' || 
+        error.message?.includes('quota') ||
+        error.message?.includes('restricted') ||
+        error.message?.includes('exceed')
+      );
+
+      if (isQuotaError) {
+        debugLog('⚠️ QUOTA/RESTRICTION ERROR detected:', error);
+        realtimeCircuitBreaker.recordFailure(error);
+        return false; // Service restricted
       }
       
       const isConnected = !error;
+      if (isConnected) {
+        realtimeCircuitBreaker.recordSuccess();
+      } else {
+        realtimeCircuitBreaker.recordFailure(error);
+      }
+      
       debugLog(`Supabase connection check result: ${isConnected}`, error || 'Success');
       return isConnected;
     } catch (error: any) {
-      // Handle auth errors and service restrictions as backend reachable
-      if (error?.status === 401 || error?.status === 403 || error?.status === 402) {
-        debugLog('Auth/Service error, but backend is reachable');
+      // Handle quota/restriction errors
+      const isQuotaError = 
+        error?.status === 402 || 
+        error?.message?.includes('quota') ||
+        error?.message?.includes('restricted');
+
+      if (isQuotaError) {
+        debugLog('⚠️ QUOTA/RESTRICTION ERROR (catch):', error);
+        realtimeCircuitBreaker.recordFailure(error);
+        return false;
+      }
+
+      // Handle auth errors as backend reachable
+      if (error?.status === 401 || error?.status === 403) {
+        debugLog('Auth error, but backend is reachable');
+        realtimeCircuitBreaker.recordSuccess();
         return true;
       }
+      
       debugLog('Supabase connection check failed:', error);
+      realtimeCircuitBreaker.recordFailure(error);
       return false;
     }
   }, []);
@@ -213,12 +251,12 @@ export const useConnectionManager = (): ConnectionManager => {
       }
     });
 
-    // Health check every 2 minutes (less frequent)
+    // Health check every 5 minutes (significantly reduced to preserve quota)
     healthCheckRef.current = setInterval(() => {
       if (mountedRef.current && connectionState.isOnline) {
         performConnectionCheck();
       }
-    }, 120000);
+    }, 300000); // Changed from 120s to 300s (5 minutes)
 
     return () => {
       mountedRef.current = false;

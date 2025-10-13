@@ -71,23 +71,24 @@ class GlobalRefreshService {
   start() {
     console.log('🌐 Starting global refresh service (centralized mode - 60s FastForex cycle)');
     
+    // Significantly reduced polling to preserve quota
     // Align with FastForex 60-second centralized updates
     this.priceInterval = setInterval(() => {
       this.triggerPriceUpdate();
-    }, 60000);
+    }, 120000); // Changed from 60s to 120s
 
-    // Signal refresh every 45 seconds
+    // Signal refresh reduced
     this.signalInterval = setInterval(() => {
       this.triggerSignalUpdate();
-    }, 45000);
+    }, 180000); // Changed from 45s to 180s (3 minutes)
 
-    // Full sync every 2 minutes (aligned with centralized data flow)
+    // Full sync reduced
     this.fullSyncInterval = setInterval(() => {
       this.triggerFullSync();
-    }, 120000);
+    }, 300000); // Changed from 120s to 300s (5 minutes)
 
     // Initial update after brief delay
-    setTimeout(() => this.triggerPriceUpdate(), 2000);
+    setTimeout(() => this.triggerPriceUpdate(), 5000); // Increased delay
   }
 
   stop() {
