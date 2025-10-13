@@ -1,17 +1,32 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Brain, Zap, TrendingUp, AlertCircle, CheckCircle, Clock } from 'lucide-react';
+import { Brain, Zap, TrendingUp, AlertCircle, CheckCircle, Clock, Settings } from 'lucide-react';
 
 const TestSignalGeneration = () => {
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [settings, setSettings] = useState<any>(null);
   const { toast } = useToast();
+
+  useEffect(() => {
+    fetchSettings();
+  }, []);
+
+  const fetchSettings = async () => {
+    const { data } = await supabase
+      .from('app_settings')
+      .select('signal_threshold_level, entry_threshold, ai_validation_enabled')
+      .eq('singleton', true)
+      .maybeSingle();
+    
+    if (data) setSettings(data);
+  };
 
   const handleGenerateTestSignals = async () => {
     setLoading(true);
@@ -56,43 +71,49 @@ const TestSignalGeneration = () => {
     setResults(null);
 
     try {
-      console.log('🤖 Starting AI-powered signal generation test...');
+      console.log('🔬 Testing NEW dual-strategy signal generation system...');
       
       const { data, error: functionError } = await supabase.functions.invoke('generate-signals', {
         body: { 
           test: false, 
           force: true, 
           debug: true,
-          optimized: true,
-          trigger: 'test_page_ai'
+          trigger: 'test_new_system'
         }
       });
 
       if (functionError) {
-        throw new Error(`AI Signal generation failed: ${functionError.message}`);
+        throw new Error(`Signal generation failed: ${functionError.message}`);
       }
 
-      console.log('🤖 AI Signal generation response:', data);
+      console.log('🔬 New system response:', data);
       setResults(data);
 
-      if (data?.stats?.signalsGenerated > 0) {
+      const signalCount = data?.signals?.length || 0;
+      const strategyBreakdown = data?.signals?.reduce((acc: any, s: any) => {
+        acc[s.strategy_type] = (acc[s.strategy_type] || 0) + 1;
+        return acc;
+      }, {});
+
+      if (signalCount > 0) {
         toast({
-          title: "🤖 AI Signals Generated Successfully",
-          description: `Generated ${data.stats.signalsGenerated} AI-powered signals using OpenAI analysis`,
+          title: "✅ New System: Signals Generated",
+          description: `${signalCount} signals | Trend: ${strategyBreakdown?.trend_continuation || 0} | H&S: ${strategyBreakdown?.head_and_shoulders_reversal || 0}`,
         });
       } else {
         toast({
-          title: "🤖 AI Analysis Complete",
-          description: "AI analysis completed but no high-confidence signals generated",
+          title: "⚠️ No Signals Generated",
+          description: "No high-quality setups found with current thresholds",
           variant: "default"
         });
       }
 
+      await fetchSettings();
     } catch (err: any) {
-      console.error('❌ AI Signal generation error:', err);
+      console.error('❌ Signal generation error:', err);
       setError(err.message);
       toast({
-        title: "AI Generation Error",
+        title: "Generation Error",
         description: err.message,
         variant: "destructive"
       });
@@ -140,65 +161,90 @@ const TestSignalGeneration = () => {
 
   return (
     <div className="space-y-6">
-      <Card className="border-purple-200 bg-gradient-to-r from-purple-50 to-blue-50">
+      <Card className="border-primary/20 bg-gradient-to-r from-primary/5 to-blue-50">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-purple-900">
+          <CardTitle className="flex items-center gap-2">
             <Brain className="h-6 w-6" />
-            AI-Powered Signal Generation Testing
+            New Dual-Strategy Signal Generation Testing
           </CardTitle>
-          <p className="text-purple-700">
-            Test the OpenAI-powered signal generation system with advanced market analysis
+          <p className="text-muted-foreground">
+            Test the structure-based signal generation with confluence analysis and AI validation
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
+          {settings && (
+            <div className="grid grid-cols-3 gap-3 p-4 bg-background/50 rounded-lg border">
+              <div>
+                <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                  <Settings className="h-3 w-3" />
+                  Signal Threshold
+                </div>
+                <Badge variant="secondary">{settings.signal_threshold_level}</Badge>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                  <Settings className="h-3 w-3" />
+                  Entry Threshold
+                </div>
+                <Badge variant="secondary">{settings.entry_threshold || 'LOW'}</Badge>
+              </div>
+              <div>
+                <div className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
+                  <Settings className="h-3 w-3" />
+                  AI Validation
+                </div>
+                <Badge variant={settings.ai_validation_enabled === 'true' ? 'default' : 'outline'}>
+                  {settings.ai_validation_enabled === 'true' ? 'Enabled' : 'Disabled'}
+                </Badge>
+              </div>
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <h4 className="font-semibold text-purple-900 flex items-center gap-2">
+              <h4 className="font-semibold flex items-center gap-2">
                 <Zap className="h-4 w-4" />
-                AI Features
+                Strategy 1: Trend Continuation
               </h4>
-              <ul className="text-sm text-purple-700 space-y-1">
-                <li>• OpenAI-powered market analysis</li>
-                <li>• Natural language reasoning</li>
-                <li>• Context-aware decision making</li>
-                <li>• Advanced pattern recognition</li>
-                <li>• Minimum 30-pip stop loss enforcement</li>
-                <li>• Minimum 15-pip take profit validation</li>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li>• Structure-based entries (HH/LL)</li>
+                <li>• Multi-timeframe confluence (4H + 1H + 15M)</li>
+                <li>• Support/Resistance zones</li>
+                <li>• Dynamic stop-loss placement</li>
               </ul>
             </div>
             <div className="space-y-2">
-              <h4 className="font-semibold text-purple-900 flex items-center gap-2">
+              <h4 className="font-semibold flex items-center gap-2">
                 <TrendingUp className="h-4 w-4" />
-                Signal Quality
+                Strategy 2: H&S Reversal
               </h4>
-              <ul className="text-sm text-purple-700 space-y-1">
-                <li>• 70-95% confidence range</li>
-                <li>• Major currency pair focus</li>
-                <li>• Session-aware analysis</li>
-                <li>• Risk/reward optimization</li>
-                <li>• Real-time market data input</li>
-                <li>• Multi-factor technical validation</li>
+              <ul className="text-sm text-muted-foreground space-y-1">
+                <li>• Head & Shoulders detection</li>
+                <li>• Neckline confirmation</li>
+                <li>• Pattern-based targets</li>
+                <li>• Confluence reversal bonus</li>
               </ul>
             </div>
           </div>
           
           <div className="flex gap-3 pt-4">
             <Button
-              onClick={handleGenerateTestSignals}
+              onClick={handleGenerateSignals}
               disabled={loading}
-              className="flex items-center gap-2 bg-green-600 hover:bg-green-700"
+              size="lg"
+              className="flex items-center gap-2"
             >
-              <Zap className="h-4 w-4" />
-              {loading ? 'Creating...' : 'Generate Test Signals'}
+              <Brain className="h-4 w-4" />
+              {loading ? 'Analyzing Markets...' : 'Test New Signal System'}
             </Button>
             <Button
-              onClick={handleGenerateSignals}
+              onClick={handleGenerateTestSignals}
               disabled={loading}
               variant="outline"
               className="flex items-center gap-2"
             >
-              <Brain className="h-4 w-4" />
-              {loading ? 'AI Analyzing...' : 'Generate AI Signals'}
+              <Zap className="h-4 w-4" />
+              {loading ? 'Creating...' : 'Legacy Test Signals'}
             </Button>
             <Button
               onClick={handleTestConnection}
@@ -229,59 +275,67 @@ const TestSignalGeneration = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Brain className="h-5 w-5 text-purple-600" />
-              AI Generation Results
+              <Brain className="h-5 w-5" />
+              Signal Generation Results
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-600">
-                  {results.signalsGenerated || results.stats?.signalsGenerated || 0}
+                <div className="text-2xl font-bold text-primary">
+                  {results.signals?.length || results.signalsGenerated || results.stats?.signalsGenerated || 0}
                 </div>
-                <div className="text-sm text-gray-600">Signals Generated</div>
+                <div className="text-sm text-muted-foreground">Total Signals</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {results.signals?.filter((s: any) => s.strategy_type === 'trend_continuation').length || 0}
+                </div>
+                <div className="text-sm text-muted-foreground">Trend Signals</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-blue-600">
-                  {results.testMode ? 'Test' : 'Live'}
+                  {results.signals?.filter((s: any) => s.strategy_type === 'head_and_shoulders_reversal').length || 0}
                 </div>
-                <div className="text-sm text-gray-600">Mode</div>
+                <div className="text-sm text-muted-foreground">H&S Signals</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-purple-600">
                   {results.success ? 'Success' : 'Failed'}
                 </div>
-                <div className="text-sm text-gray-600">Status</div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold text-orange-600">
-                  {results.stats?.totalActiveSignals || 'N/A'}
-                </div>
-                <div className="text-sm text-gray-600">Total Active</div>
+                <div className="text-sm text-muted-foreground">Status</div>
               </div>
             </div>
 
-            {results.stats?.signalDistribution && (
-              <div className="flex gap-2 justify-center">
-                <Badge variant="outline" className="bg-green-50 text-green-700">
-                  BUY: {results.stats.signalDistribution.newBuySignals || 0}
-                </Badge>
-                <Badge variant="outline" className="bg-red-50 text-red-700">
-                  SELL: {results.stats.signalDistribution.newSellSignals || 0}
-                </Badge>
-                {results.stats.aiPowered && (
-                  <Badge variant="outline" className="bg-purple-50 text-purple-700">
-                    <Brain className="h-3 w-3 mr-1" />
-                    AI-Powered
-                  </Badge>
-                )}
+            {results.signals && results.signals.length > 0 && (
+              <div className="space-y-2">
+                <h4 className="font-semibold text-sm">Generated Signals:</h4>
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {results.signals.map((signal: any, idx: number) => (
+                    <div key={idx} className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border text-sm">
+                      <Badge variant={signal.type === 'BUY' ? 'default' : 'destructive'}>
+                        {signal.type}
+                      </Badge>
+                      <span className="font-medium">{signal.symbol}</span>
+                      <Badge variant="outline" className="text-xs">
+                        {signal.strategy_type === 'trend_continuation' ? 'Trend' : 'H&S Reversal'}
+                      </Badge>
+                      <span className="text-muted-foreground">
+                        Conf: {signal.confidence_score}%
+                      </span>
+                      <span className="text-xs text-muted-foreground ml-auto">
+                        SL: {signal.stop_loss} | TP: {signal.take_profits?.join(', ')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
             {results.stats?.errors && results.stats.errors.length > 0 && (
               <div className="mt-4">
-                <h4 className="font-semibold text-red-600 mb-2">Errors:</h4>
-                <ul className="text-sm text-red-600 space-y-1">
+                <h4 className="font-semibold text-destructive mb-2">Errors:</h4>
+                <ul className="text-sm text-destructive space-y-1">
                   {results.stats.errors.map((error: string, index: number) => (
                     <li key={index}>• {error}</li>
                   ))}
@@ -289,9 +343,9 @@ const TestSignalGeneration = () => {
               </div>
             )}
 
-            <div className="text-xs text-gray-500 flex items-center gap-2">
+            <div className="text-xs text-muted-foreground flex items-center gap-2">
               <Clock className="h-3 w-3" />
-              Generated at: {results.timestamp}
+              {results.timestamp || new Date().toISOString()}
               {results.trigger && ` • Trigger: ${results.trigger}`}
             </div>
           </CardContent>
