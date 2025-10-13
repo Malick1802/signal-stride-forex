@@ -12,16 +12,48 @@ export function DataPopulationPanel() {
     historical: boolean;
     fourHour: boolean;
     checking: boolean;
+    testing: boolean;
   }>({
     historical: false,
     fourHour: false,
     checking: false,
+    testing: false,
   });
   const [dataStatus, setDataStatus] = useState<{
     daily?: number;
     weekly?: number;
     fourHour?: number;
   }>({});
+
+  const testEdgeFunctions = async () => {
+    setLoading(prev => ({ ...prev, testing: true }));
+    try {
+      console.log('🧪 Testing edge function deployment...');
+      
+      const { data, error } = await supabase.functions.invoke('test-data-fetch');
+      
+      console.log('🧪 Test response:', { data, error });
+      
+      if (error) {
+        console.error('❌ Edge function error:', error);
+        throw error;
+      }
+
+      toast({
+        title: "✅ Edge Functions Working",
+        description: data.message + ` | FastForex: ${data.apiKeys?.fastforex ? '✅' : '❌'} | Alpha: ${data.apiKeys?.alphaVantage ? '✅' : '❌'}`,
+      });
+    } catch (error: any) {
+      console.error('💥 Test failed:', error);
+      toast({
+        title: "❌ Test Failed",
+        description: error.message || 'Edge function invocation failed. Check console logs.',
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(prev => ({ ...prev, testing: false }));
+    }
+  };
 
   const checkDataStatus = async () => {
     setLoading(prev => ({ ...prev, checking: true }));
@@ -70,6 +102,7 @@ export function DataPopulationPanel() {
         description: "This may take several minutes...",
       });
 
+      console.log('📊 Invoking fetch-historical-data...');
       const { data, error } = await supabase.functions.invoke('fetch-historical-data', {
         body: {
           symbols: [
@@ -82,7 +115,11 @@ export function DataPopulationPanel() {
         }
       });
 
-      if (error) throw error;
+      console.log('📊 Response:', { data, error });
+      if (error) {
+        console.error('❌ Fetch error:', error);
+        throw error;
+      }
 
       toast({
         title: "Historical data populated",
@@ -91,9 +128,10 @@ export function DataPopulationPanel() {
 
       await checkDataStatus();
     } catch (error: any) {
+      console.error('💥 Population error:', error);
       toast({
         title: "Error populating data",
-        description: error.message,
+        description: error.message || 'Unknown error - check console logs',
         variant: "destructive",
       });
     } finally {
@@ -155,6 +193,27 @@ export function DataPopulationPanel() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
+        {/* Test Edge Functions */}
+        <div className="space-y-3 p-4 border-2 border-dashed border-yellow-500/50 rounded-lg bg-yellow-500/5">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-semibold">🧪 Test Edge Functions</h3>
+              <p className="text-xs text-muted-foreground mt-1">
+                Verify edge functions are deployed and API keys are configured
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={testEdgeFunctions}
+              disabled={loading.testing}
+            >
+              {loading.testing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Run Test
+            </Button>
+          </div>
+        </div>
+
         {/* Data Status */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
