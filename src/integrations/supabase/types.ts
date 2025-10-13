@@ -319,18 +319,21 @@ export type Database = {
       }
       app_settings: {
         Row: {
+          ai_validation_enabled: string | null
           signal_threshold_level: string
           singleton: boolean
           updated_at: string
           updated_by: string | null
         }
         Insert: {
+          ai_validation_enabled?: string | null
           signal_threshold_level?: string
           singleton?: boolean
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
+          ai_validation_enabled?: string | null
           signal_threshold_level?: string
           singleton?: boolean
           updated_at?: string
@@ -2344,7 +2347,9 @@ export type Database = {
       }
       trading_signals: {
         Row: {
+          ai_confidence: number | null
           ai_model_used: string | null
+          ai_validated: boolean | null
           allow_tier2_publish: boolean | null
           analysis_cost: number | null
           analysis_text: string | null
@@ -2391,6 +2396,7 @@ export type Database = {
           session_optimal: boolean | null
           status: string
           stop_loss: number
+          structure_confidence: number | null
           symbol: string
           t1_confirmations: string[] | null
           t1_score: number | null
@@ -2412,7 +2418,9 @@ export type Database = {
           volume: number | null
         }
         Insert: {
+          ai_confidence?: number | null
           ai_model_used?: string | null
+          ai_validated?: boolean | null
           allow_tier2_publish?: boolean | null
           analysis_cost?: number | null
           analysis_text?: string | null
@@ -2459,6 +2467,7 @@ export type Database = {
           session_optimal?: boolean | null
           status?: string
           stop_loss: number
+          structure_confidence?: number | null
           symbol: string
           t1_confirmations?: string[] | null
           t1_score?: number | null
@@ -2480,7 +2489,9 @@ export type Database = {
           volume?: number | null
         }
         Update: {
+          ai_confidence?: number | null
           ai_model_used?: string | null
+          ai_validated?: boolean | null
           allow_tier2_publish?: boolean | null
           analysis_cost?: number | null
           analysis_text?: string | null
@@ -2527,6 +2538,7 @@ export type Database = {
           session_optimal?: boolean | null
           status?: string
           stop_loss?: number
+          structure_confidence?: number | null
           symbol?: string
           t1_confirmations?: string[] | null
           t1_score?: number | null
