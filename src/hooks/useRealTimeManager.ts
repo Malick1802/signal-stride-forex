@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { realtimeCircuitBreaker } from '@/utils/realtimeCircuitBreaker';
+import { isProjectRestricted } from '@/utils/projectRestrictionCheck';
 
 interface RealTimeEvent {
   type: 'signal_update' | 'market_data_update' | 'signal_outcome_update' | 'heartbeat';
@@ -65,6 +66,19 @@ class RealTimeManager {
   }
 
   private setupCoreChannels() {
+    // Don't set up channels if project is restricted
+    if (isProjectRestricted()) {
+      console.warn('🚫 Project is restricted - skipping realtime channel setup');
+      this.updateState({ isConnected: false });
+      return;
+    }
+
+    // Don't set up if page is not visible
+    if (document.visibilityState !== 'visible') {
+      console.log('📴 Page not visible - skipping realtime setup');
+      return;
+    }
+
     // 1. Trading Signals Channel - consistent name for all clients
     const signalsChannel = supabase
       .channel('trading-signals')

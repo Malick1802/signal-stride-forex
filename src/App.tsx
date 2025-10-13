@@ -5,6 +5,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { HashRouter, Routes, Route, useNavigate, useLocation } from "react-router-dom";
 import { AuthProvider } from './contexts/AuthContext';
+import { ProjectRestrictionProvider } from './contexts/ProjectRestrictionContext';
 import Index from "./pages/Index";
 import TestPage from "./pages/TestPage";
 import NotFound from "./pages/NotFound";
@@ -75,19 +76,21 @@ const App = () => {
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <HashRouter>
-            <AuthRedirectHandler />
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/test" element={<TestPage />} />
-              <Route path="/auth/callback" element={<AuthCallback />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </HashRouter>
-          <Toaster />
-          <Sonner />
-        </AuthProvider>
+        <ProjectRestrictionProvider>
+          <AuthProvider>
+            <HashRouter>
+              <AuthRedirectHandler />
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/test" element={<TestPage />} />
+                <Route path="/auth/callback" element={<AuthCallback />} />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </HashRouter>
+            <Toaster />
+            <Sonner />
+          </AuthProvider>
+        </ProjectRestrictionProvider>
       </QueryClientProvider>
     </ErrorBoundary>
   );

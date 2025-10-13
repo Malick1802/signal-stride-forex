@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { realtimeCircuitBreaker } from '@/utils/realtimeCircuitBreaker';
+import { isProjectRestricted } from '@/utils/projectRestrictionCheck';
 import { Capacitor } from '@capacitor/core';
 
 interface ConnectionState {
@@ -41,6 +42,12 @@ export const useConnectionManager = (): ConnectionManager => {
   const mountedRef = useRef(true);
 
   const checkSupabaseConnection = useCallback(async (): Promise<boolean> => {
+    // Don't check if project is restricted
+    if (isProjectRestricted()) {
+      debugLog('🚫 Project is restricted - skipping Supabase connection check');
+      return false;
+    }
+
     // Check circuit breaker before attempting connection
     if (!realtimeCircuitBreaker.canAttempt()) {
       const state = realtimeCircuitBreaker.getState();

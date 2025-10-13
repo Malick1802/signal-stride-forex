@@ -1,7 +1,9 @@
-
 import React, { useState } from 'react';
-import { TrendingUp, ArrowLeft, Eye, EyeOff, CheckCircle, Mail, Wifi, WifiOff } from 'lucide-react';
+import { TrendingUp, ArrowLeft, Eye, EyeOff, CheckCircle, Mail, Wifi, WifiOff, AlertTriangle } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { useMobileAuth } from '@/hooks/useMobileAuth';
+import { useProjectRestriction } from '@/contexts/ProjectRestrictionContext';
+import { RestrictedMode } from '@/components/RestrictedMode';
 import { Capacitor } from '@capacitor/core';
 
 interface AuthPageProps {
@@ -28,6 +30,13 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
     lastAuthSync 
   } = useMobileAuth();
 
+  const { isRestricted, markAsRestricted, canRetryAuth } = useProjectRestriction();
+
+  // If restricted, show restricted mode
+  if (isRestricted) {
+    return <RestrictedMode />;
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -35,6 +44,13 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
       if (isLogin) {
         console.log('AuthPage: Attempting mobile sign in with:', email);
         const { error } = await mobileSignIn(email, password);
+        
+        // Check for 402 restriction error
+        if (error?.status === 402 || error?.isRestriction) {
+          markAsRestricted(error.message || 'Service restricted due to quota violations', 60);
+          return;
+        }
+        
         if (!error) {
           console.log('AuthPage: Mobile sign in successful');
         }
@@ -48,6 +64,13 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
         
         console.log('AuthPage: Attempting mobile sign up with:', email);
         const { error } = await mobileSignUp(email, password);
+        
+        // Check for 402 restriction error
+        if (error?.status === 402 || error?.isRestriction) {
+          markAsRestricted(error.message || 'Service restricted due to quota violations', 60);
+          return;
+        }
+        
         if (!error) {
           console.log('AuthPage: Mobile sign up successful');
           setSignupSuccess(true);
@@ -82,7 +105,6 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
                   onClick={async () => {
                     try {
                       await resendConfirmation(email);
-                      // Show success feedback without changing the UI state
                     } catch (error) {
                       console.error('Failed to resend confirmation:', error);
                     }
@@ -178,9 +200,21 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
         )}
 
         {authError && (
-          <div className="mb-6 p-3 bg-red-500/20 border border-red-500/30 rounded-lg text-red-300 text-sm">
-            {authError}
-          </div>
+          <Alert variant="destructive" className="mb-6">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Authentication Error</AlertTitle>
+            <AlertDescription>{authError}</AlertDescription>
+          </Alert>
+        )}
+
+        {!canRetryAuth && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Too Many Attempts</AlertTitle>
+            <AlertDescription>
+              Please wait before trying again, or contact support if the issue persists.
+            </AlertDescription>
+          </Alert>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -241,7 +275,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate }) => {
 
           <button
             type="submit"
-            disabled={loading || (!isConnected && Capacitor.isNativePlatform())}
+            disabled={loading || (!isConnected && Capacitor.isNativePlatform()) || !canRetryAuth}
             className="w-full py-3 bg-gradient-to-r from-emerald-500 to-blue-500 text-white font-semibold rounded-lg hover:shadow-lg hover:shadow-emerald-500/25 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Loading...' : (isLogin ? 'Sign In' : 'Create Account')}

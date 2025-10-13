@@ -366,6 +366,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) {
         console.error('AuthContext: Signin error:', error);
         
+        // Check for 402 restriction errors
+        if (error.status === 402 || error.message?.includes('restricted') || error.message?.includes('exceed_realtime_message_count_quota')) {
+          return { 
+            error: { 
+              ...error, 
+              message: 'Service temporarily restricted due to quota violations. Please contact support.',
+              isRestriction: true,
+              status: 402
+            } 
+          };
+        }
+        
         // Provide user-friendly error messages for Android
         if (error.message?.includes('fetch')) {
           return { 
