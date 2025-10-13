@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { realtimeCircuitBreaker } from '@/utils/realtimeCircuitBreaker';
 
 interface RealTimeEvent {
   type: 'signal_update' | 'market_data_update' | 'signal_outcome_update' | 'heartbeat';
@@ -182,6 +183,9 @@ class RealTimeManager {
     const recentHeartbeat = (Date.now() - this.state.lastHeartbeat) < 60000; // 60s tolerance
 
     if (status === 'SUBSCRIBED') {
+      // Record success in circuit breaker
+      realtimeCircuitBreaker.recordSuccess();
+      
       this.updateState({
         isConnected: true,
         connectionAttempts: 0,
@@ -197,6 +201,9 @@ class RealTimeManager {
     }
 
     if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+      // Record failure in circuit breaker
+      realtimeCircuitBreaker.recordFailure({ status, channelName });
+      
       this.updateState({
         isConnected: activeChannels.length > 0 || recentHeartbeat,
         connectionAttempts: this.state.connectionAttempts + 1,
@@ -271,12 +278,37 @@ class RealTimeManager {
   }
 
   private scheduleReconnect() {
+    // Check circuit breaker before attempting reconnect
+    if (!realtimeCircuitBreaker.canAttempt()) {
+      const cbState = realtimeCircuitBreaker.getState();
+      console.warn(`⚠️ Circuit breaker is ${cbState.state}, next attempt in ${Math.floor(cbState.nextAttemptIn / 1000)}s`);
+      
+      // Schedule a check for when circuit breaker allows
+      if (this.reconnectTimeout) {
+        clearTimeout(this.reconnectTimeout);
+      }
+      this.reconnectTimeout = setTimeout(() => {
+        this.scheduleReconnect();
+      }, Math.max(cbState.nextAttemptIn, 30000)); // Wait at least 30s
+      return;
+    }
+
     if (this.reconnectTimeout) {
       clearTimeout(this.reconnectTimeout);
     }
 
-    // Exponential backoff: 1s, 2s, 4s, 8s, max 30s
-    const delay = Math.min(1000 * Math.pow(2, this.state.connectionAttempts), 30000);
+    // Limit reconnection attempts to 3, then wait 5 minutes
+    if (this.state.connectionAttempts >= 3) {
+      console.error('❌ Max reconnection attempts (3) reached. Will retry in 5 minutes.');
+      this.reconnectTimeout = setTimeout(() => {
+        this.updateState({ connectionAttempts: 0 });
+        this.scheduleReconnect();
+      }, 300000); // 5 minutes
+      return;
+    }
+
+    // More conservative exponential backoff: 5s, 10s, 20s, max 60s
+    const delay = Math.min(5000 * Math.pow(2, this.state.connectionAttempts), 60000);
     
     console.log(`🔄 Scheduling reconnect in ${delay}ms (attempt ${this.state.connectionAttempts + 1})`);
     
