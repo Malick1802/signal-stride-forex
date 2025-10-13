@@ -11,6 +11,7 @@ import { AdminOverview } from './admin/AdminOverview';
 import { AdminSetup } from './admin/AdminSetup';
 import { FinancialManagement } from './admin/FinancialManagement';
 import { DataPopulationPanel } from './admin/DataPopulationPanel';
+import { SystemReadinessCheck } from './admin/SystemReadinessCheck';
 import { Button } from '@/components/ui/button';
 
 interface AdminDashboardProps {
@@ -127,6 +128,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
         {activeTab === 'system' && <AdminSoundTester />}
         {activeTab === 'settings' && (
           <div className="space-y-6">
+            <SystemReadinessCheck />
             <DataPopulationPanel />
             <SignalGenerationSettings />
           </div>
