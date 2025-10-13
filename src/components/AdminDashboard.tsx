@@ -10,6 +10,7 @@ import AdminSoundTester from './admin/AdminSoundTester';
 import { AdminOverview } from './admin/AdminOverview';
 import { AdminSetup } from './admin/AdminSetup';
 import { FinancialManagement } from './admin/FinancialManagement';
+import { DataPopulationPanel } from './admin/DataPopulationPanel';
 import { Button } from '@/components/ui/button';
 
 interface AdminDashboardProps {
@@ -124,7 +125,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
         {activeTab === 'signals' && <SignalManagement />}
         {activeTab === 'financial' && <FinancialManagement />}
         {activeTab === 'system' && <AdminSoundTester />}
-        {activeTab === 'settings' && <SignalGenerationSettings />}
+        {activeTab === 'settings' && (
+          <div className="space-y-6">
+            <DataPopulationPanel />
+            <SignalGenerationSettings />
+          </div>
+        )}
       </div>
     </div>
   );
