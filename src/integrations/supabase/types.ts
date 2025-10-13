@@ -320,6 +320,7 @@ export type Database = {
       app_settings: {
         Row: {
           ai_validation_enabled: string | null
+          entry_threshold: string | null
           signal_threshold_level: string
           singleton: boolean
           updated_at: string
@@ -327,6 +328,7 @@ export type Database = {
         }
         Insert: {
           ai_validation_enabled?: string | null
+          entry_threshold?: string | null
           signal_threshold_level?: string
           singleton?: boolean
           updated_at?: string
@@ -334,6 +336,7 @@ export type Database = {
         }
         Update: {
           ai_validation_enabled?: string | null
+          entry_threshold?: string | null
           signal_threshold_level?: string
           singleton?: boolean
           updated_at?: string
@@ -2353,6 +2356,7 @@ export type Database = {
           allow_tier2_publish: boolean | null
           analysis_cost: number | null
           analysis_text: string | null
+          aoi_zones: Json | null
           asset_type: string | null
           change_24h: number | null
           chart_data: Json | null
@@ -2364,6 +2368,7 @@ export type Database = {
           current_pnl: number | null
           current_price: number | null
           economic_impact: string | null
+          entry_timeframe: string | null
           expected_duration_hours: number | null
           expire_reason: string | null
           expired_by: string | null
@@ -2385,6 +2390,7 @@ export type Database = {
           market_regime: string | null
           multi_timeframe_confirmed: boolean | null
           news_impact_assessed: boolean | null
+          pattern_confidence: number | null
           pattern_detected: string | null
           pips: number
           pivot_entry: number | null
@@ -2396,7 +2402,9 @@ export type Database = {
           session_optimal: boolean | null
           status: string
           stop_loss: number
+          strategy_type: string | null
           structure_confidence: number | null
+          structure_points: Json | null
           symbol: string
           t1_confirmations: string[] | null
           t1_score: number | null
@@ -2409,6 +2417,7 @@ export type Database = {
           technical_indicators: Json | null
           technical_score: number | null
           tier_level: number | null
+          timeframe_confluence: Json | null
           timestamp: string
           type: string
           updated_at: string
@@ -2424,6 +2433,7 @@ export type Database = {
           allow_tier2_publish?: boolean | null
           analysis_cost?: number | null
           analysis_text?: string | null
+          aoi_zones?: Json | null
           asset_type?: string | null
           change_24h?: number | null
           chart_data?: Json | null
@@ -2435,6 +2445,7 @@ export type Database = {
           current_pnl?: number | null
           current_price?: number | null
           economic_impact?: string | null
+          entry_timeframe?: string | null
           expected_duration_hours?: number | null
           expire_reason?: string | null
           expired_by?: string | null
@@ -2456,6 +2467,7 @@ export type Database = {
           market_regime?: string | null
           multi_timeframe_confirmed?: boolean | null
           news_impact_assessed?: boolean | null
+          pattern_confidence?: number | null
           pattern_detected?: string | null
           pips: number
           pivot_entry?: number | null
@@ -2467,7 +2479,9 @@ export type Database = {
           session_optimal?: boolean | null
           status?: string
           stop_loss: number
+          strategy_type?: string | null
           structure_confidence?: number | null
+          structure_points?: Json | null
           symbol: string
           t1_confirmations?: string[] | null
           t1_score?: number | null
@@ -2480,6 +2494,7 @@ export type Database = {
           technical_indicators?: Json | null
           technical_score?: number | null
           tier_level?: number | null
+          timeframe_confluence?: Json | null
           timestamp?: string
           type: string
           updated_at?: string
@@ -2495,6 +2510,7 @@ export type Database = {
           allow_tier2_publish?: boolean | null
           analysis_cost?: number | null
           analysis_text?: string | null
+          aoi_zones?: Json | null
           asset_type?: string | null
           change_24h?: number | null
           chart_data?: Json | null
@@ -2506,6 +2522,7 @@ export type Database = {
           current_pnl?: number | null
           current_price?: number | null
           economic_impact?: string | null
+          entry_timeframe?: string | null
           expected_duration_hours?: number | null
           expire_reason?: string | null
           expired_by?: string | null
@@ -2527,6 +2544,7 @@ export type Database = {
           market_regime?: string | null
           multi_timeframe_confirmed?: boolean | null
           news_impact_assessed?: boolean | null
+          pattern_confidence?: number | null
           pattern_detected?: string | null
           pips?: number
           pivot_entry?: number | null
@@ -2538,7 +2556,9 @@ export type Database = {
           session_optimal?: boolean | null
           status?: string
           stop_loss?: number
+          strategy_type?: string | null
           structure_confidence?: number | null
+          structure_points?: Json | null
           symbol?: string
           t1_confirmations?: string[] | null
           t1_score?: number | null
@@ -2551,6 +2571,7 @@ export type Database = {
           technical_indicators?: Json | null
           technical_score?: number | null
           tier_level?: number | null
+          timeframe_confluence?: Json | null
           timestamp?: string
           type?: string
           updated_at?: string
