@@ -50,8 +50,8 @@ export const useAdminOverview = () => {
         recentErrors
       ] = await Promise.all([
         supabase.from('profiles').select('*', { count: 'exact', head: true }),
-        supabase.from('subscribers').select('*', { count: 'exact', head: true }).eq('subscribed', true),
-        supabase.from('subscribers').select('*', { count: 'exact', head: true }).eq('is_trial_active', true),
+        supabase.from('subscriptions').select('*', { count: 'exact', head: true }).neq('status', 'inactive'),
+        supabase.from('subscriptions').select('*', { count: 'exact', head: true }).eq('is_trial_active', true),
         supabase.from('trading_signals').select('*', { count: 'exact', head: true }),
         supabase.from('trading_signals').select('*', { count: 'exact', head: true }).eq('status', 'active'),
         supabase.from('trading_signals').select('*', { count: 'exact', head: true }).gte('created_at', todayISO),
@@ -147,9 +147,9 @@ export const useAdminOverview = () => {
 
       // Recent subscriptions
       const { data: recentSubscriptions } = await supabase
-        .from('subscribers')
-        .select('id, subscription_tier, created_at, profiles(email)')
-        .eq('subscribed', true)
+        .from('subscriptions')
+        .select('id, tier, created_at, user_id')
+        .neq('status', 'inactive')
         .order('created_at', { ascending: false })
         .limit(3);
 
@@ -157,7 +157,7 @@ export const useAdminOverview = () => {
         activities.push({
           id: `sub-${sub.id}`,
           type: 'subscription',
-          description: `New ${sub.subscription_tier} subscription`,
+          description: `New ${sub.tier || 'free'} subscription`,
           timestamp: sub.created_at,
         });
       });
