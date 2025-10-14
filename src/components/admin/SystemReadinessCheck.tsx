@@ -33,7 +33,9 @@ export function SystemReadinessCheck() {
       const { count: dailyCount } = await supabase
         .from('multi_timeframe_data')
         .select('*', { count: 'exact', head: true })
-        .eq('timeframe', '1D');
+        .in('timeframe', ['D', '1D']);
+      
+      console.info('[Readiness] Daily candles:', dailyCount);
 
       const dailyTarget = 250; // Per symbol
       const dailyPass = dailyTarget * 27; // 6,750
