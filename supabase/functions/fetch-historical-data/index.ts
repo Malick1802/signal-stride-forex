@@ -235,31 +235,125 @@ serve(async (req) => {
       throw new Error(`All FastForex parameter variants failed. Last error: ${lastError}`);
     }
 
-    // Convert to daily candles
+    // Convert to daily candles with tolerant parser
     const dailyCandles: DailyCandle[] = [];
+    let firstEntrySampled = false;
     
     Object.entries(data.results).forEach(([date, rates]: [string, any]) => {
-      const rate = rates[quoteCurrency];
-      if (rate) {
+      // Debug log for first entry to understand response shape
+      if (!firstEntrySampled) {
+        console.log(`📊 Sample result entry for ${date}:`, typeof rates, Object.keys(rates || {}).slice(0, 5));
+        firstEntrySampled = true;
+      }
+      
+      // Extract rate value tolerantly from various response shapes
+      let rateVal: number | null = null;
+      
+      if (typeof rates === 'number') {
+        rateVal = rates;
+      } else if (typeof rates === 'string') {
+        rateVal = parseFloat(rates);
+      } else if (typeof rates === 'object' && rates !== null) {
+        // Try quoteCurrency key first
+        if (rates[quoteCurrency] !== undefined) {
+          rateVal = typeof rates[quoteCurrency] === 'number' 
+            ? rates[quoteCurrency] 
+            : parseFloat(rates[quoteCurrency]);
+        } 
+        // Try 'rate' key
+        else if (rates.rate !== undefined) {
+          rateVal = typeof rates.rate === 'number' 
+            ? rates.rate 
+            : parseFloat(rates.rate);
+        }
+        // Find first numeric value in object
+        else {
+          const firstNumeric = Object.values(rates).find(v => 
+            typeof v === 'number' || (typeof v === 'string' && !isNaN(parseFloat(v)))
+          );
+          if (firstNumeric !== undefined) {
+            rateVal = typeof firstNumeric === 'number' 
+              ? firstNumeric 
+              : parseFloat(firstNumeric as string);
+          }
+        }
+      }
+      
+      // Only create candle if we got a valid number
+      if (rateVal && !isNaN(rateVal) && rateVal > 0) {
         // Simulate OHLC from single rate (±0.15% spread)
-        const spread = rate * 0.0015;
+        const spread = rateVal * 0.0015;
         dailyCandles.push({
           symbol,
           timeframe: '1D',
           timestamp: `${date}T00:00:00Z`,
-          open_price: rate,
-          high_price: rate + spread,
-          low_price: rate - spread,
-          close_price: rate,
+          open_price: rateVal,
+          high_price: rateVal + spread,
+          low_price: rateVal - spread,
+          close_price: rateVal,
           volume: 0,
           source: 'fastforex'
         });
       }
     });
 
+    // Fallback: If still no candles, try historical endpoint for short window
     if (dailyCandles.length === 0) {
-      throw new Error('No valid candles generated from FastForex data');
+      console.warn('⚠️ Time-series returned no usable candles, trying /historical fallback...');
+      
+      const fallbackDays = 7;
+      const fallbackCandles: DailyCandle[] = [];
+      
+      for (let i = 0; i < fallbackDays; i++) {
+        const date = new Date(now);
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0];
+        
+        try {
+          const historicalUrl = `https://api.fastforex.io/historical?date=${dateStr}&from=${baseCurrency}&to=${quoteCurrency}&api_key=${fastForexApiKey}`;
+          const response = await fetch(historicalUrl, {
+            headers: { 'Accept': 'application/json' }
+          });
+          
+          if (response.ok) {
+            const histData = await response.json();
+            const rate = histData?.results?.[quoteCurrency] || histData?.rate;
+            
+            if (rate && !isNaN(parseFloat(rate))) {
+              const rateNum = parseFloat(rate);
+              const spread = rateNum * 0.0015;
+              
+              fallbackCandles.push({
+                symbol,
+                timeframe: '1D',
+                timestamp: `${dateStr}T00:00:00Z`,
+                open_price: rateNum,
+                high_price: rateNum + spread,
+                low_price: rateNum - spread,
+                close_price: rateNum,
+                volume: 0,
+                source: 'fastforex_historical'
+              });
+            }
+          }
+        } catch (err) {
+          console.warn(`⚠️ Historical fallback failed for ${dateStr}:`, err.message);
+        }
+        
+        await new Promise(r => setTimeout(r, 100)); // Small delay between requests
+      }
+      
+      if (fallbackCandles.length > 0) {
+        console.log(`✅ Fallback succeeded: ${fallbackCandles.length} candles from /historical`);
+        dailyCandles.push(...fallbackCandles);
+      }
     }
+
+    if (dailyCandles.length === 0) {
+      throw new Error('No valid candles generated from FastForex (tried time-series and historical endpoints)');
+    }
+    
+    console.log(`✅ Generated ${dailyCandles.length} daily candles`);
 
     // Sort by timestamp
     dailyCandles.sort((a, b) => 
