@@ -1423,6 +1423,7 @@ export type Database = {
           id: string
           low_price: number
           open_price: number
+          source: string | null
           symbol: string
           timeframe: string
           timestamp: string
@@ -1436,6 +1437,7 @@ export type Database = {
           id?: string
           low_price: number
           open_price: number
+          source?: string | null
           symbol: string
           timeframe: string
           timestamp: string
@@ -1449,6 +1451,7 @@ export type Database = {
           id?: string
           low_price?: number
           open_price?: number
+          source?: string | null
           symbol?: string
           timeframe?: string
           timestamp?: string

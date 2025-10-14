@@ -41,7 +41,6 @@ export const useAdminOverview = () => {
       const [
         { count: totalUsers },
         { count: activeSubscribers },
-        { count: trialUsers },
         { count: totalSignals },
         { count: activeSignals },
         { count: todaysSignals },
@@ -50,8 +49,7 @@ export const useAdminOverview = () => {
         recentErrors
       ] = await Promise.all([
         supabase.from('profiles').select('*', { count: 'exact', head: true }),
-        supabase.from('subscriptions').select('*', { count: 'exact', head: true }).neq('status', 'inactive'),
-        supabase.from('subscriptions').select('*', { count: 'exact', head: true }).eq('is_trial_active', true),
+        supabase.from('subscriptions').select('*', { count: 'exact', head: true }),
         supabase.from('trading_signals').select('*', { count: 'exact', head: true }),
         supabase.from('trading_signals').select('*', { count: 'exact', head: true }).eq('status', 'active'),
         supabase.from('trading_signals').select('*', { count: 'exact', head: true }).gte('created_at', todayISO),
@@ -92,7 +90,7 @@ export const useAdminOverview = () => {
       return {
         totalUsers: totalUsers || 0,
         activeSubscribers: activeSubscribers || 0,
-        trialUsers: trialUsers || 0,
+        trialUsers: 0, // Temporarily set to 0 until we add trial tracking
         totalSignals: totalSignals || 0,
         activeSignals: activeSignals || 0,
         todaysSignals: todaysSignals || 0,
@@ -149,7 +147,6 @@ export const useAdminOverview = () => {
       const { data: recentSubscriptions } = await supabase
         .from('subscriptions')
         .select('id, tier, created_at, user_id')
-        .neq('status', 'inactive')
         .order('created_at', { ascending: false })
         .limit(3);
 

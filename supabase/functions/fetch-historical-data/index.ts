@@ -172,68 +172,28 @@ serve(async (req) => {
     const baseCurrency = symbol.substring(0, 3);
     const quoteCurrency = symbol.substring(3, 6);
     
-    // Try multiple parameter variants for FastForex API
-    // CRITICAL: 'to' parameter is for target currency, NOT date range!
-    const variants = [
-      { name: 'A', params: `date_from=${encodeURIComponent(fromDate)}&date_to=${encodeURIComponent(toDate)}&from=${encodeURIComponent(baseCurrency)}&to=${encodeURIComponent(quoteCurrency)}` },
-      { name: 'B', params: `start=${encodeURIComponent(fromDate)}&end=${encodeURIComponent(toDate)}&from=${encodeURIComponent(baseCurrency)}&to=${encodeURIComponent(quoteCurrency)}` },
-    ];
+    // FastForex time-series API with correct parameters (api_key first, then start/end)
+    const fastForexUrl = `https://api.fastforex.io/time-series?api_key=${fastForexApiKey}&from=${baseCurrency}&to=${quoteCurrency}&start=${fromDate}&end=${toDate}`;
     
-    let data: any = null;
-    let lastError: string = '';
+    console.log(`🔄 Fetching ${symbol} time-series from ${fromDate} to ${toDate}`);
     
-    for (const variant of variants) {
-      const fastForexUrl = `https://api.fastforex.io/time-series?${variant.params}&api_key=${fastForexApiKey}`;
-      
-      console.log(`🔄 Fetching ${symbol} (variant ${variant.name}): ${fromDate} to ${toDate}`);
-      
-      try {
-        const response = await fetch(fastForexUrl, {
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json'
-          }
-        });
-        
-        const responseText = await response.text();
-        
-        if (!response.ok) {
-          lastError = `Variant ${variant.name} failed (${response.status}): ${responseText}`;
-          console.warn(`⚠️ ${lastError}`);
-          
-          // If error suggests wrong parameter, try next variant
-          if (responseText.includes('Invalid/unsupported currency') || 
-              responseText.includes('required parameter') ||
-              responseText.includes('Please supply')) {
-            continue;
-          }
-          
-          throw new Error(lastError);
-        }
-        
-        const jsonData = JSON.parse(responseText);
-        
-        if (!jsonData.results || Object.keys(jsonData.results).length === 0) {
-          lastError = `Variant ${variant.name} returned no results`;
-          console.warn(`⚠️ ${lastError}`);
-          continue;
-        }
-        
-        // Success!
-        data = jsonData;
-        console.log(`✅ Variant ${variant.name} succeeded: ${Object.keys(data.results).length} data points`);
-        break;
-        
-      } catch (err) {
-        lastError = `Variant ${variant.name} error: ${err.message}`;
-        console.warn(`⚠️ ${lastError}`);
-        continue;
+    const response = await fetch(fastForexUrl, {
+      headers: {
+        'Accept': 'application/json'
       }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`FastForex time-series failed: HTTP ${response.status}`);
     }
     
-    if (!data || !data.results) {
-      throw new Error(`All FastForex parameter variants failed. Last error: ${lastError}`);
+    const data = await response.json();
+    
+    if (!data.results || Object.keys(data.results).length === 0) {
+      throw new Error('FastForex returned no results for time-series');
     }
+    
+    console.log(`✅ FastForex time-series succeeded: ${Object.keys(data.results).length} data points`);
 
     // Convert to daily candles with tolerant parser
     const dailyCandles: DailyCandle[] = [];
@@ -310,7 +270,7 @@ serve(async (req) => {
         const dateStr = date.toISOString().split('T')[0];
         
         try {
-          const historicalUrl = `https://api.fastforex.io/historical?date=${dateStr}&from=${baseCurrency}&to=${quoteCurrency}&api_key=${fastForexApiKey}`;
+          const historicalUrl = `https://api.fastforex.io/historical?api_key=${fastForexApiKey}&date=${dateStr}&from=${baseCurrency}&to=${quoteCurrency}`;
           const response = await fetch(historicalUrl, {
             headers: { 'Accept': 'application/json' }
           });
@@ -360,14 +320,17 @@ serve(async (req) => {
       new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     );
 
+    // Normalize timeframe: '1D' -> 'D' for database consistency
+    const normalizedTimeframe = timeframe === '1D' ? 'D' : timeframe;
+    
     let candlesToInsert: DailyCandle[] = [];
     
     // Process based on requested timeframe
-    if (timeframe === '1D') {
-      candlesToInsert = dailyCandles;
-    } else if (timeframe === 'W') {
+    if (normalizedTimeframe === 'D') {
+      candlesToInsert = dailyCandles.map(c => ({ ...c, timeframe: 'D' }));
+    } else if (normalizedTimeframe === 'W') {
       candlesToInsert = aggregateDailyToWeekly(dailyCandles);
-    } else if (timeframe === '4H') {
+    } else if (normalizedTimeframe === '4H') {
       // Generate synthetic 4H candles from daily data
       dailyCandles.forEach(dailyCandle => {
         candlesToInsert.push(...generateSynthetic4HCandles(dailyCandle));
