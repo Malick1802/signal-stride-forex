@@ -21,12 +21,7 @@ verify_jwt = false
 [functions.send-auth-email]
 verify_jwt = false
 
-# Allow public tracking from landing pages and unauthenticated clients
 [functions.track-referral]
-verify_jwt = false
-
-# Historical data population functions
-[functions.fetch-historical-data]
 verify_jwt = false
 
 [functions.aggregate-4h-candles]

@@ -29,89 +29,101 @@ export function SystemReadinessCheck() {
     const newChecks: ReadinessCheck[] = [];
 
     try {
-      // Check 1: Daily data
+      // Check 1: Daily data (1 year × 250 days/year × 27 pairs = ~6,750)
       const { count: dailyCount } = await supabase
         .from('multi_timeframe_data')
         .select('*', { count: 'exact', head: true })
         .eq('timeframe', '1D');
 
-      if (dailyCount && dailyCount > 3000) {
+      const dailyTarget = 250; // Per symbol
+      const dailyPass = dailyTarget * 27; // 6,750
+      const dailyWarn = 180 * 27; // 4,860
+
+      if (dailyCount && dailyCount >= dailyPass) {
         newChecks.push({
-          name: 'Historical Data (1D)',
+          name: 'Historical Data (1D - 1 Year)',
           status: 'pass',
-          message: `${dailyCount.toLocaleString()} daily candles available`,
+          message: `${dailyCount.toLocaleString()} candles (target: ${dailyPass.toLocaleString()})`,
           required: true
         });
-      } else if (dailyCount && dailyCount > 1000) {
+      } else if (dailyCount && dailyCount >= dailyWarn) {
         newChecks.push({
-          name: 'Historical Data (1D)',
+          name: 'Historical Data (1D - 1 Year)',
           status: 'warning',
-          message: `${dailyCount.toLocaleString()} daily candles (recommend 3000+)`,
+          message: `${dailyCount.toLocaleString()} candles (target: ${dailyPass.toLocaleString()}, min: ${dailyWarn.toLocaleString()})`,
           required: true
         });
       } else {
         newChecks.push({
-          name: 'Historical Data (1D)',
+          name: 'Historical Data (1D - 1 Year)',
           status: 'fail',
-          message: `Only ${dailyCount || 0} daily candles (need 3000+)`,
+          message: `Only ${dailyCount || 0} candles (need ${dailyPass.toLocaleString()}). Run Data Population.`,
           required: true
         });
       }
 
-      // Check 2: Weekly data
+      // Check 2: Weekly data (5 years × 52 weeks × 85% × 27 pairs = ~5,940)
       const { count: weeklyCount } = await supabase
         .from('multi_timeframe_data')
         .select('*', { count: 'exact', head: true })
         .eq('timeframe', 'W');
 
-      if (weeklyCount && weeklyCount > 1000) {
+      const weeklyTarget = 220; // Per symbol (5 years × 52 × 85%)
+      const weeklyPass = weeklyTarget * 27; // 5,940
+      const weeklyWarn = 150 * 27; // 4,050
+
+      if (weeklyCount && weeklyCount >= weeklyPass) {
         newChecks.push({
-          name: 'Historical Data (W)',
+          name: 'Historical Data (W - 5 Years)',
           status: 'pass',
-          message: `${weeklyCount.toLocaleString()} weekly candles available`,
+          message: `${weeklyCount.toLocaleString()} candles (target: ${weeklyPass.toLocaleString()})`,
           required: true
         });
-      } else if (weeklyCount && weeklyCount > 500) {
+      } else if (weeklyCount && weeklyCount >= weeklyWarn) {
         newChecks.push({
-          name: 'Historical Data (W)',
+          name: 'Historical Data (W - 5 Years)',
           status: 'warning',
-          message: `${weeklyCount.toLocaleString()} weekly candles (recommend 1000+)`,
+          message: `${weeklyCount.toLocaleString()} candles (target: ${weeklyPass.toLocaleString()}, min: ${weeklyWarn.toLocaleString()})`,
           required: true
         });
       } else {
         newChecks.push({
-          name: 'Historical Data (W)',
+          name: 'Historical Data (W - 5 Years)',
           status: 'fail',
-          message: `Only ${weeklyCount || 0} weekly candles (need 1000+)`,
+          message: `Only ${weeklyCount || 0} candles (need ${weeklyPass.toLocaleString()}). Run Data Population.`,
           required: true
         });
       }
 
-      // Check 3: 4H candles
+      // Check 3: 4H candles (6 months × 30 days × 6 candles/day × 27 pairs = ~24,300)
       const { count: fourHourCount } = await supabase
         .from('multi_timeframe_data')
         .select('*', { count: 'exact', head: true })
         .eq('timeframe', '4H');
 
-      if (fourHourCount && fourHourCount > 2000) {
+      const fourHTarget = 900; // Per symbol (6 months × 30 × 5)
+      const fourHPass = fourHTarget * 27; // 24,300
+      const fourHWarn = 300 * 27; // 8,100
+
+      if (fourHourCount && fourHourCount >= fourHPass) {
         newChecks.push({
-          name: '4H Candles',
+          name: '4H Candles (6 Months Synthetic)',
           status: 'pass',
-          message: `${fourHourCount.toLocaleString()} 4H candles available`,
+          message: `${fourHourCount.toLocaleString()} candles (target: ${fourHPass.toLocaleString()}). Initially synthetic, replacing with live data.`,
           required: true
         });
-      } else if (fourHourCount && fourHourCount > 500) {
+      } else if (fourHourCount && fourHourCount >= fourHWarn) {
         newChecks.push({
-          name: '4H Candles',
+          name: '4H Candles (6 Months Synthetic)',
           status: 'warning',
-          message: `${fourHourCount.toLocaleString()} 4H candles (recommend 2000+)`,
+          message: `${fourHourCount.toLocaleString()} candles (target: ${fourHPass.toLocaleString()}, min: ${fourHWarn.toLocaleString()})`,
           required: true
         });
       } else {
         newChecks.push({
-          name: '4H Candles',
+          name: '4H Candles (6 Months Synthetic)',
           status: 'fail',
-          message: `Only ${fourHourCount || 0} 4H candles (need 2000+)`,
+          message: `Only ${fourHourCount || 0} candles (need ${fourHPass.toLocaleString()}). Run Data Population.`,
           required: true
         });
       }

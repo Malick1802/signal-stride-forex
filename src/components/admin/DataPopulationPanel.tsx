@@ -2,61 +2,46 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, Database, TrendingUp, CheckCircle2 } from 'lucide-react';
+import { Loader2, Database, TrendingUp, CheckCircle2, Play, Square } from 'lucide-react';
+
+const FOREX_SYMBOLS = [
+  'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
+  'EURGBP', 'EURJPY', 'EURCHF', 'EURCAD', 'EURAUD', 'EURNZD',
+  'GBPJPY', 'GBPCHF', 'GBPCAD', 'GBPAUD', 'GBPNZD',
+  'AUDJPY', 'AUDCHF', 'AUDCAD', 'AUDNZD',
+  'NZDJPY', 'NZDCHF', 'NZDCAD',
+  'CADJPY', 'CADCHF', 'CHFJPY'
+];
+
+interface PopulationProgress {
+  current: number;
+  total: number;
+  status: string;
+  lastResult?: string;
+  stats: {
+    '1D': { success: string[], failed: string[] };
+    'W': { success: string[], failed: string[] };
+    '4H': { success: string[], failed: string[] };
+  };
+}
 
 export function DataPopulationPanel() {
   const { toast } = useToast();
-  const [loading, setLoading] = useState<{
-    historical: boolean;
-    fourHour: boolean;
-    checking: boolean;
-    testing: boolean;
-  }>({
-    historical: false,
-    fourHour: false,
-    checking: false,
-    testing: false,
-  });
+  const [loading, setLoading] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [dataStatus, setDataStatus] = useState<{
     daily?: number;
     weekly?: number;
     fourHour?: number;
   }>({});
-
-  const testEdgeFunctions = async () => {
-    setLoading(prev => ({ ...prev, testing: true }));
-    try {
-      console.log('🧪 Testing edge function deployment...');
-      
-      const { data, error } = await supabase.functions.invoke('test-data-fetch');
-      
-      console.log('🧪 Test response:', { data, error });
-      
-      if (error) {
-        console.error('❌ Edge function error:', error);
-        throw error;
-      }
-
-      toast({
-        title: "✅ Edge Functions Working",
-        description: data.message + ` | FastForex: ${data.apiKeys?.fastforex ? '✅' : '❌'} | Alpha: ${data.apiKeys?.alphaVantage ? '✅' : '❌'}`,
-      });
-    } catch (error: any) {
-      console.error('💥 Test failed:', error);
-      toast({
-        title: "❌ Test Failed",
-        description: error.message || 'Edge function invocation failed. Check console logs.',
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(prev => ({ ...prev, testing: false }));
-    }
-  };
+  const [progress, setProgress] = useState<PopulationProgress | null>(null);
+  const [cancelRequested, setCancelRequested] = useState(false);
 
   const checkDataStatus = async () => {
-    setLoading(prev => ({ ...prev, checking: true }));
+    setChecking(true);
     try {
       const { count: dailyCount } = await supabase
         .from('multi_timeframe_data')
@@ -90,90 +75,186 @@ export function DataPopulationPanel() {
         variant: "destructive",
       });
     } finally {
-      setLoading(prev => ({ ...prev, checking: false }));
+      setChecking(false);
     }
   };
 
   const populateHistoricalData = async () => {
-    setLoading(prev => ({ ...prev, historical: true }));
+    setLoading(true);
+    setCancelRequested(false);
+    
+    const totalOps = FOREX_SYMBOLS.length * 3; // 3 timeframes per symbol
+    
+    setProgress({
+      current: 0,
+      total: totalOps,
+      status: 'Starting...',
+      stats: {
+        '1D': { success: [], failed: [] },
+        'W': { success: [], failed: [] },
+        '4H': { success: [], failed: [] }
+      }
+    });
+
     try {
-      toast({
-        title: "Fetching historical data",
-        description: "This may take several minutes...",
-      });
-
-      console.log('📊 Invoking fetch-historical-data...');
-      const { data, error } = await supabase.functions.invoke('fetch-historical-data', {
-        body: {
-          symbols: [
-            'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'NZDUSD', 'USDCAD',
-            'EURGBP', 'GBPCAD', 'EURAUD', 'EURCAD', 'GBPAUD', 'CHFJPY', 'NZDJPY',
-            'GBPNZD', 'AUDCHF', 'CADJPY', 'NZDCHF', 'NZDCAD', 'AUDNZD', 'AUDJPY',
-            'EURNZD', 'EURJPY', 'CADCHF', 'EURCHF', 'GBPCHF', 'GBPJPY'
-          ],
-          timeframes: ['1D', 'W']
+      for (let i = 0; i < FOREX_SYMBOLS.length; i++) {
+        if (cancelRequested) {
+          toast({
+            title: "Population cancelled",
+            description: `Stopped at ${FOREX_SYMBOLS[i]} (${i}/${FOREX_SYMBOLS.length})`,
+          });
+          break;
         }
-      });
 
-      console.log('📊 Response:', { data, error });
-      if (error) {
-        console.error('❌ Fetch error:', error);
-        throw error;
+        const symbol = FOREX_SYMBOLS[i];
+        
+        // Fetch 1D data
+        setProgress(prev => ({
+          ...prev!,
+          current: i * 3 + 1,
+          status: `${symbol} (${i + 1}/${FOREX_SYMBOLS.length}): Fetching daily...`
+        }));
+        
+        try {
+          const { data, error } = await supabase.functions.invoke('fetch-historical-data', {
+            body: { symbol, timeframe: '1D' }
+          });
+          
+          if (error) throw error;
+          
+          setProgress(prev => ({
+            ...prev!,
+            lastResult: `✓ ${symbol} 1D: ${data.inserted} candles`,
+            stats: {
+              ...prev!.stats,
+              '1D': {
+                ...prev!.stats['1D'],
+                success: [...prev!.stats['1D'].success, symbol]
+              }
+            }
+          }));
+        } catch (err) {
+          console.error(`Failed ${symbol} 1D:`, err);
+          setProgress(prev => ({
+            ...prev!,
+            stats: {
+              ...prev!.stats,
+              '1D': {
+                ...prev!.stats['1D'],
+                failed: [...prev!.stats['1D'].failed, symbol]
+              }
+            }
+          }));
+        }
+        
+        await new Promise(r => setTimeout(r, 1000));
+        
+        // Fetch W data
+        setProgress(prev => ({
+          ...prev!,
+          current: i * 3 + 2,
+          status: `${symbol} (${i + 1}/${FOREX_SYMBOLS.length}): Fetching weekly...`
+        }));
+        
+        try {
+          const { data, error } = await supabase.functions.invoke('fetch-historical-data', {
+            body: { symbol, timeframe: 'W' }
+          });
+          
+          if (error) throw error;
+          
+          setProgress(prev => ({
+            ...prev!,
+            lastResult: `✓ ${symbol} W: ${data.inserted} candles`,
+            stats: {
+              ...prev!.stats,
+              'W': {
+                ...prev!.stats['W'],
+                success: [...prev!.stats['W'].success, symbol]
+              }
+            }
+          }));
+        } catch (err) {
+          console.error(`Failed ${symbol} W:`, err);
+          setProgress(prev => ({
+            ...prev!,
+            stats: {
+              ...prev!.stats,
+              'W': {
+                ...prev!.stats['W'],
+                failed: [...prev!.stats['W'].failed, symbol]
+              }
+            }
+          }));
+        }
+        
+        await new Promise(r => setTimeout(r, 1000));
+        
+        // Fetch 4H data (synthetic)
+        setProgress(prev => ({
+          ...prev!,
+          current: i * 3 + 3,
+          status: `${symbol} (${i + 1}/${FOREX_SYMBOLS.length}): Fetching 4H synthetic...`
+        }));
+        
+        try {
+          const { data, error } = await supabase.functions.invoke('fetch-historical-data', {
+            body: { symbol, timeframe: '4H' }
+          });
+          
+          if (error) throw error;
+          
+          setProgress(prev => ({
+            ...prev!,
+            lastResult: `✓ ${symbol} 4H: ${data.inserted} candles (synthetic)`,
+            stats: {
+              ...prev!.stats,
+              '4H': {
+                ...prev!.stats['4H'],
+                success: [...prev!.stats['4H'].success, symbol]
+              }
+            }
+          }));
+        } catch (err) {
+          console.error(`Failed ${symbol} 4H:`, err);
+          setProgress(prev => ({
+            ...prev!,
+            stats: {
+              ...prev!.stats,
+              '4H': {
+                ...prev!.stats['4H'],
+                failed: [...prev!.stats['4H'].failed, symbol]
+              }
+            }
+          }));
+        }
+        
+        await new Promise(r => setTimeout(r, 1000));
+      }
+      
+      if (!cancelRequested) {
+        setProgress(prev => ({
+          ...prev!,
+          current: totalOps,
+          status: 'Complete!'
+        }));
+        
+        toast({
+          title: "Population complete",
+          description: `1D: ${progress?.stats['1D'].success.length}/${FOREX_SYMBOLS.length}, W: ${progress?.stats['W'].success.length}/${FOREX_SYMBOLS.length}, 4H: ${progress?.stats['4H'].success.length}/${FOREX_SYMBOLS.length}`,
+        });
       }
 
+      checkDataStatus();
+    } catch (error) {
+      console.error('Error populating data:', error);
       toast({
-        title: "Historical data populated",
-        description: `Inserted ${data.totalInserted} candles from ${data.stats.fastforex} FastForex + ${data.stats.alphavantage} Alpha Vantage`,
-      });
-
-      await checkDataStatus();
-    } catch (error: any) {
-      console.error('💥 Population error:', error);
-      toast({
-        title: "Error populating data",
-        description: error.message || 'Unknown error - check console logs',
+        title: "Error",
+        description: "Failed to populate historical data",
         variant: "destructive",
       });
     } finally {
-      setLoading(prev => ({ ...prev, historical: false }));
-    }
-  };
-
-  const build4HCandles = async () => {
-    setLoading(prev => ({ ...prev, fourHour: true }));
-    try {
-      toast({
-        title: "Building 4H candles",
-        description: "Aggregating live price history...",
-      });
-
-      const { data, error } = await supabase.functions.invoke('aggregate-4h-candles', {
-        body: {
-          symbols: [
-            'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'NZDUSD', 'USDCAD',
-            'EURGBP', 'GBPCAD', 'EURAUD', 'EURCAD', 'GBPAUD', 'CHFJPY', 'NZDJPY',
-            'GBPNZD', 'AUDCHF', 'CADJPY', 'NZDCHF', 'NZDCAD', 'AUDNZD', 'AUDJPY',
-            'EURNZD', 'EURJPY', 'CADCHF', 'EURCHF', 'GBPCHF', 'GBPJPY'
-          ]
-        }
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: "4H candles built",
-        description: `Created ${data.totalCandles} 4H candles for ${data.processedSymbols}/${data.totalSymbols} symbols`,
-      });
-
-      await checkDataStatus();
-    } catch (error: any) {
-      toast({
-        title: "Error building 4H candles",
-        description: error.message,
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(prev => ({ ...prev, fourHour: false }));
+      setLoading(false);
     }
   };
 
@@ -187,33 +268,12 @@ export function DataPopulationPanel() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Data Population & System Activation</CardTitle>
+        <CardTitle>Historical Data Population</CardTitle>
         <CardDescription>
-          Step 1: Populate historical data (1D, W) | Step 2: Build 4H candles | Step 3: Test signals
+          Fetch 1D (1 year), W (5 years), and 4H (6 months synthetic) data for all 27 forex pairs
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Test Edge Functions */}
-        <div className="space-y-3 p-4 border-2 border-dashed border-yellow-500/50 rounded-lg bg-yellow-500/5">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-semibold">🧪 Test Edge Functions</h3>
-              <p className="text-xs text-muted-foreground mt-1">
-                Verify edge functions are deployed and API keys are configured
-              </p>
-            </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={testEdgeFunctions}
-              disabled={loading.testing}
-            >
-              {loading.testing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Run Test
-            </Button>
-          </div>
-        </div>
-
         {/* Data Status */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -222,9 +282,9 @@ export function DataPopulationPanel() {
               variant="outline"
               size="sm"
               onClick={checkDataStatus}
-              disabled={loading.checking}
+              disabled={checking}
             >
-              {loading.checking && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {checking && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Refresh Status
             </Button>
           </div>
@@ -254,59 +314,110 @@ export function DataPopulationPanel() {
           </div>
         </div>
 
-        {/* Step 1: Historical Data */}
-        <div className="space-y-3 p-4 border rounded-lg">
-          <div className="flex items-start gap-3">
-            <Database className="w-5 h-5 mt-0.5 text-blue-500" />
-            <div className="flex-1 space-y-2">
-              <h4 className="font-semibold">Step 1: Populate Historical Data</h4>
-              <p className="text-sm text-muted-foreground">
-                Fetch 5 years of daily and 9 years of weekly OHLC data from FastForex and Alpha Vantage.
-                This data is required for multi-timeframe confluence analysis.
-              </p>
-              <Button
-                onClick={populateHistoricalData}
-                disabled={loading.historical}
-                className="mt-2"
-              >
-                {loading.historical && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Fetch Historical Data (1D, W)
-              </Button>
+        {/* Population Progress */}
+        {progress && (
+          <div className="space-y-3 p-4 bg-muted/50 rounded-lg">
+            <div className="flex justify-between text-sm">
+              <span className="font-medium">{progress.status}</span>
+              <span className="text-muted-foreground">
+                {progress.current}/{progress.total} ({Math.round((progress.current / progress.total) * 100)}%)
+              </span>
             </div>
+            
+            <Progress value={(progress.current / progress.total) * 100} />
+            
+            {progress.lastResult && (
+              <p className="text-sm text-green-600 dark:text-green-400">
+                {progress.lastResult}
+              </p>
+            )}
+            
+            <div className="grid grid-cols-3 gap-2 text-xs">
+              <div>
+                <span className="font-medium">1D:</span> {progress.stats['1D'].success.length}/{FOREX_SYMBOLS.length}
+                {progress.stats['1D'].failed.length > 0 && (
+                  <span className="text-destructive ml-1">({progress.stats['1D'].failed.length} failed)</span>
+                )}
+              </div>
+              <div>
+                <span className="font-medium">W:</span> {progress.stats['W'].success.length}/{FOREX_SYMBOLS.length}
+                {progress.stats['W'].failed.length > 0 && (
+                  <span className="text-destructive ml-1">({progress.stats['W'].failed.length} failed)</span>
+                )}
+              </div>
+              <div>
+                <span className="font-medium">4H:</span> {progress.stats['4H'].success.length}/{FOREX_SYMBOLS.length}
+                {progress.stats['4H'].failed.length > 0 && (
+                  <span className="text-destructive ml-1">({progress.stats['4H'].failed.length} failed)</span>
+                )}
+              </div>
+            </div>
+            
+            {(progress.stats['1D'].failed.length > 0 || 
+              progress.stats['W'].failed.length > 0 || 
+              progress.stats['4H'].failed.length > 0) && (
+              <details className="text-xs">
+                <summary className="cursor-pointer text-destructive">Failed symbols</summary>
+                <div className="mt-2 space-y-1 pl-4">
+                  {progress.stats['1D'].failed.length > 0 && (
+                    <div>1D: {progress.stats['1D'].failed.join(', ')}</div>
+                  )}
+                  {progress.stats['W'].failed.length > 0 && (
+                    <div>W: {progress.stats['W'].failed.join(', ')}</div>
+                  )}
+                  {progress.stats['4H'].failed.length > 0 && (
+                    <div>4H: {progress.stats['4H'].failed.join(', ')}</div>
+                  )}
+                </div>
+              </details>
+            )}
           </div>
-        </div>
+        )}
 
-        {/* Step 2: 4H Candles */}
-        <div className="space-y-3 p-4 border rounded-lg">
-          <div className="flex items-start gap-3">
-            <TrendingUp className="w-5 h-5 mt-0.5 text-purple-500" />
-            <div className="flex-1 space-y-2">
-              <h4 className="font-semibold">Step 2: Build 4H Candles</h4>
-              <p className="text-sm text-muted-foreground">
-                Aggregate live price history (1-minute ticks) into 4-hour candles for intraday structure analysis.
-                Requires that centralized-market-stream has been running.
-              </p>
-              <Button
-                onClick={build4HCandles}
-                disabled={loading.fourHour}
-                variant="secondary"
-                className="mt-2"
+        {/* Population Button */}
+        <div className="space-y-3">
+          <div className="flex gap-2">
+            <Button 
+              onClick={populateHistoricalData} 
+              disabled={loading}
+              className="flex-1"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Populating...
+                </>
+              ) : (
+                <>
+                  <Play className="mr-2 h-4 w-4" />
+                  Populate All Timeframes (1D, W, 4H)
+                </>
+              )}
+            </Button>
+            {loading && (
+              <Button 
+                variant="destructive" 
+                onClick={() => setCancelRequested(true)}
+                size="icon"
               >
-                {loading.fourHour && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Build 4H Candles
+                <Square className="h-4 w-4" />
               </Button>
-            </div>
+            )}
           </div>
+          
+          <p className="text-xs text-muted-foreground">
+            Estimated time: ~3 minutes for all 27 pairs × 3 timeframes (FastForex rate limited to 1 req/sec)
+          </p>
         </div>
 
         {/* Instructions */}
         <div className="bg-muted/50 p-4 rounded-lg space-y-2">
-          <p className="text-sm font-medium">Next Steps:</p>
+          <p className="text-sm font-medium">What happens:</p>
           <ol className="text-sm text-muted-foreground space-y-1 ml-4 list-decimal">
-            <li>Click "Fetch Historical Data" to populate W and 1D timeframes</li>
-            <li>Click "Build 4H Candles" to create intraday data</li>
-            <li>Go to Signal Generation Testing page to test the system</li>
-            <li>Once verified, automated signals will run every 5 minutes via GitHub Actions</li>
+            <li>Fetches 1 year of daily data for each pair from FastForex</li>
+            <li>Fetches 5 years of weekly data (aggregated from daily)</li>
+            <li>Generates 6 months of synthetic 4H candles from daily data</li>
+            <li>Live stream will gradually replace synthetic 4H with real data</li>
           </ol>
         </div>
       </CardContent>
