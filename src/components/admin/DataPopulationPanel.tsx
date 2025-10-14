@@ -46,7 +46,7 @@ export function DataPopulationPanel() {
       const { count: dailyCount } = await supabase
         .from('multi_timeframe_data')
         .select('*', { count: 'exact', head: true })
-        .eq('timeframe', '1D');
+        .eq('timeframe', 'D');
 
       const { count: weeklyCount } = await supabase
         .from('multi_timeframe_data')
