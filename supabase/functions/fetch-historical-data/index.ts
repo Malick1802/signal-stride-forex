@@ -173,7 +173,7 @@ serve(async (req) => {
     const quoteCurrency = symbol.substring(3, 6);
     
     // FastForex time-series endpoint
-    const fastForexUrl = `https://api.fastforex.io/time-series?from=${fromDate}&to=${toDate}&base=${baseCurrency}&symbols=${quoteCurrency}&api_key=${fastForexApiKey}`;
+    const fastForexUrl = `https://api.fastforex.io/time-series?date_from=${fromDate}&date_to=${toDate}&base=${baseCurrency}&symbols=${quoteCurrency}&api_key=${fastForexApiKey}`;
     
     console.log(`🔄 Fetching from FastForex: ${symbol}`);
     
