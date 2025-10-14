@@ -88,7 +88,7 @@ export function DataPopulationPanel() {
     setProgress({
       current: 0,
       total: totalOps,
-      status: 'Starting...',
+      status: 'Starting sanity check with EURUSD...',
       stats: {
         '1D': { success: [], failed: [] },
         'W': { success: [], failed: [] },
@@ -97,6 +97,49 @@ export function DataPopulationPanel() {
     });
 
     try {
+      // Sanity check: Test EURUSD first for all timeframes
+      console.log('🧪 Running sanity check with EURUSD...');
+      
+      for (const timeframe of ['1D', 'W', '4H'] as const) {
+        setProgress(prev => ({
+          ...prev!,
+          status: `Sanity check: EURUSD ${timeframe}...`
+        }));
+        
+        try {
+          const { data, error } = await supabase.functions.invoke('fetch-historical-data', {
+            body: { symbol: 'EURUSD', timeframe }
+          });
+          
+          if (error) throw error;
+          
+          console.log(`✅ Sanity check passed: EURUSD ${timeframe} - ${data.inserted} candles`);
+          await new Promise(r => setTimeout(r, 400));
+        } catch (err) {
+          console.error(`❌ Sanity check failed for EURUSD ${timeframe}:`, err);
+          toast({
+            title: "Sanity check failed",
+            description: `EURUSD ${timeframe} failed. Stopping population. Check edge function logs.`,
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+      }
+      
+      toast({
+        title: "Sanity check passed ✅",
+        description: "EURUSD worked for all timeframes. Proceeding with full population...",
+      });
+      
+      setProgress(prev => ({
+        ...prev!,
+        status: 'Sanity check passed! Starting full population...'
+      }));
+      
+      await new Promise(r => setTimeout(r, 1000));
+      
+      // Full population
       for (let i = 0; i < FOREX_SYMBOLS.length; i++) {
         if (cancelRequested) {
           toast({
@@ -147,7 +190,7 @@ export function DataPopulationPanel() {
           }));
         }
         
-        await new Promise(r => setTimeout(r, 1000));
+        await new Promise(r => setTimeout(r, 400));
         
         // Fetch W data
         setProgress(prev => ({
@@ -188,7 +231,7 @@ export function DataPopulationPanel() {
           }));
         }
         
-        await new Promise(r => setTimeout(r, 1000));
+        await new Promise(r => setTimeout(r, 400));
         
         // Fetch 4H data (synthetic)
         setProgress(prev => ({
@@ -229,7 +272,7 @@ export function DataPopulationPanel() {
           }));
         }
         
-        await new Promise(r => setTimeout(r, 1000));
+        await new Promise(r => setTimeout(r, 400));
       }
       
       if (!cancelRequested) {

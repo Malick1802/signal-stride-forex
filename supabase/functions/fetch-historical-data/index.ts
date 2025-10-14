@@ -173,10 +173,10 @@ serve(async (req) => {
     const quoteCurrency = symbol.substring(3, 6);
     
     // Try multiple parameter variants for FastForex API
+    // CRITICAL: 'to' parameter is for target currency, NOT date range!
     const variants = [
-      { name: 'A', params: `from=${encodeURIComponent(fromDate)}&to=${encodeURIComponent(toDate)}&base=${encodeURIComponent(baseCurrency)}&currencies=${encodeURIComponent(quoteCurrency)}` },
-      { name: 'B', params: `date_from=${encodeURIComponent(fromDate)}&date_to=${encodeURIComponent(toDate)}&base=${encodeURIComponent(baseCurrency)}&currencies=${encodeURIComponent(quoteCurrency)}` },
-      { name: 'C', params: `start=${encodeURIComponent(fromDate)}&end=${encodeURIComponent(toDate)}&base=${encodeURIComponent(baseCurrency)}&currencies=${encodeURIComponent(quoteCurrency)}` },
+      { name: 'A', params: `date_from=${encodeURIComponent(fromDate)}&date_to=${encodeURIComponent(toDate)}&from=${encodeURIComponent(baseCurrency)}&to=${encodeURIComponent(quoteCurrency)}` },
+      { name: 'B', params: `start=${encodeURIComponent(fromDate)}&end=${encodeURIComponent(toDate)}&from=${encodeURIComponent(baseCurrency)}&to=${encodeURIComponent(quoteCurrency)}` },
     ];
     
     let data: any = null;
