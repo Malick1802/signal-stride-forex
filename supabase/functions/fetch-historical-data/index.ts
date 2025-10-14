@@ -193,20 +193,36 @@ serve(async (req) => {
       throw new Error('FastForex returned no results for time-series');
     }
     
-    console.log(`✅ FastForex time-series succeeded: ${Object.keys(data.results).length} data points`);
-
-    // Convert to daily candles with tolerant parser
-    const dailyCandles: DailyCandle[] = [];
-    let firstEntrySampled = false;
+    console.log(`📊 Response shape:`, Object.keys(data));
     
-    Object.entries(data.results).forEach(([date, rates]: [string, any]) => {
-      // Debug log for first entry to understand response shape
-      if (!firstEntrySampled) {
-        console.log(`📊 Sample result entry for ${date}:`, typeof rates, Object.keys(rates || {}).slice(0, 5));
-        firstEntrySampled = true;
-      }
+    // Detect if results are nested under baseCurrency (e.g., results.USD["2025-01-01"])
+    let resultsByDate = data.results;
+    
+    if (data.results[baseCurrency] && typeof data.results[baseCurrency] === 'object') {
+      // Nested structure detected
+      resultsByDate = data.results[baseCurrency];
+      console.log(`📦 Nested results under ${baseCurrency}: ${Object.keys(resultsByDate).length} entries`);
+    } else {
+      console.log(`📦 Flat results: ${Object.keys(resultsByDate).length} entries`);
+    }
+    
+    // Only process date entries (YYYY-MM-DD format)
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    const validDates = Object.keys(resultsByDate).filter(key => dateRegex.test(key));
+    
+    console.log(`📅 Found ${validDates.length} valid dates`);
+    if (validDates.length > 0) {
+      const sampleDate = validDates[0];
+      console.log(`📅 Sample: ${sampleDate} ->`, resultsByDate[sampleDate]);
+    }
+
+    // Convert to daily candles
+    const dailyCandles: DailyCandle[] = [];
+    
+    for (const dateStr of validDates) {
+      const rates = resultsByDate[dateStr];
       
-      // Extract rate value tolerantly from various response shapes
+      // Extract rate value (handle number, string, or object)
       let rateVal: number | null = null;
       
       if (typeof rates === 'number') {
@@ -214,48 +230,60 @@ serve(async (req) => {
       } else if (typeof rates === 'string') {
         rateVal = parseFloat(rates);
       } else if (typeof rates === 'object' && rates !== null) {
-        // Try quoteCurrency key first
-        if (rates[quoteCurrency] !== undefined) {
-          rateVal = typeof rates[quoteCurrency] === 'number' 
-            ? rates[quoteCurrency] 
-            : parseFloat(rates[quoteCurrency]);
-        } 
-        // Try 'rate' key
-        else if (rates.rate !== undefined) {
-          rateVal = typeof rates.rate === 'number' 
-            ? rates.rate 
-            : parseFloat(rates.rate);
+        // Try quoteCurrency first
+        if (quoteCurrency in rates) {
+          const val = rates[quoteCurrency];
+          rateVal = typeof val === 'number' ? val : parseFloat(String(val));
         }
-        // Find first numeric value in object
+        // Try .rate property
+        else if ('rate' in rates) {
+          const val = rates.rate;
+          rateVal = typeof val === 'number' ? val : parseFloat(String(val));
+        }
+        // Try to find first numeric value
         else {
-          const firstNumeric = Object.values(rates).find(v => 
-            typeof v === 'number' || (typeof v === 'string' && !isNaN(parseFloat(v)))
-          );
-          if (firstNumeric !== undefined) {
-            rateVal = typeof firstNumeric === 'number' 
-              ? firstNumeric 
-              : parseFloat(firstNumeric as string);
+          const values = Object.values(rates);
+          for (const val of values) {
+            if (typeof val === 'number' && val > 0) {
+              rateVal = val;
+              break;
+            } else if (typeof val === 'string') {
+              const parsed = parseFloat(val);
+              if (!isNaN(parsed) && parsed > 0) {
+                rateVal = parsed;
+                break;
+              }
+            }
           }
         }
       }
       
-      // Only create candle if we got a valid number
-      if (rateVal && !isNaN(rateVal) && rateVal > 0) {
-        // Simulate OHLC from single rate (±0.15% spread)
-        const spread = rateVal * 0.0015;
-        dailyCandles.push({
-          symbol,
-          timeframe: '1D',
-          timestamp: `${date}T00:00:00Z`,
-          open_price: rateVal,
-          high_price: rateVal + spread,
-          low_price: rateVal - spread,
-          close_price: rateVal,
-          volume: 0,
-          source: 'fastforex'
-        });
+      if (!rateVal || isNaN(rateVal) || rateVal <= 0) {
+        continue;
       }
-    });
+      
+      const timestamp = `${dateStr}T00:00:00Z`;
+      
+      // Validate timestamp
+      if (isNaN(Date.parse(timestamp))) {
+        console.warn(`⚠️ Invalid timestamp: ${timestamp}`);
+        continue;
+      }
+      
+      // Simulate OHLC with small spread (±0.15%)
+      const spread = rateVal * 0.0015;
+      dailyCandles.push({
+        symbol,
+        timeframe: '1D',
+        timestamp,
+        open_price: rateVal,
+        high_price: rateVal + spread,
+        low_price: rateVal - spread,
+        close_price: rateVal,
+        volume: 0,
+        source: 'fastforex'
+      });
+    }
 
     // Fallback: If still no candles, try historical endpoint for short window
     if (dailyCandles.length === 0) {
