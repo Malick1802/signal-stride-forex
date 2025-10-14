@@ -148,8 +148,22 @@ async function fetchYearData(
   
   const data = await response.json();
   
-  if (!data.results || Object.keys(data.results).length === 0) {
+  // 🔍 DEBUG: Log full response structure
+  console.log('📦 FastForex Response:', JSON.stringify(data, null, 2));
+  console.log('📦 Response keys:', Object.keys(data));
+  console.log('📦 Results type:', typeof data.results);
+  console.log('📦 Results keys:', data.results ? Object.keys(data.results).length : 0);
+  
+  // Handle both possible response structures:
+  // 1. { "base": "EUR", "results": { "2024-10-14": 1.0945, "2024-10-15": 1.0950 } }
+  // 2. { "results": { "2024-10-14": { "USD": 1.0945 }, "2024-10-15": { "USD": 1.0950 } } }
+  // 3. { "rates": { "2024-10-14": { "USD": 1.0945 } } }
+  
+  const resultsObj = data.results || data.rates || {};
+  
+  if (!resultsObj || Object.keys(resultsObj).length === 0) {
     console.warn(`⚠️ No data returned for ${fromDate} to ${toDate}`);
+    console.warn(`⚠️ Full response:`, JSON.stringify(data, null, 2));
     return [];
   }
   
@@ -157,24 +171,45 @@ async function fetchYearData(
   const dailyCandles: DailyCandle[] = [];
   const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
   
-  for (const [dateStr, rates] of Object.entries(data.results)) {
-    if (!dateRegex.test(dateStr)) continue;
+  for (const [dateStr, rates] of Object.entries(resultsObj)) {
+    if (!dateRegex.test(dateStr)) {
+      console.log(`⚠️ Skipping invalid date: ${dateStr}`);
+      continue;
+    }
     
     let rateVal: number | null = null;
     
-    // Extract rate value
+    // 🔍 DEBUG: Log each date entry
+    console.log(`📅 Processing ${dateStr}:`, typeof rates, rates);
+    
+    // Extract rate value - handle multiple response formats
     if (typeof rates === 'number') {
+      // Format 1: Direct number value
       rateVal = rates;
+      console.log(`  ✅ Direct number: ${rateVal}`);
     } else if (typeof rates === 'object' && rates !== null) {
       const rateObj = rates as Record<string, any>;
+      
+      // Format 2: Nested object with currency code
       if (quoteCurrency in rateObj) {
         rateVal = typeof rateObj[quoteCurrency] === 'number' 
           ? rateObj[quoteCurrency] 
           : parseFloat(String(rateObj[quoteCurrency]));
+        console.log(`  ✅ Found ${quoteCurrency}: ${rateVal}`);
+      } else {
+        // Try to find any numeric value
+        const firstKey = Object.keys(rateObj)[0];
+        if (firstKey && typeof rateObj[firstKey] === 'number') {
+          rateVal = rateObj[firstKey];
+          console.log(`  ⚠️ Using first numeric value from ${firstKey}: ${rateVal}`);
+        }
       }
     }
     
-    if (!rateVal || isNaN(rateVal) || rateVal <= 0) continue;
+    if (!rateVal || isNaN(rateVal) || rateVal <= 0) {
+      console.warn(`  ❌ Invalid rate for ${dateStr}: ${rateVal}`);
+      continue;
+    }
     
     const spread = rateVal * 0.0015;
     dailyCandles.push({
