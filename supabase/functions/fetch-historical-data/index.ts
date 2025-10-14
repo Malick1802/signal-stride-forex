@@ -172,26 +172,68 @@ serve(async (req) => {
     const baseCurrency = symbol.substring(0, 3);
     const quoteCurrency = symbol.substring(3, 6);
     
-    // FastForex time-series endpoint (using from/to and currencies parameters)
-    const fastForexUrl = `https://api.fastforex.io/time-series?from=${fromDate}&to=${toDate}&base=${baseCurrency}&currencies=${quoteCurrency}&api_key=${fastForexApiKey}`;
+    // Try multiple parameter variants for FastForex API
+    const variants = [
+      { name: 'A', params: `from=${encodeURIComponent(fromDate)}&to=${encodeURIComponent(toDate)}&base=${encodeURIComponent(baseCurrency)}&currencies=${encodeURIComponent(quoteCurrency)}` },
+      { name: 'B', params: `date_from=${encodeURIComponent(fromDate)}&date_to=${encodeURIComponent(toDate)}&base=${encodeURIComponent(baseCurrency)}&currencies=${encodeURIComponent(quoteCurrency)}` },
+      { name: 'C', params: `start=${encodeURIComponent(fromDate)}&end=${encodeURIComponent(toDate)}&base=${encodeURIComponent(baseCurrency)}&currencies=${encodeURIComponent(quoteCurrency)}` },
+    ];
     
-    console.log(`🔄 Fetching ${symbol} from FastForex: ${fromDate} to ${toDate} (base: ${baseCurrency}, quote: ${quoteCurrency})`);
+    let data: any = null;
+    let lastError: string = '';
     
-    const response = await fetch(fastForexUrl);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`❌ FastForex error (${response.status}):`, errorText);
-      throw new Error(`FastForex API error: ${response.status} - ${errorText}`);
+    for (const variant of variants) {
+      const fastForexUrl = `https://api.fastforex.io/time-series?${variant.params}&api_key=${fastForexApiKey}`;
+      
+      console.log(`🔄 Fetching ${symbol} (variant ${variant.name}): ${fromDate} to ${toDate}`);
+      
+      try {
+        const response = await fetch(fastForexUrl, {
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        const responseText = await response.text();
+        
+        if (!response.ok) {
+          lastError = `Variant ${variant.name} failed (${response.status}): ${responseText}`;
+          console.warn(`⚠️ ${lastError}`);
+          
+          // If error suggests wrong parameter, try next variant
+          if (responseText.includes('Invalid/unsupported currency') || 
+              responseText.includes('required parameter') ||
+              responseText.includes('Please supply')) {
+            continue;
+          }
+          
+          throw new Error(lastError);
+        }
+        
+        const jsonData = JSON.parse(responseText);
+        
+        if (!jsonData.results || Object.keys(jsonData.results).length === 0) {
+          lastError = `Variant ${variant.name} returned no results`;
+          console.warn(`⚠️ ${lastError}`);
+          continue;
+        }
+        
+        // Success!
+        data = jsonData;
+        console.log(`✅ Variant ${variant.name} succeeded: ${Object.keys(data.results).length} data points`);
+        break;
+        
+      } catch (err) {
+        lastError = `Variant ${variant.name} error: ${err.message}`;
+        console.warn(`⚠️ ${lastError}`);
+        continue;
+      }
     }
-
-    const data = await response.json();
     
-    if (!data.results) {
-      throw new Error('No results from FastForex API');
+    if (!data || !data.results) {
+      throw new Error(`All FastForex parameter variants failed. Last error: ${lastError}`);
     }
-
-    console.log(`✅ Received ${Object.keys(data.results).length} data points from FastForex`);
 
     // Convert to daily candles
     const dailyCandles: DailyCandle[] = [];
