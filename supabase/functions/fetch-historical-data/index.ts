@@ -131,86 +131,59 @@ async function fetchYearData(
 ): Promise<DailyCandle[]> {
   const url = `https://api.fastforex.io/time-series?from=${baseCurrency}&to=${quoteCurrency}&start=${fromDate}&end=${toDate}`;
   
-  console.log(`🔄 Fetching ${fromDate} to ${toDate}`);
+  console.log(`🔄 Fetching ${symbol}: ${fromDate} to ${toDate}`);
   
   const response = await fetch(url, {
     headers: {
       'Accept': 'application/json',
-      'X-API-Key': apiKey  // ✅ Use header authentication per FastForex recommendation
+      'X-API-Key': apiKey  // ✅ Use header authentication (Tom's confirmed format)
     }
   });
   
   if (!response.ok) {
     const errorText = await response.text();
-    console.error(`❌ FastForex failed: HTTP ${response.status}`, errorText);
-    throw new Error(`FastForex time-series failed: HTTP ${response.status}`);
+    console.error(`❌ FastForex API error: HTTP ${response.status}`, errorText);
+    throw new Error(`FastForex API failed: HTTP ${response.status}. Check your API key in Supabase secrets.`);
   }
   
   const data = await response.json();
   
-  // 🔍 DEBUG: Log full response structure
-  console.log('📦 FastForex Response:', JSON.stringify(data, null, 2));
-  console.log('📦 Response keys:', Object.keys(data));
-  console.log('📦 Results type:', typeof data.results);
-  console.log('📦 Results keys:', data.results ? Object.keys(data.results).length : 0);
-  
-  // Handle both possible response structures:
-  // 1. { "base": "EUR", "results": { "2024-10-14": 1.0945, "2024-10-15": 1.0950 } }
-  // 2. { "results": { "2024-10-14": { "USD": 1.0945 }, "2024-10-15": { "USD": 1.0950 } } }
-  // 3. { "rates": { "2024-10-14": { "USD": 1.0945 } } }
-  
-  const resultsObj = data.results || data.rates || {};
+  // Tom confirmed response format: { "base": "EUR", "results": { "2024-10-14": 1.0945 } }
+  const resultsObj = data.results || {};
   
   if (!resultsObj || Object.keys(resultsObj).length === 0) {
     console.warn(`⚠️ No data returned for ${fromDate} to ${toDate}`);
-    console.warn(`⚠️ Full response:`, JSON.stringify(data, null, 2));
     return [];
   }
   
-  // Parse results
+  console.log(`📦 Received ${Object.keys(resultsObj).length} data points`);
+  
+  // Parse results into candles
   const dailyCandles: DailyCandle[] = [];
   const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
   
   for (const [dateStr, rates] of Object.entries(resultsObj)) {
-    if (!dateRegex.test(dateStr)) {
-      console.log(`⚠️ Skipping invalid date: ${dateStr}`);
-      continue;
-    }
+    if (!dateRegex.test(dateStr)) continue;
     
     let rateVal: number | null = null;
     
-    // 🔍 DEBUG: Log each date entry
-    console.log(`📅 Processing ${dateStr}:`, typeof rates, rates);
-    
-    // Extract rate value - handle multiple response formats
+    // Handle response formats:
+    // 1. Direct number: { "2024-10-14": 1.0945 }
+    // 2. Nested object: { "2024-10-14": { "USD": 1.0945 } }
     if (typeof rates === 'number') {
-      // Format 1: Direct number value
       rateVal = rates;
-      console.log(`  ✅ Direct number: ${rateVal}`);
     } else if (typeof rates === 'object' && rates !== null) {
       const rateObj = rates as Record<string, any>;
-      
-      // Format 2: Nested object with currency code
       if (quoteCurrency in rateObj) {
         rateVal = typeof rateObj[quoteCurrency] === 'number' 
           ? rateObj[quoteCurrency] 
           : parseFloat(String(rateObj[quoteCurrency]));
-        console.log(`  ✅ Found ${quoteCurrency}: ${rateVal}`);
-      } else {
-        // Try to find any numeric value
-        const firstKey = Object.keys(rateObj)[0];
-        if (firstKey && typeof rateObj[firstKey] === 'number') {
-          rateVal = rateObj[firstKey];
-          console.log(`  ⚠️ Using first numeric value from ${firstKey}: ${rateVal}`);
-        }
       }
     }
     
-    if (!rateVal || isNaN(rateVal) || rateVal <= 0) {
-      console.warn(`  ❌ Invalid rate for ${dateStr}: ${rateVal}`);
-      continue;
-    }
+    if (!rateVal || isNaN(rateVal) || rateVal <= 0) continue;
     
+    // Simulate OHLC from daily close price (FastForex only provides close)
     const spread = rateVal * 0.0015;
     dailyCandles.push({
       symbol,
@@ -225,8 +198,33 @@ async function fetchYearData(
     });
   }
   
-  console.log(`✅ Fetched ${dailyCandles.length} candles for ${fromDate} to ${toDate}`);
+  console.log(`✅ Parsed ${dailyCandles.length} candles`);
   return dailyCandles;
+}
+
+// Verify API key with Tom's known-good test request
+async function verifyApiKey(apiKey: string): Promise<void> {
+  console.log('🔐 Verifying FastForex API key...');
+  
+  // Use Tom's exact working example: EUR/USD for full year 2024
+  const testUrl = 'https://api.fastforex.io/time-series?from=EUR&to=USD&start=2024-01-01&end=2024-12-31';
+  
+  const response = await fetch(testUrl, {
+    headers: { 'X-API-Key': apiKey }
+  });
+  
+  if (!response.ok) {
+    throw new Error(`API key verification failed: HTTP ${response.status}. Please check FASTFOREX_API_KEY in Supabase secrets.`);
+  }
+  
+  const data = await response.json();
+  const resultCount = data.results ? Object.keys(data.results).length : 0;
+  
+  if (resultCount === 0) {
+    throw new Error('API key verification failed: No data returned. Your FastForex plan may not have time-series access enabled.');
+  }
+  
+  console.log(`✅ API key verified (test returned ${resultCount} data points)`);
 }
 
 serve(async (req) => {
@@ -247,6 +245,9 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
+    // ✅ Verify API key first (Tom's recommendation)
+    await verifyApiKey(fastForexApiKey);
+
     const { symbol, timeframe } = await req.json();
     
     if (!symbol) {
@@ -264,23 +265,20 @@ serve(async (req) => {
     
     let dailyCandles: DailyCandle[] = [];
     
-    // For weekly: fetch 5 years in 1-year chunks (FastForex recommendation: max 1 year per request)
+    // ✅ Use calendar year boundaries (Tom's recommendation: max 1 year per request)
     if (timeframe === 'W') {
-      console.log('📅 Fetching 5 years of data (1 year per request)...');
+      console.log('📅 Fetching 5 years of data using calendar year boundaries...');
+      
+      const currentYear = new Date().getFullYear();
       
       for (let yearOffset = 0; yearOffset < 5; yearOffset++) {
-        const yearEnd = new Date();
-        yearEnd.setFullYear(yearEnd.getFullYear() - yearOffset);
-        yearEnd.setMonth(0, 0); // Dec 31 of previous year
+        const year = currentYear - yearOffset;
+        const fromDate = `${year}-01-01`;
+        const toDate = yearOffset === 0 
+          ? new Date().toISOString().split('T')[0]  // Current year: fetch up to today
+          : `${year}-12-31`;  // Past years: full year
         
-        const yearStart = new Date(yearEnd);
-        yearStart.setFullYear(yearStart.getFullYear());
-        yearStart.setMonth(0, 1); // Jan 1
-        
-        const fromDate = yearStart.toISOString().split('T')[0];
-        const toDate = yearEnd.toISOString().split('T')[0];
-        
-        console.log(`📆 Year ${yearOffset + 1}/5: ${fromDate} to ${toDate}`);
+        console.log(`📆 Year ${year}: ${fromDate} to ${toDate}`);
         
         try {
           const yearCandles = await fetchYearData(
@@ -298,30 +296,63 @@ serve(async (req) => {
             await new Promise(resolve => setTimeout(resolve, 1000));
           }
         } catch (err) {
-          console.error(`❌ Year ${yearOffset + 1} failed:`, err.message);
-          // Continue with other years even if one fails
+          console.error(`❌ Year ${year} failed:`, err.message);
         }
       }
-    } else {
-      // For daily and 4H: single request
-      const now = new Date();
-      const startDate = new Date(now);
+    } else if (timeframe === '1D') {
+      // ✅ Daily: Fetch current year + previous year using calendar boundaries
+      console.log('📅 Fetching 1D data using calendar year boundaries...');
       
-      if (timeframe === '1D') {
-        startDate.setFullYear(now.getFullYear() - 1); // 1 year
-      } else if (timeframe === '4H') {
-        startDate.setMonth(now.getMonth() - 6); // 6 months
-      }
+      const currentYear = new Date().getFullYear();
+      const today = new Date().toISOString().split('T')[0];
       
-      const fromDate = startDate.toISOString().split('T')[0];
-      const toDate = now.toISOString().split('T')[0];
+      // Request 1: Previous year (full year)
+      const prevYear = currentYear - 1;
+      console.log(`📆 Fetching ${prevYear}-01-01 to ${prevYear}-12-31`);
+      const prevYearCandles = await fetchYearData(
+        baseCurrency,
+        quoteCurrency,
+        symbol,
+        `${prevYear}-01-01`,
+        `${prevYear}-12-31`,
+        fastForexApiKey
+      );
+      dailyCandles.push(...prevYearCandles);
       
+      // Rate limiting between requests
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Request 2: Current year (up to today)
+      console.log(`📆 Fetching ${currentYear}-01-01 to ${today}`);
+      const currentYearCandles = await fetchYearData(
+        baseCurrency,
+        quoteCurrency,
+        symbol,
+        `${currentYear}-01-01`,
+        today,
+        fastForexApiKey
+      );
+      dailyCandles.push(...currentYearCandles);
+      
+    } else if (timeframe === '4H') {
+      // ⚠️ FastForex doesn't support 4H yet - fetch daily data for synthesis
+      console.log('⚠️ 4H not available from FastForex - using daily data for synthesis');
+      
+      const currentYear = new Date().getFullYear();
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Fetch last 6 months of daily data (will be converted to 4H)
+      const sixMonthsAgo = new Date();
+      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+      const fromDate = sixMonthsAgo.toISOString().split('T')[0];
+      
+      console.log(`📆 Fetching daily data: ${fromDate} to ${today}`);
       dailyCandles = await fetchYearData(
-        baseCurrency, 
-        quoteCurrency, 
-        symbol, 
-        fromDate, 
-        toDate, 
+        baseCurrency,
+        quoteCurrency,
+        symbol,
+        fromDate,
+        today,
         fastForexApiKey
       );
     }
