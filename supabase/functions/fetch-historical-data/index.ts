@@ -50,7 +50,7 @@ async function fetchTimeSeriesChunk(
   end: string,
   apiKey: string
 ): Promise<Array<{date: string; close: number}>> {
-  const url = `https://api.fastforex.io/time-series?from=${baseCurrency}&to=${quoteCurrency}&start=${start}&end=${end}&interval=day`;
+  const url = `https://api.fastforex.io/time-series?from=${baseCurrency}&to=${quoteCurrency}&start=${start}&end=${end}`;
   
   console.log(`🔄 Fetching chunk: ${start} to ${end}`);
   
