@@ -30,12 +30,12 @@ function generateSynthetic4HCandles(dailyCandle: DailyCandle): DailyCandle[] {
     candleTime.setUTCHours(i * 4, 0, 0, 0);
     
     // Distribute the daily range across candles with slight variations
-    const progress = (i + 0.5) / 6;
+    const progress = (i + 0.5) / 6; // 0.083, 0.25, 0.417, 0.583, 0.75, 0.917
     const range = dailyCandle.high_price - dailyCandle.low_price;
     
-    // Simulate intraday movement
+    // Simulate intraday movement (slight randomization within daily range)
     const midPrice = dailyCandle.low_price + (range * progress);
-    const variance = range * 0.08;
+    const variance = range * 0.08; // ±8% of daily range per candle
     
     candles.push({
       symbol: dailyCandle.symbol,
@@ -62,7 +62,7 @@ function aggregateDailyToWeekly(dailyCandles: DailyCandle[]): DailyCandle[] {
   dailyCandles.forEach(candle => {
     const date = new Date(candle.timestamp);
     const weekStart = new Date(date);
-    weekStart.setUTCDate(date.getUTCDate() - date.getUTCDay());
+    weekStart.setUTCDate(date.getUTCDate() - date.getUTCDay()); // Start of week (Sunday)
     weekStart.setUTCHours(0, 0, 0, 0);
     const weekKey = weekStart.toISOString();
     
@@ -120,113 +120,6 @@ async function upsertCandles(supabase: any, candles: DailyCandle[]) {
   return inserted;
 }
 
-// Fetch single year of data using FastForex time-series
-async function fetchYearData(
-  baseCurrency: string,
-  quoteCurrency: string,
-  symbol: string,
-  fromDate: string,
-  toDate: string,
-  apiKey: string
-): Promise<DailyCandle[]> {
-  const url = `https://api.fastforex.io/time-series?from=${baseCurrency}&to=${quoteCurrency}&start=${fromDate}&end=${toDate}`;
-  
-  console.log(`🔄 Fetching ${symbol}: ${fromDate} to ${toDate}`);
-  
-  const response = await fetch(url, {
-    headers: {
-      'Accept': 'application/json',
-      'X-API-Key': apiKey  // ✅ Use header authentication (Tom's confirmed format)
-    }
-  });
-  
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error(`❌ FastForex API error: HTTP ${response.status}`, errorText);
-    throw new Error(`FastForex API failed: HTTP ${response.status}. Check your API key in Supabase secrets.`);
-  }
-  
-  const data = await response.json();
-  
-  // Tom confirmed response format: { "base": "EUR", "results": { "2024-10-14": 1.0945 } }
-  const resultsObj = data.results || {};
-  
-  if (!resultsObj || Object.keys(resultsObj).length === 0) {
-    console.warn(`⚠️ No data returned for ${fromDate} to ${toDate}`);
-    return [];
-  }
-  
-  console.log(`📦 Received ${Object.keys(resultsObj).length} data points`);
-  
-  // Parse results into candles
-  const dailyCandles: DailyCandle[] = [];
-  const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-  
-  for (const [dateStr, rates] of Object.entries(resultsObj)) {
-    if (!dateRegex.test(dateStr)) continue;
-    
-    let rateVal: number | null = null;
-    
-    // Handle response formats:
-    // 1. Direct number: { "2024-10-14": 1.0945 }
-    // 2. Nested object: { "2024-10-14": { "USD": 1.0945 } }
-    if (typeof rates === 'number') {
-      rateVal = rates;
-    } else if (typeof rates === 'object' && rates !== null) {
-      const rateObj = rates as Record<string, any>;
-      if (quoteCurrency in rateObj) {
-        rateVal = typeof rateObj[quoteCurrency] === 'number' 
-          ? rateObj[quoteCurrency] 
-          : parseFloat(String(rateObj[quoteCurrency]));
-      }
-    }
-    
-    if (!rateVal || isNaN(rateVal) || rateVal <= 0) continue;
-    
-    // Simulate OHLC from daily close price (FastForex only provides close)
-    const spread = rateVal * 0.0015;
-    dailyCandles.push({
-      symbol,
-      timeframe: 'D',
-      timestamp: `${dateStr}T00:00:00Z`,
-      open_price: rateVal,
-      high_price: rateVal + spread,
-      low_price: rateVal - spread,
-      close_price: rateVal,
-      volume: 0,
-      source: 'fastforex'
-    });
-  }
-  
-  console.log(`✅ Parsed ${dailyCandles.length} candles`);
-  return dailyCandles;
-}
-
-// Verify API key with Tom's known-good test request
-async function verifyApiKey(apiKey: string): Promise<void> {
-  console.log('🔐 Verifying FastForex API key...');
-  
-  // Use Tom's exact working example: EUR/USD for full year 2024
-  const testUrl = 'https://api.fastforex.io/time-series?from=EUR&to=USD&start=2024-01-01&end=2024-12-31';
-  
-  const response = await fetch(testUrl, {
-    headers: { 'X-API-Key': apiKey }
-  });
-  
-  if (!response.ok) {
-    throw new Error(`API key verification failed: HTTP ${response.status}. Please check FASTFOREX_API_KEY in Supabase secrets.`);
-  }
-  
-  const data = await response.json();
-  const resultCount = data.results ? Object.keys(data.results).length : 0;
-  
-  if (resultCount === 0) {
-    throw new Error('API key verification failed: No data returned. Your FastForex plan may not have time-series access enabled.');
-  }
-  
-  console.log(`✅ API key verified (test returned ${resultCount} data points)`);
-}
-
 serve(async (req) => {
   console.log('🔄 fetch-historical-data invoked');
   
@@ -245,9 +138,7 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // ✅ Verify API key first (Tom's recommendation)
-    await verifyApiKey(fastForexApiKey);
-
+    // Parse request - expect single symbol per invocation
     const { symbol, timeframe } = await req.json();
     
     if (!symbol) {
@@ -260,115 +151,204 @@ serve(async (req) => {
     
     console.log(`📊 Fetching ${symbol} ${timeframe} data`);
 
+    // Calculate date range based on timeframe
+    const now = new Date();
+    const startDate = new Date(now);
+    
+    if (timeframe === 'W') {
+      startDate.setFullYear(now.getFullYear() - 5); // 5 years for weekly
+    } else if (timeframe === '1D') {
+      startDate.setFullYear(now.getFullYear() - 1); // 1 year for daily
+    } else if (timeframe === '4H') {
+      startDate.setMonth(now.getMonth() - 6); // 6 months for 4H (we'll generate synthetic)
+    }
+    
+    const fromDate = startDate.toISOString().split('T')[0];
+    const toDate = now.toISOString().split('T')[0];
+    
+    console.log(`📅 Date range: ${fromDate} to ${toDate}`);
+
+    // Extract base and quote currencies
     const baseCurrency = symbol.substring(0, 3);
     const quoteCurrency = symbol.substring(3, 6);
     
-    let dailyCandles: DailyCandle[] = [];
+    // FastForex time-series API with correct parameters (api_key first, then start/end)
+    const fastForexUrl = `https://api.fastforex.io/time-series?api_key=${fastForexApiKey}&from=${baseCurrency}&to=${quoteCurrency}&start=${fromDate}&end=${toDate}`;
     
-    // ✅ Use calendar year boundaries (Tom's recommendation: max 1 year per request)
-    if (timeframe === 'W') {
-      console.log('📅 Fetching 5 years of data using calendar year boundaries...');
+    console.log(`🔄 Fetching ${symbol} time-series from ${fromDate} to ${toDate}`);
+    
+    const response = await fetch(fastForexUrl, {
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`FastForex time-series failed: HTTP ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (!data.results || Object.keys(data.results).length === 0) {
+      throw new Error('FastForex returned no results for time-series');
+    }
+    
+    console.log(`📊 Response shape:`, Object.keys(data));
+    
+    // Detect if results are nested under baseCurrency (e.g., results.USD["2025-01-01"])
+    let resultsByDate = data.results;
+    
+    if (data.results[baseCurrency] && typeof data.results[baseCurrency] === 'object') {
+      // Nested structure detected
+      resultsByDate = data.results[baseCurrency];
+      console.log(`📦 Nested results under ${baseCurrency}: ${Object.keys(resultsByDate).length} entries`);
+    } else {
+      console.log(`📦 Flat results: ${Object.keys(resultsByDate).length} entries`);
+    }
+    
+    // Only process date entries (YYYY-MM-DD format)
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    const validDates = Object.keys(resultsByDate).filter(key => dateRegex.test(key));
+    
+    console.log(`📅 Found ${validDates.length} valid dates`);
+    if (validDates.length > 0) {
+      const sampleDate = validDates[0];
+      console.log(`📅 Sample: ${sampleDate} ->`, resultsByDate[sampleDate]);
+    }
+
+    // Convert to daily candles
+    const dailyCandles: DailyCandle[] = [];
+    
+    for (const dateStr of validDates) {
+      const rates = resultsByDate[dateStr];
       
-      const currentYear = new Date().getFullYear();
+      // Extract rate value (handle number, string, or object)
+      let rateVal: number | null = null;
       
-      for (let yearOffset = 0; yearOffset < 5; yearOffset++) {
-        const year = currentYear - yearOffset;
-        const fromDate = `${year}-01-01`;
-        const toDate = yearOffset === 0 
-          ? new Date().toISOString().split('T')[0]  // Current year: fetch up to today
-          : `${year}-12-31`;  // Past years: full year
-        
-        console.log(`📆 Year ${year}: ${fromDate} to ${toDate}`);
-        
-        try {
-          const yearCandles = await fetchYearData(
-            baseCurrency, 
-            quoteCurrency, 
-            symbol, 
-            fromDate, 
-            toDate, 
-            fastForexApiKey
-          );
-          dailyCandles.push(...yearCandles);
-          
-          // Rate limiting: 1 second between requests
-          if (yearOffset < 4) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
+      if (typeof rates === 'number') {
+        rateVal = rates;
+      } else if (typeof rates === 'string') {
+        rateVal = parseFloat(rates);
+      } else if (typeof rates === 'object' && rates !== null) {
+        // Try quoteCurrency first
+        if (quoteCurrency in rates) {
+          const val = rates[quoteCurrency];
+          rateVal = typeof val === 'number' ? val : parseFloat(String(val));
+        }
+        // Try .rate property
+        else if ('rate' in rates) {
+          const val = rates.rate;
+          rateVal = typeof val === 'number' ? val : parseFloat(String(val));
+        }
+        // Try to find first numeric value
+        else {
+          const values = Object.values(rates);
+          for (const val of values) {
+            if (typeof val === 'number' && val > 0) {
+              rateVal = val;
+              break;
+            } else if (typeof val === 'string') {
+              const parsed = parseFloat(val);
+              if (!isNaN(parsed) && parsed > 0) {
+                rateVal = parsed;
+                break;
+              }
+            }
           }
-        } catch (err) {
-          console.error(`❌ Year ${year} failed:`, err.message);
         }
       }
-    } else if (timeframe === '1D') {
-      // ✅ Daily: Fetch current year + previous year using calendar boundaries
-      console.log('📅 Fetching 1D data using calendar year boundaries...');
       
-      const currentYear = new Date().getFullYear();
-      const today = new Date().toISOString().split('T')[0];
+      if (!rateVal || isNaN(rateVal) || rateVal <= 0) {
+        continue;
+      }
       
-      // Request 1: Previous year (full year)
-      const prevYear = currentYear - 1;
-      console.log(`📆 Fetching ${prevYear}-01-01 to ${prevYear}-12-31`);
-      const prevYearCandles = await fetchYearData(
-        baseCurrency,
-        quoteCurrency,
+      const timestamp = `${dateStr}T00:00:00Z`;
+      
+      // Validate timestamp
+      if (isNaN(Date.parse(timestamp))) {
+        console.warn(`⚠️ Invalid timestamp: ${timestamp}`);
+        continue;
+      }
+      
+      // Simulate OHLC with small spread (±0.15%)
+      const spread = rateVal * 0.0015;
+      dailyCandles.push({
         symbol,
-        `${prevYear}-01-01`,
-        `${prevYear}-12-31`,
-        fastForexApiKey
-      );
-      dailyCandles.push(...prevYearCandles);
+        timeframe: '1D',
+        timestamp,
+        open_price: rateVal,
+        high_price: rateVal + spread,
+        low_price: rateVal - spread,
+        close_price: rateVal,
+        volume: 0,
+        source: 'fastforex'
+      });
+    }
+
+    // Fallback: If still no candles, try historical endpoint for short window
+    if (dailyCandles.length === 0) {
+      console.warn('⚠️ Time-series returned no usable candles, trying /historical fallback...');
       
-      // Rate limiting between requests
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const fallbackDays = 7;
+      const fallbackCandles: DailyCandle[] = [];
       
-      // Request 2: Current year (up to today)
-      console.log(`📆 Fetching ${currentYear}-01-01 to ${today}`);
-      const currentYearCandles = await fetchYearData(
-        baseCurrency,
-        quoteCurrency,
-        symbol,
-        `${currentYear}-01-01`,
-        today,
-        fastForexApiKey
-      );
-      dailyCandles.push(...currentYearCandles);
+      for (let i = 0; i < fallbackDays; i++) {
+        const date = new Date(now);
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toISOString().split('T')[0];
+        
+        try {
+          const historicalUrl = `https://api.fastforex.io/historical?api_key=${fastForexApiKey}&date=${dateStr}&from=${baseCurrency}&to=${quoteCurrency}`;
+          const response = await fetch(historicalUrl, {
+            headers: { 'Accept': 'application/json' }
+          });
+          
+          if (response.ok) {
+            const histData = await response.json();
+            const rate = histData?.results?.[quoteCurrency] || histData?.rate;
+            
+            if (rate && !isNaN(parseFloat(rate))) {
+              const rateNum = parseFloat(rate);
+              const spread = rateNum * 0.0015;
+              
+              fallbackCandles.push({
+                symbol,
+                timeframe: '1D',
+                timestamp: `${dateStr}T00:00:00Z`,
+                open_price: rateNum,
+                high_price: rateNum + spread,
+                low_price: rateNum - spread,
+                close_price: rateNum,
+                volume: 0,
+                source: 'fastforex_historical'
+              });
+            }
+          }
+        } catch (err) {
+          console.warn(`⚠️ Historical fallback failed for ${dateStr}:`, err.message);
+        }
+        
+        await new Promise(r => setTimeout(r, 100)); // Small delay between requests
+      }
       
-    } else if (timeframe === '4H') {
-      // ⚠️ FastForex doesn't support 4H yet - fetch daily data for synthesis
-      console.log('⚠️ 4H not available from FastForex - using daily data for synthesis');
-      
-      const currentYear = new Date().getFullYear();
-      const today = new Date().toISOString().split('T')[0];
-      
-      // Fetch last 6 months of daily data (will be converted to 4H)
-      const sixMonthsAgo = new Date();
-      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-      const fromDate = sixMonthsAgo.toISOString().split('T')[0];
-      
-      console.log(`📆 Fetching daily data: ${fromDate} to ${today}`);
-      dailyCandles = await fetchYearData(
-        baseCurrency,
-        quoteCurrency,
-        symbol,
-        fromDate,
-        today,
-        fastForexApiKey
-      );
+      if (fallbackCandles.length > 0) {
+        console.log(`✅ Fallback succeeded: ${fallbackCandles.length} candles from /historical`);
+        dailyCandles.push(...fallbackCandles);
+      }
     }
 
     if (dailyCandles.length === 0) {
-      throw new Error('No valid candles generated from FastForex');
+      throw new Error('No valid candles generated from FastForex (tried time-series and historical endpoints)');
     }
     
-    console.log(`✅ Total daily candles fetched: ${dailyCandles.length}`);
+    console.log(`✅ Generated ${dailyCandles.length} daily candles`);
 
     // Sort by timestamp
     dailyCandles.sort((a, b) => 
       new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
     );
 
-    // Normalize timeframe
+    // Normalize timeframe: '1D' -> 'D' for database consistency
     const normalizedTimeframe = timeframe === '1D' ? 'D' : timeframe;
     
     let candlesToInsert: DailyCandle[] = [];
@@ -378,16 +358,16 @@ serve(async (req) => {
       candlesToInsert = dailyCandles.map(c => ({ ...c, timeframe: 'D' }));
     } else if (normalizedTimeframe === 'W') {
       candlesToInsert = aggregateDailyToWeekly(dailyCandles);
-      console.log(`📊 Aggregated ${dailyCandles.length} daily -> ${candlesToInsert.length} weekly candles`);
     } else if (normalizedTimeframe === '4H') {
+      // Generate synthetic 4H candles from daily data
       dailyCandles.forEach(dailyCandle => {
         candlesToInsert.push(...generateSynthetic4HCandles(dailyCandle));
       });
-      console.log(`🔧 Generated ${candlesToInsert.length} synthetic 4H candles from ${dailyCandles.length} daily`);
     }
 
     console.log(`💾 Upserting ${candlesToInsert.length} ${timeframe} candles for ${symbol}`);
 
+    // Upsert to database
     const inserted = await upsertCandles(supabase, candlesToInsert);
 
     console.log(`✅ Successfully inserted ${inserted} ${timeframe} candles for ${symbol}`);
