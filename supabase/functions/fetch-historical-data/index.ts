@@ -67,6 +67,8 @@ async function fetchTimeSeriesChunk(
   }
   
   const data = await response.json();
+  const resultKeys = Object.keys(data.results || {});
+  console.log(`📦 FastForex results keys (first 3):`, resultKeys.slice(0,3));
   
   if (!data.results) {
     console.warn(`⚠️ Chunk ${start}-${end} returned no results`);
@@ -80,8 +82,8 @@ async function fetchTimeSeriesChunk(
   let resultsByDate = data.results;
   
   // Check for nested structure (e.g., results.USD)
-  if (resultsByDate[baseCurrency] && typeof resultsByDate[baseCurrency] === 'object') {
-    resultsByDate = resultsByDate[baseCurrency];
+  if (resultsByDate[quoteCurrency] && typeof resultsByDate[quoteCurrency] === 'object') {
+    resultsByDate = resultsByDate[quoteCurrency];
   }
   
   // Parse results
