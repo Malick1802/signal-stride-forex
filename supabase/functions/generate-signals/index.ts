@@ -220,24 +220,6 @@ async function analyzeTimeframeTrend(
   
   return { trend: trendData.trend, structure, confidence: trendData.confidence || 0 };
 }
-  const { data: ohlcvData } = await supabase
-    .from('multi_timeframe_data')
-    .select('*')
-    .eq('symbol', symbol)
-    .eq('timeframe', timeframe)
-    .order('timestamp', { ascending: true });
-  
-  if (!ohlcvData || ohlcvData.length < minCandles) {
-    return { trend: 'neutral', structure: null as any, confidence: 0 };
-  }
-  
-  const atr = calculateATR(ohlcvData, 14);
-  const structurePoints = identifyStructurePoints(ohlcvData, atr, symbol);
-  const structure = determineMarketStructure(structurePoints, ohlcvData[ohlcvData.length - 1].close_price);
-  const confidence = Math.min(95, 60 + (structurePoints.length * 2));
-  
-  return { trend: structure.trend, structure, confidence };
-}
 
 // ============= MULTI-TIMEFRAME CONFLUENCE =============
 
