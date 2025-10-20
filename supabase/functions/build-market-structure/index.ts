@@ -275,21 +275,21 @@ function updateTrendState(
 async function buildTrendFromHistory(
   supabase: any,
   symbol: string,
-  timeframe: 'W' | '1D' | '4H'
+  timeframe: 'W' | 'D' | '4H'
 ): Promise<TrendState> {
   console.log(`🔍 Building trend for ${symbol} ${timeframe}...`);
   
   // Determine lookback period
   const lookbackMap = {
     'W': '5 years',
-    '1D': '1 year',
+    'D': '1 year',
     '4H': '6 months'
   };
   
   const lookback = lookbackMap[timeframe];
   const lookbackDate = new Date();
   if (timeframe === 'W') lookbackDate.setFullYear(lookbackDate.getFullYear() - 5);
-  else if (timeframe === '1D') lookbackDate.setFullYear(lookbackDate.getFullYear() - 1);
+  else if (timeframe === 'D') lookbackDate.setFullYear(lookbackDate.getFullYear() - 1);
   else lookbackDate.setMonth(lookbackDate.getMonth() - 6);
   
   // Fetch historical data

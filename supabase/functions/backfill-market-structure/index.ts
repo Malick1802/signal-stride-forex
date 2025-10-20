@@ -17,7 +17,7 @@ const MAJOR_PAIRS = [
   'NZDCHF', 'NZDCAD'
 ];
 
-const TIMEFRAMES = ['W', '1D', '4H'];
+const TIMEFRAMES = ['W', 'D', '4H'];
 
 Deno.serve(async (req) => {
   // Handle CORS preflight

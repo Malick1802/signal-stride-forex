@@ -30,9 +30,9 @@ Deno.serve(async (req) => {
     
     const { timeframe } = await req.json();
     
-    if (!timeframe || !['W', '1D', '4H'].includes(timeframe)) {
+    if (!timeframe || !['W', 'D', '4H'].includes(timeframe)) {
       return new Response(
-        JSON.stringify({ error: 'Invalid timeframe. Must be W, 1D, or 4H' }),
+        JSON.stringify({ error: 'Invalid timeframe. Must be W, D, or 4H' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
