@@ -145,7 +145,7 @@ export function determineMarketStructure(
 export async function analyzeTimeframeTrend(
   supabase: any,
   symbol: string,
-  timeframe: 'W' | '1D' | '4H'
+  timeframe: 'W' | 'D' | '4H'
 ): Promise<{
   trend: 'bullish' | 'bearish' | 'neutral';
   structure: MarketStructure;

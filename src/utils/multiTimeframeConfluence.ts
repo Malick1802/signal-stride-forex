@@ -24,7 +24,7 @@ export async function analyzeMultiTimeframeAlignment(
 ): Promise<MultiTimeframeAnalysis> {
   
   const weeklyAnalysis = await analyzeTimeframeTrend(supabase, symbol, 'W');
-  const dailyAnalysis = await analyzeTimeframeTrend(supabase, symbol, '1D');
+  const dailyAnalysis = await analyzeTimeframeTrend(supabase, symbol, 'D');
   const fourHourAnalysis = await analyzeTimeframeTrend(supabase, symbol, '4H');
   
   const aligned: string[] = [];

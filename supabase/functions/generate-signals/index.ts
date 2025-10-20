@@ -191,7 +191,7 @@ function determineMarketStructure(structurePoints: StructurePoint[], currentPric
 async function analyzeTimeframeTrend(
   supabase: any,
   symbol: string,
-  timeframe: 'W' | '1D' | '4H'
+  timeframe: 'W' | 'D' | '4H'
 ): Promise<{
   trend: 'bullish' | 'bearish' | 'neutral';
   structure: MarketStructure;
@@ -234,7 +234,7 @@ interface MultiTimeframeAnalysis {
 
 async function analyzeMultiTimeframeAlignment(supabase: any, symbol: string): Promise<MultiTimeframeAnalysis> {
   const weeklyAnalysis = await analyzeTimeframeTrend(supabase, symbol, 'W');
-  const dailyAnalysis = await analyzeTimeframeTrend(supabase, symbol, '1D');
+  const dailyAnalysis = await analyzeTimeframeTrend(supabase, symbol, 'D');
   const fourHourAnalysis = await analyzeTimeframeTrend(supabase, symbol, '4H');
   
   const aligned: string[] = [];
@@ -798,7 +798,7 @@ serve(async (req) => {
           take_profits: takeProfits,
           confidence: Math.min(95, confidence),
           strategy_type: 'trend_continuation',
-          entry_timeframe: multiTF.alignedTimeframes.includes('W+D') ? '4H' : '1H',
+          entry_timeframe: '4H' as const,
           timeframe_confluence: {
             weekly: multiTF.weekly,
             daily: multiTF.daily,
