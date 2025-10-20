@@ -12,6 +12,7 @@ import { AdminSetup } from './admin/AdminSetup';
 import { FinancialManagement } from './admin/FinancialManagement';
 import { DataPopulationPanel } from './admin/DataPopulationPanel';
 import { SystemReadinessCheck } from './admin/SystemReadinessCheck';
+import MarketStructurePanel from './admin/MarketStructurePanel';
 import { Button } from '@/components/ui/button';
 
 interface AdminDashboardProps {
@@ -19,7 +20,7 @@ interface AdminDashboardProps {
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTab] = useState('market-data');
   const { user } = useAuth();
   const { isAdmin, isLoading } = useAdminAccess();
 
@@ -95,11 +96,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
         <div className="px-6">
           <div className="flex space-x-8">
             {[
+              { id: 'market-data', label: 'Market Data', icon: Database },
               { id: 'overview', label: 'Overview', icon: BarChart3 },
               { id: 'users', label: 'User Management', icon: Users },
               { id: 'signals', label: 'Signal Management', icon: Activity },
               { id: 'financial', label: 'Financial', icon: DollarSign },
-              { id: 'system', label: 'System', icon: Database },
+              { id: 'system', label: 'System', icon: Activity },
               { id: 'settings', label: 'Settings', icon: Settings }
             ].map(tab => (
               <button
@@ -121,6 +123,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
 
       {/* Content Area */}
       <div className="p-6">
+        {activeTab === 'market-data' && <MarketStructurePanel />}
         {activeTab === 'overview' && <AdminOverview />}
         {activeTab === 'users' && <UserManagement />}
         {activeTab === 'signals' && <SignalManagement />}
