@@ -625,8 +625,14 @@ serve(async (req) => {
         
         // 1. Multi-timeframe structure analysis
         const weeklyAnalysis = await analyzeTimeframeTrend(supabase, symbol, 'W', 50);
-        const dailyAnalysis = await analyzeTimeframeTrend(supabase, symbol, '1D', 50);
+        const dailyAnalysis = await analyzeTimeframeTrend(supabase, symbol, 'D', 50);
         const fourHourAnalysis = await analyzeTimeframeTrend(supabase, symbol, '4H', 50);
+        
+        // 1.1 Null safety check for structure data
+        if (!weeklyAnalysis?.structure || !dailyAnalysis?.structure || !fourHourAnalysis?.structure) {
+          console.log(`❌ ${symbol}: Missing trend data (W:${!!weeklyAnalysis?.structure} D:${!!dailyAnalysis?.structure} 4H:${!!fourHourAnalysis?.structure})`);
+          continue;
+        }
         
         // 2. Check multi-timeframe confluence
         const multiTF = await analyzeMultiTimeframeAlignment(supabase, symbol);
@@ -669,10 +675,10 @@ serve(async (req) => {
           .limit(100);
         
         // 5. Check for Head & Shoulders pattern
-        const hsPattern = fourHourOHLCV && fourHourOHLCV.length >= 50
+        const hsPattern = fourHourOHLCV && fourHourOHLCV.length >= 50 && fourHourAnalysis?.structure
           ? detectHeadAndShoulders(
               fourHourOHLCV,
-              fourHourAnalysis.structure.overallTrend,
+              fourHourAnalysis.trend,
               fourHourAnalysis.structure.structurePoints,
               symbol
             )
