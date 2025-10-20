@@ -210,9 +210,30 @@ async function analyzeTimeframeTrend(
     return { trend: 'neutral', structure: null as any, confidence: 0 };
   }
   
+  // Normalize structure_points: map swing_high → HH, swing_low → LL
+  const normalizedPoints = (trendData.structure_points || []).map((p: any) => {
+    let normalizedType = p.type;
+    
+    // Use label if it's a valid structure type (HH, HL, LH, LL)
+    if (p.label && ['HH', 'HL', 'LH', 'LL'].includes(p.label)) {
+      normalizedType = p.label;
+    } else if (p.type === 'swing_high') {
+      normalizedType = 'HH';
+    } else if (p.type === 'swing_low') {
+      normalizedType = 'LL';
+    }
+    
+    return {
+      type: normalizedType,
+      price: p.price,
+      timestamp: new Date(p.timestamp),
+      index: p.index
+    };
+  });
+  
   const structure: MarketStructure = {
     trend: trendData.trend,
-    structurePoints: trendData.structure_points || [],
+    structurePoints: normalizedPoints,
     currentHigh: trendData.current_hh || 0,
     currentLow: trendData.current_ll || 0,
     lastBreak: null
@@ -741,7 +762,7 @@ serve(async (req) => {
             structure_points: fourHourAnalysis.structure.structurePoints.map(p => ({
               type: p.type,
               price: p.price,
-              timestamp: p.timestamp.toISOString()
+              timestamp: new Date(p.timestamp).toISOString()
             }))
           };
           
@@ -757,12 +778,18 @@ serve(async (req) => {
           continue;
         }
         
+        // Diagnostic: Log structure point counts for debugging
+        const hlCount = fourHourAnalysis.structure.structurePoints.filter(p => p.type === 'HL').length;
+        const lhCount = fourHourAnalysis.structure.structurePoints.filter(p => p.type === 'LH').length;
+        console.log(`🔍 ${symbol} 4H structure: ${hlCount} HL, ${lhCount} LH (bias: ${multiTF.tradingBias})`);
+        
         const relevantStructure = multiTF.tradingBias === 'BUY' 
           ? fourHourAnalysis.structure.structurePoints.filter(p => p.type === 'HL').slice(-1)[0]
           : fourHourAnalysis.structure.structurePoints.filter(p => p.type === 'LH').slice(-1)[0];
         
         if (!relevantStructure) {
-          console.log(`❌ ${symbol}: No relevant structure point for SL`);
+          const allTypes = fourHourAnalysis.structure.structurePoints.map(p => p.type).slice(-5);
+          console.log(`❌ ${symbol}: No relevant structure point for SL (last 5 types: ${allTypes.join(', ')})`);
           continue;
         }
         
@@ -826,7 +853,7 @@ serve(async (req) => {
           structure_points: fourHourAnalysis.structure.structurePoints.map(p => ({
             type: p.type,
             price: p.price,
-            timestamp: p.timestamp.toISOString()
+            timestamp: new Date(p.timestamp).toISOString()
           }))
         };
         
