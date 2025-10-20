@@ -445,9 +445,137 @@ function checkIfPriceAtAOI(currentPrice: number, tradingBias: 'BUY' | 'SELL', we
   }
 }
 
+// Head & Shoulders pattern detection
+function detectHeadAndShoulders(
+  ohlcvData: any[],
+  currentTrend: 'bullish' | 'bearish',
+  structurePoints: StructurePoint[],
+  symbol: string
+): any | null {
+  if (structurePoints.length < 3) return null;
+  
+  const findLowestBetween = (data: any[], startIdx: number, endIdx: number) => {
+    let lowest = data[startIdx].low_price;
+    let lowestIdx = startIdx;
+    for (let i = startIdx + 1; i <= endIdx && i < data.length; i++) {
+      if (data[i].low_price < lowest) {
+        lowest = data[i].low_price;
+        lowestIdx = i;
+      }
+    }
+    return { price: lowest, index: lowestIdx };
+  };
+  
+  const findHighestBetween = (data: any[], startIdx: number, endIdx: number) => {
+    let highest = data[startIdx].high_price;
+    let highestIdx = startIdx;
+    for (let i = startIdx + 1; i <= endIdx && i < data.length; i++) {
+      if (data[i].high_price > highest) {
+        highest = data[i].high_price;
+        highestIdx = i;
+      }
+    }
+    return { price: highest, index: highestIdx };
+  };
+  
+  if (currentTrend === 'bullish') {
+    const peaks = structurePoints.filter(p => p.type === 'HH' || p.type === 'LH');
+    if (peaks.length >= 3) {
+      for (let i = 0; i < peaks.length - 2; i++) {
+        const left = peaks[i];
+        const head = peaks[i + 1];
+        const right = peaks[i + 2];
+        
+        if (head.price > left.price && head.price > right.price) {
+          const leftLow = findLowestBetween(ohlcvData, left.index, head.index);
+          const rightLow = findLowestBetween(ohlcvData, head.index, right.index);
+          
+          if (rightLow.price < leftLow.price) {
+            const necklinePrice = (leftLow.price + rightLow.price) / 2;
+            const headToNeckline = head.price - necklinePrice;
+            const targetPrice = necklinePrice - headToNeckline;
+            const currentPrice = ohlcvData[ohlcvData.length - 1].close_price;
+            const isConfirmed = currentPrice < necklinePrice;
+            
+            return {
+              patternType: 'bearish_hs',
+              leftShoulder: { price: left.price, index: left.index },
+              head: { price: head.price, index: head.index },
+              rightShoulder: { price: right.price, index: right.index },
+              necklinePrice,
+              targetPrice,
+              isConfirmed
+            };
+          }
+        }
+      }
+    }
+  } else if (currentTrend === 'bearish') {
+    const troughs = structurePoints.filter(p => p.type === 'LL' || p.type === 'HL');
+    if (troughs.length >= 3) {
+      for (let i = 0; i < troughs.length - 2; i++) {
+        const left = troughs[i];
+        const head = troughs[i + 1];
+        const right = troughs[i + 2];
+        
+        if (head.price < left.price && head.price < right.price) {
+          const leftHigh = findHighestBetween(ohlcvData, left.index, head.index);
+          const rightHigh = findHighestBetween(ohlcvData, head.index, right.index);
+          
+          if (rightHigh.price > leftHigh.price) {
+            const necklinePrice = (leftHigh.price + rightHigh.price) / 2;
+            const headToNeckline = necklinePrice - head.price;
+            const targetPrice = necklinePrice + headToNeckline;
+            const currentPrice = ohlcvData[ohlcvData.length - 1].close_price;
+            const isConfirmed = currentPrice > necklinePrice;
+            
+            return {
+              patternType: 'bullish_inverted_hs',
+              leftShoulder: { price: left.price, index: left.index },
+              head: { price: head.price, index: head.index },
+              rightShoulder: { price: right.price, index: right.index },
+              necklinePrice,
+              targetPrice,
+              isConfirmed
+            };
+          }
+        }
+      }
+    }
+  }
+  
+  return null;
+}
+
+// Get confluence threshold based on level
+function getConfluenceThreshold(level: string): number {
+  const thresholds: Record<string, number> = {
+    'EXTREME': 75,
+    'ULTRA': 70,
+    'HIGH': 65,
+    'MEDIUM': 60,
+    'LOW': 55
+  };
+  return thresholds[level] || 55;
+}
+
+// Get AOI threshold based on level
+function getAOIThreshold(level: string, symbol: string): number {
+  const pipValue = getPipValue(symbol);
+  const thresholds: Record<string, number> = {
+    'EXTREME': 5,
+    'ULTRA': 7,
+    'HIGH': 10,
+    'MEDIUM': 15,
+    'LOW': 20
+  };
+  return (thresholds[level] || 20) * pipValue;
+}
+
 // ============= MAIN HANDLER =============
 
 serve(async (req) => {
+  const startTime = Date.now();
   console.log(`🚀 Dual-Strategy Signal Generation - ${new Date().toISOString()}`);
   
   if (req.method === 'OPTIONS') {
@@ -469,8 +597,9 @@ serve(async (req) => {
     
     const thresholdLevel = settings?.entry_threshold || 'LOW';
     const aiValidationEnabled = settings?.ai_validation_enabled === 'true';
+    const confluenceThreshold = getConfluenceThreshold(thresholdLevel);
     
-    console.log(`⚙️ Settings: Threshold=${thresholdLevel}, AI=${aiValidationEnabled}`);
+    console.log(`⚙️ Settings: Threshold=${thresholdLevel} (${confluenceThreshold}), AI=${aiValidationEnabled}`);
     
     const symbols = [
       'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'NZDUSD', 'USDCAD',
@@ -480,6 +609,9 @@ serve(async (req) => {
     ];
     
     const candidateSignals = [];
+    let trendContinuationCount = 0;
+    let headAndShouldersCount = 0;
+    let belowThresholdCount = 0;
     
     // === TIER 1: STRUCTURE-BASED ANALYSIS ===
     for (const symbol of symbols) {
@@ -513,7 +645,7 @@ serve(async (req) => {
         
         const overlappingZones = findZoneOverlaps(weeklyZones, dailyZones, symbol);
         
-        // 4. Get current market data
+        // 4. Get current market data & 4H OHLCV for pattern detection
         const { data: currentMarket } = await supabase
           .from('centralized_market_state')
           .select('*')
@@ -523,15 +655,97 @@ serve(async (req) => {
         if (!currentMarket) continue;
         const currentPrice = currentMarket.current_price;
         
-        // 5. Check if price is at AOI
-        const atAOI = checkIfPriceAtAOI(currentPrice, multiTF.tradingBias, weeklyZones, dailyZones, symbol);
+        const { data: fourHourOHLCV } = await supabase
+          .from('multi_timeframe_data')
+          .select('*')
+          .eq('symbol', symbol)
+          .eq('timeframe', '4H')
+          .order('timestamp', { ascending: true })
+          .limit(100);
         
-        if (!atAOI && thresholdLevel === 'HIGH') {
-          console.log(`❌ ${symbol}: Not at AOI (HIGH threshold requires retest)`);
+        // 5. Check for Head & Shoulders pattern
+        const hsPattern = fourHourOHLCV && fourHourOHLCV.length >= 50
+          ? detectHeadAndShoulders(
+              fourHourOHLCV,
+              fourHourAnalysis.structure.overallTrend,
+              fourHourAnalysis.structure.structurePoints,
+              symbol
+            )
+          : null;
+        
+        // 6. Validate AOI proximity
+        const aoiThreshold = getAOIThreshold(thresholdLevel, symbol);
+        const atAOI = multiTF.tradingBias === 'BUY'
+          ? [...weeklyZones.support, ...dailyZones.support].some(z => Math.abs(currentPrice - z.priceLevel) <= aoiThreshold)
+          : [...weeklyZones.resistance, ...dailyZones.resistance].some(z => Math.abs(currentPrice - z.priceLevel) <= aoiThreshold);
+        
+        // 7. HEAD & SHOULDERS SIGNAL (Priority)
+        if (hsPattern && hsPattern.isConfirmed) {
+          const stopLoss = hsPattern.patternType === 'bearish_hs'
+            ? hsPattern.rightShoulder.price + (10 * getPipValue(symbol))
+            : hsPattern.rightShoulder.price - (10 * getPipValue(symbol));
+          
+          const takeProfits = [hsPattern.targetPrice];
+          
+          let hsConfidence = 65; // Base H&S confidence
+          if (atAOI) hsConfidence += 10;
+          if (overlappingZones.bonusScore > 0) hsConfidence += 5;
+          
+          // Apply threshold filter
+          if (hsConfidence < confluenceThreshold) {
+            belowThresholdCount++;
+            console.log(`❌ ${symbol}: H&S confidence ${hsConfidence} below threshold ${confluenceThreshold}`);
+            continue;
+          }
+          
+          const signal = {
+            symbol,
+            type: hsPattern.patternType === 'bearish_hs' ? 'SELL' : 'BUY',
+            price: currentPrice,
+            stop_loss: stopLoss,
+            take_profits: takeProfits,
+            confidence: Math.min(95, hsConfidence),
+            strategy_type: atAOI ? 'confluence_reversal' : 'head_and_shoulders_reversal',
+            entry_timeframe: '4H' as const,
+            pattern_detected: hsPattern.patternType,
+            pattern_confidence: hsConfidence,
+            timeframe_confluence: {
+              weekly: multiTF.weekly,
+              daily: multiTF.daily,
+              fourHour: multiTF.fourHour,
+              aligned: multiTF.alignedTimeframes
+            },
+            aoi_zones: {
+              support: weeklyZones.support.concat(dailyZones.support).map(z => ({
+                priceLevel: z.priceLevel,
+                width: z.width,
+                strength: z.strength
+              })),
+              resistance: weeklyZones.resistance.concat(dailyZones.resistance).map(z => ({
+                priceLevel: z.priceLevel,
+                width: z.width,
+                strength: z.strength
+              }))
+            },
+            structure_points: fourHourAnalysis.structure.structurePoints.map(p => ({
+              type: p.type,
+              price: p.price,
+              timestamp: p.timestamp.toISOString()
+            }))
+          };
+          
+          candidateSignals.push(signal);
+          headAndShouldersCount++;
+          console.log(`✅ ${symbol}: H&S ${hsPattern.patternType} signal (${hsConfidence}%)`);
           continue;
         }
         
-        // 6. Find relevant structure point for SL
+        // 8. TREND CONTINUATION SIGNAL (if no H&S)
+        if (!atAOI && (thresholdLevel === 'HIGH' || thresholdLevel === 'EXTREME' || thresholdLevel === 'ULTRA')) {
+          console.log(`❌ ${symbol}: Not at AOI (${thresholdLevel} threshold requires retest)`);
+          continue;
+        }
+        
         const relevantStructure = multiTF.tradingBias === 'BUY' 
           ? fourHourAnalysis.structure.structurePoints.filter(p => p.type === 'HL').slice(-1)[0]
           : fourHourAnalysis.structure.structurePoints.filter(p => p.type === 'LH').slice(-1)[0];
@@ -541,7 +755,6 @@ serve(async (req) => {
           continue;
         }
         
-        // 7. Calculate SL/TP
         const stopLoss = calculateStopLoss(currentPrice, multiTF.tradingBias, relevantStructure, symbol);
         
         const takeProfits = calculateTakeProfits(
@@ -561,10 +774,16 @@ serve(async (req) => {
           continue;
         }
         
-        // 8. Calculate confidence
         let confidence = multiTF.confluenceScore;
         if (overlappingZones.bonusScore > 0) confidence += 10;
         if (atAOI) confidence += 5;
+        
+        // Apply threshold filter
+        if (confidence < confluenceThreshold) {
+          belowThresholdCount++;
+          console.log(`❌ ${symbol}: Confidence ${confidence} below threshold ${confluenceThreshold}`);
+          continue;
+        }
         
         const signal = {
           symbol,
@@ -601,27 +820,43 @@ serve(async (req) => {
         };
         
         candidateSignals.push(signal);
-        console.log(`✅ ${symbol}: Trend Continuation signal generated (${signal.type})`);
+        trendContinuationCount++;
+        console.log(`✅ ${symbol}: Trend Continuation ${signal.type} (${confidence}%)`);
         
       } catch (error) {
         console.error(`❌ Error processing ${symbol}:`, error);
       }
     }
     
-    console.log(`✅ Tier 1: ${candidateSignals.length} candidate signals`);
+    const executionTime = Date.now() - startTime;
+    
+    console.log(`\n📊 TIER 1 SUMMARY:`);
+    console.log(`  - Symbols analyzed: ${symbols.length}`);
+    console.log(`  - Trend Continuation: ${trendContinuationCount}`);
+    console.log(`  - Head & Shoulders: ${headAndShouldersCount}`);
+    console.log(`  - Below threshold: ${belowThresholdCount}`);
+    console.log(`  - Total candidates: ${candidateSignals.length}`);
     
     // === TIER 2: AI VALIDATION (if enabled) ===
     let finalSignals = candidateSignals;
+    let aiRejectedCount = 0;
+    let aiTokensUsed = 0;
     
-    if (aiValidationEnabled) {
-      console.log(`🤖 AI validation for ${candidateSignals.length} signals...`);
+    if (aiValidationEnabled && candidateSignals.length > 0) {
+      console.log(`\n🤖 TIER 2: AI Validation for ${candidateSignals.length} signals...`);
       finalSignals = [];
       
       for (const signal of candidateSignals) {
         try {
-          const { data: validation } = await supabase.functions.invoke('validate-signal-with-ai', {
+          const { data: validation, error: aiError } = await supabase.functions.invoke('validate-signal-with-ai', {
             body: { signal }
           });
+          
+          if (aiError) {
+            console.error(`⚠️ AI error for ${signal.symbol}:`, aiError);
+            finalSignals.push(signal); // Include on error
+            continue;
+          }
           
           if (validation?.approved) {
             const blendedConfidence = Math.round((signal.confidence * 0.6) + (validation.confidence * 0.4));
@@ -635,21 +870,25 @@ serve(async (req) => {
               structure_confidence: signal.confidence
             });
             
-            console.log(`✅ AI approved: ${signal.symbol} (${blendedConfidence}%)`);
+            if (validation.tokens_used) aiTokensUsed += validation.tokens_used;
+            console.log(`✅ AI approved: ${signal.symbol} (Struct: ${signal.confidence}%, AI: ${validation.confidence}%, Final: ${blendedConfidence}%)`);
           } else {
-            console.log(`❌ AI rejected: ${signal.symbol}`);
+            aiRejectedCount++;
+            console.log(`❌ AI rejected: ${signal.symbol} - ${validation?.rejection_reason || 'Unknown reason'}`);
           }
         } catch (error) {
           console.error(`❌ AI validation error for ${signal.symbol}:`, error);
-          // On error, include signal anyway
-          finalSignals.push(signal);
+          finalSignals.push(signal); // Include on error
         }
       }
       
-      console.log(`✅ AI validation: ${finalSignals.length}/${candidateSignals.length} approved`);
+      console.log(`\n📊 TIER 2 SUMMARY:`);
+      console.log(`  - Approved: ${finalSignals.length}`);
+      console.log(`  - Rejected: ${aiRejectedCount}`);
+      console.log(`  - Tokens used: ${aiTokensUsed}`);
     }
     
-    // Insert approved signals
+    // === INSERT APPROVED SIGNALS ===
     if (finalSignals.length > 0) {
       const signalsToInsert = finalSignals.map(s => ({
         symbol: s.symbol,
@@ -658,7 +897,7 @@ serve(async (req) => {
         stop_loss: s.stop_loss,
         take_profits: s.take_profits,
         confidence: s.confidence,
-        analysis_text: s.analysis_text || `${s.strategy_type} signal - ${s.timeframe_confluence.aligned.join(', ')} confluence`,
+        analysis_text: s.analysis_text || `${s.strategy_type} - ${s.timeframe_confluence.aligned.join(', ')}`,
         timestamp: new Date().toISOString(),
         status: 'active',
         is_centralized: true,
@@ -668,33 +907,78 @@ serve(async (req) => {
         timeframe_confluence: s.timeframe_confluence,
         aoi_zones: s.aoi_zones,
         structure_points: s.structure_points,
+        pattern_detected: s.pattern_detected || null,
+        pattern_confidence: s.pattern_confidence || null,
         ai_validated: s.ai_validated || false,
         ai_confidence: s.ai_confidence || null,
         structure_confidence: s.structure_confidence || s.confidence
       }));
       
-      const { error: insertError } = await supabase
+      const { data: insertedSignals, error: insertError } = await supabase
         .from('trading_signals')
-        .insert(signalsToInsert);
+        .insert(signalsToInsert)
+        .select('id');
       
       if (insertError) {
         console.error('❌ Error inserting signals:', insertError);
       } else {
-        console.log(`✅ Inserted ${finalSignals.length} signals`);
+        console.log(`✅ Inserted ${finalSignals.length} signals into database`);
+        
+        // Store AI analysis if available
+        for (let i = 0; i < finalSignals.length; i++) {
+          const signal = finalSignals[i];
+          if (signal.ai_validated && signal.analysis_text && insertedSignals && insertedSignals[i]) {
+            await supabase.from('ai_analysis').insert({
+              signal_id: insertedSignals[i].id,
+              analysis_text: signal.analysis_text,
+              confidence_score: signal.ai_confidence,
+              market_conditions: signal.timeframe_confluence
+            });
+          }
+        }
       }
     }
     
+    // === LOG INVOCATION METRICS ===
+    await supabase.from('function_invocations').insert({
+      function_name: 'generate-signals',
+      pairs_analyzed: symbols.length,
+      tier1_distribution: {
+        trend_continuation: trendContinuationCount,
+        head_and_shoulders: headAndShouldersCount,
+        below_threshold: belowThresholdCount
+      },
+      tier2_escalated: aiValidationEnabled ? candidateSignals.length : 0,
+      tier3_reached: aiValidationEnabled ? finalSignals.length : candidateSignals.length,
+      tokens_used: aiTokensUsed,
+      execution_time_ms: executionTime,
+      success: true,
+      source: 'automated'
+    });
+    
+    console.log(`\n✅ GENERATION COMPLETE in ${executionTime}ms\n`);
+    
     return new Response(JSON.stringify({
       success: true,
+      execution_time_ms: executionTime,
       tier1_candidates: candidateSignals.length,
+      tier1_breakdown: {
+        trend_continuation: trendContinuationCount,
+        head_and_shoulders: headAndShouldersCount,
+        below_threshold: belowThresholdCount
+      },
       tier2_approved: finalSignals.length,
+      tier2_rejected: aiRejectedCount,
       ai_validation_enabled: aiValidationEnabled,
       threshold_level: thresholdLevel,
+      confluence_threshold: confluenceThreshold,
+      tokens_used: aiTokensUsed,
       signals: finalSignals.map(s => ({
         symbol: s.symbol,
         type: s.type,
         confidence: s.confidence,
-        strategy_type: s.strategy_type
+        strategy_type: s.strategy_type,
+        pattern: s.pattern_detected || null
       }))
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
