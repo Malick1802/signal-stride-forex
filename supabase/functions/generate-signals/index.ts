@@ -191,13 +191,35 @@ function determineMarketStructure(structurePoints: StructurePoint[], currentPric
 async function analyzeTimeframeTrend(
   supabase: any,
   symbol: string,
-  timeframe: string,
-  minCandles: number
+  timeframe: 'W' | '1D' | '4H'
 ): Promise<{
   trend: 'bullish' | 'bearish' | 'neutral';
   structure: MarketStructure;
   confidence: number;
 }> {
+  // Fetch pre-calculated trend from database
+  const { data: trendData, error } = await supabase
+    .from('market_structure_trends')
+    .select('*')
+    .eq('symbol', symbol)
+    .eq('timeframe', timeframe)
+    .single();
+  
+  if (error || !trendData) {
+    console.error(`No trend data for ${symbol} ${timeframe}`);
+    return { trend: 'neutral', structure: null as any, confidence: 0 };
+  }
+  
+  const structure: MarketStructure = {
+    trend: trendData.trend,
+    structurePoints: trendData.structure_points || [],
+    currentHigh: trendData.current_hh || 0,
+    currentLow: trendData.current_ll || 0,
+    lastBreak: null
+  };
+  
+  return { trend: trendData.trend, structure, confidence: trendData.confidence || 0 };
+}
   const { data: ohlcvData } = await supabase
     .from('multi_timeframe_data')
     .select('*')
@@ -229,34 +251,35 @@ interface MultiTimeframeAnalysis {
 }
 
 async function analyzeMultiTimeframeAlignment(supabase: any, symbol: string): Promise<MultiTimeframeAnalysis> {
-  const weeklyAnalysis = await analyzeTimeframeTrend(supabase, symbol, 'W', 50);
-  const dailyAnalysis = await analyzeTimeframeTrend(supabase, symbol, '1D', 50);
-  const fourHourAnalysis = await analyzeTimeframeTrend(supabase, symbol, '4H', 50);
+  const weeklyAnalysis = await analyzeTimeframeTrend(supabase, symbol, 'W');
+  const dailyAnalysis = await analyzeTimeframeTrend(supabase, symbol, '1D');
+  const fourHourAnalysis = await analyzeTimeframeTrend(supabase, symbol, '4H');
   
   const aligned: string[] = [];
   let confluenceScore = 0;
   
+  // Require CONSECUTIVE alignment
   if (weeklyAnalysis.trend === dailyAnalysis.trend && weeklyAnalysis.trend !== 'neutral') {
     aligned.push('W+D');
-    confluenceScore += 40;
+    confluenceScore += 50;
   }
   
   if (dailyAnalysis.trend === fourHourAnalysis.trend && dailyAnalysis.trend !== 'neutral') {
     aligned.push('D+4H');
-    confluenceScore += 30;
+    confluenceScore += 50;
   }
   
   if (weeklyAnalysis.trend === dailyAnalysis.trend && 
       dailyAnalysis.trend === fourHourAnalysis.trend && 
       weeklyAnalysis.trend !== 'neutral') {
     aligned.push('W+D+4H');
-    confluenceScore += 30;
+    confluenceScore += 20;
   }
   
   let tradingBias: 'BUY' | 'SELL' | 'NO_TRADE' = 'NO_TRADE';
   
-  if (aligned.length > 0) {
-    const dominantTrend = weeklyAnalysis.trend !== 'neutral' ? weeklyAnalysis.trend : dailyAnalysis.trend;
+  if (aligned.includes('W+D') || aligned.includes('D+4H')) {
+    const dominantTrend = dailyAnalysis.trend;
     tradingBias = dominantTrend === 'bullish' ? 'BUY' : dominantTrend === 'bearish' ? 'SELL' : 'NO_TRADE';
   }
   

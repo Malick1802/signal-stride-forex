@@ -23,37 +23,35 @@ export async function analyzeMultiTimeframeAlignment(
   symbol: string
 ): Promise<MultiTimeframeAnalysis> {
   
-  const weeklyAnalysis = await analyzeTimeframeTrend(supabase, symbol, 'W', '5 years');
-  const dailyAnalysis = await analyzeTimeframeTrend(supabase, symbol, '1D', '1 year');
-  const fourHourAnalysis = await analyzeTimeframeTrend(supabase, symbol, '4H', '6 months');
+  const weeklyAnalysis = await analyzeTimeframeTrend(supabase, symbol, 'W');
+  const dailyAnalysis = await analyzeTimeframeTrend(supabase, symbol, '1D');
+  const fourHourAnalysis = await analyzeTimeframeTrend(supabase, symbol, '4H');
   
   const aligned: string[] = [];
   let confluenceScore = 0;
   
-  // Check W+D alignment
+  // Require CONSECUTIVE alignment
   if (weeklyAnalysis.trend === dailyAnalysis.trend && weeklyAnalysis.trend !== 'neutral') {
     aligned.push('W+D');
-    confluenceScore += 40;
+    confluenceScore += 50;
   }
   
-  // Check D+4H alignment
   if (dailyAnalysis.trend === fourHourAnalysis.trend && dailyAnalysis.trend !== 'neutral') {
     aligned.push('D+4H');
-    confluenceScore += 30;
+    confluenceScore += 50;
   }
   
-  // Check W+D+4H alignment (strongest)
   if (weeklyAnalysis.trend === dailyAnalysis.trend && 
       dailyAnalysis.trend === fourHourAnalysis.trend && 
       weeklyAnalysis.trend !== 'neutral') {
     aligned.push('W+D+4H');
-    confluenceScore += 30;
+    confluenceScore += 20;
   }
   
   let tradingBias: 'BUY' | 'SELL' | 'NO_TRADE' = 'NO_TRADE';
   
-  if (aligned.length > 0) {
-    const dominantTrend = weeklyAnalysis.trend !== 'neutral' ? weeklyAnalysis.trend : dailyAnalysis.trend;
+  if (aligned.includes('W+D') || aligned.includes('D+4H')) {
+    const dominantTrend = dailyAnalysis.trend;
     tradingBias = dominantTrend === 'bullish' ? 'BUY' : dominantTrend === 'bearish' ? 'SELL' : 'NO_TRADE';
   }
   

@@ -1363,6 +1363,51 @@ export type Database = {
         }
         Relationships: []
       }
+      market_structure_trends: {
+        Row: {
+          confidence: number | null
+          current_hh: number | null
+          current_hl: number | null
+          current_lh: number | null
+          current_ll: number | null
+          id: string
+          last_candle_timestamp: string
+          last_updated: string | null
+          structure_points: Json | null
+          symbol: string
+          timeframe: string
+          trend: string
+        }
+        Insert: {
+          confidence?: number | null
+          current_hh?: number | null
+          current_hl?: number | null
+          current_lh?: number | null
+          current_ll?: number | null
+          id?: string
+          last_candle_timestamp: string
+          last_updated?: string | null
+          structure_points?: Json | null
+          symbol: string
+          timeframe: string
+          trend: string
+        }
+        Update: {
+          confidence?: number | null
+          current_hh?: number | null
+          current_hl?: number | null
+          current_lh?: number | null
+          current_ll?: number | null
+          id?: string
+          last_candle_timestamp?: string
+          last_updated?: string | null
+          structure_points?: Json | null
+          symbol?: string
+          timeframe?: string
+          trend?: string
+        }
+        Relationships: []
+      }
       monthly_recalibrations: {
         Row: {
           created_at: string
@@ -2149,6 +2194,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      structure_point_history: {
+        Row: {
+          candle_index: number
+          candle_timestamp: string
+          created_at: string | null
+          id: string
+          point_type: string
+          price: number
+          symbol: string
+          timeframe: string
+          trend_at_formation: string | null
+        }
+        Insert: {
+          candle_index: number
+          candle_timestamp: string
+          created_at?: string | null
+          id?: string
+          point_type: string
+          price: number
+          symbol: string
+          timeframe: string
+          trend_at_formation?: string | null
+        }
+        Update: {
+          candle_index?: number
+          candle_timestamp?: string
+          created_at?: string | null
+          id?: string
+          point_type?: string
+          price?: number
+          symbol?: string
+          timeframe?: string
+          trend_at_formation?: string | null
+        }
+        Relationships: []
       }
       subscribers: {
         Row: {

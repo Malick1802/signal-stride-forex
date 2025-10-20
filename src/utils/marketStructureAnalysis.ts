@@ -141,32 +141,34 @@ export function determineMarketStructure(
   };
 }
 
-// Analyze timeframe trend
+// Analyze timeframe trend - Fetches from database
 export async function analyzeTimeframeTrend(
   supabase: any,
   symbol: string,
-  timeframe: 'W' | '1D' | '4H',
-  lookbackPeriod: string
+  timeframe: 'W' | '1D' | '4H'
 ): Promise<{
   trend: 'bullish' | 'bearish' | 'neutral';
   structure: MarketStructure;
   confidence: number;
 }> {
-  const { data: ohlcvData } = await supabase
-    .from('multi_timeframe_data')
+  const { data: trendData, error } = await supabase
+    .from('market_structure_trends')
     .select('*')
     .eq('symbol', symbol)
     .eq('timeframe', timeframe)
-    .order('timestamp', { ascending: true });
+    .single();
   
-  if (!ohlcvData || ohlcvData.length < 50) {
+  if (error || !trendData) {
     return { trend: 'neutral', structure: null as any, confidence: 0 };
   }
   
-  const atr = calculateATR(ohlcvData, 14);
-  const structurePoints = identifyStructurePoints(ohlcvData, atr, symbol);
-  const structure = determineMarketStructure(structurePoints, ohlcvData[ohlcvData.length - 1].close_price);
-  const confidence = Math.min(95, 60 + (structurePoints.length * 2));
+  const structure: MarketStructure = {
+    trend: trendData.trend,
+    structurePoints: trendData.structure_points || [],
+    currentHigh: trendData.current_hh || 0,
+    currentLow: trendData.current_ll || 0,
+    lastBreak: null
+  };
   
-  return { trend: structure.trend, structure, confidence };
+  return { trend: trendData.trend, structure, confidence: trendData.confidence || 0 };
 }
