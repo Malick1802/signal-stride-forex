@@ -330,9 +330,80 @@ async function buildTrendFromHistory(
     state = updateTrendState(state, candles, i);
   }
   
-  console.log(`✅ ${symbol} ${timeframe} trend: ${state.trend}`);
+  // FINAL VALIDATION: Check if recent price action contradicts the trend
+  const recentCandles = candles.slice(-20); // Last 20 candles (~10 days for 4H, ~20 days for D, ~20 weeks for W)
+  let recentBreakDetected = false;
+
+  if (state.trend === 'bullish' && state.currentHL) {
+    // Count how many recent candles closed below the HL
+    const breaksCount = recentCandles.filter(c => c.close_price < state.currentHL).length;
+    
+    if (breaksCount >= 3) {
+      console.log(`⚠️ FINAL VALIDATION: ${breaksCount}/20 recent candles closed below HL ${state.currentHL}`);
+      console.log(`   Overriding bullish trend to bearish based on recent price action`);
+      
+      // Switch to bearish
+      state.trend = 'bearish';
+      recentBreakDetected = true;
+      
+      // Find the most recent swing high to use as LH
+      const recentHighs = state.structurePoints
+        .filter(p => p.type === 'swing_high')
+        .sort((a, b) => b.index - a.index)
+        .slice(0, 5);
+      
+      if (recentHighs.length > 0) {
+        recentHighs[0].label = 'LH';
+        state.currentLH = recentHighs[0].price;
+      }
+      
+      // Find the lowest close in recent candles as LL
+      const lowestRecentClose = Math.min(...recentCandles.map(c => c.close_price));
+      state.currentLL = lowestRecentClose;
+      state.currentHH = null;
+      state.currentHL = null;
+    }
+  }
+
+  if (state.trend === 'bearish' && state.currentLH) {
+    // Count how many recent candles closed above the LH
+    const breaksCount = recentCandles.filter(c => c.close_price > state.currentLH).length;
+    
+    if (breaksCount >= 3) {
+      console.log(`⚠️ FINAL VALIDATION: ${breaksCount}/20 recent candles closed above LH ${state.currentLH}`);
+      console.log(`   Overriding bearish trend to bullish based on recent price action`);
+      
+      // Switch to bullish
+      state.trend = 'bullish';
+      recentBreakDetected = true;
+      
+      // Find the most recent swing low to use as HL
+      const recentLows = state.structurePoints
+        .filter(p => p.type === 'swing_low')
+        .sort((a, b) => b.index - a.index)
+        .slice(0, 5);
+      
+      if (recentLows.length > 0) {
+        recentLows[0].label = 'HL';
+        state.currentHL = recentLows[0].price;
+      }
+      
+      // Find the highest close in recent candles as HH
+      const highestRecentClose = Math.max(...recentCandles.map(c => c.close_price));
+      state.currentHH = highestRecentClose;
+      state.currentLL = null;
+      state.currentLH = null;
+    }
+  }
+
+  if (recentBreakDetected) {
+    console.log(`✅ FINAL VALIDATION COMPLETE: Trend adjusted to ${state.trend}`);
+  }
+  
+  console.log(`✅ ${symbol} ${timeframe} trend: ${state.trend}${recentBreakDetected ? ' (ADJUSTED BY RECENT PRICE ACTION)' : ''}`);
   console.log(`   HH: ${state.currentHH}, HL: ${state.currentHL}, LL: ${state.currentLL}, LH: ${state.currentLH}`);
   console.log(`   Structure points identified: ${state.structurePoints.length}`);
+  console.log(`   Recent candles analyzed: ${recentCandles.length}`);
   
   return state;
 }
