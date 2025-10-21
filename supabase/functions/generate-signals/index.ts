@@ -696,10 +696,13 @@ serve(async (req) => {
           .limit(100);
         
         // 5. Check for Head & Shoulders pattern
+        // Look for H&S forming at END of opposite trend (reversal into MTF bias)
+        const hsDetectionTrend = multiTF.tradingBias === 'BUY' ? 'bearish' : 'bullish';
+        
         const hsPattern = fourHourOHLCV && fourHourOHLCV.length >= 50 && fourHourAnalysis?.structure
           ? detectHeadAndShoulders(
               fourHourOHLCV,
-              fourHourAnalysis.trend,
+              hsDetectionTrend, // Pass opposite trend to detect reversal
               fourHourAnalysis.structure.structurePoints,
               symbol
             )
@@ -713,6 +716,16 @@ serve(async (req) => {
         
         // 7. HEAD & SHOULDERS SIGNAL (Priority)
         if (hsPattern && hsPattern.isConfirmed) {
+          const hsSignalType = hsPattern.patternType === 'bearish_hs' ? 'SELL' : 'BUY';
+          
+          // CRITICAL: Validate H&S direction matches multi-timeframe bias
+          if (hsSignalType !== multiTF.tradingBias) {
+            console.log(`❌ ${symbol}: H&S direction (${hsSignalType}) conflicts with MTF bias (${multiTF.tradingBias}) - SKIPPING`);
+            continue;
+          }
+          
+          console.log(`✅ ${symbol}: ${hsPattern.patternType} aligned with ${multiTF.tradingBias} bias`);
+          
           const stopLoss = hsPattern.patternType === 'bearish_hs'
             ? hsPattern.rightShoulder.price + (10 * getPipValue(symbol))
             : hsPattern.rightShoulder.price - (10 * getPipValue(symbol));
@@ -732,7 +745,7 @@ serve(async (req) => {
           
           const signal = {
             symbol,
-            type: hsPattern.patternType === 'bearish_hs' ? 'SELL' : 'BUY',
+            type: hsSignalType,
             price: currentPrice,
             stop_loss: stopLoss,
             take_profits: takeProfits,
