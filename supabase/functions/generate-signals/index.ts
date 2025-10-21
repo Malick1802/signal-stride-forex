@@ -683,6 +683,28 @@ serve(async (req) => {
           continue;
         }
         
+        // 1.2 NEW: Structure freshness validation (max 6 hours old)
+        const maxStructureAgeMs = 6 * 60 * 60 * 1000; // 6 hours
+        const now = Date.now();
+        
+        const weeklyAge = weeklyAnalysis.structure.lastUpdate ? now - new Date(weeklyAnalysis.structure.lastUpdate).getTime() : Infinity;
+        const dailyAge = dailyAnalysis.structure.lastUpdate ? now - new Date(dailyAnalysis.structure.lastUpdate).getTime() : Infinity;
+        const fourHourAge = fourHourAnalysis.structure.lastUpdate ? now - new Date(fourHourAnalysis.structure.lastUpdate).getTime() : Infinity;
+        
+        const maxAge = Math.max(weeklyAge, dailyAge, fourHourAge);
+        
+        if (maxAge > maxStructureAgeMs) {
+          const ageHours = Math.round(maxAge / 3600000);
+          console.log(`⚠️ ${symbol}: Stale market structure (${ageHours}h old) - triggering update and skipping`);
+          
+          // Trigger async structure update without blocking
+          supabase.functions.invoke('update-market-structure', {
+            body: { timeframe: 'W' }
+          }).then(() => console.log(`✅ ${symbol}: Structure update triggered`));
+          
+          continue;
+        }
+        
         // 2. Check multi-timeframe confluence
         const multiTF = await analyzeMultiTimeframeAlignment(supabase, symbol);
         if (multiTF.tradingBias === 'NO_TRADE') {

@@ -13,6 +13,7 @@ export interface MarketStructure {
   currentHigh: number;
   currentLow: number;
   lastBreak: 'upside' | 'downside' | null;
+  lastUpdate?: string;
 }
 
 interface OHLC {
@@ -167,7 +168,8 @@ export async function analyzeTimeframeTrend(
     structurePoints: trendData.structure_points || [],
     currentHigh: trendData.current_hh || 0,
     currentLow: trendData.current_ll || 0,
-    lastBreak: null
+    lastBreak: null,
+    lastUpdate: trendData.last_updated
   };
   
   return { trend: trendData.trend, structure, confidence: trendData.confidence || 0 };
