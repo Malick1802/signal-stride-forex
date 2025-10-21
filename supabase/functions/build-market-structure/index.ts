@@ -146,13 +146,16 @@ function isStructurePointRecent(
   return age <= relevanceWindow;
 }
 
-// Get the index of a structure point by its price and type
+// Get the index of a structure point by its price and type (with tolerance for floating point errors)
 function findStructurePointIndex(
   structurePoints: StructurePoint[],
   price: number,
   type: 'swing_low' | 'swing_high'
 ): number {
-  const point = structurePoints.find(p => p.type === type && p.price === price);
+  const tolerance = 0.000001; // 1 micro-pip tolerance for floating point comparison
+  const point = structurePoints.find(p => 
+    p.type === type && Math.abs(p.price - price) < tolerance
+  );
   return point ? point.index : -1;
 }
 
