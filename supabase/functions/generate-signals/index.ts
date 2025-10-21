@@ -296,6 +296,87 @@ async function analyzeMultiTimeframeAlignment(supabase: any, symbol: string): Pr
   };
 }
 
+/**
+ * Validates that current price hasn't broken the trend structure for any timeframe
+ * - Bearish trend is broken when price closes ABOVE the most recent Lower High (LH)
+ * - Bullish trend is broken when price closes BELOW the most recent Higher Low (HL)
+ */
+async function validateTrendWithCurrentPrice(
+  symbol: string,
+  weeklyAnalysis: { trend: string; structure: MarketStructure; confidence: number },
+  dailyAnalysis: { trend: string; structure: MarketStructure; confidence: number },
+  fourHourAnalysis: { trend: string; structure: MarketStructure; confidence: number },
+  currentPrice: number
+): Promise<{ isValid: boolean; reason: string; brokenTimeframes: string[] }> {
+  
+  const brokenTimeframes: string[] = [];
+  const reasons: string[] = [];
+  
+  // Helper to check bearish trend break
+  const checkBearishBreak = (analysis: any, timeframe: string) => {
+    if (analysis.trend === 'bearish') {
+      const recentLH = analysis.structure.structurePoints
+        .filter((p: StructurePoint) => p.label === 'LH')
+        .sort((a: StructurePoint, b: StructurePoint) => 
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        )[0];
+      
+      if (recentLH && currentPrice > recentLH.price) {
+        brokenTimeframes.push(timeframe);
+        reasons.push(
+          `${timeframe} bearish broken: price ${currentPrice.toFixed(5)} > LH ${recentLH.price.toFixed(5)}`
+        );
+        return true;
+      }
+    }
+    return false;
+  };
+  
+  // Helper to check bullish trend break
+  const checkBullishBreak = (analysis: any, timeframe: string) => {
+    if (analysis.trend === 'bullish') {
+      const recentHL = analysis.structure.structurePoints
+        .filter((p: StructurePoint) => p.label === 'HL')
+        .sort((a: StructurePoint, b: StructurePoint) => 
+          new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        )[0];
+      
+      if (recentHL && currentPrice < recentHL.price) {
+        brokenTimeframes.push(timeframe);
+        reasons.push(
+          `${timeframe} bullish broken: price ${currentPrice.toFixed(5)} < HL ${recentHL.price.toFixed(5)}`
+        );
+        return true;
+      }
+    }
+    return false;
+  };
+  
+  // Check all three timeframes
+  checkBearishBreak(weeklyAnalysis, 'W');
+  checkBullishBreak(weeklyAnalysis, 'W');
+  
+  checkBearishBreak(dailyAnalysis, 'D');
+  checkBullishBreak(dailyAnalysis, 'D');
+  
+  checkBearishBreak(fourHourAnalysis, '4H');
+  checkBullishBreak(fourHourAnalysis, '4H');
+  
+  if (brokenTimeframes.length > 0) {
+    return {
+      isValid: false,
+      reason: reasons.join('; '),
+      brokenTimeframes
+    };
+  }
+  
+  return {
+    isValid: true,
+    reason: 'All trend structures intact',
+    brokenTimeframes: []
+  };
+}
+
 // ============= SUPPORT/RESISTANCE ZONES =============
 
 interface AOI {
@@ -683,8 +764,8 @@ serve(async (req) => {
           continue;
         }
         
-        // 1.2 NEW: Structure freshness validation (max 6 hours old)
-        const maxStructureAgeMs = 6 * 60 * 60 * 1000; // 6 hours
+        // 1.2 NEW: Structure freshness validation (max 4.5 hours old)
+        const maxStructureAgeMs = 4.5 * 60 * 60 * 1000; // 4.5 hours
         const now = Date.now();
         
         const weeklyAge = weeklyAnalysis.structure.lastUpdate ? now - new Date(weeklyAnalysis.structure.lastUpdate).getTime() : Infinity;
@@ -742,6 +823,56 @@ serve(async (req) => {
         
         if (!currentMarket) continue;
         const currentPrice = currentMarket.current_price;
+        
+        // NEW: Validate trend hasn't been broken by recent price action
+        const trendValidation = await validateTrendWithCurrentPrice(
+          symbol,
+          weeklyAnalysis,
+          dailyAnalysis,
+          fourHourAnalysis,
+          currentPrice
+        );
+
+        if (!trendValidation.isValid) {
+          console.log(`⚠️ ${symbol}: TREND BREAK DETECTED - ${trendValidation.reason}`);
+          
+          // Trigger immediate structure rebuild for broken timeframe(s)
+          const rebuildPromises = [];
+          
+          if (trendValidation.brokenTimeframes.includes('W')) {
+            rebuildPromises.push(
+              supabase.functions.invoke('build-market-structure', {
+                body: { symbol, timeframe: 'W' }
+              }).then(() => console.log(`✅ ${symbol}: Weekly structure rebuild triggered`))
+            );
+          }
+          
+          if (trendValidation.brokenTimeframes.includes('D')) {
+            rebuildPromises.push(
+              supabase.functions.invoke('build-market-structure', {
+                body: { symbol, timeframe: 'D' }
+              }).then(() => console.log(`✅ ${symbol}: Daily structure rebuild triggered`))
+            );
+          }
+          
+          if (trendValidation.brokenTimeframes.includes('4H')) {
+            rebuildPromises.push(
+              supabase.functions.invoke('build-market-structure', {
+                body: { symbol, timeframe: '4H' }
+              }).then(() => console.log(`✅ ${symbol}: 4H structure rebuild triggered`))
+            );
+          }
+          
+          // Fire and forget - don't block signal generation
+          Promise.all(rebuildPromises).catch(err => 
+            console.error(`❌ ${symbol}: Structure rebuild error:`, err)
+          );
+          
+          // Skip this symbol for current generation cycle
+          continue;
+        }
+
+        console.log(`✅ ${symbol}: Trend validation passed - all structures intact`);
         
         const { data: fourHourOHLCV } = await supabase
           .from('multi_timeframe_data')
