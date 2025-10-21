@@ -1,5 +1,6 @@
-// Build Market Structure from Historical Data
-// Processes candles chronologically to determine trend using body closes and structure points
+// Build Market Structure from Historical Data (BODY CLOSES ONLY)
+// Uses only body closes for all structure identification: swing points, HH/HL/LL/LH, and trend breaks
+// Includes pip buffers (W: 40, D: 25, 4H: 15 pips) to prevent false breaks from noise
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
@@ -33,15 +34,26 @@ interface Candle {
   timestamp: string;
 }
 
-// Check if candle at index is a swing high (higher than surrounding candles)
+// Get pip size for symbol
+function getPipSize(symbol: string): number {
+  return symbol.includes('JPY') ? 0.01 : 0.0001;
+}
+
+// Get minimum buffer in pips based on timeframe
+function getMinBufferPips(timeframe: 'W' | 'D' | '4H'): number {
+  const buffers = { 'W': 40, 'D': 25, '4H': 15 };
+  return buffers[timeframe];
+}
+
+// Check if candle at index is a swing high (body close higher than surrounding body closes)
 function isSwingHigh(candles: Candle[], index: number): boolean {
   if (index < 2) return false;
   
-  const current = candles[index].high_price;
+  const current = candles[index].close_price;
   const totalCandles = candles.length;
   
   // Check 2 candles before
-  if (candles[index - 1].high_price >= current || candles[index - 2].high_price >= current) {
+  if (candles[index - 1].close_price >= current || candles[index - 2].close_price >= current) {
     return false;
   }
   
@@ -56,7 +68,7 @@ function isSwingHigh(candles: Candle[], index: number): boolean {
   
   // Check available candles after
   for (let i = 1; i <= candlesAfter; i++) {
-    if (index + i < totalCandles && candles[index + i].high_price >= current) {
+    if (index + i < totalCandles && candles[index + i].close_price >= current) {
       return false;
     }
   }
@@ -68,15 +80,15 @@ function isSwingHigh(candles: Candle[], index: number): boolean {
   return true;
 }
 
-// Check if candle at index is a swing low (lower than surrounding candles)
+// Check if candle at index is a swing low (body close lower than surrounding body closes)
 function isSwingLow(candles: Candle[], index: number): boolean {
   if (index < 2) return false;
   
-  const current = candles[index].low_price;
+  const current = candles[index].close_price;
   const totalCandles = candles.length;
   
   // Check 2 candles before
-  if (candles[index - 1].low_price <= current || candles[index - 2].low_price <= current) {
+  if (candles[index - 1].close_price <= current || candles[index - 2].close_price <= current) {
     return false;
   }
   
@@ -91,7 +103,7 @@ function isSwingLow(candles: Candle[], index: number): boolean {
   
   // Check available candles after
   for (let i = 1; i <= candlesAfter; i++) {
-    if (index + i < totalCandles && candles[index + i].low_price <= current) {
+    if (index + i < totalCandles && candles[index + i].close_price <= current) {
       return false;
     }
   }
@@ -149,11 +161,17 @@ function updateTrendState(
   state: TrendState,
   candles: Candle[],
   currentIndex: number,
-  timeframe: 'W' | 'D' | '4H'
+  timeframe: 'W' | 'D' | '4H',
+  symbol: string
 ): TrendState {
   const newState = { ...state };
   const currentCandle = candles[currentIndex];
   const bodyClose = currentCandle.close_price;
+  
+  // Calculate pip buffer for break detection
+  const pipSize = getPipSize(symbol);
+  const bufferPips = getMinBufferPips(timeframe);
+  const minBuffer = bufferPips * pipSize;
   
   // Check if current candle forms a structure point
   const isHigh = isSwingHigh(candles, currentIndex);
@@ -162,7 +180,7 @@ function updateTrendState(
   if (isHigh) {
     const structurePoint: StructurePoint = {
       type: 'swing_high',
-      price: currentCandle.high_price,
+      price: currentCandle.close_price,
       timestamp: currentCandle.timestamp,
       index: currentIndex
     };
@@ -172,7 +190,7 @@ function updateTrendState(
   if (isLow) {
     const structurePoint: StructurePoint = {
       type: 'swing_low',
-      price: currentCandle.low_price,
+      price: currentCandle.close_price,
       timestamp: currentCandle.timestamp,
       index: currentIndex
     };
@@ -217,18 +235,20 @@ function updateTrendState(
       }
     }
   } else if (state.trend === 'bullish') {
-    // Check for body close below last HL (break)
-    if (newState.currentHL && bodyClose < newState.currentHL) {
+    // Check for body close below last HL with buffer (break)
+    if (newState.currentHL && bodyClose < newState.currentHL - minBuffer) {
       // Find the HL structure point to check its age
       const hlIndex = findStructurePointIndex(newState.structurePoints, newState.currentHL, 'swing_low');
       const isHLRecent = hlIndex >= 0 ? isStructurePointRecent(hlIndex, currentIndex, timeframe) : false;
       const age = hlIndex >= 0 ? currentIndex - hlIndex : -1;
+      const breakDistancePips = Math.abs(bodyClose - newState.currentHL) / pipSize;
       
-      console.log(`📉 Bullish break detected: Body ${bodyClose} < HL ${newState.currentHL}`);
+      console.log(`📉 Bullish break detected: Body ${bodyClose} < HL ${newState.currentHL} - ${bufferPips} pips`);
+      console.log(`   Break distance: ${breakDistancePips.toFixed(1)} pips (buffer: ${bufferPips} pips)`);
       console.log(`   HL age: ${age} candles (recent: ${isHLRecent}, threshold: ${timeframe === 'W' ? 100 : timeframe === 'D' ? 150 : 200})`);
       
-      // Only flip to bearish if HL is recent OR break is significant
-      if (isHLRecent || !isHLRecent) {
+      // Only flip to bearish if HL is recent
+      if (isHLRecent) {
         console.log(`   ✅ Flipping to BEARISH (HL ${isHLRecent ? 'is recent' : 'is stale but breaking anyway'})`);
         newState.trend = 'bearish';
         
@@ -249,15 +269,15 @@ function updateTrendState(
       } else {
         console.log(`   ⏭️  Ignoring stale HL break (HL is ${age} candles old)`);
       }
-    } else if (isHigh && currentCandle.high_price > (newState.currentHH || 0)) {
-      // New HH formed
-      console.log(`📈 New HH formed: ${currentCandle.high_price} (previous: ${newState.currentHH})`);
+    } else if (isHigh && currentCandle.close_price > (newState.currentHH || 0)) {
+      // New HH formed (body close)
+      console.log(`📈 New HH formed: ${currentCandle.close_price} (previous: ${newState.currentHH})`);
       
       const oldHHIndex = newState.structurePoints.findIndex(
         p => p.label === 'HH' && p.price === newState.currentHH
       );
       
-      newState.currentHH = currentCandle.high_price;
+      newState.currentHH = currentCandle.close_price;
       
       // Find most recent swing low between old HH and new HH
       if (oldHHIndex >= 0) {
@@ -283,18 +303,20 @@ function updateTrendState(
       }
     }
   } else if (state.trend === 'bearish') {
-    // Check for body close above last LH (break)
-    if (newState.currentLH && bodyClose > newState.currentLH) {
+    // Check for body close above last LH with buffer (break)
+    if (newState.currentLH && bodyClose > newState.currentLH + minBuffer) {
       // Find the LH structure point to check its age
       const lhIndex = findStructurePointIndex(newState.structurePoints, newState.currentLH, 'swing_high');
       const isLHRecent = lhIndex >= 0 ? isStructurePointRecent(lhIndex, currentIndex, timeframe) : false;
       const age = lhIndex >= 0 ? currentIndex - lhIndex : -1;
+      const breakDistancePips = Math.abs(bodyClose - newState.currentLH) / pipSize;
       
-      console.log(`📈 Bearish break detected: Body ${bodyClose} > LH ${newState.currentLH}`);
+      console.log(`📈 Bearish break detected: Body ${bodyClose} > LH ${newState.currentLH} + ${bufferPips} pips`);
+      console.log(`   Break distance: ${breakDistancePips.toFixed(1)} pips (buffer: ${bufferPips} pips)`);
       console.log(`   LH age: ${age} candles (recent: ${isLHRecent}, threshold: ${timeframe === 'W' ? 100 : timeframe === 'D' ? 150 : 200})`);
       
-      // Only flip to bullish if LH is recent OR break is significant
-      if (isLHRecent || !isLHRecent) {
+      // Only flip to bullish if LH is recent
+      if (isLHRecent) {
         console.log(`   ✅ Flipping to BULLISH (LH ${isLHRecent ? 'is recent' : 'is stale but breaking anyway'})`);
         newState.trend = 'bullish';
         
@@ -315,15 +337,15 @@ function updateTrendState(
       } else {
         console.log(`   ⏭️  Ignoring stale LH break (LH is ${age} candles old)`);
       }
-    } else if (isLow && currentCandle.low_price < (newState.currentLL || Infinity)) {
-      // New LL formed
-      console.log(`📉 New LL formed: ${currentCandle.low_price} (previous: ${newState.currentLL})`);
+    } else if (isLow && currentCandle.close_price < (newState.currentLL || Infinity)) {
+      // New LL formed (body close)
+      console.log(`📉 New LL formed: ${currentCandle.close_price} (previous: ${newState.currentLL})`);
       
       const oldLLIndex = newState.structurePoints.findIndex(
         p => p.label === 'LL' && p.price === newState.currentLL
       );
       
-      newState.currentLL = currentCandle.low_price;
+      newState.currentLL = currentCandle.close_price;
       
       // Find most recent swing high between old LL and new LL
       if (oldLLIndex >= 0) {
@@ -409,7 +431,22 @@ async function buildTrendFromHistory(
   
   // Process each candle chronologically
   for (let i = 0; i < candles.length; i++) {
-    state = updateTrendState(state, candles, i, timeframe);
+    state = updateTrendState(state, candles, i, timeframe, symbol);
+  }
+  
+  // Final consistency guard - ensure trend aligns with final price
+  const lastCandle = candles[candles.length - 1];
+  const finalClose = lastCandle.close_price;
+  const pipSize = getPipSize(symbol);
+  const bufferPips = getMinBufferPips(timeframe);
+  const minBuffer = bufferPips * pipSize;
+  
+  if (state.trend === 'bullish' && state.currentHL && finalClose < state.currentHL - minBuffer) {
+    console.log(`⚠️  Consistency check: Degrading bullish trend to neutral (price ${finalClose} below HL ${state.currentHL})`);
+    state.trend = 'neutral';
+  } else if (state.trend === 'bearish' && state.currentLH && finalClose > state.currentLH + minBuffer) {
+    console.log(`⚠️  Consistency check: Degrading bearish trend to neutral (price ${finalClose} above LH ${state.currentLH})`);
+    state.trend = 'neutral';
   }
   
   // Log structure point distribution
