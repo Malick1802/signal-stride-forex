@@ -130,14 +130,16 @@ serve(async (req) => {
       
       const { error: insertError } = await supabase
         .from('multi_timeframe_data')
-        .insert(batch)
-        .onConflict('symbol,timeframe,timestamp')
-        .ignoreDuplicates();
+        .upsert(batch, {
+          onConflict: 'symbol,timeframe,timestamp',
+          ignoreDuplicates: true
+        });
       
       if (insertError) {
-        console.error(`❌ Batch insert error:`, insertError);
+        console.error(`❌ Batch upsert error:`, insertError);
       } else {
         insertedCount += batch.length;
+        console.log(`✅ Inserted batch ${i / batchSize + 1}: ${batch.length} candles`);
       }
     }
 
