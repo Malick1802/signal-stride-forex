@@ -60,6 +60,35 @@ jobs:
         chmod +x .github/scripts/check-market-hours.sh
         ./.github/scripts/check-market-hours.sh
 
+    - name: Aggregate Multi-Timeframe Data
+      if: steps.market-check.outputs.market_open == 'true' || github.event.inputs.force_generation == 'true'
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://ugtaodrvbpfeyhdgmisn.supabase.co' }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVndGFvZHJ2YnBmZXloZGdtaXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQwNjA2MTUsImV4cCI6MjA0OTYzNjYxNX0.Z-71hRCpHB0YivrsTb2kZQdObcF42BQVYIQ8_yMb_JM' }}
+      run: |
+        echo "📊 Aggregating tick data into multi-timeframe candles..."
+        
+        response=$(curl -sS -w "\n%{http_code}" --connect-timeout 10 --max-time 40 \
+          -X POST "$SUPABASE_URL/functions/v1/multi-timeframe-collector" \
+          -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+          -H "Content-Type: application/json" \
+          -H "apikey: $SUPABASE_ANON_KEY" \
+          -d '{}')
+        
+        http_code=$(echo "$response" | tail -n1)
+        response_body=$(echo "$response" | head -n -1)
+        
+        echo "HTTP Status: $http_code"
+        
+        if [ "$http_code" -eq 200 ]; then
+          echo "✅ Multi-timeframe aggregation successful"
+          echo "$response_body" | jq '.' || echo "$response_body"
+        else
+          echo "⚠️ Aggregation failed with status $http_code"
+          echo "$response_body"
+          exit 1
+        fi
+
     - name: Generate Trading Signals (Optimized)
       if: steps.market-check.outputs.market_open == 'true' || github.event.inputs.force_generation == 'true'
       env:

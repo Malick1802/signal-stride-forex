@@ -42,8 +42,38 @@ serve(async (req) => {
       .select('symbol, price, timestamp')
       .order('timestamp', { ascending: true });
 
-    if (tickError || !tickData) {
-      throw new Error('Failed to fetch tick data');
+    if (tickError) {
+      throw new Error(`Failed to fetch tick data: ${tickError.message}`);
+    }
+
+    if (!tickData || tickData.length === 0) {
+      console.log('⚠️ No tick data found in live_price_history');
+      
+      // Check if table is completely empty
+      const { count } = await supabase
+        .from('live_price_history')
+        .select('*', { count: 'exact', head: true });
+      
+      if (count === 0) {
+        return new Response(JSON.stringify({
+          success: false,
+          error: 'No historical tick data available - run centralized-market-stream first',
+          timestamp: new Date().toISOString()
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      
+      // Data exists but filtered out - return success with zero candles
+      return new Response(JSON.stringify({
+        success: true,
+        message: 'No recent tick data to process',
+        stats: { ticksProcessed: 0, candlesGenerated: 0 },
+        timestamp: new Date().toISOString()
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     console.log(`📊 Processing ${tickData.length} tick records for multi-timeframe aggregation`);
@@ -114,11 +144,26 @@ serve(async (req) => {
     // Cleanup old data (keep last 1000 candles per symbol per timeframe)
     console.log('🧹 Cleaning old multi-timeframe data...');
     
-    const { error: cleanupError } = await supabase
-      .rpc('cleanup_old_timeframe_data');
-    
-    if (cleanupError) {
-      console.warn('⚠️ Cleanup warning:', cleanupError);
+    for (const symbol of Object.keys(symbolGroups)) {
+      for (const timeframe of timeframes) {
+        const { data: oldRecords } = await supabase
+          .from('multi_timeframe_data')
+          .select('id')
+          .eq('symbol', symbol)
+          .eq('timeframe', timeframe)
+          .order('timestamp', { ascending: false })
+          .range(1000, 10000);
+        
+        if (oldRecords && oldRecords.length > 0) {
+          const idsToDelete = oldRecords.map(r => r.id);
+          await supabase
+            .from('multi_timeframe_data')
+            .delete()
+            .in('id', idsToDelete);
+          
+          console.log(`🗑️ Cleaned ${idsToDelete.length} old ${timeframe} candles for ${symbol}`);
+        }
+      }
     }
 
     const responseData = {
@@ -167,7 +212,26 @@ function aggregateToTimeframe(
   atr?: number;
 }> {
   
-  if (ticks.length === 0) return [];
+  if (!ticks || ticks.length === 0) {
+    console.warn(`⚠️ No ticks provided for ${timeframe} aggregation`);
+    return [];
+  }
+  
+  // Validate tick data
+  const validTicks = ticks.filter(t => 
+    t && 
+    typeof t.price === 'number' && 
+    !isNaN(t.price) && 
+    t.timestamp
+  );
+  
+  if (validTicks.length < 2) {
+    console.warn(`⚠️ Insufficient valid ticks (${validTicks.length}) for ${timeframe}`);
+    return [];
+  }
+  
+  // Use validTicks instead of ticks for processing
+  ticks = validTicks;
   
   // Get timeframe duration in milliseconds
   const getTimeframeDuration = (tf: string): number => {
