@@ -729,6 +729,18 @@ serve(async (req) => {
           .order('timestamp', { ascending: true })
           .limit(100);
         
+        // Phase 2: Validate data freshness
+        if (fourHourOHLCV && fourHourOHLCV.length > 0) {
+          const latestCandle = fourHourOHLCV[fourHourOHLCV.length - 1];
+          const dataAge = Date.now() - new Date(latestCandle.timestamp).getTime();
+          const maxAgeMs = 6 * 60 * 60 * 1000; // 6 hours
+          
+          if (dataAge > maxAgeMs) {
+            console.log(`⚠️ ${symbol}: 4H candle data too old (${Math.round(dataAge / 3600000)}h) - skipping`);
+            continue;
+          }
+        }
+        
         // 5. Check for Head & Shoulders pattern
         // Look for H&S forming at END of opposite trend (reversal into MTF bias)
         const hsDetectionTrend = multiTF.tradingBias === 'BUY' ? 'bearish' : 'bullish';
@@ -760,11 +772,72 @@ serve(async (req) => {
           
           console.log(`✅ ${symbol}: ${hsPattern.patternType} aligned with ${multiTF.tradingBias} bias`);
           
-          const stopLoss = hsPattern.patternType === 'bearish_hs'
-            ? hsPattern.rightShoulder.price + (10 * getPipValue(symbol))
-            : hsPattern.rightShoulder.price - (10 * getPipValue(symbol));
+          // Phase 4: Calculate stop-loss with reasonable limits
+          const maxStopLossPips = 100; // Maximum 100 pips risk
+          const pipValue = getPipValue(symbol);
+          let stopLoss: number;
           
-          const takeProfits = [hsPattern.targetPrice];
+          if (hsPattern.patternType === 'bearish_hs') {
+            stopLoss = hsPattern.rightShoulder.price + (10 * pipValue);
+            // Validate stop-loss isn't too far
+            const stopDistance = (stopLoss - currentPrice) / pipValue;
+            if (Math.abs(stopDistance) > maxStopLossPips) {
+              console.log(`⚠️ ${symbol}: H&S stop-loss too wide (${Math.abs(stopDistance).toFixed(1)} pips) - adjusting`);
+              stopLoss = currentPrice + (maxStopLossPips * pipValue);
+            }
+          } else { // bullish inverted H&S
+            stopLoss = hsPattern.rightShoulder.price - (10 * pipValue);
+            // Validate stop-loss isn't too far
+            const stopDistance = (currentPrice - stopLoss) / pipValue;
+            if (Math.abs(stopDistance) > maxStopLossPips) {
+              console.log(`⚠️ ${symbol}: H&S stop-loss too wide (${Math.abs(stopDistance).toFixed(1)} pips) - adjusting`);
+              stopLoss = currentPrice - (maxStopLossPips * pipValue);
+            }
+          }
+          
+          // Phase 3: Validate H&S target makes sense
+          let takeProfits: number[] = [];
+          
+          if (hsSignalType === 'BUY') {
+            // For BUY: TP must be ABOVE entry
+            if (hsPattern.targetPrice > currentPrice) {
+              takeProfits = [hsPattern.targetPrice];
+            } else {
+              console.log(`⚠️ ${symbol}: H&S target ${hsPattern.targetPrice} below entry ${currentPrice} - using structure TP`);
+              // Fallback to structure-based TP
+              takeProfits = calculateTakeProfits(
+                currentPrice,
+                stopLoss,
+                hsSignalType,
+                fourHourAnalysis.structure.structurePoints,
+                { support: weeklyZones.support.concat(dailyZones.support), 
+                  resistance: weeklyZones.resistance.concat(dailyZones.resistance) },
+                symbol
+              );
+            }
+          } else { // SELL
+            // For SELL: TP must be BELOW entry
+            if (hsPattern.targetPrice < currentPrice) {
+              takeProfits = [hsPattern.targetPrice];
+            } else {
+              console.log(`⚠️ ${symbol}: H&S target ${hsPattern.targetPrice} above entry ${currentPrice} - using structure TP`);
+              takeProfits = calculateTakeProfits(
+                currentPrice,
+                stopLoss,
+                hsSignalType,
+                fourHourAnalysis.structure.structurePoints,
+                { support: weeklyZones.support.concat(dailyZones.support), 
+                  resistance: weeklyZones.resistance.concat(dailyZones.resistance) },
+                symbol
+              );
+            }
+          }
+          
+          // Final safety check
+          if (takeProfits.length === 0) {
+            console.log(`❌ ${symbol}: No valid take-profits calculated for H&S - skipping signal`);
+            continue;
+          }
           
           let hsConfidence = 65; // Base H&S confidence
           if (atAOI) hsConfidence += 10;
