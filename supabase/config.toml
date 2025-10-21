@@ -3,6 +3,9 @@ project_id = "ugtaodrvbpfeyhdgmisn"
 [functions.test-data-fetch]
 verify_jwt = false
 
+[functions.build-market-structure]
+verify_jwt = false
+
 [functions.send-push-notification]
 verify_jwt = false
 
