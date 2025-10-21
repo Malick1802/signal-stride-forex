@@ -481,9 +481,23 @@ function detectHeadAndShoulders(
   if (structurePoints.length < 3) return null;
   
   const findLowestBetween = (data: any[], startIdx: number, endIdx: number) => {
-    let lowest = data[startIdx].low_price;
-    let lowestIdx = startIdx;
-    for (let i = startIdx + 1; i <= endIdx && i < data.length; i++) {
+    // Add defensive bounds checking
+    const safeStart = Math.max(0, Math.min(startIdx, data.length - 1));
+    const safeEnd = Math.max(0, Math.min(endIdx, data.length - 1));
+    
+    if (safeStart >= data.length || safeEnd >= data.length || safeStart >= safeEnd) {
+      return { price: 0, index: -1 }; // Invalid range
+    }
+    
+    if (!data[safeStart] || data[safeStart].low_price === undefined) {
+      return { price: 0, index: -1 }; // Invalid data
+    }
+    
+    let lowest = data[safeStart].low_price;
+    let lowestIdx = safeStart;
+    
+    for (let i = safeStart + 1; i <= safeEnd; i++) {
+      if (!data[i] || data[i].low_price === undefined) continue; // Skip invalid data
       if (data[i].low_price < lowest) {
         lowest = data[i].low_price;
         lowestIdx = i;
@@ -493,9 +507,23 @@ function detectHeadAndShoulders(
   };
   
   const findHighestBetween = (data: any[], startIdx: number, endIdx: number) => {
-    let highest = data[startIdx].high_price;
-    let highestIdx = startIdx;
-    for (let i = startIdx + 1; i <= endIdx && i < data.length; i++) {
+    // Add defensive bounds checking
+    const safeStart = Math.max(0, Math.min(startIdx, data.length - 1));
+    const safeEnd = Math.max(0, Math.min(endIdx, data.length - 1));
+    
+    if (safeStart >= data.length || safeEnd >= data.length || safeStart >= safeEnd) {
+      return { price: 0, index: -1 }; // Invalid range
+    }
+    
+    if (!data[safeStart] || data[safeStart].high_price === undefined) {
+      return { price: 0, index: -1 }; // Invalid data
+    }
+    
+    let highest = data[safeStart].high_price;
+    let highestIdx = safeStart;
+    
+    for (let i = safeStart + 1; i <= safeEnd; i++) {
+      if (!data[i] || data[i].high_price === undefined) continue; // Skip invalid data
       if (data[i].high_price > highest) {
         highest = data[i].high_price;
         highestIdx = i;
@@ -662,7 +690,13 @@ serve(async (req) => {
           continue;
         }
         
-        console.log(`✅ ${symbol}: ${multiTF.tradingBias} bias (score: ${multiTF.confluenceScore})`);
+        // 2.1 NEW: Require Daily AND 4H to align for high-quality signals
+        if (dailyAnalysis.trend !== fourHourAnalysis.trend) {
+          console.log(`❌ ${symbol}: D/4H trend mismatch (D:${dailyAnalysis.trend}, 4H:${fourHourAnalysis.trend}) - skipping for quality`);
+          continue;
+        }
+        
+        console.log(`📊 ${symbol}: D=${dailyAnalysis.trend} (${dailyAnalysis.confidence}%), 4H=${fourHourAnalysis.trend} (${fourHourAnalysis.confidence}%) → Bias: ${multiTF.tradingBias}`);
         
         // 3. Identify AOI zones
         const weeklyZones = {

@@ -2476,7 +2476,7 @@ export type Database = {
           news_impact_assessed: boolean | null
           pattern_confidence: number | null
           pattern_detected: string | null
-          pips: number
+          pips: number | null
           pivot_entry: number | null
           price: number
           professional_grade: boolean | null
@@ -2553,7 +2553,7 @@ export type Database = {
           news_impact_assessed?: boolean | null
           pattern_confidence?: number | null
           pattern_detected?: string | null
-          pips: number
+          pips?: number | null
           pivot_entry?: number | null
           price: number
           professional_grade?: boolean | null
@@ -2630,7 +2630,7 @@ export type Database = {
           news_impact_assessed?: boolean | null
           pattern_confidence?: number | null
           pattern_detected?: string | null
-          pips?: number
+          pips?: number | null
           pivot_entry?: number | null
           price?: number
           professional_grade?: boolean | null
