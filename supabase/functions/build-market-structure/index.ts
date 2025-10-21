@@ -442,11 +442,57 @@ async function buildTrendFromHistory(
   const minBuffer = bufferPips * pipSize;
   
   if (state.trend === 'bullish' && state.currentHL && finalClose < state.currentHL - minBuffer) {
-    console.log(`⚠️  Consistency check: Degrading bullish trend to neutral (price ${finalClose} below HL ${state.currentHL})`);
-    state.trend = 'neutral';
+    // Check if HL is recent
+    const hlIndex = findStructurePointIndex(state.structurePoints, state.currentHL, 'swing_low');
+    const isHLRecent = hlIndex >= 0 ? isStructurePointRecent(hlIndex, candles.length - 1, timeframe) : false;
+    
+    if (isHLRecent) {
+      console.log(`⚠️  Consistency check: Flipping bullish to BEARISH (body ${finalClose} broke HL ${state.currentHL})`);
+      state.trend = 'bearish';
+      
+      // Find preceding high to label as LH
+      const precedingHigh = state.structurePoints
+        .filter(p => p.type === 'swing_high' && p.index < candles.length - 1)
+        .sort((a, b) => b.index - a.index)[0];
+      
+      if (precedingHigh) {
+        precedingHigh.label = 'LH';
+        state.currentLH = precedingHigh.price;
+      }
+      
+      state.currentLL = finalClose;
+      state.currentHH = null;
+      state.currentHL = null;
+    } else {
+      console.log(`⚠️  Consistency check: Degrading bullish trend to neutral (HL too old)`);
+      state.trend = 'neutral';
+    }
   } else if (state.trend === 'bearish' && state.currentLH && finalClose > state.currentLH + minBuffer) {
-    console.log(`⚠️  Consistency check: Degrading bearish trend to neutral (price ${finalClose} above LH ${state.currentLH})`);
-    state.trend = 'neutral';
+    // Check if LH is recent
+    const lhIndex = findStructurePointIndex(state.structurePoints, state.currentLH, 'swing_high');
+    const isLHRecent = lhIndex >= 0 ? isStructurePointRecent(lhIndex, candles.length - 1, timeframe) : false;
+    
+    if (isLHRecent) {
+      console.log(`⚠️  Consistency check: Flipping bearish to BULLISH (body ${finalClose} broke LH ${state.currentLH})`);
+      state.trend = 'bullish';
+      
+      // Find preceding low to label as HL
+      const precedingLow = state.structurePoints
+        .filter(p => p.type === 'swing_low' && p.index < candles.length - 1)
+        .sort((a, b) => b.index - a.index)[0];
+      
+      if (precedingLow) {
+        precedingLow.label = 'HL';
+        state.currentHL = precedingLow.price;
+      }
+      
+      state.currentHH = finalClose;
+      state.currentLL = null;
+      state.currentLH = null;
+    } else {
+      console.log(`⚠️  Consistency check: Degrading bearish trend to neutral (LH too old)`);
+      state.trend = 'neutral';
+    }
   }
   
   // Log structure point distribution
