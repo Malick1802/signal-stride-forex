@@ -2755,6 +2755,17 @@ export type Database = {
         }
         Relationships: []
       }
+      signal_health_metrics: {
+        Row: {
+          avg_stop_distance_pct: number | null
+          hour: string | null
+          immediate_expiries: number | null
+          signals_created: number | null
+          strategies_used: string | null
+          valid_tp_ratio_pct: number | null
+        }
+        Relationships: []
+      }
       signal_quality_dashboard: {
         Row: {
           avg_confidence: number | null
@@ -2802,6 +2813,12 @@ export type Database = {
       cleanup_old_timeframe_data: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      cleanup_stale_candle_data: {
+        Args: { hours_old?: number }
+        Returns: {
+          deleted_count: number
+        }[]
       }
       distribute_mlm_commission: {
         Args: {
