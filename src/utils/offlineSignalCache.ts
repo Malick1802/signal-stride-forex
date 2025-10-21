@@ -102,30 +102,67 @@ export class OfflineSignalCache {
       const transaction = db.transaction([this.storeName], 'readwrite');
       const store = transaction.objectStore(this.storeName);
       
-      // Clear old cache if we exceed max size
-      const allKeys = await this.getAllKeys();
-      if (allKeys.length > this.maxCacheSize) {
-        await this.clearOldEntries();
-      }
-      
-      const timestamp = Date.now();
-      
-      for (const signal of signals) {
-        const cachedSignal: CachedSignal = {
-          id: signal.id,
-          data: signal,
-          timestamp,
-          version: 1
-        };
+      // Complete all operations within this single transaction
+      return new Promise((resolve, reject) => {
+        const timestamp = Date.now();
+        const requests: IDBRequest[] = [];
         
-        await new Promise<void>((resolve, reject) => {
-          const request = store.put(cachedSignal);
-          request.onsuccess = () => resolve();
-          request.onerror = () => reject(request.error);
-        });
-      }
-      
-      console.log(`📦 Cached ${signals.length} signals offline`);
+        // First, check count and clear old entries if needed
+        const countRequest = store.count();
+        countRequest.onsuccess = () => {
+          const currentCount = countRequest.result;
+          
+          if (currentCount > this.maxCacheSize) {
+            // Clear old entries within the same transaction
+            const index = store.index('timestamp');
+            const entriesToKeep = this.maxCacheSize - 10;
+            let count = 0;
+            
+            const cursorRequest = index.openCursor(null, 'prev');
+            cursorRequest.onsuccess = () => {
+              const cursor = cursorRequest.result;
+              if (cursor) {
+                count++;
+                if (count > entriesToKeep) {
+                  cursor.delete();
+                }
+                cursor.continue();
+              } else {
+                // After clearing, add new signals
+                addSignals();
+              }
+            };
+            cursorRequest.onerror = () => reject(cursorRequest.error);
+          } else {
+            // No need to clear, just add signals
+            addSignals();
+          }
+        };
+        countRequest.onerror = () => reject(countRequest.error);
+        
+        function addSignals() {
+          // Add all signals to the store
+          for (const signal of signals) {
+            const cachedSignal: CachedSignal = {
+              id: signal.id,
+              data: signal,
+              timestamp,
+              version: 1
+            };
+            
+            const putRequest = store.put(cachedSignal);
+            requests.push(putRequest);
+            putRequest.onerror = () => reject(putRequest.error);
+          }
+          
+          // Wait for transaction to complete
+          transaction.oncomplete = () => {
+            console.log(`📦 Cached ${signals.length} signals offline`);
+            resolve();
+          };
+          transaction.onerror = () => reject(transaction.error);
+        }
+      });
     } catch (error) {
       console.error('❌ Error caching signals, falling back to memory:', error);
       // Fallback to memory cache
