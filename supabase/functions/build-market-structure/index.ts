@@ -176,6 +176,12 @@ function updateTrendState(
   const bufferPips = getMinBufferPips(timeframe);
   const minBuffer = bufferPips * pipSize;
   
+  // Debug logging for GBPUSD 4H
+  const isDebugPair = symbol === 'GBPUSD' && timeframe === '4H';
+  if (isDebugPair && currentIndex > 990) {
+    console.log(`🔍 [${symbol} ${timeframe}] Index ${currentIndex}: trend=${state.trend}, bodyClose=${bodyClose}, HL=${state.currentHL}, HH=${state.currentHH}`);
+  }
+  
   // Check if current candle forms a structure point
   const isHigh = isSwingHigh(candles, currentIndex);
   const isLow = isSwingLow(candles, currentIndex);
@@ -238,6 +244,13 @@ function updateTrendState(
       }
     }
   } else if (state.trend === 'bullish') {
+    // Debug: Log entry to bullish trend processing
+    if (isDebugPair && currentIndex > 990) {
+      console.log(`🔵 [${symbol} ${timeframe}] Bullish trend processing at index ${currentIndex}`);
+      console.log(`   Checking break: bodyClose=${bodyClose}, HL=${newState.currentHL}, minBuffer=${minBuffer}`);
+      console.log(`   Break condition: ${bodyClose} < ${newState.currentHL ? newState.currentHL - minBuffer : 'N/A'} = ${newState.currentHL ? bodyClose < newState.currentHL - minBuffer : false}`);
+    }
+    
     // Check for body close below last HL with buffer (break)
     if (newState.currentHL && bodyClose < newState.currentHL - minBuffer) {
       // Find the HL structure point to check its age
@@ -245,6 +258,15 @@ function updateTrendState(
       const isHLRecent = hlIndex >= 0 ? isStructurePointRecent(hlIndex, currentIndex, timeframe) : false;
       const age = hlIndex >= 0 ? currentIndex - hlIndex : -1;
       const breakDistancePips = Math.abs(bodyClose - newState.currentHL) / pipSize;
+      
+      // Enhanced debug logging for GBPUSD 4H
+      if (isDebugPair) {
+        console.log(`🚨 [${symbol} ${timeframe}] BULLISH BREAK DETECTED at index ${currentIndex}:`);
+        console.log(`   Body: ${bodyClose}, HL: ${newState.currentHL}, Buffer: ${minBuffer} (${bufferPips} pips)`);
+        console.log(`   hlIndex from findStructurePointIndex: ${hlIndex}`);
+        console.log(`   Age: ${age} candles, isHLRecent: ${isHLRecent}`);
+        console.log(`   Relevance window: ${Math.floor(candles.length * 0.1)} candles (10% of ${candles.length})`);
+      }
       
       console.log(`📉 Bullish break detected: Body ${bodyClose} < HL ${newState.currentHL} - ${bufferPips} pips`);
       console.log(`   Break distance: ${breakDistancePips.toFixed(1)} pips (buffer: ${bufferPips} pips)`);
@@ -444,10 +466,33 @@ async function buildTrendFromHistory(
   const bufferPips = getMinBufferPips(timeframe);
   const minBuffer = bufferPips * pipSize;
   
+  // Debug consistency guard entry for GBPUSD 4H
+  const isDebugPair = symbol === 'GBPUSD' && timeframe === '4H';
+  if (isDebugPair) {
+    console.log(`🔍 [${symbol} ${timeframe}] CONSISTENCY GUARD CHECK:`);
+    console.log(`   Final trend: ${state.trend}`);
+    console.log(`   Final close: ${finalClose}`);
+    console.log(`   Current HL: ${state.currentHL}`);
+    console.log(`   Min buffer: ${minBuffer} (${bufferPips} pips)`);
+    console.log(`   Break condition check: ${finalClose} < ${state.currentHL ? state.currentHL - minBuffer : 'N/A'}`);
+    console.log(`   Break condition result: ${state.trend === 'bullish' && state.currentHL && finalClose < state.currentHL - minBuffer}`);
+  }
+  
   if (state.trend === 'bullish' && state.currentHL && finalClose < state.currentHL - minBuffer) {
     // Check if HL is recent
     const hlIndex = findStructurePointIndex(state.structurePoints, state.currentHL, 'swing_low');
     const isHLRecent = hlIndex >= 0 ? isStructurePointRecent(hlIndex, candles.length - 1, timeframe) : false;
+    const age = hlIndex >= 0 ? (candles.length - 1) - hlIndex : -1;
+    
+    // Enhanced debug for GBPUSD 4H
+    if (isDebugPair) {
+      console.log(`🚨 [${symbol} ${timeframe}] CONSISTENCY GUARD TRIGGERED:`);
+      console.log(`   hlIndex from findStructurePointIndex: ${hlIndex}`);
+      console.log(`   Age: ${age} candles`);
+      console.log(`   isHLRecent: ${isHLRecent}`);
+      console.log(`   Relevance window: ${Math.floor(candles.length * 0.1)} candles (10% of ${candles.length})`);
+      console.log(`   Distance below HL: ${((state.currentHL - finalClose) / pipSize).toFixed(1)} pips`);
+    }
     
     if (isHLRecent) {
       console.log(`⚠️  Consistency check: Flipping bullish to BEARISH (body ${finalClose} broke HL ${state.currentHL})`);
