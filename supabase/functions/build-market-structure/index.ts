@@ -141,7 +141,7 @@ function isStructurePointRecent(
   currentIndex: number,
   timeframe: 'W' | 'D' | '4H'
 ): boolean {
-  const relevanceWindow = timeframe === 'W' ? 100 : timeframe === 'D' ? 150 : 200;
+  const relevanceWindow = timeframe === 'W' ? 100 : timeframe === 'D' ? 150 : 100;
   const age = currentIndex - structurePointIndex;
   return age <= relevanceWindow;
 }
