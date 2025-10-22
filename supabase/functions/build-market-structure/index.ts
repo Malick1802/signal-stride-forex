@@ -419,7 +419,7 @@ async function buildTrendFromHistory(
   const lookbackDate = new Date();
   if (timeframe === 'W') lookbackDate.setFullYear(lookbackDate.getFullYear() - 5);
   else if (timeframe === 'D') lookbackDate.setFullYear(lookbackDate.getFullYear() - 1);
-  else lookbackDate.setMonth(lookbackDate.getMonth() - 6);
+  else lookbackDate.setMonth(lookbackDate.getMonth() - 4);
   
   // Fetch historical data
   const { data: candles, error } = await supabase
