@@ -159,6 +159,100 @@ function findStructurePointIndex(
   return point ? point.index : -1;
 }
 
+// Detect recent bearish flip pattern (LL + LH) within relevance window
+function detectRecentBearishFlip(
+  state: TrendState,
+  currentIndex: number,
+  timeframe: 'W' | 'D' | '4H',
+  symbol: string
+): { shouldFlip: boolean; recentLL: StructurePoint | null; recentLH: StructurePoint | null } {
+  // Filter to recent points only
+  const recentPoints = state.structurePoints.filter(p => 
+    isStructurePointRecent(p.index, currentIndex, timeframe)
+  );
+  
+  // Find two most recent lows
+  const recentLows = recentPoints.filter(p => p.type === 'swing_low')
+    .sort((a, b) => b.index - a.index); // newest first
+  
+  if (recentLows.length < 2) return { shouldFlip: false, recentLL: null, recentLH: null };
+  
+  const L2 = recentLows[0]; // newest low
+  const L1 = recentLows[1]; // previous low
+  
+  // Check for LL (L2 < L1)
+  if (L2.price >= L1.price) return { shouldFlip: false, recentLL: null, recentLH: null };
+  
+  // Find recent highs
+  const recentHighs = recentPoints.filter(p => p.type === 'swing_high');
+  
+  // Find most recent high between L1 and L2
+  const H2 = recentHighs.filter(h => h.index > L1.index && h.index < L2.index)
+    .sort((a, b) => b.index - a.index)[0];
+  
+  // Find most recent high before L1
+  const H1 = recentHighs.filter(h => h.index < L1.index)
+    .sort((a, b) => b.index - a.index)[0];
+  
+  if (!H1 || !H2) return { shouldFlip: false, recentLL: null, recentLH: null };
+  
+  // Check for LH (H2 < H1)
+  if (H2.price >= H1.price) return { shouldFlip: false, recentLL: null, recentLH: null };
+  
+  console.log(`🧭 [${symbol} ${timeframe}] Recent bearish pattern detected:`);
+  console.log(`   LL: L1=${L1.price.toFixed(5)} (idx ${L1.index}) -> L2=${L2.price.toFixed(5)} (idx ${L2.index})`);
+  console.log(`   LH: H1=${H1.price.toFixed(5)} (idx ${H1.index}) -> H2=${H2.price.toFixed(5)} (idx ${H2.index})`);
+  
+  return { shouldFlip: true, recentLL: L2, recentLH: H2 };
+}
+
+// Detect recent bullish flip pattern (HH + HL) within relevance window
+function detectRecentBullishFlip(
+  state: TrendState,
+  currentIndex: number,
+  timeframe: 'W' | 'D' | '4H',
+  symbol: string
+): { shouldFlip: boolean; recentHH: StructurePoint | null; recentHL: StructurePoint | null } {
+  // Filter to recent points only
+  const recentPoints = state.structurePoints.filter(p => 
+    isStructurePointRecent(p.index, currentIndex, timeframe)
+  );
+  
+  // Find two most recent highs
+  const recentHighs = recentPoints.filter(p => p.type === 'swing_high')
+    .sort((a, b) => b.index - a.index); // newest first
+  
+  if (recentHighs.length < 2) return { shouldFlip: false, recentHH: null, recentHL: null };
+  
+  const H2 = recentHighs[0]; // newest high
+  const H1 = recentHighs[1]; // previous high
+  
+  // Check for HH (H2 > H1)
+  if (H2.price <= H1.price) return { shouldFlip: false, recentHH: null, recentHL: null };
+  
+  // Find recent lows
+  const recentLows = recentPoints.filter(p => p.type === 'swing_low');
+  
+  // Find most recent low between H1 and H2
+  const L2 = recentLows.filter(l => l.index > H1.index && l.index < H2.index)
+    .sort((a, b) => b.index - a.index)[0];
+  
+  // Find most recent low before H1
+  const L1 = recentLows.filter(l => l.index < H1.index)
+    .sort((a, b) => b.index - a.index)[0];
+  
+  if (!L1 || !L2) return { shouldFlip: false, recentHH: null, recentHL: null };
+  
+  // Check for HL (L2 > L1)
+  if (L2.price <= L1.price) return { shouldFlip: false, recentHH: null, recentHL: null };
+  
+  console.log(`🧭 [${symbol} ${timeframe}] Recent bullish pattern detected:`);
+  console.log(`   HH: H1=${H1.price.toFixed(5)} (idx ${H1.index}) -> H2=${H2.price.toFixed(5)} (idx ${H2.index})`);
+  console.log(`   HL: L1=${L1.price.toFixed(5)} (idx ${L1.index}) -> L2=${L2.price.toFixed(5)} (idx ${L2.index})`);
+  
+  return { shouldFlip: true, recentHH: H2, recentHL: L2 };
+}
+
 // Update trend state based on new structure point or body close
 function updateTrendState(
   state: TrendState,
@@ -293,6 +387,23 @@ function updateTrendState(
         newState.currentHL = null;
       } else {
         console.log(`   ⏭️  Ignoring stale HL break (HL is ${age} candles old)`);
+        
+        // Check for recent-only bearish flip when HL is stale
+        const bearishFlip = detectRecentBearishFlip(newState, currentIndex, timeframe, symbol);
+        if (bearishFlip.shouldFlip && bearishFlip.recentLL && bearishFlip.recentLH) {
+          console.log(`🧭 Recent-only bearish flip: LL + LH found within relevance window (stale HL bypass)`);
+          newState.trend = 'bearish';
+          newState.currentLL = bearishFlip.recentLL.price;
+          newState.currentLH = bearishFlip.recentLH.price;
+          newState.currentHH = null;
+          newState.currentHL = null;
+          
+          // Label the structure points
+          bearishFlip.recentLL.label = 'LL';
+          bearishFlip.recentLH.label = 'LH';
+          
+          console.log(`✅ Flipped to BEARISH via recent-only pattern (LL=${newState.currentLL?.toFixed(5)}, LH=${newState.currentLH?.toFixed(5)})`);
+        }
       }
     } else if (isHigh && currentCandle.close_price > (newState.currentHH || 0)) {
       // New HH formed (body close)
@@ -325,6 +436,29 @@ function updateTrendState(
       // Label the new HH
       if (isHigh) {
         newState.structurePoints[newState.structurePoints.length - 1].label = 'HH';
+      }
+    }
+    
+    // After processing structure, check for recent-only bearish flip if HL is stale/missing
+    if (!newState.currentHL || !isStructurePointRecent(
+      findStructurePointIndex(newState.structurePoints, newState.currentHL, 'swing_low'),
+      currentIndex,
+      timeframe
+    )) {
+      const bearishFlip = detectRecentBearishFlip(newState, currentIndex, timeframe, symbol);
+      if (bearishFlip.shouldFlip && bearishFlip.recentLL && bearishFlip.recentLH) {
+        console.log(`🧭 Recent-only bearish flip detected (HL stale/missing, checking recent structure)`);
+        newState.trend = 'bearish';
+        newState.currentLL = bearishFlip.recentLL.price;
+        newState.currentLH = bearishFlip.recentLH.price;
+        newState.currentHH = null;
+        newState.currentHL = null;
+        
+        // Label the structure points
+        bearishFlip.recentLL.label = 'LL';
+        bearishFlip.recentLH.label = 'LH';
+        
+        console.log(`✅ Flipped to BEARISH via recent-only pattern (LL=${newState.currentLL?.toFixed(5)}, LH=${newState.currentLH?.toFixed(5)})`);
       }
     }
   } else if (state.trend === 'bearish') {
@@ -361,6 +495,23 @@ function updateTrendState(
         newState.currentLH = null;
       } else {
         console.log(`   ⏭️  Ignoring stale LH break (LH is ${age} candles old)`);
+        
+        // Check for recent-only bullish flip when LH is stale
+        const bullishFlip = detectRecentBullishFlip(newState, currentIndex, timeframe, symbol);
+        if (bullishFlip.shouldFlip && bullishFlip.recentHH && bullishFlip.recentHL) {
+          console.log(`🧭 Recent-only bullish flip: HH + HL found within relevance window (stale LH bypass)`);
+          newState.trend = 'bullish';
+          newState.currentHH = bullishFlip.recentHH.price;
+          newState.currentHL = bullishFlip.recentHL.price;
+          newState.currentLL = null;
+          newState.currentLH = null;
+          
+          // Label the structure points
+          bullishFlip.recentHH.label = 'HH';
+          bullishFlip.recentHL.label = 'HL';
+          
+          console.log(`✅ Flipped to BULLISH via recent-only pattern (HH=${newState.currentHH?.toFixed(5)}, HL=${newState.currentHL?.toFixed(5)})`);
+        }
       }
     } else if (isLow && currentCandle.close_price < (newState.currentLL || Infinity)) {
       // New LL formed (body close)
@@ -393,6 +544,29 @@ function updateTrendState(
       // Label the new LL
       if (isLow) {
         newState.structurePoints[newState.structurePoints.length - 1].label = 'LL';
+      }
+    }
+    
+    // After processing structure, check for recent-only bullish flip if LH is stale/missing
+    if (!newState.currentLH || !isStructurePointRecent(
+      findStructurePointIndex(newState.structurePoints, newState.currentLH, 'swing_high'),
+      currentIndex,
+      timeframe
+    )) {
+      const bullishFlip = detectRecentBullishFlip(newState, currentIndex, timeframe, symbol);
+      if (bullishFlip.shouldFlip && bullishFlip.recentHH && bullishFlip.recentHL) {
+        console.log(`🧭 Recent-only bullish flip detected (LH stale/missing, checking recent structure)`);
+        newState.trend = 'bullish';
+        newState.currentHH = bullishFlip.recentHH.price;
+        newState.currentHL = bullishFlip.recentHL.price;
+        newState.currentLL = null;
+        newState.currentLH = null;
+        
+        // Label the structure points
+        bullishFlip.recentHH.label = 'HH';
+        bullishFlip.recentHL.label = 'HL';
+        
+        console.log(`✅ Flipped to BULLISH via recent-only pattern (HH=${newState.currentHH?.toFixed(5)}, HL=${newState.currentHL?.toFixed(5)})`);
       }
     }
   }
@@ -512,8 +686,23 @@ async function buildTrendFromHistory(
       state.currentHH = null;
       state.currentHL = null;
     } else {
-      console.log(`⚠️  Consistency check: Degrading bullish trend to neutral (HL too old)`);
-      state.trend = 'neutral';
+      // Before degrading to neutral, check for recent bearish pattern
+      const bearishFlip = detectRecentBearishFlip(state, candles.length - 1, timeframe, symbol);
+      if (bearishFlip.shouldFlip && bearishFlip.recentLL && bearishFlip.recentLH) {
+        console.log(`⚠️  Consistency check: Flipping to BEARISH via recent-only pattern (stale HL)`);
+        state.trend = 'bearish';
+        state.currentLL = bearishFlip.recentLL.price;
+        state.currentLH = bearishFlip.recentLH.price;
+        state.currentHH = null;
+        state.currentHL = null;
+        
+        // Label the structure points
+        bearishFlip.recentLL.label = 'LL';
+        bearishFlip.recentLH.label = 'LH';
+      } else {
+        console.log(`⚠️  Consistency check: Degrading bullish trend to neutral (HL too old)`);
+        state.trend = 'neutral';
+      }
     }
   } else if (state.trend === 'bearish' && state.currentLH && finalClose > state.currentLH + minBuffer) {
     // Check if LH is recent
@@ -538,8 +727,23 @@ async function buildTrendFromHistory(
       state.currentLL = null;
       state.currentLH = null;
     } else {
-      console.log(`⚠️  Consistency check: Degrading bearish trend to neutral (LH too old)`);
-      state.trend = 'neutral';
+      // Before degrading to neutral, check for recent bullish pattern
+      const bullishFlip = detectRecentBullishFlip(state, candles.length - 1, timeframe, symbol);
+      if (bullishFlip.shouldFlip && bullishFlip.recentHH && bullishFlip.recentHL) {
+        console.log(`⚠️  Consistency check: Flipping to BULLISH via recent-only pattern (stale LH)`);
+        state.trend = 'bullish';
+        state.currentHH = bullishFlip.recentHH.price;
+        state.currentHL = bullishFlip.recentHL.price;
+        state.currentLL = null;
+        state.currentLH = null;
+        
+        // Label the structure points
+        bullishFlip.recentHH.label = 'HH';
+        bullishFlip.recentHL.label = 'HL';
+      } else {
+        console.log(`⚠️  Consistency check: Degrading bearish trend to neutral (LH too old)`);
+        state.trend = 'neutral';
+      }
     }
   }
   
