@@ -162,6 +162,7 @@ function findStructurePointIndex(
 // Detect recent bearish flip pattern (LL + LH) within relevance window
 function detectRecentBearishFlip(
   state: TrendState,
+  candles: Candle[],
   currentIndex: number,
   timeframe: 'W' | 'D' | '4H',
   symbol: string
@@ -199,9 +200,38 @@ function detectRecentBearishFlip(
   // Check for LH (H2 < H1)
   if (H2.price >= H1.price) return { shouldFlip: false, recentLL: null, recentLH: null };
   
-  console.log(`🧭 [${symbol} ${timeframe}] Recent bearish pattern detected:`);
+  // ✅ NEW: Validate that body closes actually broke below the LH with buffer
+  const pipSize = getPipSize(symbol);
+  const minBuffer = getMinBufferPips(timeframe) * pipSize;
+  
+  // Get all candles after LH formation
+  const candlesAfterLH = candles.slice(H2.index + 1, currentIndex + 1);
+  
+  // Check if any body close broke below LH with buffer
+  const hasBreakBelow = candlesAfterLH.some(candle => 
+    candle.close_price < H2.price - minBuffer
+  );
+  
+  if (!hasBreakBelow) {
+    const closestApproach = candlesAfterLH.length > 0 
+      ? Math.min(...candlesAfterLH.map(c => c.close_price))
+      : null;
+    const distancePips = closestApproach 
+      ? Math.round((closestApproach - H2.price) / pipSize)
+      : null;
+    
+    console.log(`🧭 [${symbol} ${timeframe}] LL+LH pattern exists but NO body close broke below LH:`);
+    console.log(`   LH: ${H2.price.toFixed(5)} at index ${H2.index}`);
+    console.log(`   Required break: ${(H2.price - minBuffer).toFixed(5)} (LH - ${getMinBufferPips(timeframe)} pips)`);
+    console.log(`   Closest body close: ${closestApproach?.toFixed(5) || 'N/A'} (${distancePips !== null ? distancePips + ' pips' : 'N/A'} from LH)`);
+    console.log(`   ⏭️  Pattern rejected - no confirmed break`);
+    return { shouldFlip: false, recentLL: null, recentLH: null };
+  }
+  
+  console.log(`🧭 [${symbol} ${timeframe}] Recent bearish pattern detected WITH body-close break:`);
   console.log(`   LL: L1=${L1.price.toFixed(5)} (idx ${L1.index}) -> L2=${L2.price.toFixed(5)} (idx ${L2.index})`);
   console.log(`   LH: H1=${H1.price.toFixed(5)} (idx ${H1.index}) -> H2=${H2.price.toFixed(5)} (idx ${H2.index})`);
+  console.log(`   ✅ Confirmed: Body close(s) broke below LH ${H2.price.toFixed(5)} - ${getMinBufferPips(timeframe)} pips`);
   
   return { shouldFlip: true, recentLL: L2, recentLH: H2 };
 }
@@ -209,6 +239,7 @@ function detectRecentBearishFlip(
 // Detect recent bullish flip pattern (HH + HL) within relevance window
 function detectRecentBullishFlip(
   state: TrendState,
+  candles: Candle[],
   currentIndex: number,
   timeframe: 'W' | 'D' | '4H',
   symbol: string
@@ -246,9 +277,38 @@ function detectRecentBullishFlip(
   // Check for HL (L2 > L1)
   if (L2.price <= L1.price) return { shouldFlip: false, recentHH: null, recentHL: null };
   
-  console.log(`🧭 [${symbol} ${timeframe}] Recent bullish pattern detected:`);
+  // ✅ NEW: Validate that body closes actually broke above the HL with buffer
+  const pipSize = getPipSize(symbol);
+  const minBuffer = getMinBufferPips(timeframe) * pipSize;
+  
+  // Get all candles after HL formation
+  const candlesAfterHL = candles.slice(L2.index + 1, currentIndex + 1);
+  
+  // Check if any body close broke above HL with buffer
+  const hasBreakAbove = candlesAfterHL.some(candle => 
+    candle.close_price > L2.price + minBuffer
+  );
+  
+  if (!hasBreakAbove) {
+    const closestApproach = candlesAfterHL.length > 0 
+      ? Math.max(...candlesAfterHL.map(c => c.close_price))
+      : null;
+    const distancePips = closestApproach 
+      ? Math.round((closestApproach - L2.price) / pipSize)
+      : null;
+    
+    console.log(`🧭 [${symbol} ${timeframe}] HH+HL pattern exists but NO body close broke above HL:`);
+    console.log(`   HL: ${L2.price.toFixed(5)} at index ${L2.index}`);
+    console.log(`   Required break: ${(L2.price + minBuffer).toFixed(5)} (HL + ${getMinBufferPips(timeframe)} pips)`);
+    console.log(`   Closest body close: ${closestApproach?.toFixed(5) || 'N/A'} (${distancePips !== null ? distancePips + ' pips' : 'N/A'} from HL)`);
+    console.log(`   ⏭️  Pattern rejected - no confirmed break`);
+    return { shouldFlip: false, recentHH: null, recentHL: null };
+  }
+  
+  console.log(`🧭 [${symbol} ${timeframe}] Recent bullish pattern detected WITH body-close break:`);
   console.log(`   HH: H1=${H1.price.toFixed(5)} (idx ${H1.index}) -> H2=${H2.price.toFixed(5)} (idx ${H2.index})`);
   console.log(`   HL: L1=${L1.price.toFixed(5)} (idx ${L1.index}) -> L2=${L2.price.toFixed(5)} (idx ${L2.index})`);
+  console.log(`   ✅ Confirmed: Body close(s) broke above HL ${L2.price.toFixed(5)} + ${getMinBufferPips(timeframe)} pips`);
   
   return { shouldFlip: true, recentHH: H2, recentHL: L2 };
 }
@@ -389,7 +449,7 @@ function updateTrendState(
         console.log(`   ⏭️  Ignoring stale HL break (HL is ${age} candles old)`);
         
         // Check for recent-only bearish flip when HL is stale
-        const bearishFlip = detectRecentBearishFlip(newState, currentIndex, timeframe, symbol);
+        const bearishFlip = detectRecentBearishFlip(newState, candles, currentIndex, timeframe, symbol);
         if (bearishFlip.shouldFlip && bearishFlip.recentLL && bearishFlip.recentLH) {
           console.log(`🧭 Recent-only bearish flip: LL + LH found within relevance window (stale HL bypass)`);
           newState.trend = 'bearish';
@@ -445,7 +505,7 @@ function updateTrendState(
       currentIndex,
       timeframe
     )) {
-      const bearishFlip = detectRecentBearishFlip(newState, currentIndex, timeframe, symbol);
+      const bearishFlip = detectRecentBearishFlip(newState, candles, currentIndex, timeframe, symbol);
       if (bearishFlip.shouldFlip && bearishFlip.recentLL && bearishFlip.recentLH) {
         console.log(`🧭 Recent-only bearish flip detected (HL stale/missing, checking recent structure)`);
         newState.trend = 'bearish';
@@ -497,7 +557,7 @@ function updateTrendState(
         console.log(`   ⏭️  Ignoring stale LH break (LH is ${age} candles old)`);
         
         // Check for recent-only bullish flip when LH is stale
-        const bullishFlip = detectRecentBullishFlip(newState, currentIndex, timeframe, symbol);
+        const bullishFlip = detectRecentBullishFlip(newState, candles, currentIndex, timeframe, symbol);
         if (bullishFlip.shouldFlip && bullishFlip.recentHH && bullishFlip.recentHL) {
           console.log(`🧭 Recent-only bullish flip: HH + HL found within relevance window (stale LH bypass)`);
           newState.trend = 'bullish';
@@ -553,7 +613,7 @@ function updateTrendState(
       currentIndex,
       timeframe
     )) {
-      const bullishFlip = detectRecentBullishFlip(newState, currentIndex, timeframe, symbol);
+      const bullishFlip = detectRecentBullishFlip(newState, candles, currentIndex, timeframe, symbol);
       if (bullishFlip.shouldFlip && bullishFlip.recentHH && bullishFlip.recentHL) {
         console.log(`🧭 Recent-only bullish flip detected (LH stale/missing, checking recent structure)`);
         newState.trend = 'bullish';
@@ -687,7 +747,7 @@ async function buildTrendFromHistory(
       state.currentHL = null;
     } else {
       // Before degrading to neutral, check for recent bearish pattern
-      const bearishFlip = detectRecentBearishFlip(state, candles.length - 1, timeframe, symbol);
+      const bearishFlip = detectRecentBearishFlip(state, candles, candles.length - 1, timeframe, symbol);
       if (bearishFlip.shouldFlip && bearishFlip.recentLL && bearishFlip.recentLH) {
         console.log(`⚠️  Consistency check: Flipping to BEARISH via recent-only pattern (stale HL)`);
         state.trend = 'bearish';
@@ -728,7 +788,7 @@ async function buildTrendFromHistory(
       state.currentLH = null;
     } else {
       // Before degrading to neutral, check for recent bullish pattern
-      const bullishFlip = detectRecentBullishFlip(state, candles.length - 1, timeframe, symbol);
+      const bullishFlip = detectRecentBullishFlip(state, candles, candles.length - 1, timeframe, symbol);
       if (bullishFlip.shouldFlip && bullishFlip.recentHH && bullishFlip.recentHL) {
         console.log(`⚠️  Consistency check: Flipping to BULLISH via recent-only pattern (stale LH)`);
         state.trend = 'bullish';
