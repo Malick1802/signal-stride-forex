@@ -764,24 +764,71 @@ serve(async (req) => {
           continue;
         }
         
-        // 1.2 NEW: Structure freshness validation (max 4.5 hours old)
-        const maxStructureAgeMs = 4.5 * 60 * 60 * 1000; // 4.5 hours
+        // 1.2 NEW: Structure freshness validation (max 48 hours old)
+        const maxStructureAgeMs = 48 * 60 * 60 * 1000; // 48 hours (2 days)
         const now = Date.now();
         
-        const weeklyAge = weeklyAnalysis.structure.lastUpdate ? now - new Date(weeklyAnalysis.structure.lastUpdate).getTime() : Infinity;
-        const dailyAge = dailyAnalysis.structure.lastUpdate ? now - new Date(dailyAnalysis.structure.lastUpdate).getTime() : Infinity;
-        const fourHourAge = fourHourAnalysis.structure.lastUpdate ? now - new Date(fourHourAnalysis.structure.lastUpdate).getTime() : Infinity;
+        // Calculate ages with proper null handling
+        const weeklyAge = weeklyAnalysis.structure.lastUpdate 
+          ? now - new Date(weeklyAnalysis.structure.lastUpdate).getTime() 
+          : Infinity;
+        const dailyAge = dailyAnalysis.structure.lastUpdate 
+          ? now - new Date(dailyAnalysis.structure.lastUpdate).getTime() 
+          : Infinity;
+        const fourHourAge = fourHourAnalysis.structure.lastUpdate 
+          ? now - new Date(fourHourAnalysis.structure.lastUpdate).getTime() 
+          : Infinity;
         
+        // Check for completely missing structure data (Infinity age)
+        const hasMissingStructure = [weeklyAge, dailyAge, fourHourAge].includes(Infinity);
+        
+        if (hasMissingStructure) {
+          console.log(`❌ ${symbol}: Missing market structure data - triggering initial backfill`);
+          
+          // Trigger backfill for ALL timeframes in parallel
+          await Promise.all([
+            supabase.functions.invoke('build-market-structure', { 
+              body: { symbol, timeframe: 'W' } 
+            }),
+            supabase.functions.invoke('build-market-structure', { 
+              body: { symbol, timeframe: 'D' } 
+            }),
+            supabase.functions.invoke('build-market-structure', { 
+              body: { symbol, timeframe: '4H' } 
+            })
+          ]);
+          
+          console.log(`✅ ${symbol}: Initial backfill triggered, will be ready next run`);
+          continue;
+        }
+        
+        // Check staleness for existing structure data
         const maxAge = Math.max(weeklyAge, dailyAge, fourHourAge);
         
         if (maxAge > maxStructureAgeMs) {
-          const ageHours = Math.round(maxAge / 3600000);
-          console.log(`⚠️ ${symbol}: Stale market structure (${ageHours}h old) - triggering update and skipping`);
+          const ageHours = (maxAge / 3600000).toFixed(1);
+          const ageDays = (maxAge / 86400000).toFixed(1);
           
-          // Trigger async structure update without blocking
-          supabase.functions.invoke('update-market-structure', {
-            body: { timeframe: 'W' }
-          }).then(() => console.log(`✅ ${symbol}: Structure update triggered`));
+          console.log(`⚠️ ${symbol}: Stale market structure (${ageHours}h / ${ageDays}d old) - triggering update`);
+          
+          // Trigger updates for stale timeframes (but don't wait)
+          if (fourHourAge > 6 * 60 * 60 * 1000) { // 4H older than 6 hours
+            supabase.functions.invoke('update-market-structure', { 
+              body: { timeframe: '4H' } 
+            }).then(() => console.log(`✅ ${symbol}: 4H structure update triggered`));
+          }
+          
+          if (dailyAge > 36 * 60 * 60 * 1000) { // Daily older than 36 hours
+            supabase.functions.invoke('update-market-structure', { 
+              body: { timeframe: 'D' } 
+            }).then(() => console.log(`✅ ${symbol}: Daily structure update triggered`));
+          }
+          
+          if (weeklyAge > 8 * 24 * 60 * 60 * 1000) { // Weekly older than 8 days
+            supabase.functions.invoke('update-market-structure', { 
+              body: { timeframe: 'W' } 
+            }).then(() => console.log(`✅ ${symbol}: Weekly structure update triggered`));
+          }
           
           continue;
         }
