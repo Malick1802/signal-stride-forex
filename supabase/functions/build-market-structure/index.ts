@@ -159,6 +159,24 @@ function findStructurePointIndex(
   return point ? point.index : -1;
 }
 
+// Helper to remove old labels before assigning new ones (prevent duplicates)
+function updateStructureLabel(
+  structurePoints: StructurePoint[],
+  label: 'HH' | 'HL' | 'LL' | 'LH',
+  newPoint: StructurePoint
+): void {
+  // Remove old label of this type
+  const oldPoint = structurePoints.find(p => p.label === label);
+  if (oldPoint && oldPoint !== newPoint) {
+    console.log(`   🔄 Removing old ${label} label from price ${oldPoint.price} (index ${oldPoint.index})`);
+    oldPoint.label = undefined;
+  }
+  
+  // Assign new label
+  newPoint.label = label;
+  console.log(`   ✅ Assigning ${label} label to price ${newPoint.price} (index ${newPoint.index})`);
+}
+
 // Detect recent bearish flip pattern (LL + LH) within relevance window
 function detectRecentBearishFlip(
   state: TrendState,
@@ -321,7 +339,7 @@ function updateTrendState(
   timeframe: 'W' | 'D' | '4H',
   symbol: string
 ): TrendState {
-  const newState = { ...state };
+  const newState = { ...state, lastConfirmedBreak: (state as any).lastConfirmedBreak };
   const currentCandle = candles[currentIndex];
   const bodyClose = currentCandle.close_price;
   
@@ -424,20 +442,23 @@ function updateTrendState(
       
       console.log(`📉 Bullish break detected: Body ${bodyClose} < HL ${newState.currentHL} - ${bufferPips} pips`);
       console.log(`   Break distance: ${breakDistancePips.toFixed(1)} pips (buffer: ${bufferPips} pips)`);
-      console.log(`   HL age: ${age} candles (recent: ${isHLRecent}, threshold: ${timeframe === 'W' ? 100 : timeframe === 'D' ? 150 : 200})`);
+      console.log(`   HL age: ${age} candles (recent: ${isHLRecent})`);
       
-      // Only flip to bearish if HL is recent
-      if (isHLRecent) {
-        console.log(`   ✅ Flipping to BEARISH (HL ${isHLRecent ? 'is recent' : 'is stale but breaking anyway'})`);
+      // ✅ NEW: Always flip if break is significant (>20 pips beyond buffer), regardless of HL age
+      const isSignificantBreak = breakDistancePips > (bufferPips + 20);
+      
+      if (isHLRecent || isSignificantBreak) {
+        console.log(`   ✅ Flipping to BEARISH (${isSignificantBreak ? 'significant break' : 'recent HL break'})`);
         newState.trend = 'bearish';
         
         // Find preceding structure point to label as new LH
         const precedingHigh = newState.structurePoints
-          .filter(p => p.type === 'swing_high' && p.index < currentIndex)
+          .filter(p => p.type === 'swing_high' && p.index < currentIndex && p.index > hlIndex)
           .sort((a, b) => b.index - a.index)[0];
         
         if (precedingHigh) {
-          precedingHigh.label = 'LH';
+          // Use helper to prevent duplicates
+          updateStructureLabel(newState.structurePoints, 'LH', precedingHigh);
           newState.currentLH = precedingHigh.price;
           console.log(`   New LH set: ${precedingHigh.price} at index ${precedingHigh.index}`);
         }
@@ -445,6 +466,13 @@ function updateTrendState(
         newState.currentLL = bodyClose;
         newState.currentHH = null;
         newState.currentHL = null;
+        
+        // Mark this as a confirmed break so consistency guard doesn't override it
+        (newState as any).lastConfirmedBreak = {
+          type: 'bearish',
+          index: currentIndex,
+          breakLevel: newState.currentHL
+        };
       } else {
         console.log(`   ⏭️  Ignoring stale HL break (HL is ${age} candles old)`);
         
@@ -467,35 +495,47 @@ function updateTrendState(
       }
     } else if (isHigh && currentCandle.close_price > (newState.currentHH || 0)) {
       // New HH formed (body close)
-      console.log(`📈 New HH formed: ${currentCandle.close_price} (previous: ${newState.currentHH})`);
+      const minDistance = pipSize * 5; // 5 pips minimum distance to be considered "new" HH
       
-      const oldHHIndex = newState.structurePoints.findIndex(
-        p => p.label === 'HH' && p.price === newState.currentHH
-      );
+      // Check if this is significantly higher than previous HH (not just noise)
+      const isSignificantlyHigher = !newState.currentHH || 
+        currentCandle.close_price > newState.currentHH + minDistance;
       
-      newState.currentHH = currentCandle.close_price;
-      
-      // Find most recent swing low between old HH and new HH
-      if (oldHHIndex >= 0) {
-        const newHL = findMostRecentStructureBetween(
-          newState.structurePoints,
-          newState.structurePoints[oldHHIndex].index,
-          currentIndex,
-          'swing_low'
+      if (isSignificantlyHigher) {
+        console.log(`📈 New HH formed: ${currentCandle.close_price} (previous: ${newState.currentHH})`);
+        
+        const oldHHIndex = newState.structurePoints.findIndex(
+          p => p.label === 'HH' && p.price === newState.currentHH
         );
         
-        if (newHL) {
-          newHL.label = 'HL';
-          newState.currentHL = newHL.price;
-          console.log(`  └─ New HL identified: ${newHL.price}`);
-        } else {
-          console.log(`  └─ No new HL found, keeping old HL: ${newState.currentHL}`);
+        newState.currentHH = currentCandle.close_price;
+        
+        // Find most recent swing low between old HH and new HH
+        if (oldHHIndex >= 0) {
+          const newHL = findMostRecentStructureBetween(
+            newState.structurePoints,
+            newState.structurePoints[oldHHIndex].index,
+            currentIndex,
+            'swing_low'
+          );
+          
+          if (newHL) {
+            // Use helper to prevent duplicates
+            updateStructureLabel(newState.structurePoints, 'HL', newHL);
+            newState.currentHL = newHL.price;
+            console.log(`  └─ New HL identified: ${newHL.price}`);
+          } else {
+            console.log(`  └─ No new HL found, keeping old HL: ${newState.currentHL}`);
+          }
         }
-      }
-      
-      // Label the new HH
-      if (isHigh) {
-        newState.structurePoints[newState.structurePoints.length - 1].label = 'HH';
+        
+        // Label the new HH using helper
+        if (isHigh) {
+          const newHHPoint = newState.structurePoints[newState.structurePoints.length - 1];
+          updateStructureLabel(newState.structurePoints, 'HH', newHHPoint);
+        }
+      } else {
+        console.log(`  ⏭️  Swing high ${currentCandle.close_price} too close to current HH ${newState.currentHH} (< ${minDistance.toFixed(5)}), not labeling`);
       }
     }
     
@@ -532,20 +572,23 @@ function updateTrendState(
       
       console.log(`📈 Bearish break detected: Body ${bodyClose} > LH ${newState.currentLH} + ${bufferPips} pips`);
       console.log(`   Break distance: ${breakDistancePips.toFixed(1)} pips (buffer: ${bufferPips} pips)`);
-      console.log(`   LH age: ${age} candles (recent: ${isLHRecent}, threshold: ${timeframe === 'W' ? 100 : timeframe === 'D' ? 150 : 200})`);
+      console.log(`   LH age: ${age} candles (recent: ${isLHRecent})`);
       
-      // Only flip to bullish if LH is recent
-      if (isLHRecent) {
-        console.log(`   ✅ Flipping to BULLISH (LH ${isLHRecent ? 'is recent' : 'is stale but breaking anyway'})`);
+      // ✅ NEW: Always flip if break is significant (>20 pips beyond buffer), regardless of LH age
+      const isSignificantBreak = breakDistancePips > (bufferPips + 20);
+      
+      if (isLHRecent || isSignificantBreak) {
+        console.log(`   ✅ Flipping to BULLISH (${isSignificantBreak ? 'significant break' : 'recent LH break'})`);
         newState.trend = 'bullish';
         
         // Find preceding structure point to label as new HL
         const precedingLow = newState.structurePoints
-          .filter(p => p.type === 'swing_low' && p.index < currentIndex)
+          .filter(p => p.type === 'swing_low' && p.index < currentIndex && p.index > lhIndex)
           .sort((a, b) => b.index - a.index)[0];
         
         if (precedingLow) {
-          precedingLow.label = 'HL';
+          // Use helper to prevent duplicates
+          updateStructureLabel(newState.structurePoints, 'HL', precedingLow);
           newState.currentHL = precedingLow.price;
           console.log(`   New HL set: ${precedingLow.price} at index ${precedingLow.index}`);
         }
@@ -553,6 +596,13 @@ function updateTrendState(
         newState.currentHH = bodyClose;
         newState.currentLL = null;
         newState.currentLH = null;
+        
+        // Mark this as a confirmed break so consistency guard doesn't override it
+        (newState as any).lastConfirmedBreak = {
+          type: 'bullish',
+          index: currentIndex,
+          breakLevel: newState.currentLH
+        };
       } else {
         console.log(`   ⏭️  Ignoring stale LH break (LH is ${age} candles old)`);
         
@@ -575,35 +625,47 @@ function updateTrendState(
       }
     } else if (isLow && currentCandle.close_price < (newState.currentLL || Infinity)) {
       // New LL formed (body close)
-      console.log(`📉 New LL formed: ${currentCandle.close_price} (previous: ${newState.currentLL})`);
+      const minDistance = pipSize * 5; // 5 pips minimum distance to be considered "new" LL
       
-      const oldLLIndex = newState.structurePoints.findIndex(
-        p => p.label === 'LL' && p.price === newState.currentLL
-      );
+      // Check if this is significantly lower than previous LL (not just noise)
+      const isSignificantlyLower = !newState.currentLL || 
+        currentCandle.close_price < newState.currentLL - minDistance;
       
-      newState.currentLL = currentCandle.close_price;
-      
-      // Find most recent swing high between old LL and new LL
-      if (oldLLIndex >= 0) {
-        const newLH = findMostRecentStructureBetween(
-          newState.structurePoints,
-          newState.structurePoints[oldLLIndex].index,
-          currentIndex,
-          'swing_high'
+      if (isSignificantlyLower) {
+        console.log(`📉 New LL formed: ${currentCandle.close_price} (previous: ${newState.currentLL})`);
+        
+        const oldLLIndex = newState.structurePoints.findIndex(
+          p => p.label === 'LL' && p.price === newState.currentLL
         );
         
-        if (newLH) {
-          newLH.label = 'LH';
-          newState.currentLH = newLH.price;
-          console.log(`  └─ New LH identified: ${newLH.price}`);
-        } else {
-          console.log(`  └─ No new LH found, keeping old LH: ${newState.currentLH}`);
+        newState.currentLL = currentCandle.close_price;
+        
+        // Find most recent swing high between old LL and new LL
+        if (oldLLIndex >= 0) {
+          const newLH = findMostRecentStructureBetween(
+            newState.structurePoints,
+            newState.structurePoints[oldLLIndex].index,
+            currentIndex,
+            'swing_high'
+          );
+          
+          if (newLH) {
+            // Use helper to prevent duplicates
+            updateStructureLabel(newState.structurePoints, 'LH', newLH);
+            newState.currentLH = newLH.price;
+            console.log(`  └─ New LH identified: ${newLH.price}`);
+          } else {
+            console.log(`  └─ No new LH found, keeping old LH: ${newState.currentLH}`);
+          }
         }
-      }
-      
-      // Label the new LL
-      if (isLow) {
-        newState.structurePoints[newState.structurePoints.length - 1].label = 'LL';
+        
+        // Label the new LL using helper
+        if (isLow) {
+          const newLLPoint = newState.structurePoints[newState.structurePoints.length - 1];
+          updateStructureLabel(newState.structurePoints, 'LL', newLLPoint);
+        }
+      } else {
+        console.log(`  ⏭️  Swing low ${currentCandle.close_price} too close to current LL ${newState.currentLL} (< ${minDistance.toFixed(5)}), not labeling`);
       }
     }
     
@@ -700,6 +762,13 @@ async function buildTrendFromHistory(
   const bufferPips = getMinBufferPips(timeframe);
   const minBuffer = bufferPips * pipSize;
   
+  // ✅ NEW: Check if there was a recent confirmed break that should not be overridden
+  const lastConfirmedBreak = (state as any).lastConfirmedBreak;
+  const breakAge = lastConfirmedBreak 
+    ? candles.length - 1 - lastConfirmedBreak.index 
+    : Infinity;
+  const isBreakRecent = breakAge < (timeframe === '4H' ? 50 : timeframe === 'D' ? 30 : 20);
+  
   // Debug consistency guard entry for GBPUSD 4H
   const isDebugPair = symbol === 'GBPUSD' && timeframe === '4H';
   if (isDebugPair) {
@@ -710,6 +779,12 @@ async function buildTrendFromHistory(
     console.log(`   Min buffer: ${minBuffer} (${bufferPips} pips)`);
     console.log(`   Break condition check: ${finalClose} < ${state.currentHL ? state.currentHL - minBuffer : 'N/A'}`);
     console.log(`   Break condition result: ${state.trend === 'bullish' && state.currentHL && finalClose < state.currentHL - minBuffer}`);
+  }
+  
+  if (lastConfirmedBreak && isBreakRecent) {
+    console.log(`🔒 Consistency guard: Respecting recent confirmed ${lastConfirmedBreak.type} break at index ${lastConfirmedBreak.index} (${breakAge} candles ago)`);
+    // Don't override recent confirmed breaks - return state as-is
+    return state;
   }
   
   if (state.trend === 'bullish' && state.currentHL && finalClose < state.currentHL - minBuffer) {
