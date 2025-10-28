@@ -41,8 +41,7 @@ function getPipSize(symbol: string): number {
 
 // Get minimum buffer in pips based on timeframe
 function getMinBufferPips(timeframe: 'W' | 'D' | '4H'): number {
-  const buffers = { 'W': 40, 'D': 25, '4H': 15 };
-  return buffers[timeframe];
+  return 0; // No buffer - pure structure breaks only
 }
 
 // Check if candle at index is a swing high (body close higher than surrounding body closes)
