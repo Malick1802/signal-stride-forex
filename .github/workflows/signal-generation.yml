@@ -89,6 +89,34 @@ jobs:
           exit 1
         fi
 
+    - name: Update ADX/DMI Trends
+      if: steps.market-check.outputs.market_open == 'true' || github.event.inputs.force_generation == 'true'
+      env:
+        SUPABASE_URL: ${{ secrets.SUPABASE_URL || 'https://ugtaodrvbpfeyhdgmisn.supabase.co' }}
+        SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVndGFvZHJ2YnBmZXloZGdtaXNuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzQwNjA2MTUsImV4cCI6MjA0OTYzNjYxNX0.Z-71hRCpHB0YivrsTb2kZQdObcF42BQVYIQ8_yMb_JM' }}
+      run: |
+        echo "📊 Updating ADX/DMI trend indicators..."
+        
+        response=$(curl -sS -w "\n%{http_code}" --connect-timeout 10 --max-time 30 \
+          -X POST "$SUPABASE_URL/functions/v1/update-realtime-trends" \
+          -H "Authorization: Bearer $SUPABASE_ANON_KEY" \
+          -H "Content-Type: application/json" \
+          -H "apikey: $SUPABASE_ANON_KEY" \
+          -H "X-GitHub-Run-ID: ${{ github.run_id }}" \
+          -d '{"source": "github_actions"}')
+        
+        http_code=$(echo "$response" | tail -n1)
+        response_body=$(echo "$response" | head -n -1)
+        
+        echo "HTTP Status: $http_code"
+        
+        if [ "$http_code" -eq 200 ]; then
+          echo "✅ ADX/DMI trends updated successfully"
+          echo "$response_body" | jq '.results.updated, .results.total' || true
+        else
+          echo "⚠️ ADX update warning (status $http_code, continuing...)"
+        fi
+
     - name: Generate Trading Signals (Optimized)
       if: steps.market-check.outputs.market_open == 'true' || github.event.inputs.force_generation == 'true'
       env:
