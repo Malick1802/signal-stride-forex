@@ -34,9 +34,140 @@ interface Candle {
   timestamp: string;
 }
 
+interface ADXResult {
+  adx: number;
+  plusDI: number;
+  minusDI: number;
+  trendStrength: 'strong' | 'moderate' | 'weak' | 'ranging';
+  trendDirection: 'bullish' | 'bearish' | 'neutral';
+}
+
 // Get pip size for symbol
 function getPipSize(symbol: string): number {
   return symbol.includes('JPY') ? 0.01 : 0.0001;
+}
+
+// Calculate ADX and DMI indicators (14-period standard)
+function calculateADXDMI(candles: Candle[], period: number = 14): ADXResult {
+  if (candles.length < period + 1) {
+    return {
+      adx: 0,
+      plusDI: 0,
+      minusDI: 0,
+      trendStrength: 'ranging',
+      trendDirection: 'neutral'
+    };
+  }
+  
+  const trueRanges: number[] = [];
+  const plusDMs: number[] = [];
+  const minusDMs: number[] = [];
+  
+  // Calculate True Range, +DM, and -DM
+  for (let i = 1; i < candles.length; i++) {
+    const high = candles[i].high_price;
+    const low = candles[i].low_price;
+    const prevHigh = candles[i - 1].high_price;
+    const prevLow = candles[i - 1].low_price;
+    const prevClose = candles[i - 1].close_price;
+    
+    // True Range
+    const tr = Math.max(
+      high - low,
+      Math.abs(high - prevClose),
+      Math.abs(low - prevClose)
+    );
+    trueRanges.push(tr);
+    
+    // +DM and -DM
+    const upMove = high - prevHigh;
+    const downMove = prevLow - low;
+    
+    let plusDM = 0;
+    let minusDM = 0;
+    
+    if (upMove > downMove && upMove > 0) {
+      plusDM = upMove;
+    }
+    if (downMove > upMove && downMove > 0) {
+      minusDM = downMove;
+    }
+    
+    plusDMs.push(plusDM);
+    minusDMs.push(minusDM);
+  }
+  
+  // Smooth TR, +DM, and -DM using Wilder's smoothing
+  const smoothTR = wilderSmoothing(trueRanges, period);
+  const smoothPlusDM = wilderSmoothing(plusDMs, period);
+  const smoothMinusDM = wilderSmoothing(minusDMs, period);
+  
+  // Calculate +DI and -DI
+  const plusDI = smoothTR[smoothTR.length - 1] !== 0 
+    ? (smoothPlusDM[smoothPlusDM.length - 1] / smoothTR[smoothTR.length - 1]) * 100 
+    : 0;
+  const minusDI = smoothTR[smoothTR.length - 1] !== 0 
+    ? (smoothMinusDM[smoothMinusDM.length - 1] / smoothTR[smoothTR.length - 1]) * 100 
+    : 0;
+  
+  // Calculate DX
+  const dxValues: number[] = [];
+  for (let i = 0; i < smoothTR.length; i++) {
+    if (smoothTR[i] !== 0) {
+      const pdi = (smoothPlusDM[i] / smoothTR[i]) * 100;
+      const mdi = (smoothMinusDM[i] / smoothTR[i]) * 100;
+      const diSum = pdi + mdi;
+      const dx = diSum !== 0 ? (Math.abs(pdi - mdi) / diSum) * 100 : 0;
+      dxValues.push(dx);
+    }
+  }
+  
+  // Calculate ADX using Wilder's smoothing of DX
+  const adxValues = wilderSmoothing(dxValues, period);
+  const adx = adxValues[adxValues.length - 1] || 0;
+  
+  // Determine trend strength and direction
+  let trendStrength: 'strong' | 'moderate' | 'weak' | 'ranging';
+  if (adx >= 40) trendStrength = 'strong';
+  else if (adx >= 25) trendStrength = 'moderate';
+  else if (adx >= 15) trendStrength = 'weak';
+  else trendStrength = 'ranging';
+  
+  let trendDirection: 'bullish' | 'bearish' | 'neutral';
+  if (plusDI > minusDI && adx >= 20) trendDirection = 'bullish';
+  else if (minusDI > plusDI && adx >= 20) trendDirection = 'bearish';
+  else trendDirection = 'neutral';
+  
+  return {
+    adx: Math.round(adx * 100) / 100,
+    plusDI: Math.round(plusDI * 100) / 100,
+    minusDI: Math.round(minusDI * 100) / 100,
+    trendStrength,
+    trendDirection
+  };
+}
+
+// Wilder's smoothing method (used for ADX calculations)
+function wilderSmoothing(values: number[], period: number): number[] {
+  if (values.length < period) return values;
+  
+  const smoothed: number[] = [];
+  
+  // First value is simple average
+  let sum = 0;
+  for (let i = 0; i < period; i++) {
+    sum += values[i];
+  }
+  smoothed.push(sum / period);
+  
+  // Subsequent values use Wilder's smoothing
+  for (let i = period; i < values.length; i++) {
+    const prevSmoothed = smoothed[smoothed.length - 1];
+    const newValue = ((prevSmoothed * (period - 1)) + values[i]) / period;
+    smoothed.push(newValue);
+  }
+  
+  return smoothed;
 }
 
 // Get minimum buffer in pips based on timeframe
@@ -909,7 +1040,20 @@ async function buildTrendFromHistory(
   console.log(`   HH: ${state.currentHH}, HL: ${state.currentHL}, LL: ${state.currentLL}, LH: ${state.currentLH}`);
   console.log(`   Structure points identified: ${state.structurePoints.length}`);
   
-  return state;
+  // Calculate ADX/DMI indicators
+  const adxResult = calculateADXDMI(candles);
+  console.log(`📊 ADX Indicators: ADX=${adxResult.adx}, +DI=${adxResult.plusDI}, -DI=${adxResult.minusDI}`);
+  console.log(`   Trend Strength: ${adxResult.trendStrength}, Direction: ${adxResult.trendDirection}`);
+  
+  return {
+    ...state,
+    adx: adxResult.adx,
+    plusDI: adxResult.plusDI,
+    minusDI: adxResult.minusDI,
+    trendStrength: adxResult.trendStrength,
+    adxTrendDirection: adxResult.trendDirection
+  };
+}
 }
 
 Deno.serve(async (req) => {
@@ -947,6 +1091,11 @@ Deno.serve(async (req) => {
         current_ll: trendState.currentLL,
         current_lh: trendState.currentLH,
         structure_points: trendState.structurePoints,
+        adx: trendState.adx,
+        plus_di: trendState.plusDI,
+        minus_di: trendState.minusDI,
+        trend_strength: trendState.trendStrength,
+        adx_trend_direction: trendState.adxTrendDirection,
         last_candle_timestamp: new Date().toISOString(),
         last_updated: new Date().toISOString(),
         confidence: trendState.structurePoints.filter(p => p.label).length / Math.max(trendState.structurePoints.length, 1)

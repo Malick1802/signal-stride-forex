@@ -293,6 +293,33 @@ export default function MarketStructurePanel() {
             </div>
           </div>
 
+          <div className="border-t pt-4">
+            <div className="space-y-2">
+              <h4 className="font-medium text-sm">Real-time: Update ADX/DMI Indicators</h4>
+              <p className="text-sm text-muted-foreground">
+                Updates ADX/DMI trend strength indicators for active trading (4H timeframe). Fast (&lt;30 seconds).
+              </p>
+              <Button
+                onClick={() => invokeFunction.mutate('update-realtime-trends')}
+                disabled={isInvoking !== null}
+                className="w-full"
+                variant="outline"
+              >
+                {isInvoking === 'update-realtime-trends' ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Updating ADX...
+                  </>
+                ) : (
+                  <>
+                    <TrendingUp className="w-4 h-4 mr-2" />
+                    Update ADX/DMI Indicators
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+
           {isInvoking && (
             <Alert>
               <Clock className="h-4 w-4" />

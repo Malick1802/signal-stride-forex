@@ -6,6 +6,9 @@ verify_jwt = false
 [functions.build-market-structure]
 verify_jwt = false
 
+[functions.update-realtime-trends]
+verify_jwt = false
+
 [functions.send-push-notification]
 verify_jwt = false
 

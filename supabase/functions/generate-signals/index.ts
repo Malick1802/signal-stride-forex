@@ -251,12 +251,32 @@ interface MultiTimeframeAnalysis {
   tradingBias: 'BUY' | 'SELL' | 'NO_TRADE';
   confluenceScore: number;
   alignedTimeframes: string[];
+  adxData?: {
+    fourHour: { adx: number; plusDI: number; minusDI: number; trendStrength: string };
+    daily: { adx: number; plusDI: number; minusDI: number; trendStrength: string };
+  };
+  adxConfirmation: boolean;
 }
 
 async function analyzeMultiTimeframeAlignment(supabase: any, symbol: string): Promise<MultiTimeframeAnalysis> {
   const weeklyAnalysis = await analyzeTimeframeTrend(supabase, symbol, 'W');
   const dailyAnalysis = await analyzeTimeframeTrend(supabase, symbol, 'D');
   const fourHourAnalysis = await analyzeTimeframeTrend(supabase, symbol, '4H');
+  
+  // Fetch ADX/DMI data for 4H and Daily
+  const { data: fourHourADX } = await supabase
+    .from('market_structure_trends')
+    .select('adx, plus_di, minus_di, trend_strength, adx_trend_direction')
+    .eq('symbol', symbol)
+    .eq('timeframe', '4H')
+    .single();
+  
+  const { data: dailyADX } = await supabase
+    .from('market_structure_trends')
+    .select('adx, plus_di, minus_di, trend_strength, adx_trend_direction')
+    .eq('symbol', symbol)
+    .eq('timeframe', 'D')
+    .single();
   
   const aligned: string[] = [];
   let confluenceScore = 0;
@@ -279,6 +299,32 @@ async function analyzeMultiTimeframeAlignment(supabase: any, symbol: string): Pr
     confluenceScore += 20;
   }
   
+  // ADX-based validation
+  let adxConfirmation = false;
+  
+  if (fourHourADX && dailyADX) {
+    // Check if ADX shows sufficient trend strength (ADX >= 20)
+    const fourHourHasTrend = fourHourADX.adx >= 20;
+    const dailyHasTrend = dailyADX.adx >= 20;
+    
+    // Check if DI direction matches structure trend
+    const fourHourDIMatch = (fourHourAnalysis.trend === 'bullish' && fourHourADX.plus_di > fourHourADX.minus_di) ||
+                            (fourHourAnalysis.trend === 'bearish' && fourHourADX.minus_di > fourHourADX.plus_di);
+    const dailyDIMatch = (dailyAnalysis.trend === 'bullish' && dailyADX.plus_di > dailyADX.minus_di) ||
+                         (dailyAnalysis.trend === 'bearish' && dailyADX.minus_di > dailyADX.plus_di);
+    
+    // Confirm if both timeframes show trend and DI matches
+    adxConfirmation = fourHourHasTrend && dailyHasTrend && fourHourDIMatch && dailyDIMatch;
+    
+    // Bonus for strong ADX (>= 30)
+    if (adxConfirmation) {
+      if (fourHourADX.adx >= 30 || dailyADX.adx >= 30) {
+        confluenceScore += 15;
+        console.log(`🎯 ${symbol}: Strong ADX detected (4H: ${fourHourADX.adx}, D: ${dailyADX.adx}) - adding 15 points`);
+      }
+    }
+  }
+  
   let tradingBias: 'BUY' | 'SELL' | 'NO_TRADE' = 'NO_TRADE';
   
   if (aligned.includes('W+D') || aligned.includes('D+4H')) {
@@ -292,7 +338,12 @@ async function analyzeMultiTimeframeAlignment(supabase: any, symbol: string): Pr
     fourHour: fourHourAnalysis.trend,
     tradingBias,
     confluenceScore,
-    alignedTimeframes: aligned
+    alignedTimeframes: aligned,
+    adxData: {
+      fourHour: fourHourADX || { adx: 0, plusDI: 0, minusDI: 0, trendStrength: 'ranging' },
+      daily: dailyADX || { adx: 0, plusDI: 0, minusDI: 0, trendStrength: 'ranging' }
+    },
+    adxConfirmation
   };
 }
 
@@ -839,6 +890,16 @@ serve(async (req) => {
           console.log(`❌ ${symbol}: No multi-TF confluence`);
           continue;
         }
+        
+        // NEW: ADX validation - reject signals without ADX confirmation
+        if (!multiTF.adxConfirmation) {
+          const fourHADX = multiTF.adxData?.fourHour.adx || 0;
+          const dailyADX = multiTF.adxData?.daily.adx || 0;
+          console.log(`❌ ${symbol}: ADX does not confirm trend (4H: ${fourHADX}, D: ${dailyADX}) - weak/ranging market`);
+          continue;
+        }
+        
+        console.log(`✅ ${symbol}: ADX CONFIRMED - 4H: ${multiTF.adxData?.fourHour.adx} (${multiTF.adxData?.fourHour.trendStrength}), D: ${multiTF.adxData?.daily.adx} (${multiTF.adxData?.daily.trendStrength})`);
         
         // 2.1 NEW: Require Daily AND 4H to align for high-quality signals
         if (dailyAnalysis.trend !== fourHourAnalysis.trend) {
