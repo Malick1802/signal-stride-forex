@@ -1054,7 +1054,6 @@ async function buildTrendFromHistory(
     adxTrendDirection: adxResult.trendDirection
   };
 }
-}
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
