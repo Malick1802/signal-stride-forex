@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, Database, TrendingUp, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Progress } from '@/components/ui/progress';
+import { ADXMonitoringPanel } from './ADXMonitoringPanel';
 
 const MAJOR_PAIRS = [
   'EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
@@ -140,6 +141,9 @@ export default function MarketStructurePanel() {
 
   return (
     <div className="space-y-6">
+      {/* ADX/DMI Real-Time Monitoring */}
+      <ADXMonitoringPanel />
+
       {/* System Status Overview */}
       <Card>
         <CardHeader>
